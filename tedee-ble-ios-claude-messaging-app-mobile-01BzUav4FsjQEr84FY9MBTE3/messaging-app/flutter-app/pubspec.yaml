@@ -1,0 +1,44 @@
+name: private_messaging
+description: App di messaggistica privata con crittografia E2E
+publish_to: 'none'
+version: 1.0.0+1
+
+environment:
+  sdk: '>=3.0.0 <4.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  # State Management
+  provider: ^6.1.1
+
+  # Networking & Real-time
+  socket_io_client: ^2.0.3+1
+  http: ^1.1.0
+
+  # Storage
+  shared_preferences: ^2.2.2
+  flutter_secure_storage: ^9.0.0
+
+  # Encryption
+  pointycastle: ^3.7.3
+  crypto: ^3.0.3
+  encrypt: ^5.0.3
+
+  # Firebase
+  firebase_core: ^2.24.2
+  firebase_messaging: ^14.7.9
+
+  # UI
+  flutter_chat_ui: ^1.6.10
+  intl: ^0.18.1
+  uuid: ^4.2.2
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^3.0.0
+
+flutter:
+  uses-material-design: true
