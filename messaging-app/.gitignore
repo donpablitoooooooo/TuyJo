@@ -1,0 +1,46 @@
+# Environment variables
+.env
+*.env
+
+# Service account keys (IMPORTANTE: non committare mai!)
+serviceAccountKey.json
+*-firebase-adminsdk-*.json
+
+# Node.js
+node_modules/
+npm-debug.log
+yarn-error.log
+package-lock.json
+yarn.lock
+
+# Flutter
+flutter-app/.dart_tool/
+flutter-app/.flutter-plugins
+flutter-app/.flutter-plugins-dependencies
+flutter-app/.packages
+flutter-app/build/
+flutter-app/ios/Flutter/flutter_export_environment.sh
+flutter-app/ios/Pods/
+flutter-app/ios/.symlinks/
+flutter-app/android/.gradle/
+flutter-app/android/app/google-services.json
+flutter-app/ios/Runner/GoogleService-Info.plist
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Logs
+logs/
+*.log
+
+# Build outputs
+dist/
+build/
+*.apk
+*.ipa
+*.aab
