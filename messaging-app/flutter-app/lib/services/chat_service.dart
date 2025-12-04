@@ -7,7 +7,7 @@ import 'auth_service.dart';
 import 'encryption_service.dart';
 
 class ChatService extends ChangeNotifier {
-  static const String baseUrl = 'http://localhost:3000'; // Per sviluppo locale
+  static const String baseUrl = 'https://private-messaging-backend-668509120760.europe-west1.run.app';
   IO.Socket? _socket;
   final List<Message> _messages = [];
   final EncryptionService _encryptionService = EncryptionService();

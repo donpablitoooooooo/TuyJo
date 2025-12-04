@@ -6,7 +6,7 @@ import '../models/message.dart';
 import 'encryption_service.dart';
 
 class AuthService extends ChangeNotifier {
-  static const String baseUrl = 'http://localhost:3000'; // Per sviluppo locale
+  static const String baseUrl = 'https://private-messaging-backend-668509120760.europe-west1.run.app';
   final _storage = const FlutterSecureStorage();
   final _encryptionService = EncryptionService();
 
