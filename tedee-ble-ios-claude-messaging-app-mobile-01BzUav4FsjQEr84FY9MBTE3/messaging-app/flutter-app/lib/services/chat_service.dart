@@ -11,6 +11,7 @@ class ChatService extends ChangeNotifier {
   IO.Socket? _socket;
   final List<Message> _messages = [];
   final EncryptionService _encryptionService;
+  String? _currentUserId; // ID dell'utente corrente
 
   ChatService(this._encryptionService);
 
@@ -19,6 +20,8 @@ class ChatService extends ChangeNotifier {
 
   // Connetti al server Socket.io
   void connect(String token, String userId) {
+    _currentUserId = userId; // Salva l'ID dell'utente corrente
+
     _socket = IO.io(
       baseUrl,
       IO.OptionBuilder()
@@ -40,6 +43,13 @@ class ChatService extends ChangeNotifier {
 
     _socket!.on('new_message', (data) {
       final message = Message.fromJson(data);
+
+      // Ignora i messaggi che abbiamo inviato noi (già nella lista locale con plainContent)
+      if (message.senderId == _currentUserId) {
+        if (kDebugMode) print('📤 Ignorato messaggio inviato da noi (già nella lista locale)');
+        return;
+      }
+
       _messages.add(message);
       _messages.sort((a, b) => a.timestamp.compareTo(b.timestamp));
       notifyListeners();
