@@ -1,12 +1,12 @@
 const { db } = require('./database');
-const { v4: uuidv4 } = require('crypto');
+const crypto = require('crypto');
 
 const MESSAGES_COLLECTION = 'messages';
 
 class MessageService {
   // Salva un nuovo messaggio
   async saveMessage({ senderId, receiverId, encryptedContent }) {
-    const messageId = uuidv4();
+    const messageId = crypto.randomUUID();
     const message = {
       id: messageId,
       senderId,
