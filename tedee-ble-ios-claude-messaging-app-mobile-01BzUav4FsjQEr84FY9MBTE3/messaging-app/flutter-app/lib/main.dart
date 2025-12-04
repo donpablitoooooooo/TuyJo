@@ -40,8 +40,22 @@ class MyApp extends StatelessWidget {
   }
 }
 
-class AuthWrapper extends StatelessWidget {
+class AuthWrapper extends StatefulWidget {
   const AuthWrapper({super.key});
+
+  @override
+  State<AuthWrapper> createState() => _AuthWrapperState();
+}
+
+class _AuthWrapperState extends State<AuthWrapper> {
+  @override
+  void initState() {
+    super.initState();
+    // Inizializza l'AuthService per recuperare il token salvato
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      Provider.of<AuthService>(context, listen: false).initialize();
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
