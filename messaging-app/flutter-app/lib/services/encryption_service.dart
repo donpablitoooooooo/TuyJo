@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:math';
 import 'dart:typed_data';
+import 'package:flutter/foundation.dart';
 import 'package:pointycastle/export.dart';
 import 'package:crypto/crypto.dart';
 import 'package:encrypt/encrypt.dart' as encrypt_lib;
@@ -38,18 +39,28 @@ class EncryptionService {
   // Cripta un messaggio usando la chiave pubblica del destinatario
   String encryptMessage(String message, String recipientPublicKey) {
     try {
+      if (kDebugMode) print('🔐 Inizio cifratura messaggio...');
+      if (kDebugMode) print('📋 Chiave pubblica destinatario (prime 50 char): ${recipientPublicKey.substring(0, min(50, recipientPublicKey.length))}...');
+
       // Genera una chiave AES casuale per questo messaggio
       final aesKey = _generateRandomKey(32);
+      if (kDebugMode) print('✅ Chiave AES generata');
 
       // Cripta il messaggio con AES
       final key = encrypt_lib.Key(aesKey);
       final iv = encrypt_lib.IV.fromSecureRandom(16);
       final encrypter = encrypt_lib.Encrypter(encrypt_lib.AES(key));
       final encryptedMessage = encrypter.encrypt(message, iv: iv);
+      if (kDebugMode) print('✅ Messaggio cifrato con AES');
 
       // Cripta la chiave AES con RSA usando la chiave pubblica del destinatario
+      if (kDebugMode) print('🔑 Decodifica chiave pubblica destinatario...');
       final recipientPubKey = _decodePublicKey(recipientPublicKey);
+      if (kDebugMode) print('✅ Chiave pubblica decodificata');
+
+      if (kDebugMode) print('🔒 Cifratura chiave AES con RSA...');
       final encryptedAesKey = _rsaEncrypt(aesKey, recipientPubKey);
+      if (kDebugMode) print('✅ Chiave AES cifrata con RSA');
 
       // Combina tutto in un JSON
       final payload = {
@@ -58,8 +69,10 @@ class EncryptionService {
         'message': encryptedMessage.base64,
       };
 
+      if (kDebugMode) print('✅ Cifratura completata con successo');
       return base64Encode(utf8.encode(json.encode(payload)));
     } catch (e) {
+      if (kDebugMode) print('❌ Encryption failed: $e');
       throw Exception('Encryption failed: $e');
     }
   }
@@ -67,11 +80,21 @@ class EncryptionService {
   // Decripta un messaggio usando la propria chiave privata
   String decryptMessage(String encryptedPayload) {
     try {
+      if (kDebugMode) print('🔓 Inizio decrittazione messaggio...');
+
       final payloadJson = json.decode(utf8.decode(base64Decode(encryptedPayload)));
+      if (kDebugMode) print('✅ Payload JSON decodificato');
 
       // Decripta la chiave AES con la propria chiave privata RSA
       final encryptedAesKey = base64Decode(payloadJson['encryptedKey']);
+      if (kDebugMode) print('🔑 Decrittazione chiave AES con RSA...');
+
+      if (_keyPair == null || _keyPair!.privateKey == null) {
+        throw Exception('Chiave privata non caricata!');
+      }
+
       final aesKey = _rsaDecrypt(encryptedAesKey);
+      if (kDebugMode) print('✅ Chiave AES decrittata');
 
       // Decripta il messaggio con AES
       final key = encrypt_lib.Key(aesKey);
@@ -79,8 +102,11 @@ class EncryptionService {
       final encrypter = encrypt_lib.Encrypter(encrypt_lib.AES(key));
       final encrypted = encrypt_lib.Encrypted.fromBase64(payloadJson['message']);
 
-      return encrypter.decrypt(encrypted, iv: iv);
+      final decrypted = encrypter.decrypt(encrypted, iv: iv);
+      if (kDebugMode) print('✅ Messaggio decrittato con successo');
+      return decrypted;
     } catch (e) {
+      if (kDebugMode) print('❌ Decryption failed: $e');
       throw Exception('Decryption failed: $e');
     }
   }
