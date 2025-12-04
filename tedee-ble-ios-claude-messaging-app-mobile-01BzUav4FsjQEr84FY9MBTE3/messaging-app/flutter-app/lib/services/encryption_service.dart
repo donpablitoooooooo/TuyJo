@@ -125,15 +125,19 @@ class EncryptionService {
 
   String _encodePrivateKey(RSAPrivateKey privateKey) {
     final privateKeySeq = ASN1Sequence();
+    final dP = privateKey.privateExponent! % (privateKey.p! - BigInt.one);
+    final dQ = privateKey.privateExponent! % (privateKey.q! - BigInt.one);
+    final qInv = privateKey.q!.modInverse(privateKey.p!);
+    
     privateKeySeq.add(ASN1Integer(BigInt.zero)); // version
     privateKeySeq.add(ASN1Integer(privateKey.modulus!));
     privateKeySeq.add(ASN1Integer(privateKey.publicExponent!));
     privateKeySeq.add(ASN1Integer(privateKey.privateExponent!));
     privateKeySeq.add(ASN1Integer(privateKey.p!));
     privateKeySeq.add(ASN1Integer(privateKey.q!));
-    privateKeySeq.add(ASN1Integer(privateKey.privateExponent! % (privateKey.p! - BigInt.one)));
-    privateKeySeq.add(ASN1Integer(privateKey.privateExponent! % (privateKey.q! - BigInt.one)));
-    privateKeySeq.add(ASN1Integer(privateKey.q!.modInverse(privateKey.p!)));
+    privateKeySeq.add(ASN1Integer(dP));
+    privateKeySeq.add(ASN1Integer(dQ));
+    privateKeySeq.add(ASN1Integer(qInv));
 
     return base64Encode(privateKeySeq.encodedBytes);
   }
@@ -175,11 +179,13 @@ class EncryptionService {
       final asn1Parser = ASN1Parser(bytes);
       final privateKeySeq = asn1Parser.nextObject() as ASN1Sequence;
 
-      if (privateKeySeq.elements.length < 6) {
-        throw FormatException('Invalid private key ASN.1 structure');
+      // PKCS#1 RSAPrivateKey requires 9 elements: version, n, e, d, p, q, dP, dQ, qInv
+      if (privateKeySeq.elements.length < 9) {
+        throw FormatException('Invalid private key ASN.1 structure - requires 9 elements');
       }
 
       final modulus = (privateKeySeq.elements[1] as ASN1Integer).valueAsBigInteger;
+      final publicExponent = (privateKeySeq.elements[2] as ASN1Integer).valueAsBigInteger;
       final privateExponent = (privateKeySeq.elements[3] as ASN1Integer).valueAsBigInteger;
       final p = (privateKeySeq.elements[4] as ASN1Integer).valueAsBigInteger;
       final q = (privateKeySeq.elements[5] as ASN1Integer).valueAsBigInteger;
@@ -204,8 +210,7 @@ class EncryptionService {
   }
 
   Uint8List _processInBlocks(AsymmetricBlockCipher engine, Uint8List input) {
-    final numBlocks = input.length ~/ engine.inputBlockSize + 
-        ((input.length % engine.inputBlockSize != 0) ? 1 : 0);
+    final numBlocks = (input.length + engine.inputBlockSize - 1) ~/ engine.inputBlockSize;
 
     final output = BytesBuilder();
 
