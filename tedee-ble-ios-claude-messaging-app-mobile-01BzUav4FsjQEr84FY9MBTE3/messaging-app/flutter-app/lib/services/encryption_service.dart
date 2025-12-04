@@ -122,8 +122,8 @@ class EncryptionService {
 
   String _encodePrivateKey(RSAPrivateKey privateKey) {
     final modulus = privateKey.modulus!.toRadixString(16);
-    final exponent = privateKey.exponent!.toRadixString(16);
-    return base64Encode(utf8.encode('$modulus:$exponent'));
+    final privateExponent = privateKey.privateExponent!.toRadixString(16);
+    return base64Encode(utf8.encode('$modulus:$privateExponent'));
   }
 
   RSAPublicKey _decodePublicKey(String encoded) {
@@ -152,13 +152,13 @@ class EncryptionService {
       }
 
       final modulus = BigInt.parse(parts[0], radix: 16);
-      final exponent = BigInt.parse(parts[1], radix: 16);
+      final privateExponent = BigInt.parse(parts[1], radix: 16);
 
       if (kDebugMode) {
         print('🔑 Private key loaded successfully');
       }
 
-      return RSAPrivateKey(modulus, exponent, null, null);
+      return RSAPrivateKey(modulus, privateExponent, null, null);
     } catch (e) {
       if (kDebugMode) {
         print('❌ Error decoding private key: $e');
