@@ -17,6 +17,7 @@ class AuthService extends ChangeNotifier {
   User? get currentUser => _currentUser;
   String? get token => _token;
   bool get isAuthenticated => _isAuthenticated;
+  EncryptionService get encryptionService => _encryptionService;
 
   // Inizializza il servizio controllando se c'è già un token salvato
   Future<void> initialize() async {
