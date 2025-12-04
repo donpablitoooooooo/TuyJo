@@ -19,11 +19,11 @@ class Message {
 
   factory Message.fromJson(Map<String, dynamic> json) {
     return Message(
-      id: json['id'],
-      senderId: json['senderId'],
-      receiverId: json['receiverId'],
-      encryptedContent: json['encryptedContent'],
-      timestamp: DateTime.parse(json['timestamp']),
+      id: json['id'] ?? json['_id'] ?? '',
+      senderId: json['senderId'] ?? '',
+      receiverId: json['receiverId'] ?? '',
+      encryptedContent: json['encryptedContent'] ?? '',
+      timestamp: DateTime.parse(json['timestamp'] ?? DateTime.now().toIso8601String()),
       isDelivered: json['isDelivered'] ?? false,
       isRead: json['isRead'] ?? false,
     );
@@ -55,9 +55,9 @@ class User {
 
   factory User.fromJson(Map<String, dynamic> json) {
     return User(
-      id: json['id'],
-      username: json['username'],
-      publicKey: json['publicKey'],
+      id: json['id'] ?? json['_id'] ?? '',
+      username: json['username'] ?? '',
+      publicKey: json['publicKey'] ?? '',
     );
   }
 
