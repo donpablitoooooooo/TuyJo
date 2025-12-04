@@ -6,7 +6,7 @@ import 'package:crypto/crypto.dart';
 import 'package:encrypt/encrypt.dart' as encrypt_lib;
 
 class EncryptionService {
-  AsymmetricKeyPair<RSAPublicKey, RSAPrivateKey>? _keyPair;
+  AsymmetricKeyPair<PublicKey, PrivateKey>? _keyPair;
 
   // Genera una coppia di chiavi RSA (pubblica/privata)
   Future<Map<String, String>> generateKeyPair() async {
@@ -16,7 +16,8 @@ class EncryptionService {
         _getSecureRandom(),
       ));
 
-    _keyPair = keyGen.generateKeyPair();
+    final pair = keyGen.generateKeyPair();
+    _keyPair = pair;
 
     final publicKey = _keyPair!.publicKey as RSAPublicKey;
     final privateKey = _keyPair!.privateKey as RSAPrivateKey;
@@ -134,9 +135,9 @@ class EncryptionService {
 
   RSAPrivateKey _decodePrivateKey(String encoded) {
     final parts = utf8.decode(base64Decode(encoded)).split(':');
-    return RSAPrivateKey(
-      BigInt.parse(parts[0], radix: 16),
-      BigInt.parse(parts[1], radix: 16),
-    );
+    final modulus = BigInt.parse(parts[0], radix: 16);
+    final exponent = BigInt.parse(parts[1], radix: 16);
+    // Per pointycastle 3.9.1+, RSAPrivateKey richiede p e q, ma possiamo usare null
+    return RSAPrivateKey(modulus, exponent, null, null);
   }
 }
