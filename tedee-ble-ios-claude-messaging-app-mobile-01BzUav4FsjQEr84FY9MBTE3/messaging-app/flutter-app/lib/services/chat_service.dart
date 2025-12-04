@@ -12,6 +12,7 @@ class ChatService extends ChangeNotifier {
   final List<Message> _messages = [];
   final EncryptionService _encryptionService;
   String? _currentUserId; // ID dell'utente corrente
+  Function? onUserRegistered; // Callback quando un nuovo utente si registra
 
   ChatService(this._encryptionService);
 
@@ -87,6 +88,12 @@ class ChatService extends ChangeNotifier {
         );
         notifyListeners();
       }
+    });
+
+    // Ascolta quando un nuovo utente si registra
+    _socket!.on('user_registered', (_) {
+      if (kDebugMode) print('👤 Nuovo utente registrato - aggiorna lista');
+      onUserRegistered?.call();
     });
   }
 

@@ -30,6 +30,16 @@ class _ChatScreenState extends State<ChatScreen> {
     // Connetti al server di chat
     chatService.connect(authService.token!, authService.currentUser!.id);
 
+    // Imposta il callback per quando un nuovo utente si registra
+    chatService.onUserRegistered = () async {
+      final newPartner = await authService.getPartner();
+      if (mounted) {
+        setState(() {
+          _partner = newPartner;
+        });
+      }
+    };
+
     // Carica i messaggi
     await chatService.loadMessages(authService.token!);
 
