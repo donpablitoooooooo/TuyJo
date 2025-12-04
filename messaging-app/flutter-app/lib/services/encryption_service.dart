@@ -29,10 +29,10 @@ class EncryptionService {
 
   // Carica la chiave privata
   void loadPrivateKey(String privateKeyStr) {
-    _keyPair = AsymmetricKeyPair(
-      _decodePublicKey(''), // Placeholder, not used
-      _decodePrivateKey(privateKeyStr),
-    );
+    final privateKey = _decodePrivateKey(privateKeyStr);
+    // Ricostruisci la chiave pubblica dal modulus e exponent pubblico
+    final publicKey = RSAPublicKey(privateKey.modulus!, BigInt.parse('65537'));
+    _keyPair = AsymmetricKeyPair(publicKey, privateKey);
   }
 
   // Cripta un messaggio usando la chiave pubblica del destinatario
@@ -120,8 +120,8 @@ class EncryptionService {
 
   String _encodePrivateKey(RSAPrivateKey privateKey) {
     final modulus = privateKey.modulus!.toRadixString(16);
-    final exponent = privateKey.exponent!.toRadixString(16);
-    return base64Encode(utf8.encode('$modulus:$exponent'));
+    final privateExponent = (privateKey.privateExponent ?? privateKey.exponent)!.toRadixString(16);
+    return base64Encode(utf8.encode('$modulus:$privateExponent'));
   }
 
   RSAPublicKey _decodePublicKey(String encoded) {
