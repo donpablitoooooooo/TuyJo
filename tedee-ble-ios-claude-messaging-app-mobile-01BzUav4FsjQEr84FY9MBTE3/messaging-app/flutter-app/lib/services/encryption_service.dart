@@ -126,6 +126,12 @@ class EncryptionService {
 
   String _encodePrivateKey(RSAPrivateKey privateKey) {
     final privateKeySeq = ASN1Sequence();
+    
+    // Validate required fields
+    if (privateKey.p == null || privateKey.q == null) {
+      throw ArgumentError('Private key must have p and q values');
+    }
+    
     final dP = privateKey.privateExponent! % (privateKey.p! - BigInt.one);
     final dQ = privateKey.privateExponent! % (privateKey.q! - BigInt.one);
     final qInv = privateKey.q!.modInverse(privateKey.p!);
@@ -191,6 +197,8 @@ class EncryptionService {
       final p = (privateKeySeq.elements![4] as ASN1Integer).intValue;
       final q = (privateKeySeq.elements![5] as ASN1Integer).intValue;
 
+      // Check if the RSAPrivateKey constructor expects different parameter order
+      // Standard: RSAPrivateKey(modulus, privateExponent, p, q)
       return RSAPrivateKey(modulus, privateExponent, p, q);
     } catch (e) {
       throw FormatException('Failed to decode private key: $e');
