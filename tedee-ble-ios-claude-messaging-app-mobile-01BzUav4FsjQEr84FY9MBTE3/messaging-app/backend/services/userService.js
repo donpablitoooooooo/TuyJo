@@ -1,12 +1,12 @@
 const { db } = require('./database');
-const { v4: uuidv4 } = require('crypto');
+const crypto = require('crypto');
 
 const USERS_COLLECTION = 'users';
 
 class UserService {
   // Crea un nuovo utente
   async createUser({ username, password, publicKey }) {
-    const userId = uuidv4();
+    const userId = crypto.randomUUID();
     const user = {
       id: userId,
       username,
