@@ -31,10 +31,13 @@ class EncryptionService {
 
   // Carica la chiave privata
   void loadPrivateKey(String privateKeyStr) {
-    _keyPair = AsymmetricKeyPair(
-      _decodePublicKey(''), // Placeholder, not used
-      _decodePrivateKey(privateKeyStr),
+    final privateKey = _decodePrivateKey(privateKeyStr);
+    // Create a placeholder public key derived from the private key
+    final publicKey = RSAPublicKey(
+      (privateKey as RSAPrivateKey).modulus!,
+      (privateKey).publicExponent!,
     );
+    _keyPair = AsymmetricKeyPair(publicKey, privateKey);
   }
 
   // Cripta un messaggio usando la chiave pubblica del destinatario
@@ -137,32 +140,54 @@ class EncryptionService {
 
   RSAPublicKey _decodePublicKey(String publicKeyStr) {
     if (publicKeyStr.isEmpty) {
-      return RSAPublicKey(BigInt.zero, BigInt.zero);
+      throw ArgumentError('Public key string cannot be empty');
     }
     
-    final bytes = base64Decode(publicKeyStr);
-    final asn1Parser = ASN1Parser(bytes);
-    final topLevelSeq = asn1Parser.nextObject() as ASN1Sequence;
-    final publicKeyBitString = topLevelSeq.elements[1] as ASN1BitString;
-    
-    final publicKeySeq = ASN1Parser(publicKeyBitString.contentBytes()).nextObject() as ASN1Sequence;
-    final modulus = (publicKeySeq.elements[0] as ASN1Integer).valueAsBigInteger;
-    final exponent = (publicKeySeq.elements[1] as ASN1Integer).valueAsBigInteger;
+    try {
+      final bytes = base64Decode(publicKeyStr);
+      final asn1Parser = ASN1Parser(bytes);
+      final topLevelSeq = asn1Parser.nextObject() as ASN1Sequence;
+      
+      if (topLevelSeq.elements.length < 2) {
+        throw FormatException('Invalid public key ASN.1 structure');
+      }
+      
+      final publicKeyBitString = topLevelSeq.elements[1] as ASN1BitString;
+      
+      final publicKeySeq = ASN1Parser(publicKeyBitString.contentBytes()).nextObject() as ASN1Sequence;
+      
+      if (publicKeySeq.elements.length < 2) {
+        throw FormatException('Invalid public key sequence structure');
+      }
+      
+      final modulus = (publicKeySeq.elements[0] as ASN1Integer).valueAsBigInteger;
+      final exponent = (publicKeySeq.elements[1] as ASN1Integer).valueAsBigInteger;
 
-    return RSAPublicKey(modulus!, exponent!);
+      return RSAPublicKey(modulus!, exponent!);
+    } catch (e) {
+      throw FormatException('Failed to decode public key: $e');
+    }
   }
 
   RSAPrivateKey _decodePrivateKey(String privateKeyStr) {
-    final bytes = base64Decode(privateKeyStr);
-    final asn1Parser = ASN1Parser(bytes);
-    final privateKeySeq = asn1Parser.nextObject() as ASN1Sequence;
+    try {
+      final bytes = base64Decode(privateKeyStr);
+      final asn1Parser = ASN1Parser(bytes);
+      final privateKeySeq = asn1Parser.nextObject() as ASN1Sequence;
 
-    final modulus = (privateKeySeq.elements[1] as ASN1Integer).valueAsBigInteger;
-    final privateExponent = (privateKeySeq.elements[3] as ASN1Integer).valueAsBigInteger;
-    final p = (privateKeySeq.elements[4] as ASN1Integer).valueAsBigInteger;
-    final q = (privateKeySeq.elements[5] as ASN1Integer).valueAsBigInteger;
+      if (privateKeySeq.elements.length < 6) {
+        throw FormatException('Invalid private key ASN.1 structure');
+      }
 
-    return RSAPrivateKey(modulus!, privateExponent!, p, q);
+      final modulus = (privateKeySeq.elements[1] as ASN1Integer).valueAsBigInteger;
+      final privateExponent = (privateKeySeq.elements[3] as ASN1Integer).valueAsBigInteger;
+      final p = (privateKeySeq.elements[4] as ASN1Integer).valueAsBigInteger;
+      final q = (privateKeySeq.elements[5] as ASN1Integer).valueAsBigInteger;
+
+      return RSAPrivateKey(modulus!, privateExponent!, p, q);
+    } catch (e) {
+      throw FormatException('Failed to decode private key: $e');
+    }
   }
 
   Uint8List _rsaEncrypt(Uint8List data, RSAPublicKey publicKey) {
