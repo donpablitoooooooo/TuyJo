@@ -92,3 +92,4 @@ app.*.map.json
 !**/ios/**/Flutter/Generated.xcconfig
 !**/ios/**/Flutter/flutter_export_environment.sh
 !**/ios/**/Runner/GeneratedPluginRegistrant.*
+!**/android/gradle/wrapper/gradle-wrapper.properties
