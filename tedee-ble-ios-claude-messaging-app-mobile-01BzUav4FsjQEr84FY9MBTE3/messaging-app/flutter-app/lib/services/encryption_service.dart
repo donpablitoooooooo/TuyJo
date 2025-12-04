@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:math';
 import 'dart:typed_data';
+import 'package:flutter/foundation.dart';
 import 'package:pointycastle/export.dart';
 import 'package:crypto/crypto.dart';
 import 'package:encrypt/encrypt.dart' as encrypt_lib;
@@ -134,10 +135,35 @@ class EncryptionService {
   }
 
   RSAPrivateKey _decodePrivateKey(String encoded) {
-    final parts = utf8.decode(base64Decode(encoded)).split(':');
-    final modulus = BigInt.parse(parts[0], radix: 16);
-    final exponent = BigInt.parse(parts[1], radix: 16);
-    // Per pointycastle 3.9.1+, RSAPrivateKey richiede p e q, ma possiamo usare null
-    return RSAPrivateKey(modulus, exponent, null, null);
+    try {
+      if (encoded.isEmpty) {
+        throw Exception('Private key is empty');
+      }
+
+      final decoded = utf8.decode(base64Decode(encoded));
+      final parts = decoded.split(':');
+
+      if (parts.length != 2) {
+        throw Exception('Invalid key format: expected 2 parts, got ${parts.length}');
+      }
+
+      if (parts[0].isEmpty || parts[1].isEmpty) {
+        throw Exception('Invalid key format: empty modulus or exponent');
+      }
+
+      final modulus = BigInt.parse(parts[0], radix: 16);
+      final exponent = BigInt.parse(parts[1], radix: 16);
+
+      if (kDebugMode) {
+        print('🔑 Private key loaded successfully');
+      }
+
+      return RSAPrivateKey(modulus, exponent, null, null);
+    } catch (e) {
+      if (kDebugMode) {
+        print('❌ Error decoding private key: $e');
+      }
+      rethrow;
+    }
   }
 }
