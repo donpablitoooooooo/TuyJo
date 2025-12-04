@@ -30,10 +30,10 @@ class EncryptionService {
 
   // Carica la chiave privata
   void loadPrivateKey(String privateKeyStr) {
-    _keyPair = AsymmetricKeyPair(
-      _decodePublicKey(''), // Placeholder, not used
-      _decodePrivateKey(privateKeyStr),
-    );
+    final privateKey = _decodePrivateKey(privateKeyStr);
+    // Crea una chiave pubblica corrispondente dalla privata
+    final publicKey = RSAPublicKey(privateKey.modulus!, BigInt.from(65537));
+    _keyPair = AsymmetricKeyPair(publicKey, privateKey);
   }
 
   // Cripta un messaggio usando la chiave pubblica del destinatario
