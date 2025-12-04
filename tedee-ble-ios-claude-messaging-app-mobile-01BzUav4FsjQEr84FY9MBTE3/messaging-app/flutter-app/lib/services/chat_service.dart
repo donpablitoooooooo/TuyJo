@@ -124,6 +124,22 @@ class ChatService extends ChangeNotifier {
         receiverPublicKey,
       );
 
+      // Aggiungi immediatamente il messaggio alla lista locale con il testo in chiaro
+      final localMessage = Message(
+        id: 'temp-${DateTime.now().millisecondsSinceEpoch}',
+        senderId: senderId,
+        receiverId: receiverId,
+        encryptedContent: encryptedContent,
+        plainContent: content, // Salva il testo in chiaro per i nostri messaggi
+        timestamp: DateTime.now(),
+        isDelivered: false,
+        isRead: false,
+      );
+
+      _messages.add(localMessage);
+      _messages.sort((a, b) => a.timestamp.compareTo(b.timestamp));
+      notifyListeners();
+
       final message = {
         'receiverId': receiverId,
         'encryptedContent': encryptedContent,

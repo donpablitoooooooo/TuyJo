@@ -3,6 +3,7 @@ class Message {
   final String senderId;
   final String receiverId;
   final String encryptedContent;
+  final String? plainContent; // Contenuto in chiaro (solo per messaggi inviati da noi)
   final DateTime timestamp;
   final bool isDelivered;
   final bool isRead;
@@ -12,6 +13,7 @@ class Message {
     required this.senderId,
     required this.receiverId,
     required this.encryptedContent,
+    this.plainContent,
     required this.timestamp,
     this.isDelivered = false,
     this.isRead = false,

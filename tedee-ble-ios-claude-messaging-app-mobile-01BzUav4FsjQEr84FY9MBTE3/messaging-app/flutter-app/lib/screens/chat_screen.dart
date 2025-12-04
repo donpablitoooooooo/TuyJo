@@ -101,9 +101,11 @@ class _ChatScreenState extends State<ChatScreen> {
               itemBuilder: (context, index) {
                 final message = chatService.messages[index];
                 final isMe = message.senderId == authService.currentUser!.id;
-                final decryptedContent = chatService.decryptMessage(
-                  message.encryptedContent,
-                );
+
+                // Se abbiamo il testo in chiaro (messaggio inviato da noi), usalo
+                // Altrimenti decifra il messaggio (messaggio ricevuto)
+                final decryptedContent = message.plainContent ??
+                    chatService.decryptMessage(message.encryptedContent);
 
                 return _MessageBubble(
                   message: decryptedContent,
