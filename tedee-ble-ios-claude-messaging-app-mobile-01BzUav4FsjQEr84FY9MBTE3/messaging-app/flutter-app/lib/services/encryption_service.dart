@@ -2,7 +2,7 @@ import 'dart:convert';
 import 'dart:math';
 import 'dart:typed_data';
 import 'package:pointycastle/export.dart';
-import 'package:pointycastle/asn1.dart';
+import 'package:asn1lib/asn1lib.dart';
 import 'package:crypto/crypto.dart';
 import 'package:encrypt/encrypt.dart' as encrypt_lib;
 
@@ -107,7 +107,8 @@ class EncryptionService {
 
   String _encodePublicKey(RSAPublicKey publicKey) {
     final algorithmSeq = ASN1Sequence();
-    algorithmSeq.add(ASN1ObjectIdentifier.fromName('rsaEncryption'));
+    final objectId = ASN1ObjectIdentifier([1, 2, 840, 113549, 1, 1, 1]); // rsaEncryption OID
+    algorithmSeq.add(objectId);
     algorithmSeq.add(ASN1Null());
 
     final publicKeySeq = ASN1Sequence();
@@ -152,22 +153,22 @@ class EncryptionService {
       final asn1Parser = ASN1Parser(bytes);
       final topLevelSeq = asn1Parser.nextObject() as ASN1Sequence;
       
-      if (topLevelSeq.elements.length < 2) {
+      if (topLevelSeq.elements == null || topLevelSeq.elements!.length < 2) {
         throw FormatException('Invalid public key ASN.1 structure');
       }
       
-      final publicKeyBitString = topLevelSeq.elements[1] as ASN1BitString;
+      final publicKeyBitString = topLevelSeq.elements![1] as ASN1BitString;
       
-      final publicKeySeq = ASN1Parser(publicKeyBitString.contentBytes()).nextObject() as ASN1Sequence;
+      final publicKeySeq = ASN1Parser(publicKeyBitString.valueBytes()).nextObject() as ASN1Sequence;
       
-      if (publicKeySeq.elements.length < 2) {
+      if (publicKeySeq.elements == null || publicKeySeq.elements!.length < 2) {
         throw FormatException('Invalid public key sequence structure');
       }
       
-      final modulus = (publicKeySeq.elements[0] as ASN1Integer).valueAsBigInteger;
-      final exponent = (publicKeySeq.elements[1] as ASN1Integer).valueAsBigInteger;
+      final modulus = (publicKeySeq.elements![0] as ASN1Integer).intValue;
+      final exponent = (publicKeySeq.elements![1] as ASN1Integer).intValue;
 
-      return RSAPublicKey(modulus!, exponent!);
+      return RSAPublicKey(modulus, exponent);
     } catch (e) {
       throw FormatException('Failed to decode public key: $e');
     }
@@ -180,17 +181,17 @@ class EncryptionService {
       final privateKeySeq = asn1Parser.nextObject() as ASN1Sequence;
 
       // PKCS#1 RSAPrivateKey requires 9 elements: version, n, e, d, p, q, dP, dQ, qInv
-      if (privateKeySeq.elements.length < 9) {
+      if (privateKeySeq.elements == null || privateKeySeq.elements!.length < 9) {
         throw FormatException('Invalid private key ASN.1 structure - requires 9 elements');
       }
 
-      final modulus = (privateKeySeq.elements[1] as ASN1Integer).valueAsBigInteger;
-      final publicExponent = (privateKeySeq.elements[2] as ASN1Integer).valueAsBigInteger;
-      final privateExponent = (privateKeySeq.elements[3] as ASN1Integer).valueAsBigInteger;
-      final p = (privateKeySeq.elements[4] as ASN1Integer).valueAsBigInteger;
-      final q = (privateKeySeq.elements[5] as ASN1Integer).valueAsBigInteger;
+      final modulus = (privateKeySeq.elements![1] as ASN1Integer).intValue;
+      final publicExponent = (privateKeySeq.elements![2] as ASN1Integer).intValue;
+      final privateExponent = (privateKeySeq.elements![3] as ASN1Integer).intValue;
+      final p = (privateKeySeq.elements![4] as ASN1Integer).intValue;
+      final q = (privateKeySeq.elements![5] as ASN1Integer).intValue;
 
-      return RSAPrivateKey(modulus!, privateExponent!, p, q);
+      return RSAPrivateKey(modulus, privateExponent, p, q);
     } catch (e) {
       throw FormatException('Failed to decode private key: $e');
     }
