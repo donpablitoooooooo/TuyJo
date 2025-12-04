@@ -6,7 +6,7 @@ import '../models/message.dart';
 import 'encryption_service.dart';
 
 class AuthService extends ChangeNotifier {
-  static const String baseUrl = 'YOUR_BACKEND_URL'; // Sostituire con l'URL del backend
+  static const String baseUrl = 'http://localhost:3000'; // Per sviluppo locale
   final _storage = const FlutterSecureStorage();
   final _encryptionService = EncryptionService();
 
@@ -41,9 +41,14 @@ class AuthService extends ChangeNotifier {
   // Registrazione
   Future<bool> register(String username, String password) async {
     try {
-      // Genera coppia di chiavi RSA
-      final keyPair = await _encryptionService.generateKeyPair();
+      if (kDebugMode) print('🔐 Registrazione in corso per: $username');
 
+      // Genera coppia di chiavi RSA
+      if (kDebugMode) print('🔑 Generazione chiavi RSA...');
+      final keyPair = await _encryptionService.generateKeyPair();
+      if (kDebugMode) print('✅ Chiavi RSA generate');
+
+      if (kDebugMode) print('📡 Chiamata API: $baseUrl/api/auth/register');
       final response = await http.post(
         Uri.parse('$baseUrl/api/auth/register'),
         headers: {'Content-Type': 'application/json'},
@@ -53,6 +58,9 @@ class AuthService extends ChangeNotifier {
           'publicKey': keyPair['publicKey'],
         }),
       );
+
+      if (kDebugMode) print('📥 Risposta server: ${response.statusCode}');
+      if (kDebugMode) print('📄 Body: ${response.body}');
 
       if (response.statusCode == 201) {
         final data = json.decode(response.body);
@@ -65,12 +73,14 @@ class AuthService extends ChangeNotifier {
         await _storage.write(key: 'user', value: json.encode(_currentUser!.toJson()));
         await _storage.write(key: 'private_key', value: keyPair['privateKey']!);
 
+        if (kDebugMode) print('✅ Registrazione completata con successo!');
         notifyListeners();
         return true;
       }
+      if (kDebugMode) print('❌ Registrazione fallita: status ${response.statusCode}');
       return false;
     } catch (e) {
-      if (kDebugMode) print('Register error: $e');
+      if (kDebugMode) print('❌ Register error: $e');
       return false;
     }
   }
@@ -78,6 +88,9 @@ class AuthService extends ChangeNotifier {
   // Login
   Future<bool> login(String username, String password) async {
     try {
+      if (kDebugMode) print('🔐 Login in corso per: $username');
+      if (kDebugMode) print('📡 Chiamata API: $baseUrl/api/auth/login');
+
       final response = await http.post(
         Uri.parse('$baseUrl/api/auth/login'),
         headers: {'Content-Type': 'application/json'},
@@ -86,6 +99,9 @@ class AuthService extends ChangeNotifier {
           'password': password,
         }),
       );
+
+      if (kDebugMode) print('📥 Risposta server: ${response.statusCode}');
+      if (kDebugMode) print('📄 Body: ${response.body}');
 
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
@@ -100,15 +116,20 @@ class AuthService extends ChangeNotifier {
         // La chiave privata dovrebbe essere già salvata dalla registrazione
         final privateKey = await _storage.read(key: 'private_key');
         if (privateKey != null) {
+          if (kDebugMode) print('🔑 Chiave privata caricata');
           _encryptionService.loadPrivateKey(privateKey);
+        } else {
+          if (kDebugMode) print('⚠️ Chiave privata non trovata (normale per primo login)');
         }
 
+        if (kDebugMode) print('✅ Login completato con successo!');
         notifyListeners();
         return true;
       }
+      if (kDebugMode) print('❌ Login fallito: status ${response.statusCode}');
       return false;
     } catch (e) {
-      if (kDebugMode) print('Login error: $e');
+      if (kDebugMode) print('❌ Login error: $e');
       return false;
     }
   }

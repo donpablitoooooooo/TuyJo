@@ -7,7 +7,7 @@ import 'auth_service.dart';
 import 'encryption_service.dart';
 
 class ChatService extends ChangeNotifier {
-  static const String baseUrl = 'YOUR_BACKEND_URL'; // Sostituire con l'URL del backend
+  static const String baseUrl = 'http://localhost:3000'; // Per sviluppo locale
   IO.Socket? _socket;
   final List<Message> _messages = [];
   final EncryptionService _encryptionService = EncryptionService();

@@ -1,5 +1,8 @@
 const { db } = require('./database');
-const { v4: uuidv4 } = require('crypto');
+const crypto = require('crypto');
+
+// Funzione per generare UUID
+const uuidv4 = () => crypto.randomUUID();
 
 const MESSAGES_COLLECTION = 'messages';
 

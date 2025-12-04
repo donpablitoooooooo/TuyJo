@@ -1,5 +1,9 @@
 const { db } = require('./database');
-const { v4: uuidv4 } = require('crypto');
+// Fix: uuid deve essere importato dal modulo, non da crypto
+const crypto = require('crypto');
+
+// Funzione per generare UUID
+const uuidv4 = () => crypto.randomUUID();
 
 const USERS_COLLECTION = 'users';
 
