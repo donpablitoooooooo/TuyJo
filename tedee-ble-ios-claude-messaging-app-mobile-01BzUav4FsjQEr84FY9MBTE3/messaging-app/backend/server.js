@@ -22,6 +22,9 @@ const io = new Server(server, {
 app.use(cors());
 app.use(express.json());
 
+// Make io available to routes
+app.set('io', io);
+
 // Routes
 app.use('/api/auth', authRoutes);
 app.use('/api/messages', messageRoutes);

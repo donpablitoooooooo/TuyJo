@@ -37,6 +37,16 @@ router.post('/register', async (req, res) => {
       { expiresIn: '30d' }
     );
 
+    // Notify all connected users that a new user registered
+    const io = req.app.get('io');
+    if (io) {
+      io.emit('user_registered', {
+        userId: user.id,
+        username: user.username,
+      });
+      console.log(`📢 Broadcast: user_registered for ${user.username}`);
+    }
+
     res.status(201).json({
       token,
       user: {
