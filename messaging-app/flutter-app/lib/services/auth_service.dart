@@ -8,7 +8,15 @@ import 'encryption_service.dart';
 class AuthService extends ChangeNotifier {
   static const String baseUrl = 'https://private-messaging-backend-668509120760.europe-west1.run.app';
   final _storage = const FlutterSecureStorage();
-  final _encryptionService = EncryptionService();
+  EncryptionService? _encryptionService;
+
+  // Getter per accedere al servizio di crittografia
+  EncryptionService? get encryptionService => _encryptionService;
+
+  // Imposta il servizio di crittografia (deve essere chiamato all'inizio)
+  void setEncryptionService(EncryptionService service) {
+    _encryptionService = service;
+  }
 
   User? _currentUser;
   String? _token;
@@ -29,8 +37,8 @@ class AuthService extends ChangeNotifier {
 
         // Carica la chiave privata
         final privateKey = await _storage.read(key: 'private_key');
-        if (privateKey != null) {
-          _encryptionService.loadPrivateKey(privateKey);
+        if (privateKey != null && _encryptionService != null) {
+          _encryptionService!.loadPrivateKey(privateKey);
         }
 
         notifyListeners();
@@ -41,11 +49,15 @@ class AuthService extends ChangeNotifier {
   // Registrazione
   Future<bool> register(String username, String password) async {
     try {
+      if (_encryptionService == null) {
+        throw Exception('EncryptionService not initialized');
+      }
+
       if (kDebugMode) print('🔐 Registrazione in corso per: $username');
 
       // Genera coppia di chiavi RSA
       if (kDebugMode) print('🔑 Generazione chiavi RSA...');
-      final keyPair = await _encryptionService.generateKeyPair();
+      final keyPair = await _encryptionService!.generateKeyPair();
       if (kDebugMode) print('✅ Chiavi RSA generate');
 
       if (kDebugMode) print('📡 Chiamata API: $baseUrl/api/auth/register');
@@ -115,9 +127,9 @@ class AuthService extends ChangeNotifier {
 
         // La chiave privata dovrebbe essere già salvata dalla registrazione
         final privateKey = await _storage.read(key: 'private_key');
-        if (privateKey != null) {
+        if (privateKey != null && _encryptionService != null) {
           if (kDebugMode) print('🔑 Chiave privata caricata');
-          _encryptionService.loadPrivateKey(privateKey);
+          _encryptionService!.loadPrivateKey(privateKey);
         } else {
           if (kDebugMode) print('⚠️ Chiave privata non trovata (normale per primo login)');
         }

@@ -10,10 +10,15 @@ class ChatService extends ChangeNotifier {
   static const String baseUrl = 'https://private-messaging-backend-668509120760.europe-west1.run.app';
   IO.Socket? _socket;
   final List<Message> _messages = [];
-  final EncryptionService _encryptionService = EncryptionService();
+  EncryptionService? _encryptionService;
 
   List<Message> get messages => _messages;
   bool get isConnected => _socket?.connected ?? false;
+
+  // Imposta il servizio di crittografia (deve essere chiamato dopo il login)
+  void setEncryptionService(EncryptionService encryptionService) {
+    _encryptionService = encryptionService;
+  }
 
   // Connetti al server Socket.io
   void connect(String token, String userId) {
@@ -116,8 +121,11 @@ class ChatService extends ChangeNotifier {
     String senderId,
   ) async {
     try {
+      if (_encryptionService == null) {
+        throw Exception('EncryptionService not initialized');
+      }
       // Cripta il messaggio con la chiave pubblica del destinatario
-      final encryptedContent = _encryptionService.encryptMessage(
+      final encryptedContent = _encryptionService!.encryptMessage(
         content,
         receiverPublicKey,
       );
@@ -136,7 +144,10 @@ class ChatService extends ChangeNotifier {
   // Decripta un messaggio
   String decryptMessage(String encryptedContent) {
     try {
-      return _encryptionService.decryptMessage(encryptedContent);
+      if (_encryptionService == null) {
+        throw Exception('EncryptionService not initialized');
+      }
+      return _encryptionService!.decryptMessage(encryptedContent);
     } catch (e) {
       if (kDebugMode) print('Decrypt error: $e');
       return '[Messaggio non decifrabile]';

@@ -27,6 +27,12 @@ class _ChatScreenState extends State<ChatScreen> {
     final authService = Provider.of<AuthService>(context, listen: false);
     final chatService = Provider.of<ChatService>(context, listen: false);
 
+    // IMPORTANTE: Passa l'EncryptionService al ChatService
+    // (deve usare la stessa istanza con la chiave privata caricata da AuthService)
+    if (authService.encryptionService != null) {
+      chatService.setEncryptionService(authService.encryptionService!);
+    }
+
     // Connetti al server di chat
     chatService.connect(authService.token!, authService.currentUser!.id);
 

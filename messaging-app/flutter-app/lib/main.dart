@@ -61,6 +61,12 @@ class _AuthWrapperState extends State<AuthWrapper> {
 
   Future<void> _initialize() async {
     final authService = Provider.of<AuthService>(context, listen: false);
+    final encryptionService = Provider.of<EncryptionService>(context, listen: false);
+
+    // IMPORTANTE: Imposta l'EncryptionService in AuthService
+    // così tutti useranno la stessa istanza
+    authService.setEncryptionService(encryptionService);
+
     await authService.initialize();
     setState(() {
       _isInitialized = true;
