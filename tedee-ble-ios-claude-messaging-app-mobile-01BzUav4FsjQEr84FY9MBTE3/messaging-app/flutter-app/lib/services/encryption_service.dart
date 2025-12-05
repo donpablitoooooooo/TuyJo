@@ -123,7 +123,19 @@ class EncryptionService {
   String _encodePrivateKey(RSAPrivateKey privateKey) {
     final modulus = privateKey.modulus!.toRadixString(16);
     final privateExponent = privateKey.privateExponent!.toRadixString(16);
-    return base64Encode(utf8.encode('$modulus:$privateExponent'));
+    final combined = '$modulus:$privateExponent';
+    final encoded = base64Encode(utf8.encode(combined));
+
+    if (kDebugMode) {
+      print('🔐 Encoding private key:');
+      print('   Modulus length: ${modulus.length}');
+      print('   PrivateExp length: ${privateExponent.length}');
+      print('   Combined length: ${combined.length}');
+      print('   Encoded length: ${encoded.length}');
+      print('   First 50 chars: ${combined.substring(0, combined.length > 50 ? 50 : combined.length)}');
+    }
+
+    return encoded;
   }
 
   RSAPublicKey _decodePublicKey(String encoded) {
@@ -140,8 +152,30 @@ class EncryptionService {
         throw Exception('Private key is empty');
       }
 
+      if (kDebugMode) {
+        print('🔓 Decoding private key:');
+        print('   Encoded length: ${encoded.length}');
+        print('   First 50 chars of encoded: ${encoded.substring(0, encoded.length > 50 ? 50 : encoded.length)}');
+      }
+
       final decoded = utf8.decode(base64Decode(encoded));
+
+      if (kDebugMode) {
+        print('   Decoded length: ${decoded.length}');
+        print('   First 50 chars of decoded: ${decoded.substring(0, decoded.length > 50 ? 50 : decoded.length)}');
+      }
+
       final parts = decoded.split(':');
+
+      if (kDebugMode) {
+        print('   Parts count: ${parts.length}');
+        if (parts.isNotEmpty) {
+          print('   Part[0] length: ${parts[0].length}, first 20 chars: ${parts[0].substring(0, parts[0].length > 20 ? 20 : parts[0].length)}');
+        }
+        if (parts.length > 1) {
+          print('   Part[1] length: ${parts[1].length}, first 20 chars: ${parts[1].substring(0, parts[1].length > 20 ? 20 : parts[1].length)}');
+        }
+      }
 
       if (parts.length != 2) {
         throw Exception('Invalid key format: expected 2 parts, got ${parts.length}');
@@ -155,7 +189,7 @@ class EncryptionService {
       final privateExponent = BigInt.parse(parts[1], radix: 16);
 
       if (kDebugMode) {
-        print('🔑 Private key loaded successfully');
+        print('✅ Private key loaded successfully');
       }
 
       return RSAPrivateKey(modulus, privateExponent, null, null);
