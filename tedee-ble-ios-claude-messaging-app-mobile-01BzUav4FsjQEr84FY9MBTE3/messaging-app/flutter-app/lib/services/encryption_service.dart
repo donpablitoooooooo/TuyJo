@@ -148,17 +148,21 @@ class EncryptionService {
 
   RSAPrivateKey _decodePrivateKey(String encoded) {
     try {
-      if (encoded.isEmpty) {
+      // Trim whitespace e rimuovi newlines
+      final cleanEncoded = encoded.trim().replaceAll(RegExp(r'\s+'), '');
+
+      if (cleanEncoded.isEmpty) {
         throw Exception('Private key is empty');
       }
 
       if (kDebugMode) {
         print('🔓 Decoding private key:');
-        print('   Encoded length: ${encoded.length}');
-        print('   First 50 chars of encoded: ${encoded.substring(0, encoded.length > 50 ? 50 : encoded.length)}');
+        print('   Original length: ${encoded.length}');
+        print('   Cleaned length: ${cleanEncoded.length}');
+        print('   First 50 chars: ${cleanEncoded.substring(0, cleanEncoded.length > 50 ? 50 : cleanEncoded.length)}');
       }
 
-      final decoded = utf8.decode(base64Decode(encoded));
+      final decoded = utf8.decode(base64Decode(cleanEncoded));
 
       if (kDebugMode) {
         print('   Decoded length: ${decoded.length}');
@@ -185,6 +189,10 @@ class EncryptionService {
         throw Exception('Invalid key format: empty modulus or exponent');
       }
 
+      if (kDebugMode) {
+        print('   Parsing BigInts...');
+      }
+
       final modulus = BigInt.parse(parts[0], radix: 16);
       final privateExponent = BigInt.parse(parts[1], radix: 16);
 
@@ -193,9 +201,10 @@ class EncryptionService {
       }
 
       return RSAPrivateKey(modulus, privateExponent, null, null);
-    } catch (e) {
+    } catch (e, stackTrace) {
       if (kDebugMode) {
         print('❌ Error decoding private key: $e');
+        print('   Stack trace: $stackTrace');
       }
       rethrow;
     }
