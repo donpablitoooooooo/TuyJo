@@ -21,21 +21,38 @@ class AuthService extends ChangeNotifier {
 
   // Inizializza il servizio controllando se c'è già un token salvato
   Future<void> initialize() async {
-    _token = await _storage.read(key: 'jwt_token');
-    if (_token != null) {
-      final userJson = await _storage.read(key: 'user');
-      if (userJson != null) {
-        _currentUser = User.fromJson(json.decode(userJson));
-        _isAuthenticated = true;
+    try {
+      _token = await _storage.read(key: 'jwt_token');
+      if (_token != null) {
+        final userJson = await _storage.read(key: 'user');
+        if (userJson != null) {
+          _currentUser = User.fromJson(json.decode(userJson));
+          _isAuthenticated = true;
 
-        // Carica la chiave privata
-        final privateKey = await _storage.read(key: 'private_key');
-        if (privateKey != null) {
-          _encryptionService.loadPrivateKey(privateKey);
+          // Carica la chiave privata
+          final privateKey = await _storage.read(key: 'private_key');
+          if (privateKey != null) {
+            try {
+              _encryptionService.loadPrivateKey(privateKey);
+              if (kDebugMode) print('✅ Chiave privata caricata con successo');
+            } catch (e) {
+              if (kDebugMode) {
+                print('❌ Errore caricamento chiave privata durante init: $e');
+                print('💡 Cancello i dati corrotti e richiedo nuova registrazione');
+              }
+              // Chiave corrotta - cancella tutto
+              await logout();
+              return;
+            }
+          }
+
+          notifyListeners();
         }
-
-        notifyListeners();
       }
+    } catch (e) {
+      if (kDebugMode) print('❌ Errore durante initialize: $e');
+      // In caso di errore, pulisci tutto
+      await logout();
     }
   }
 
