@@ -11,7 +11,6 @@ class LoginScreen extends StatefulWidget {
 
 class _LoginScreenState extends State<LoginScreen> {
   final _usernameController = TextEditingController();
-  final _passwordController = TextEditingController();
   final _privateKeyController = TextEditingController();
   bool _isLogin = true;
   bool _isLoading = false;
@@ -19,15 +18,14 @@ class _LoginScreenState extends State<LoginScreen> {
   @override
   void dispose() {
     _usernameController.dispose();
-    _passwordController.dispose();
     _privateKeyController.dispose();
     super.dispose();
   }
 
   Future<void> _submit() async {
-    if (_usernameController.text.isEmpty || _passwordController.text.isEmpty) {
+    if (_usernameController.text.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Inserisci username e password')),
+        const SnackBar(content: Text('Inserisci username')),
       );
       return;
     }
@@ -44,10 +42,9 @@ class _LoginScreenState extends State<LoginScreen> {
     final authService = Provider.of<AuthService>(context, listen: false);
 
     if (_isLogin) {
-      // Login con chiave privata
+      // Login - solo username e chiave privata
       final success = await authService.login(
         _usernameController.text,
-        _passwordController.text,
         _privateKeyController.text,
       );
 
@@ -59,10 +56,9 @@ class _LoginScreenState extends State<LoginScreen> {
         );
       }
     } else {
-      // Registrazione - ottieni la chiave privata
+      // Registrazione - solo username
       final privateKey = await authService.register(
         _usernameController.text,
-        _passwordController.text,
       );
 
       setState(() => _isLoading = false);
@@ -160,10 +156,11 @@ class _LoginScreenState extends State<LoginScreen> {
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  'Con crittografia end-to-end',
+                  'Solo tu possiedi la chiave dei tuoi messaggi',
                   style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                         color: Colors.grey[600],
                       ),
+                  textAlign: TextAlign.center,
                 ),
                 const SizedBox(height: 40),
                 TextField(
@@ -173,16 +170,6 @@ class _LoginScreenState extends State<LoginScreen> {
                     border: OutlineInputBorder(),
                     prefixIcon: Icon(Icons.person),
                   ),
-                ),
-                const SizedBox(height: 16),
-                TextField(
-                  controller: _passwordController,
-                  decoration: const InputDecoration(
-                    labelText: 'Password',
-                    border: OutlineInputBorder(),
-                    prefixIcon: Icon(Icons.lock),
-                  ),
-                  obscureText: true,
                 ),
                 const SizedBox(height: 16),
                 if (_isLogin) ...[
