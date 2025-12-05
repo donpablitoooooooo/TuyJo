@@ -1,37 +1,33 @@
 const { db } = require('./database');
-const { v4: uuidv4 } = require('uuid');
+const crypto = require('crypto');
 
 const USERS_COLLECTION = 'users';
+const CHALLENGES_COLLECTION = 'challenges';
 
 class UserService {
-  // Crea un nuovo utente (solo username e publicKey - niente password!)
-  async createUser({ username, publicKey }) {
-    const userId = uuidv4();
+  // Genera user_id da publicKey (SHA-256)
+  generateUserId(publicKey) {
+    return crypto.createHash('sha256').update(publicKey).digest('hex');
+  }
+
+  // Crea un nuovo utente (solo publicKey - niente username!)
+  async createUser({ publicKey }) {
+    const userId = this.generateUserId(publicKey);
+
+    // Verifica se utente già esiste
+    const existingUser = await this.getUserById(userId);
+    if (existingUser) {
+      throw new Error('User already exists');
+    }
+
     const user = {
-      id: userId,
-      username,
-      publicKey,
-      fcmToken: null,
-      createdAt: new Date().toISOString(),
+      user_id: userId,
+      public_key: publicKey,
+      created_at: new Date().toISOString(),
     };
 
     await db.collection(USERS_COLLECTION).doc(userId).set(user);
     return user;
-  }
-
-  // Ottieni utente per username
-  async getUserByUsername(username) {
-    const snapshot = await db
-      .collection(USERS_COLLECTION)
-      .where('username', '==', username)
-      .limit(1)
-      .get();
-
-    if (snapshot.empty) {
-      return null;
-    }
-
-    return snapshot.docs[0].data();
   }
 
   // Ottieni utente per ID
@@ -45,27 +41,41 @@ class UserService {
     return doc.data();
   }
 
-  // Ottieni il partner (l'altro utente, non quello corrente)
-  async getPartner(currentUserId) {
-    const snapshot = await db
-      .collection(USERS_COLLECTION)
-      .where('id', '!=', currentUserId)
-      .limit(1)
-      .get();
+  // Salva challenge per autenticazione (scadenza 2 minuti)
+  async saveChallenge(userId, challenge) {
+    const expiresAt = new Date(Date.now() + 2 * 60 * 1000); // 2 minuti
+    await db.collection(CHALLENGES_COLLECTION).doc(userId).set({
+      challenge,
+      expires_at: expiresAt.toISOString(),
+      created_at: new Date().toISOString(),
+    });
+  }
 
-    if (snapshot.empty) {
+  // Ottieni e verifica challenge
+  async getChallenge(userId) {
+    const doc = await db.collection(CHALLENGES_COLLECTION).doc(userId).get();
+
+    if (!doc.exists) {
       return null;
     }
 
-    return snapshot.docs[0].data();
+    const data = doc.data();
+    const now = new Date();
+    const expiresAt = new Date(data.expires_at);
+
+    // Verifica scadenza
+    if (now > expiresAt) {
+      // Challenge scaduto, elimina
+      await db.collection(CHALLENGES_COLLECTION).doc(userId).delete();
+      return null;
+    }
+
+    return data.challenge;
   }
 
-  // Aggiorna FCM token
-  async updateFcmToken(userId, fcmToken) {
-    await db.collection(USERS_COLLECTION).doc(userId).update({
-      fcmToken,
-      updatedAt: new Date().toISOString(),
-    });
+  // Elimina challenge dopo verifica
+  async deleteChallenge(userId) {
+    await db.collection(CHALLENGES_COLLECTION).doc(userId).delete();
   }
 }
 

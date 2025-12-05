@@ -1,29 +1,39 @@
 require('dotenv').config();
 const express = require('express');
 const http = require('http');
-const { Server } = require('socket.io');
+const WebSocket = require('ws');
 const cors = require('cors');
+const jwt = require('jsonwebtoken');
+const url = require('url');
 
 const authRoutes = require('./routes/auth');
 const messageRoutes = require('./routes/messages');
 const userRoutes = require('./routes/users');
-const { authenticateSocket } = require('./middleware/auth');
 
 const app = express();
 const server = http.createServer(app);
-const io = new Server(server, {
-  cors: {
-    origin: '*', // In produzione, specifica i domini consentiti
-    methods: ['GET', 'POST'],
-  },
-});
+
+// WebSocket server
+const wss = new WebSocket.Server({ server });
 
 // Middleware
 app.use(cors());
 app.use(express.json());
 
-// Make io available to routes
-app.set('io', io);
+// Store WebSocket connections (userId -> WebSocket)
+const connections = new Map();
+
+// Make connections available to routes
+app.set('io', {
+  to: (userId) => ({
+    emit: (event, data) => {
+      const ws = connections.get(userId);
+      if (ws && ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify({ event, data }));
+      }
+    },
+  }),
+});
 
 // Routes
 app.use('/api/auth', authRoutes);
@@ -35,75 +45,76 @@ app.get('/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
 
-// Socket.io connection handling
-io.use(authenticateSocket);
+// WebSocket connection handling
+wss.on('connection', (ws, req) => {
+  console.log('🔌 New WebSocket connection');
 
-io.on('connection', (socket) => {
-  console.log(`User connected: ${socket.userId}`);
+  // Parse query params for token
+  const params = url.parse(req.url, true).query;
+  const token = params.token;
 
-  // Join user to their own room
-  socket.join(socket.userId);
+  if (!token) {
+    console.log('❌ No token provided');
+    ws.close(1008, 'No token provided');
+    return;
+  }
 
-  // Handle send message
-  socket.on('send_message', async (data) => {
-    try {
-      const { receiverId, encryptedContent } = data;
-      const senderId = socket.userId;
+  try {
+    // Verify JWT token
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const userId = decoded.userId;
 
-      // Save message to database
-      const messageService = require('./services/messageService');
-      const message = await messageService.saveMessage({
-        senderId,
-        receiverId,
-        encryptedContent,
-      });
+    console.log(`✅ User authenticated: ${userId}`);
 
-      // Send to receiver if online
-      io.to(receiverId).emit('new_message', message);
+    // Store connection
+    connections.set(userId, ws);
 
-      // Send confirmation to sender
-      socket.emit('new_message', message);
+    // Send confirmation
+    ws.send(
+      JSON.stringify({
+        event: 'connected',
+        data: { user_id: userId },
+      })
+    );
 
-      // Send push notification if receiver is offline
-      const userService = require('./services/userService');
-      const receiverSockets = await io.in(receiverId).fetchSockets();
-      if (receiverSockets.length === 0) {
-        const receiver = await userService.getUserById(receiverId);
-        if (receiver && receiver.fcmToken) {
-          const notificationService = require('./services/notificationService');
-          await notificationService.sendPushNotification(
-            receiver.fcmToken,
-            'Nuovo messaggio',
-            'Hai ricevuto un nuovo messaggio'
-          );
-        }
-      }
-    } catch (error) {
-      console.error('Error sending message:', error);
-      socket.emit('error', { message: 'Failed to send message' });
+    // Handle disconnect
+    ws.on('close', () => {
+      console.log(`❌ User disconnected: ${userId}`);
+      connections.delete(userId);
+    });
+
+    // Handle errors
+    ws.on('error', (error) => {
+      console.error(`❌ WebSocket error for ${userId}:`, error);
+      connections.delete(userId);
+    });
+
+    // Handle ping/pong for keepalive
+    ws.on('pong', () => {
+      ws.isAlive = true;
+    });
+
+    ws.isAlive = true;
+  } catch (error) {
+    console.error('❌ Token verification failed:', error.message);
+    ws.close(1008, 'Invalid token');
+  }
+});
+
+// Heartbeat to detect broken connections
+const heartbeatInterval = setInterval(() => {
+  wss.clients.forEach((ws) => {
+    if (ws.isAlive === false) {
+      return ws.terminate();
     }
-  });
 
-  // Handle mark as read
-  socket.on('mark_read', async (data) => {
-    try {
-      const { messageId } = data;
-      const messageService = require('./services/messageService');
-      await messageService.markAsRead(messageId);
-
-      // Notify sender
-      const message = await messageService.getMessageById(messageId);
-      if (message) {
-        io.to(message.senderId).emit('message_read', { messageId });
-      }
-    } catch (error) {
-      console.error('Error marking message as read:', error);
-    }
+    ws.isAlive = false;
+    ws.ping();
   });
+}, 30000); // Every 30 seconds
 
-  socket.on('disconnect', () => {
-    console.log(`User disconnected: ${socket.userId}`);
-  });
+wss.on('close', () => {
+  clearInterval(heartbeatInterval);
 });
 
 // Start server
@@ -111,4 +122,5 @@ const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => {
   console.log(`🚀 Server running on port ${PORT}`);
   console.log(`📱 Environment: ${process.env.NODE_ENV}`);
+  console.log(`🔌 WebSocket ready at ws://localhost:${PORT}`);
 });
