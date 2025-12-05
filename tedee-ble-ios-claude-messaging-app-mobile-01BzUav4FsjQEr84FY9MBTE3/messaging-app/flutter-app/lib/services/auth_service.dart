@@ -117,7 +117,18 @@ class AuthService extends ChangeNotifier {
         // La chiave privata dovrebbe essere già salvata dalla registrazione
         final privateKey = await _storage.read(key: 'private_key');
         if (privateKey != null) {
-          _encryptionService.loadPrivateKey(privateKey);
+          try {
+            _encryptionService.loadPrivateKey(privateKey);
+            if (kDebugMode) print('✅ Chiave privata caricata con successo');
+          } catch (e) {
+            if (kDebugMode) {
+              print('❌ Errore caricamento chiave privata: $e');
+              print('💡 La chiave privata è corrotta. Effettua logout e registrati di nuovo.');
+            }
+            // Chiave corrotta - cancella tutto e richiedi nuova registrazione
+            await logout();
+            throw Exception('Chiave privata corrotta. Effettua logout e registrati di nuovo.');
+          }
         }
 
         notifyListeners();
