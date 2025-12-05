@@ -2,82 +2,83 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
-import '../models/message.dart';
 import 'encryption_service.dart';
 
+/// Servizio di autenticazione con challenge/response
 class AuthService extends ChangeNotifier {
   static const String baseUrl = 'https://private-messaging-backend-668509120760.europe-west1.run.app';
   final _storage = const FlutterSecureStorage();
   final _encryptionService = EncryptionService();
 
-  User? _currentUser;
+  String? _userId;
   String? _token;
   bool _isAuthenticated = false;
 
-  User? get currentUser => _currentUser;
+  String? get userId => _userId;
   String? get token => _token;
   bool get isAuthenticated => _isAuthenticated;
   EncryptionService get encryptionService => _encryptionService;
 
-  // Inizializza il servizio controllando se c'è già un token salvato
+  /// Inizializza il servizio controllando se c'è già un token salvato
   Future<void> initialize() async {
     try {
       _token = await _storage.read(key: 'jwt_token');
-      if (_token != null) {
-        final userJson = await _storage.read(key: 'user');
-        if (userJson != null) {
-          _currentUser = User.fromJson(json.decode(userJson));
+      _userId = await _storage.read(key: 'user_id');
 
-          // Carica la chiave privata se presente (da sessione precedente)
-          final privateKey = await _storage.read(key: 'private_key');
-          if (privateKey != null) {
-            try {
-              _encryptionService.loadPrivateKey(privateKey);
-              _isAuthenticated = true;
-              if (kDebugMode) print('✅ Sessione ripristinata con chiave privata');
-            } catch (e) {
-              if (kDebugMode) {
-                print('❌ Chiave privata corrotta: $e');
-                print('💡 Richiesta nuova autenticazione con chiave valida');
-              }
-              // Chiave corrotta - cancella tutto e richiedi login
-              await logout();
-              return;
+      if (_token != null && _userId != null) {
+        // Carica chiave privata
+        final privateKey = await _storage.read(key: 'private_key');
+        if (privateKey != null) {
+          try {
+            _encryptionService.loadPrivateKey(privateKey);
+            _isAuthenticated = true;
+            if (kDebugMode) {
+              print('✅ Sessione ripristinata');
+              print('   User ID: $_userId');
             }
-          } else {
-            // Token valido ma nessuna chiave privata - richiedi login con chiave
-            if (kDebugMode) print('⚠️ Sessione incompleta - manca chiave privata');
+          } catch (e) {
+            if (kDebugMode) print('❌ Chiave privata corrotta: $e');
             await logout();
             return;
           }
-
-          notifyListeners();
+        } else {
+          if (kDebugMode) print('⚠️ Manca chiave privata');
+          await logout();
+          return;
         }
+
+        notifyListeners();
       }
     } catch (e) {
-      if (kDebugMode) print('❌ Errore durante initialize: $e');
+      if (kDebugMode) print('❌ Errore initialize: $e');
       await logout();
     }
   }
 
-  // Registrazione - solo username, genera chiavi e restituisce la privata
-  Future<String?> register(String username) async {
+  /// Registrazione - genera RSA keypair e registra sul server
+  /// Ritorna: {user_id, private_key} da mostrare all'utente
+  Future<Map<String, String>?> register() async {
     try {
-      if (kDebugMode) print('🔐 Inizio registrazione per: $username');
+      if (kDebugMode) print('🔐 Inizio registrazione');
 
       // Genera coppia di chiavi RSA
       if (kDebugMode) print('🔑 Generazione chiavi RSA...');
       final keyPair = await _encryptionService.generateKeyPair();
-      if (kDebugMode) print('✅ Chiavi RSA generate con successo');
+      final publicKey = keyPair['publicKey']!;
+      final privateKey = keyPair['privateKey']!;
 
-      if (kDebugMode) print('📡 Invio richiesta di registrazione al server...');
+      if (kDebugMode) print('✅ Chiavi RSA generate');
+
+      // Calcola user_id = SHA-256(publicKey)
+      final calculatedUserId = _encryptionService.getUserId(publicKey);
+      if (kDebugMode) print('🆔 User ID: $calculatedUserId');
+
+      // Registra sul server
+      if (kDebugMode) print('📡 Invio richiesta di registrazione...');
       final response = await http.post(
         Uri.parse('$baseUrl/api/auth/register'),
         headers: {'Content-Type': 'application/json'},
-        body: json.encode({
-          'username': username,
-          'publicKey': keyPair['publicKey'],
-        }),
+        body: json.encode({'publicKey': publicKey}),
       );
 
       if (kDebugMode) {
@@ -88,107 +89,127 @@ class AuthService extends ChangeNotifier {
       if (response.statusCode == 201) {
         final data = json.decode(response.body);
         _token = data['token'];
-        _currentUser = User.fromJson(data['user']);
+        _userId = data['user_id'];
         _isAuthenticated = true;
 
-        // Salva token e user (MA NON la chiave privata - quella va gestita manualmente!)
-        await _storage.write(key: 'jwt_token', value: _token);
-        await _storage.write(key: 'user', value: json.encode(_currentUser!.toJson()));
+        // Verifica che user_id del server corrisponda
+        if (_userId != calculatedUserId) {
+          if (kDebugMode) {
+            print('⚠️ User ID mismatch!');
+            print('   Calcolato: $calculatedUserId');
+            print('   Server: $_userId');
+          }
+        }
 
-        if (kDebugMode) print('✅ Registrazione completata - chiave privata da salvare manualmente!');
+        // Salva token, user_id, chiave privata
+        await _storage.write(key: 'jwt_token', value: _token);
+        await _storage.write(key: 'user_id', value: _userId);
+        await _storage.write(key: 'private_key', value: privateKey);
+
+        if (kDebugMode) print('✅ Registrazione completata!');
 
         notifyListeners();
 
-        // Restituisci la chiave privata da mostrare all'utente
-        return keyPair['privateKey'];
+        return {
+          'user_id': _userId!,
+          'private_key': privateKey,
+        };
+      } else {
+        final error = json.decode(response.body)['error'] ?? 'Unknown error';
+        throw Exception(error);
       }
-
-      if (kDebugMode) print('❌ Registrazione fallita: status ${response.statusCode}');
-      return null;
-    } catch (e, stackTrace) {
-      if (kDebugMode) {
-        print('❌ Errore registrazione: $e');
-        print('📍 Stack trace: $stackTrace');
-      }
+    } catch (e) {
+      if (kDebugMode) print('❌ Errore registrazione: $e');
       return null;
     }
   }
 
-  // Login - solo username e chiave privata
-  Future<bool> login(String username, String privateKey) async {
+  /// Login con challenge/response
+  Future<bool> login(String privateKey) async {
     try {
-      final response = await http.post(
-        Uri.parse('$baseUrl/api/auth/login'),
+      if (kDebugMode) print('🔐 Inizio login');
+
+      // Carica chiave privata
+      _encryptionService.loadPrivateKey(privateKey);
+
+      // Ricava publicKey e user_id
+      final publicKey = _encryptionService.getPublicKey();
+      final calculatedUserId = _encryptionService.getUserId(publicKey);
+
+      if (kDebugMode) print('🆔 User ID: $calculatedUserId');
+
+      // Step 1: Richiedi challenge
+      if (kDebugMode) print('📡 Richiesta challenge...');
+      final challengeResponse = await http.post(
+        Uri.parse('$baseUrl/api/auth/request'),
+        headers: {'Content-Type': 'application/json'},
+        body: json.encode({'user_id': calculatedUserId}),
+      );
+
+      if (challengeResponse.statusCode != 200) {
+        final error =
+            json.decode(challengeResponse.body)['error'] ?? 'Challenge failed';
+        throw Exception(error);
+      }
+
+      final challengeData = json.decode(challengeResponse.body);
+      final challenge = challengeData['challenge'] as String;
+
+      if (kDebugMode) print('✅ Challenge ricevuto');
+
+      // Step 2: Firma challenge
+      if (kDebugMode) print('🔏 Firma challenge...');
+      final signature = _encryptionService.signChallenge(challenge);
+
+      // Step 3: Verifica firma e ottieni JWT
+      if (kDebugMode) print('📡 Verifica firma...');
+      final verifyResponse = await http.post(
+        Uri.parse('$baseUrl/api/auth/verify'),
         headers: {'Content-Type': 'application/json'},
         body: json.encode({
-          'username': username,
+          'user_id': calculatedUserId,
+          'signature': signature,
         }),
       );
 
-      if (response.statusCode == 200) {
-        final data = json.decode(response.body);
-        _token = data['token'];
-        _currentUser = User.fromJson(data['user']);
-        _isAuthenticated = true;
-
-        // Salva token e user
-        await _storage.write(key: 'jwt_token', value: _token);
-        await _storage.write(key: 'user', value: json.encode(_currentUser!.toJson()));
-
-        // Carica la chiave privata fornita dall'utente
-        try {
-          _encryptionService.loadPrivateKey(privateKey);
-          // Salva la chiave privata per questa sessione
-          await _storage.write(key: 'private_key', value: privateKey);
-          if (kDebugMode) print('✅ Chiave privata caricata e salvata per la sessione');
-        } catch (e) {
-          if (kDebugMode) {
-            print('❌ Errore caricamento chiave privata: $e');
-            print('💡 La chiave privata fornita non è valida');
-          }
-          // Chiave invalida - cancella tutto
-          await logout();
-          throw Exception('Chiave privata non valida');
-        }
-
-        notifyListeners();
-        return true;
+      if (verifyResponse.statusCode != 200) {
+        final error =
+            json.decode(verifyResponse.body)['error'] ?? 'Verification failed';
+        throw Exception(error);
       }
-      return false;
+
+      final verifyData = json.decode(verifyResponse.body);
+      _token = verifyData['token'];
+      _userId = verifyData['user_id'];
+      _isAuthenticated = true;
+
+      // Salva tutto
+      await _storage.write(key: 'jwt_token', value: _token);
+      await _storage.write(key: 'user_id', value: _userId);
+      await _storage.write(key: 'private_key', value: privateKey);
+
+      if (kDebugMode) print('✅ Login completato!');
+
+      notifyListeners();
+      return true;
     } catch (e) {
-      if (kDebugMode) print('Login error: $e');
+      if (kDebugMode) print('❌ Errore login: $e');
       return false;
     }
   }
 
-  // Logout
+  /// Logout
   Future<void> logout() async {
     _token = null;
-    _currentUser = null;
+    _userId = null;
     _isAuthenticated = false;
 
-    await _storage.deleteAll();
+    await _storage.delete(key: 'jwt_token');
+    await _storage.delete(key: 'user_id');
+    await _storage.delete(key: 'private_key');
+
+    if (kDebugMode) print('👋 Logout completato');
+
     notifyListeners();
-  }
-
-  // Ottieni l'altro utente (il partner)
-  Future<User?> getPartner() async {
-    try {
-      final response = await http.get(
-        Uri.parse('$baseUrl/api/users/partner'),
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer $_token',
-        },
-      );
-
-      if (response.statusCode == 200) {
-        return User.fromJson(json.decode(response.body));
-      }
-      return null;
-    } catch (e) {
-      if (kDebugMode) print('Get partner error: $e');
-      return null;
-    }
   }
 }
