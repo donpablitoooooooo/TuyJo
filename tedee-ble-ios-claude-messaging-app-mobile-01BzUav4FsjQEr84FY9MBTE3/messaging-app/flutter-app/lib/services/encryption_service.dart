@@ -4,12 +4,17 @@ import 'dart:typed_data';
 import 'package:flutter/foundation.dart';
 import 'package:pointycastle/export.dart';
 import 'package:crypto/crypto.dart';
-import 'package:encrypt/encrypt.dart' as encrypt_lib;
 
+/// Servizio di crittografia per Family Chat
+/// - RSA-2048 per autenticazione (challenge/response)
+/// - AES-256-GCM per messaggi (chiave simmetrica K_family)
 class EncryptionService {
   AsymmetricKeyPair<PublicKey, PrivateKey>? _keyPair;
+  Uint8List? _kFamily;
 
-  // Genera una coppia di chiavi RSA (pubblica/privata)
+  // ========== RSA KEY MANAGEMENT ==========
+
+  /// Genera una coppia di chiavi RSA-2048
   Future<Map<String, String>> generateKeyPair() async {
     final keyGen = RSAKeyGenerator()
       ..init(ParametersWithRandom(
@@ -29,81 +34,184 @@ class EncryptionService {
     };
   }
 
-  // Carica la chiave privata
+  /// Carica chiave privata da stringa
   void loadPrivateKey(String privateKeyStr) {
+    final privateKey = _decodePrivateKey(privateKeyStr);
     _keyPair = AsymmetricKeyPair(
-      _decodePublicKey(''), // Placeholder, not used
-      _decodePrivateKey(privateKeyStr),
+      null, // PublicKey non necessaria per decifratura
+      privateKey,
     );
   }
 
-  // Cripta un messaggio usando la chiave pubblica del destinatario
-  String encryptMessage(String message, String recipientPublicKey) {
-    try {
-      // Genera una chiave AES casuale per questo messaggio
-      final aesKey = _generateRandomKey(32);
-
-      // Cripta il messaggio con AES
-      final key = encrypt_lib.Key(aesKey);
-      final iv = encrypt_lib.IV.fromSecureRandom(16);
-      final encrypter = encrypt_lib.Encrypter(encrypt_lib.AES(key));
-      final encryptedMessage = encrypter.encrypt(message, iv: iv);
-
-      // Cripta la chiave AES con RSA usando la chiave pubblica del destinatario
-      final recipientPubKey = _decodePublicKey(recipientPublicKey);
-      final encryptedAesKey = _rsaEncrypt(aesKey, recipientPubKey);
-
-      // Combina tutto in un JSON
-      final payload = {
-        'encryptedKey': base64Encode(encryptedAesKey),
-        'iv': iv.base64,
-        'message': encryptedMessage.base64,
-      };
-
-      return base64Encode(utf8.encode(json.encode(payload)));
-    } catch (e) {
-      throw Exception('Encryption failed: $e');
+  /// Ottieni chiave pubblica come stringa (per QR code)
+  String getPublicKey() {
+    if (_keyPair == null) {
+      throw Exception('KeyPair not generated yet');
     }
+    return _encodePublicKey(_keyPair!.publicKey as RSAPublicKey);
   }
 
-  // Decripta un messaggio usando la propria chiave privata
-  String decryptMessage(String encryptedPayload) {
-    try {
-      final payloadJson = json.decode(utf8.decode(base64Decode(encryptedPayload)));
-
-      // Decripta la chiave AES con la propria chiave privata RSA
-      final encryptedAesKey = base64Decode(payloadJson['encryptedKey']);
-      final aesKey = _rsaDecrypt(encryptedAesKey);
-
-      // Decripta il messaggio con AES
-      final key = encrypt_lib.Key(aesKey);
-      final iv = encrypt_lib.IV.fromBase64(payloadJson['iv']);
-      final encrypter = encrypt_lib.Encrypter(encrypt_lib.AES(key));
-      final encrypted = encrypt_lib.Encrypted.fromBase64(payloadJson['message']);
-
-      return encrypter.decrypt(encrypted, iv: iv);
-    } catch (e) {
-      throw Exception('Decryption failed: $e');
-    }
+  /// Calcola user_id = SHA-256(publicKey)
+  String getUserId(String publicKey) {
+    final bytes = utf8.encode(publicKey);
+    final digest = sha256.convert(bytes);
+    return digest.toString();
   }
 
-  // ========== Helper Methods ==========
+  // ========== K_FAMILY MANAGEMENT ==========
 
-  Uint8List _generateRandomKey(int length) {
+  /// Genera chiave simmetrica K_family (32 byte = AES-256)
+  String generateKFamily() {
     final random = Random.secure();
-    return Uint8List.fromList(List<int>.generate(length, (i) => random.nextInt(256)));
+    _kFamily = Uint8List.fromList(
+      List<int>.generate(32, (i) => random.nextInt(256)),
+    );
+    return base64Encode(_kFamily!);
   }
 
-  Uint8List _rsaEncrypt(Uint8List data, RSAPublicKey publicKey) {
-    final encryptor = OAEPEncoding(RSAEngine())
-      ..init(true, PublicKeyParameter<RSAPublicKey>(publicKey));
-    return encryptor.process(data);
+  /// Carica K_family da stringa base64
+  void loadKFamily(String kFamilyStr) {
+    _kFamily = base64Decode(kFamilyStr);
+    if (_kFamily!.length != 32) {
+      throw Exception('Invalid K_family length: ${_kFamily!.length}');
+    }
   }
 
-  Uint8List _rsaDecrypt(Uint8List data) {
-    final decryptor = OAEPEncoding(RSAEngine())
-      ..init(false, PrivateKeyParameter<RSAPrivateKey>(_keyPair!.privateKey as RSAPrivateKey));
-    return decryptor.process(data);
+  /// Verifica se K_family è caricata
+  bool get hasKFamily => _kFamily != null;
+
+  // ========== AES-256-GCM ENCRYPTION ==========
+
+  /// Cifra messaggio con AES-256-GCM usando K_family
+  /// Ritorna: {ciphertext, nonce, tag} in base64
+  Map<String, String> encryptMessage(String plaintext) {
+    if (_kFamily == null) {
+      throw Exception('K_family not loaded');
+    }
+
+    try {
+      // Genera nonce casuale (12 byte per GCM)
+      final nonce = _generateNonce();
+
+      // Converti plaintext in bytes
+      final plaintextBytes = utf8.encode(plaintext);
+
+      // Inizializza AES-GCM
+      final cipher = GCMBlockCipher(AESEngine())
+        ..init(
+          true, // encrypt
+          AEADParameters(
+            KeyParameter(_kFamily!),
+            128, // tag size in bits (16 byte)
+            nonce,
+            Uint8List(0), // no additional data
+          ),
+        );
+
+      // Cifra
+      final ciphertext = Uint8List(plaintextBytes.length + 16); // +16 per tag
+      var offset = cipher.processBytes(
+        plaintextBytes,
+        0,
+        plaintextBytes.length,
+        ciphertext,
+        0,
+      );
+      cipher.doFinal(ciphertext, offset);
+
+      // Separa ciphertext e tag
+      final ciphertextOnly = ciphertext.sublist(0, plaintextBytes.length);
+      final tag = ciphertext.sublist(plaintextBytes.length);
+
+      return {
+        'ciphertext': base64Encode(ciphertextOnly),
+        'nonce': base64Encode(nonce),
+        'tag': base64Encode(tag),
+      };
+    } catch (e) {
+      if (kDebugMode) print('❌ Encryption error: $e');
+      rethrow;
+    }
+  }
+
+  /// Decifra messaggio con AES-256-GCM usando K_family
+  String decryptMessage({
+    required String ciphertext,
+    required String nonce,
+    required String tag,
+  }) {
+    if (_kFamily == null) {
+      throw Exception('K_family not loaded');
+    }
+
+    try {
+      final ciphertextBytes = base64Decode(ciphertext);
+      final nonceBytes = base64Decode(nonce);
+      final tagBytes = base64Decode(tag);
+
+      // Combina ciphertext + tag
+      final combined = Uint8List(ciphertextBytes.length + tagBytes.length);
+      combined.setAll(0, ciphertextBytes);
+      combined.setAll(ciphertextBytes.length, tagBytes);
+
+      // Inizializza AES-GCM
+      final cipher = GCMBlockCipher(AESEngine())
+        ..init(
+          false, // decrypt
+          AEADParameters(
+            KeyParameter(_kFamily!),
+            128, // tag size in bits
+            nonceBytes,
+            Uint8List(0), // no additional data
+          ),
+        );
+
+      // Decifra
+      final plaintext = Uint8List(ciphertextBytes.length);
+      var offset = cipher.processBytes(
+        combined,
+        0,
+        combined.length,
+        plaintext,
+        0,
+      );
+      cipher.doFinal(plaintext, offset);
+
+      return utf8.decode(plaintext);
+    } catch (e) {
+      if (kDebugMode) print('❌ Decryption error: $e');
+      rethrow;
+    }
+  }
+
+  // ========== CHALLENGE/RESPONSE (RSA-SHA256) ==========
+
+  /// Firma un challenge con la chiave privata RSA (SHA-256)
+  String signChallenge(String challenge) {
+    if (_keyPair == null) {
+      throw Exception('Private key not loaded');
+    }
+
+    try {
+      final privateKey = _keyPair!.privateKey as RSAPrivateKey;
+      final signer = RSASigner(SHA256Digest(), '0609608648016503040201');
+      signer.init(true, PrivateKeyParameter<RSAPrivateKey>(privateKey));
+
+      final challengeBytes = utf8.encode(challenge);
+      final signature = signer.generateSignature(challengeBytes);
+
+      return base64Encode(signature.bytes);
+    } catch (e) {
+      if (kDebugMode) print('❌ Signature error: $e');
+      rethrow;
+    }
+  }
+
+  // ========== HELPER METHODS ==========
+
+  Uint8List _generateNonce() {
+    final random = Random.secure();
+    return Uint8List.fromList(List<int>.generate(12, (i) => random.nextInt(256)));
   }
 
   SecureRandom _getSecureRandom() {
@@ -114,91 +222,46 @@ class EncryptionService {
     return secureRandom;
   }
 
+  // ========== ENCODING/DECODING RSA KEYS ==========
+
   String _encodePublicKey(RSAPublicKey publicKey) {
     final modulus = publicKey.modulus!.toRadixString(16);
     final exponent = publicKey.exponent!.toRadixString(16);
-    return base64Encode(utf8.encode('$modulus:$exponent'));
+    final encoded = '$modulus:$exponent';
+    return base64Encode(utf8.encode(encoded));
   }
 
   String _encodePrivateKey(RSAPrivateKey privateKey) {
     final modulus = privateKey.modulus!.toRadixString(16);
     final privateExponent = privateKey.privateExponent!.toRadixString(16);
-    final combined = '$modulus:$privateExponent';
-    final encoded = base64Encode(utf8.encode(combined));
-
-    if (kDebugMode) {
-      print('🔐 Encoding private key:');
-      print('   Modulus length: ${modulus.length}');
-      print('   PrivateExp length: ${privateExponent.length}');
-      print('   Combined length: ${combined.length}');
-      print('   Encoded length: ${encoded.length}');
-      print('   First 50 chars: ${combined.substring(0, combined.length > 50 ? 50 : combined.length)}');
-    }
-
-    return encoded;
+    final encoded = '$modulus:$privateExponent';
+    return base64Encode(utf8.encode(encoded));
   }
 
   RSAPublicKey _decodePublicKey(String encoded) {
-    final parts = utf8.decode(base64Decode(encoded)).split(':');
-    return RSAPublicKey(
-      BigInt.parse(parts[0], radix: 16),
-      BigInt.parse(parts[1], radix: 16),
-    );
+    final decoded = utf8.decode(base64Decode(encoded));
+    final parts = decoded.split(':');
+    final modulus = BigInt.parse(parts[0], radix: 16);
+    final exponent = BigInt.parse(parts[1], radix: 16);
+    return RSAPublicKey(modulus, exponent);
   }
 
   RSAPrivateKey _decodePrivateKey(String encoded) {
     try {
-      // Trim whitespace e rimuovi newlines
+      // Pulisci whitespace
       final cleanEncoded = encoded.trim().replaceAll(RegExp(r'\s+'), '');
-
-      if (cleanEncoded.isEmpty) {
-        throw Exception('Private key is empty');
-      }
 
       if (kDebugMode) {
         print('🔓 Decoding private key:');
         print('   Original length: ${encoded.length}');
         print('   Cleaned length: ${cleanEncoded.length}');
-        print('   First 50 chars: ${cleanEncoded.substring(0, cleanEncoded.length > 50 ? 50 : cleanEncoded.length)}');
       }
 
       final decoded = utf8.decode(base64Decode(cleanEncoded));
-
-      if (kDebugMode) {
-        print('   Decoded length: ${decoded.length}');
-        print('   First 50 chars of decoded: ${decoded.substring(0, decoded.length > 50 ? 50 : decoded.length)}');
-      }
-
       final parts = decoded.split(':');
-
-      if (kDebugMode) {
-        print('   Parts count: ${parts.length}');
-        if (parts.isNotEmpty) {
-          print('   Part[0] length: ${parts[0].length}, first 20 chars: ${parts[0].substring(0, parts[0].length > 20 ? 20 : parts[0].length)}');
-        }
-        if (parts.length > 1) {
-          print('   Part[1] length: ${parts[1].length}, first 20 chars: ${parts[1].substring(0, parts[1].length > 20 ? 20 : parts[1].length)}');
-        }
-      }
-
-      if (parts.length != 2) {
-        throw Exception('Invalid key format: expected 2 parts, got ${parts.length}');
-      }
-
-      if (parts[0].isEmpty || parts[1].isEmpty) {
-        throw Exception('Invalid key format: empty modulus or exponent');
-      }
-
-      if (kDebugMode) {
-        print('   Parsing BigInts...');
-      }
 
       final modulus = BigInt.parse(parts[0], radix: 16);
       final privateExponent = BigInt.parse(parts[1], radix: 16);
-
-      if (kDebugMode) {
-        print('✅ Private key loaded successfully');
-      }
 
       return RSAPrivateKey(modulus, privateExponent, null, null);
     } catch (e, stackTrace) {
