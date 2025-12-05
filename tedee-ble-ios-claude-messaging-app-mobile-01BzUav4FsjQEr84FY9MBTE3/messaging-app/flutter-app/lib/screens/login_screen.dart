@@ -12,6 +12,7 @@ class LoginScreen extends StatefulWidget {
 class _LoginScreenState extends State<LoginScreen> {
   final _usernameController = TextEditingController();
   final _passwordController = TextEditingController();
+  final _privateKeyController = TextEditingController();
   bool _isLogin = true;
   bool _isLoading = false;
 
@@ -19,6 +20,7 @@ class _LoginScreenState extends State<LoginScreen> {
   void dispose() {
     _usernameController.dispose();
     _passwordController.dispose();
+    _privateKeyController.dispose();
     super.dispose();
   }
 
@@ -30,32 +32,110 @@ class _LoginScreenState extends State<LoginScreen> {
       return;
     }
 
+    if (_isLogin && _privateKeyController.text.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Inserisci la tua chiave privata')),
+      );
+      return;
+    }
+
     setState(() => _isLoading = true);
 
     final authService = Provider.of<AuthService>(context, listen: false);
-    bool success;
 
     if (_isLogin) {
-      success = await authService.login(
+      // Login con chiave privata
+      final success = await authService.login(
         _usernameController.text,
         _passwordController.text,
+        _privateKeyController.text,
       );
+
+      setState(() => _isLoading = false);
+
+      if (!success && mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Login fallito o chiave privata invalida')),
+        );
+      }
     } else {
-      success = await authService.register(
+      // Registrazione - ottieni la chiave privata
+      final privateKey = await authService.register(
         _usernameController.text,
         _passwordController.text,
       );
+
+      setState(() => _isLoading = false);
+
+      if (privateKey != null && mounted) {
+        // Mostra la chiave privata all'utente
+        _showPrivateKeyDialog(privateKey);
+      } else if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Registrazione fallita')),
+        );
+      }
     }
+  }
 
-    setState(() => _isLoading = false);
-
-    if (!success && mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(_isLogin ? 'Login fallito' : 'Registrazione fallita'),
+  void _showPrivateKeyDialog(String privateKey) {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => AlertDialog(
+        title: const Text('⚠️ SALVA LA TUA CHIAVE PRIVATA'),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'Questa è la tua chiave privata. SALVALA in un posto sicuro!',
+                style: TextStyle(fontWeight: FontWeight.bold, color: Colors.red),
+              ),
+              const SizedBox(height: 16),
+              const Text(
+                'Senza questa chiave NON potrai decifrare i tuoi messaggi.',
+                style: TextStyle(fontSize: 12),
+              ),
+              const SizedBox(height: 16),
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  border: Border.all(color: Colors.grey),
+                  borderRadius: BorderRadius.circular(4),
+                  color: Colors.grey[100],
+                ),
+                child: SelectableText(
+                  privateKey,
+                  style: const TextStyle(fontSize: 10, fontFamily: 'monospace'),
+                ),
+              ),
+            ],
+          ),
         ),
-      );
-    }
+        actions: [
+          TextButton(
+            onPressed: () {
+              // Copia negli appunti
+              // TODO: Aggiungi package clipboard se necessario
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('Chiave copiata! (implementare clipboard)')),
+              );
+            },
+            child: const Text('COPIA'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.of(context).pop();
+              // Effettua logout per forzare il login con chiave
+              Provider.of<AuthService>(context, listen: false).logout();
+            },
+            child: const Text('HO SALVATO LA CHIAVE'),
+          ),
+        ],
+      ),
+    );
   }
 
   @override
@@ -104,7 +184,22 @@ class _LoginScreenState extends State<LoginScreen> {
                   ),
                   obscureText: true,
                 ),
-                const SizedBox(height: 24),
+                const SizedBox(height: 16),
+                if (_isLogin) ...[
+                  TextField(
+                    controller: _privateKeyController,
+                    decoration: const InputDecoration(
+                      labelText: 'Chiave Privata',
+                      border: OutlineInputBorder(),
+                      prefixIcon: Icon(Icons.vpn_key),
+                      hintText: 'Incolla la tua chiave privata',
+                    ),
+                    maxLines: 3,
+                    style: const TextStyle(fontSize: 10, fontFamily: 'monospace'),
+                  ),
+                  const SizedBox(height: 8),
+                ],
+                const SizedBox(height: 16),
                 SizedBox(
                   width: double.infinity,
                   height: 50,
