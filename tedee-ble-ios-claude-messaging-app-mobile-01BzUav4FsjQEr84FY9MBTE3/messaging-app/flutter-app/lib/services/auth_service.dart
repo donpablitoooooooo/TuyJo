@@ -60,8 +60,8 @@ class AuthService extends ChangeNotifier {
     }
   }
 
-  // Registrazione - restituisce la chiave privata da mostrare all'utente
-  Future<String?> register(String username, String password) async {
+  // Registrazione - solo username, genera chiavi e restituisce la privata
+  Future<String?> register(String username) async {
     try {
       if (kDebugMode) print('🔐 Inizio registrazione per: $username');
 
@@ -76,7 +76,6 @@ class AuthService extends ChangeNotifier {
         headers: {'Content-Type': 'application/json'},
         body: json.encode({
           'username': username,
-          'password': password,
           'publicKey': keyPair['publicKey'],
         }),
       );
@@ -115,15 +114,14 @@ class AuthService extends ChangeNotifier {
     }
   }
 
-  // Login con chiave privata manuale
-  Future<bool> login(String username, String password, String privateKey) async {
+  // Login - solo username e chiave privata
+  Future<bool> login(String username, String privateKey) async {
     try {
       final response = await http.post(
         Uri.parse('$baseUrl/api/auth/login'),
         headers: {'Content-Type': 'application/json'},
         body: json.encode({
           'username': username,
-          'password': password,
         }),
       );
 
