@@ -42,9 +42,14 @@ class AuthService extends ChangeNotifier {
   // Registrazione
   Future<bool> register(String username, String password) async {
     try {
-      // Genera coppia di chiavi RSA
-      final keyPair = await _encryptionService.generateKeyPair();
+      if (kDebugMode) print('🔐 Inizio registrazione per: $username');
 
+      // Genera coppia di chiavi RSA
+      if (kDebugMode) print('🔑 Generazione chiavi RSA...');
+      final keyPair = await _encryptionService.generateKeyPair();
+      if (kDebugMode) print('✅ Chiavi RSA generate con successo');
+
+      if (kDebugMode) print('📡 Invio richiesta di registrazione al server...');
       final response = await http.post(
         Uri.parse('$baseUrl/api/auth/register'),
         headers: {'Content-Type': 'application/json'},
@@ -54,6 +59,11 @@ class AuthService extends ChangeNotifier {
           'publicKey': keyPair['publicKey'],
         }),
       );
+
+      if (kDebugMode) {
+        print('📥 Risposta server: ${response.statusCode}');
+        print('📄 Body: ${response.body}');
+      }
 
       if (response.statusCode == 201) {
         final data = json.decode(response.body);
@@ -66,12 +76,18 @@ class AuthService extends ChangeNotifier {
         await _storage.write(key: 'user', value: json.encode(_currentUser!.toJson()));
         await _storage.write(key: 'private_key', value: keyPair['privateKey']!);
 
+        if (kDebugMode) print('✅ Registrazione completata con successo!');
         notifyListeners();
         return true;
       }
+
+      if (kDebugMode) print('❌ Registrazione fallita: status ${response.statusCode}');
       return false;
-    } catch (e) {
-      if (kDebugMode) print('Register error: $e');
+    } catch (e, stackTrace) {
+      if (kDebugMode) {
+        print('❌ Errore registrazione: $e');
+        print('📍 Stack trace: $stackTrace');
+      }
       return false;
     }
   }
