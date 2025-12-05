@@ -4,13 +4,12 @@ const { v4: uuidv4 } = require('uuid');
 const USERS_COLLECTION = 'users';
 
 class UserService {
-  // Crea un nuovo utente
-  async createUser({ username, password, publicKey }) {
+  // Crea un nuovo utente (solo username e publicKey - niente password!)
+  async createUser({ username, publicKey }) {
     const userId = uuidv4();
     const user = {
       id: userId,
       username,
-      password,
       publicKey,
       fcmToken: null,
       createdAt: new Date().toISOString(),

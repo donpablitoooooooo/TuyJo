@@ -1,17 +1,16 @@
 const express = require('express');
-const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const userService = require('../services/userService');
 
 const router = express.Router();
 
-// Register
+// Register - solo username e publicKey
 router.post('/register', async (req, res) => {
   try {
-    const { username, password, publicKey } = req.body;
+    const { username, publicKey } = req.body;
 
-    if (!username || !password || !publicKey) {
-      return res.status(400).json({ error: 'Username, password and publicKey are required' });
+    if (!username || !publicKey) {
+      return res.status(400).json({ error: 'Username and publicKey are required' });
     }
 
     // Check if user already exists
@@ -20,13 +19,9 @@ router.post('/register', async (req, res) => {
       return res.status(400).json({ error: 'Username already exists' });
     }
 
-    // Hash password
-    const hashedPassword = await bcrypt.hash(password, 10);
-
-    // Create user
+    // Create user (senza password!)
     const user = await userService.createUser({
       username,
-      password: hashedPassword,
       publicKey,
     });
 
@@ -61,25 +56,19 @@ router.post('/register', async (req, res) => {
   }
 });
 
-// Login
+// Login - solo username (la chiave privata è lato client)
 router.post('/login', async (req, res) => {
   try {
-    const { username, password } = req.body;
+    const { username } = req.body;
 
-    if (!username || !password) {
-      return res.status(400).json({ error: 'Username and password are required' });
+    if (!username) {
+      return res.status(400).json({ error: 'Username is required' });
     }
 
     // Get user
     const user = await userService.getUserByUsername(username);
     if (!user) {
-      return res.status(401).json({ error: 'Invalid credentials' });
-    }
-
-    // Check password
-    const isValidPassword = await bcrypt.compare(password, user.password);
-    if (!isValidPassword) {
-      return res.status(401).json({ error: 'Invalid credentials' });
+      return res.status(401).json({ error: 'User not found' });
     }
 
     // Generate JWT
