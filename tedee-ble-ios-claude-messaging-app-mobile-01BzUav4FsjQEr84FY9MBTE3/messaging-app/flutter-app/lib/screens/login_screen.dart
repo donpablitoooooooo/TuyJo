@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import '../services/auth_service.dart';
 
@@ -74,6 +75,20 @@ class _LoginScreenState extends State<LoginScreen> {
     }
   }
 
+  Future<void> _pasteFromClipboard() async {
+    final data = await Clipboard.getData(Clipboard.kTextPlain);
+    if (data?.text != null) {
+      setState(() {
+        _privateKeyController.text = data!.text!;
+      });
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Chiave privata incollata!')),
+        );
+      }
+    }
+  }
+
   void _showPrivateKeyDialog(String privateKey) {
     showDialog(
       context: context,
@@ -112,12 +127,17 @@ class _LoginScreenState extends State<LoginScreen> {
         ),
         actions: [
           TextButton(
-            onPressed: () {
-              // Copia negli appunti
-              // TODO: Aggiungi package clipboard se necessario
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Chiave copiata! (implementare clipboard)')),
-              );
+            onPressed: () async {
+              // Copia la chiave privata negli appunti
+              await Clipboard.setData(ClipboardData(text: privateKey));
+              if (context.mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('✅ Chiave privata copiata negli appunti!'),
+                    duration: Duration(seconds: 2),
+                  ),
+                );
+              }
             },
             child: const Text('COPIA'),
           ),
@@ -175,11 +195,16 @@ class _LoginScreenState extends State<LoginScreen> {
                 if (_isLogin) ...[
                   TextField(
                     controller: _privateKeyController,
-                    decoration: const InputDecoration(
+                    decoration: InputDecoration(
                       labelText: 'Chiave Privata',
-                      border: OutlineInputBorder(),
-                      prefixIcon: Icon(Icons.vpn_key),
+                      border: const OutlineInputBorder(),
+                      prefixIcon: const Icon(Icons.vpn_key),
                       hintText: 'Incolla la tua chiave privata',
+                      suffixIcon: IconButton(
+                        icon: const Icon(Icons.content_paste),
+                        onPressed: _pasteFromClipboard,
+                        tooltip: 'Incolla da clipboard',
+                      ),
                     ),
                     maxLines: 3,
                     style: const TextStyle(fontSize: 10, fontFamily: 'monospace'),
