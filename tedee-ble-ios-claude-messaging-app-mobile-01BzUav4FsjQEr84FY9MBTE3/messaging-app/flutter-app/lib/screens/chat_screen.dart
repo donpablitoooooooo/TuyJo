@@ -112,10 +112,19 @@ class _ChatScreenState extends State<ChatScreen> {
                 final message = chatService.messages[index];
                 final isMe = message.senderId == authService.currentUser!.id;
 
-                // Se abbiamo il testo in chiaro (messaggio inviato da noi), usalo
-                // Altrimenti decifra il messaggio (messaggio ricevuto)
-                final decryptedContent = message.plainContent ??
-                    chatService.decryptMessage(message.encryptedContent);
+                // Determina il contenuto da mostrare
+                String decryptedContent;
+                if (message.plainContent != null) {
+                  // Messaggio locale con plainContent (appena inviato)
+                  decryptedContent = message.plainContent!;
+                } else if (isMe) {
+                  // Messaggio inviato da noi, caricato dal server
+                  // Non possiamo decifrarlo (è criptato con la chiave del destinatario)
+                  decryptedContent = '[Messaggio inviato]';
+                } else {
+                  // Messaggio ricevuto - decifra con la nostra chiave privata
+                  decryptedContent = chatService.decryptMessage(message.encryptedContent);
+                }
 
                 return _MessageBubble(
                   message: decryptedContent,
