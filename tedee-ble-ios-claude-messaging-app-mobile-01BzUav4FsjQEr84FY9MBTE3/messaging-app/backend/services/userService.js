@@ -1,5 +1,5 @@
 const { db } = require('./database');
-const { v4: uuidv4 } = require('crypto');
+const { v4: uuidv4 } = require('uuid');
 
 const USERS_COLLECTION = 'users';
 
