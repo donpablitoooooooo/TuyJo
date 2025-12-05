@@ -27,23 +27,28 @@ class AuthService extends ChangeNotifier {
         final userJson = await _storage.read(key: 'user');
         if (userJson != null) {
           _currentUser = User.fromJson(json.decode(userJson));
-          _isAuthenticated = true;
 
-          // Carica la chiave privata
+          // Carica la chiave privata se presente (da sessione precedente)
           final privateKey = await _storage.read(key: 'private_key');
           if (privateKey != null) {
             try {
               _encryptionService.loadPrivateKey(privateKey);
-              if (kDebugMode) print('✅ Chiave privata caricata con successo');
+              _isAuthenticated = true;
+              if (kDebugMode) print('✅ Sessione ripristinata con chiave privata');
             } catch (e) {
               if (kDebugMode) {
-                print('❌ Errore caricamento chiave privata durante init: $e');
-                print('💡 Cancello i dati corrotti e richiedo nuova registrazione');
+                print('❌ Chiave privata corrotta: $e');
+                print('💡 Richiesta nuova autenticazione con chiave valida');
               }
-              // Chiave corrotta - cancella tutto
+              // Chiave corrotta - cancella tutto e richiedi login
               await logout();
               return;
             }
+          } else {
+            // Token valido ma nessuna chiave privata - richiedi login con chiave
+            if (kDebugMode) print('⚠️ Sessione incompleta - manca chiave privata');
+            await logout();
+            return;
           }
 
           notifyListeners();
@@ -51,13 +56,12 @@ class AuthService extends ChangeNotifier {
       }
     } catch (e) {
       if (kDebugMode) print('❌ Errore durante initialize: $e');
-      // In caso di errore, pulisci tutto
       await logout();
     }
   }
 
-  // Registrazione
-  Future<bool> register(String username, String password) async {
+  // Registrazione - restituisce la chiave privata da mostrare all'utente
+  Future<String?> register(String username, String password) async {
     try {
       if (kDebugMode) print('🔐 Inizio registrazione per: $username');
 
@@ -88,29 +92,31 @@ class AuthService extends ChangeNotifier {
         _currentUser = User.fromJson(data['user']);
         _isAuthenticated = true;
 
-        // Salva token, user e chiave privata
+        // Salva token e user (MA NON la chiave privata - quella va gestita manualmente!)
         await _storage.write(key: 'jwt_token', value: _token);
         await _storage.write(key: 'user', value: json.encode(_currentUser!.toJson()));
-        await _storage.write(key: 'private_key', value: keyPair['privateKey']!);
 
-        if (kDebugMode) print('✅ Registrazione completata con successo!');
+        if (kDebugMode) print('✅ Registrazione completata - chiave privata da salvare manualmente!');
+
         notifyListeners();
-        return true;
+
+        // Restituisci la chiave privata da mostrare all'utente
+        return keyPair['privateKey'];
       }
 
       if (kDebugMode) print('❌ Registrazione fallita: status ${response.statusCode}');
-      return false;
+      return null;
     } catch (e, stackTrace) {
       if (kDebugMode) {
         print('❌ Errore registrazione: $e');
         print('📍 Stack trace: $stackTrace');
       }
-      return false;
+      return null;
     }
   }
 
-  // Login
-  Future<bool> login(String username, String password) async {
+  // Login con chiave privata manuale
+  Future<bool> login(String username, String password, String privateKey) async {
     try {
       final response = await http.post(
         Uri.parse('$baseUrl/api/auth/login'),
@@ -131,21 +137,20 @@ class AuthService extends ChangeNotifier {
         await _storage.write(key: 'jwt_token', value: _token);
         await _storage.write(key: 'user', value: json.encode(_currentUser!.toJson()));
 
-        // La chiave privata dovrebbe essere già salvata dalla registrazione
-        final privateKey = await _storage.read(key: 'private_key');
-        if (privateKey != null) {
-          try {
-            _encryptionService.loadPrivateKey(privateKey);
-            if (kDebugMode) print('✅ Chiave privata caricata con successo');
-          } catch (e) {
-            if (kDebugMode) {
-              print('❌ Errore caricamento chiave privata: $e');
-              print('💡 La chiave privata è corrotta. Effettua logout e registrati di nuovo.');
-            }
-            // Chiave corrotta - cancella tutto e richiedi nuova registrazione
-            await logout();
-            throw Exception('Chiave privata corrotta. Effettua logout e registrati di nuovo.');
+        // Carica la chiave privata fornita dall'utente
+        try {
+          _encryptionService.loadPrivateKey(privateKey);
+          // Salva la chiave privata per questa sessione
+          await _storage.write(key: 'private_key', value: privateKey);
+          if (kDebugMode) print('✅ Chiave privata caricata e salvata per la sessione');
+        } catch (e) {
+          if (kDebugMode) {
+            print('❌ Errore caricamento chiave privata: $e');
+            print('💡 La chiave privata fornita non è valida');
           }
+          // Chiave invalida - cancella tutto
+          await logout();
+          throw Exception('Chiave privata non valida');
         }
 
         notifyListeners();
