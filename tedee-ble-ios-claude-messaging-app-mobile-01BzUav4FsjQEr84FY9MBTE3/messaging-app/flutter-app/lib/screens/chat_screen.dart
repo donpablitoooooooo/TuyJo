@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
+import 'dart:convert';
 import '../services/auth_service.dart';
 import '../services/chat_service.dart';
+import '../services/pairing_service.dart';
 import '../models/message.dart';
 
 class ChatScreen extends StatefulWidget {
@@ -14,7 +16,8 @@ class ChatScreen extends StatefulWidget {
 
 class _ChatScreenState extends State<ChatScreen> {
   final _messageController = TextEditingController();
-  User? _partner;
+  String? _partnerPublicKey;
+  String? _kFamily;
   bool _isLoading = true;
 
   @override
@@ -26,15 +29,14 @@ class _ChatScreenState extends State<ChatScreen> {
   Future<void> _initialize() async {
     final authService = Provider.of<AuthService>(context, listen: false);
     final chatService = Provider.of<ChatService>(context, listen: false);
+    final pairingService = Provider.of<PairingService>(context, listen: false);
 
-    // Connetti al server di chat
-    chatService.connect(authService.token!, authService.currentUser!.id);
+    // Ottieni K_family e chiave pubblica del partner
+    _kFamily = await pairingService.getFamilyKey();
+    _partnerPublicKey = await pairingService.getPartnerPublicKey();
 
-    // Carica i messaggi
-    await chatService.loadMessages(authService.token!);
-
-    // Ottieni il partner
-    _partner = await authService.getPartner();
+    // Avvia il listener Firestore per i messaggi in arrivo
+    chatService.startListening(authService.currentUser!.id);
 
     setState(() => _isLoading = false);
   }
@@ -42,23 +44,32 @@ class _ChatScreenState extends State<ChatScreen> {
   @override
   void dispose() {
     _messageController.dispose();
+    final chatService = Provider.of<ChatService>(context, listen: false);
+    chatService.stopListening();
     super.dispose();
   }
 
-  void _sendMessage() {
-    if (_messageController.text.trim().isEmpty || _partner == null) return;
+  void _sendMessage() async {
+    if (_messageController.text.trim().isEmpty || _partnerPublicKey == null || _kFamily == null) return;
 
     final authService = Provider.of<AuthService>(context, listen: false);
     final chatService = Provider.of<ChatService>(context, listen: false);
 
-    chatService.sendMessage(
+    final success = await chatService.sendMessage(
       _messageController.text.trim(),
-      _partner!.id,
-      _partner!.publicKey,
       authService.currentUser!.id,
+      _partnerPublicKey!,
+      authService.token!,
+      _kFamily!,
     );
 
-    _messageController.clear();
+    if (success) {
+      _messageController.clear();
+    } else if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Errore nell\'invio del messaggio')),
+      );
+    }
   }
 
   @override
@@ -74,19 +85,19 @@ class _ChatScreenState extends State<ChatScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(_partner?.username ?? 'Chat'),
+        title: const Text('Family Chat'),
         actions: [
           IconButton(
             icon: Icon(
-              chatService.isConnected ? Icons.cloud_done : Icons.cloud_off,
-              color: chatService.isConnected ? Colors.green : Colors.red,
+              _kFamily != null ? Icons.lock : Icons.lock_open,
+              color: _kFamily != null ? Colors.green : Colors.orange,
             ),
             onPressed: () {},
           ),
           IconButton(
             icon: const Icon(Icons.logout),
             onPressed: () async {
-              chatService.disconnect();
+              chatService.stopListening();
               await authService.logout();
             },
           ),
@@ -95,25 +106,71 @@ class _ChatScreenState extends State<ChatScreen> {
       body: Column(
         children: [
           Expanded(
-            child: ListView.builder(
-              padding: const EdgeInsets.all(16),
-              itemCount: chatService.messages.length,
-              itemBuilder: (context, index) {
-                final message = chatService.messages[index];
-                final isMe = message.senderId == authService.currentUser!.id;
-                final decryptedContent = chatService.decryptMessage(
-                  message.encryptedContent,
-                );
+            child: chatService.messages.isEmpty
+                ? Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(
+                          Icons.chat_bubble_outline,
+                          size: 80,
+                          color: Colors.grey[400],
+                        ),
+                        const SizedBox(height: 16),
+                        Text(
+                          'Nessun messaggio',
+                          style: TextStyle(
+                            fontSize: 18,
+                            color: Colors.grey[600],
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          'Invia il primo messaggio crittografato!',
+                          style: TextStyle(
+                            fontSize: 14,
+                            color: Colors.grey[500],
+                          ),
+                        ),
+                      ],
+                    ),
+                  )
+                : ListView.builder(
+                    padding: const EdgeInsets.all(16),
+                    itemCount: chatService.messages.length,
+                    itemBuilder: (context, index) {
+                      final message = chatService.messages[index];
 
-                return _MessageBubble(
-                  message: decryptedContent,
-                  timestamp: message.timestamp,
-                  isMe: isMe,
-                  isDelivered: message.isDelivered,
-                  isRead: message.isRead,
-                );
-              },
-            ),
+                      // Decripta il messaggio
+                      String? decryptedContent;
+                      bool isMe = false;
+
+                      try {
+                        if (_kFamily != null) {
+                          decryptedContent = chatService.decryptMessage(
+                            message.ciphertext,
+                            message.nonce,
+                            message.tag,
+                            _kFamily!,
+                          );
+
+                          // Estrai il sender dal JSON decriptato
+                          final payload = json.decode(decryptedContent);
+                          final senderId = payload['sender'] as String?;
+                          isMe = senderId == authService.currentUser!.id;
+                          decryptedContent = payload['body'] as String? ?? '';
+                        }
+                      } catch (e) {
+                        decryptedContent = '[Errore decrittazione]';
+                      }
+
+                      return _MessageBubble(
+                        message: decryptedContent ?? '[Messaggio crittografato]',
+                        timestamp: message.timestamp,
+                        isMe: isMe,
+                      );
+                    },
+                  ),
           ),
           Container(
             padding: const EdgeInsets.all(8),
@@ -141,6 +198,7 @@ class _ChatScreenState extends State<ChatScreen> {
                       ),
                     ),
                     maxLines: null,
+                    onSubmitted: (_) => _sendMessage(),
                   ),
                 ),
                 const SizedBox(width: 8),
@@ -162,15 +220,11 @@ class _MessageBubble extends StatelessWidget {
   final String message;
   final DateTime timestamp;
   final bool isMe;
-  final bool isDelivered;
-  final bool isRead;
 
   const _MessageBubble({
     required this.message,
     required this.timestamp,
     required this.isMe,
-    required this.isDelivered,
-    required this.isRead,
   });
 
   @override
@@ -199,29 +253,12 @@ class _MessageBubble extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 4),
-            Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  DateFormat('HH:mm').format(timestamp),
-                  style: TextStyle(
-                    fontSize: 10,
-                    color: isMe ? Colors.white70 : Colors.black54,
-                  ),
-                ),
-                if (isMe) ...[
-                  const SizedBox(width: 4),
-                  Icon(
-                    isRead
-                        ? Icons.done_all
-                        : isDelivered
-                            ? Icons.done_all
-                            : Icons.done,
-                    size: 14,
-                    color: isRead ? Colors.blue : Colors.white70,
-                  ),
-                ],
-              ],
+            Text(
+              DateFormat('HH:mm').format(timestamp),
+              style: TextStyle(
+                fontSize: 10,
+                color: isMe ? Colors.white70 : Colors.black54,
+              ),
             ),
           ],
         ),

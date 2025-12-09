@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../services/auth_service.dart';
+import '../services/pairing_service.dart';
+import 'pairing_choice_screen.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -10,50 +12,28 @@ class LoginScreen extends StatefulWidget {
 }
 
 class _LoginScreenState extends State<LoginScreen> {
-  final _usernameController = TextEditingController();
-  final _passwordController = TextEditingController();
-  bool _isLogin = true;
   bool _isLoading = false;
 
-  @override
-  void dispose() {
-    _usernameController.dispose();
-    _passwordController.dispose();
-    super.dispose();
-  }
-
-  Future<void> _submit() async {
-    if (_usernameController.text.isEmpty || _passwordController.text.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Inserisci username e password')),
-      );
-      return;
-    }
-
+  Future<void> _handleStart() async {
     setState(() => _isLoading = true);
 
     final authService = Provider.of<AuthService>(context, listen: false);
-    bool success;
 
-    if (_isLogin) {
-      success = await authService.login(
-        _usernameController.text,
-        _passwordController.text,
-      );
-    } else {
-      success = await authService.register(
-        _usernameController.text,
-        _passwordController.text,
-      );
-    }
+    // Registra nuovo utente (genera chiavi RSA automaticamente)
+    final success = await authService.register();
 
     setState(() => _isLoading = false);
 
-    if (!success && mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(_isLogin ? 'Login fallito' : 'Registrazione fallita'),
+    if (success && mounted) {
+      // Vai alla schermata di pairing
+      Navigator.of(context).pushReplacement(
+        MaterialPageRoute(
+          builder: (context) => const PairingChoiceScreen(),
         ),
+      );
+    } else if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Errore durante la registrazione')),
       );
     }
   }
@@ -68,63 +48,87 @@ class _LoginScreenState extends State<LoginScreen> {
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Icon(
-                  Icons.lock_outline,
-                  size: 80,
-                  color: Theme.of(context).colorScheme.primary,
+                const Icon(
+                  Icons.family_restroom,
+                  size: 100,
+                  color: Colors.blue,
                 ),
                 const SizedBox(height: 40),
                 Text(
-                  'Messaggistica Privata',
-                  style: Theme.of(context).textTheme.headlineMedium,
+                  'Family Chat',
+                  style: Theme.of(context).textTheme.headlineLarge?.copyWith(
+                        fontWeight: FontWeight.bold,
+                      ),
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  'Con crittografia end-to-end',
-                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                  'Messaggistica privata con E2EE',
+                  style: Theme.of(context).textTheme.bodyLarge?.copyWith(
                         color: Colors.grey[600],
                       ),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 60),
+                const Card(
+                  child: Padding(
+                    padding: EdgeInsets.all(20.0),
+                    child: Column(
+                      children: [
+                        Icon(Icons.security, size: 40, color: Colors.green),
+                        SizedBox(height: 12),
+                        Text(
+                          'Sicurezza & Privacy',
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        SizedBox(height: 8),
+                        Text(
+                          '• Crittografia end-to-end\n'
+                          '• Chiavi generate sul dispositivo\n'
+                          '• Nessun dato personale salvato',
+                          style: TextStyle(fontSize: 14),
+                        ),
+                      ],
+                    ),
+                  ),
                 ),
                 const SizedBox(height: 40),
-                TextField(
-                  controller: _usernameController,
-                  decoration: const InputDecoration(
-                    labelText: 'Username',
-                    border: OutlineInputBorder(),
-                    prefixIcon: Icon(Icons.person),
-                  ),
-                ),
-                const SizedBox(height: 16),
-                TextField(
-                  controller: _passwordController,
-                  decoration: const InputDecoration(
-                    labelText: 'Password',
-                    border: OutlineInputBorder(),
-                    prefixIcon: Icon(Icons.lock),
-                  ),
-                  obscureText: true,
-                ),
-                const SizedBox(height: 24),
                 SizedBox(
                   width: double.infinity,
-                  height: 50,
-                  child: ElevatedButton(
-                    onPressed: _isLoading ? null : _submit,
-                    child: _isLoading
-                        ? const CircularProgressIndicator()
-                        : Text(_isLogin ? 'Accedi' : 'Registrati'),
+                  height: 56,
+                  child: ElevatedButton.icon(
+                    onPressed: _isLoading ? null : _handleStart,
+                    icon: _isLoading
+                        ? const SizedBox(
+                            width: 20,
+                            height: 20,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              valueColor:
+                                  AlwaysStoppedAnimation<Color>(Colors.white),
+                            ),
+                          )
+                        : const Icon(Icons.arrow_forward),
+                    label: Text(
+                      _isLoading ? 'Configurazione...' : 'Inizia',
+                      style: const TextStyle(fontSize: 18),
+                    ),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.blue,
+                      foregroundColor: Colors.white,
+                    ),
                   ),
                 ),
-                const SizedBox(height: 16),
-                TextButton(
-                  onPressed: () {
-                    setState(() => _isLogin = !_isLogin);
-                  },
-                  child: Text(
-                    _isLogin
-                        ? 'Non hai un account? Registrati'
-                        : 'Hai già un account? Accedi',
+                const SizedBox(height: 20),
+                Text(
+                  'Generando le chiavi crittografiche...',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: Colors.grey[500],
                   ),
+                  textAlign: TextAlign.center,
                 ),
               ],
             ),
