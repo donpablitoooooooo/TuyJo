@@ -37,6 +37,10 @@ dependencies:
   intl: ^0.18.1
   uuid: ^4.2.2
 
+  # QR Code
+  qr_flutter: ^4.1.0
+  mobile_scanner: ^3.5.2
+
 dev_dependencies:
   flutter_test:
     sdk: flutter

@@ -95,25 +95,27 @@ class ChatService extends ChangeNotifier {
     }
   }
 
-  // Invia un messaggio cifrato
+  // Invia un messaggio cifrato con K_family
   Future<bool> sendMessage(
     String content,
+    String senderId,
     String recipientId,
     String backendToken,
+    String kFamilyBase64,
   ) async {
     try {
       // Costruisci il plaintext con sender, timestamp, type, body
       final plaintext = json.encode({
-        'sender': recipientId, // TODO: usare senderId attuale
+        'sender': senderId,
         'timestamp': DateTime.now().millisecondsSinceEpoch ~/ 1000,
         'type': 'text',
         'body': content,
       });
 
-      // Cifra con K_family (per ora usa encryption_service)
-      // TODO: Implementare cifra con K_family invece di chiave pubblica
-      final encrypted = _encryptionService.encryptMessageWithSharedKey(
+      // Cifra con K_family usando AES-GCM
+      final encrypted = _encryptionService.encryptWithFamilyKey(
         plaintext,
+        kFamilyBase64,
       );
 
       // Invia al backend
@@ -144,14 +146,15 @@ class ChatService extends ChangeNotifier {
     }
   }
 
-  // Decripta un messaggio
-  String decryptMessage(Message message) {
+  // Decripta un messaggio con K_family
+  String decryptMessage(Message message, String kFamilyBase64) {
     try {
-      // TODO: Implementare decifra con K_family
-      final plaintext = _encryptionService.decryptMessageWithSharedKey(
+      // Decifra con K_family usando AES-GCM
+      final plaintext = _encryptionService.decryptWithFamilyKey(
         message.ciphertext,
         message.nonce,
         message.tag,
+        kFamilyBase64,
       );
 
       // Parse del plaintext JSON
