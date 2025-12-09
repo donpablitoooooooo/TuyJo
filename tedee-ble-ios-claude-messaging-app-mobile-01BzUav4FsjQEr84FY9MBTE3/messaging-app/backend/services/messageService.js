@@ -1,73 +1,98 @@
 const { db } = require('./database');
-const { v4: uuidv4 } = require('crypto');
+const { v4: uuidv4 } = require('uuid');
 
-const MESSAGES_COLLECTION = 'messages';
+const USERS_COLLECTION = 'users';
+const INBOX_COLLECTION = 'inbox';
 
 class MessageService {
-  // Salva un nuovo messaggio
-  async saveMessage({ senderId, receiverId, encryptedContent }) {
+  /**
+   * Salva un nuovo messaggio cifrato nell'inbox del destinatario
+   * Struttura: users/{recipientId}/inbox/{messageId}
+   * @param {string} recipientId - ID dell'utente destinatario
+   * @param {string} ciphertext - Testo cifrato in base64
+   * @param {string} nonce - Nonce in base64
+   * @param {string} tag - Tag di autenticazione in base64
+   * @returns {object} - Il messaggio salvato
+   */
+  async saveMessage({ recipientId, ciphertext, nonce, tag }) {
     const messageId = uuidv4();
     const message = {
-      id: messageId,
-      senderId,
-      receiverId,
-      encryptedContent,
-      timestamp: new Date().toISOString(),
-      isDelivered: false,
-      isRead: false,
+      ciphertext,
+      nonce,
+      tag,
+      created_at: Date.now(),
     };
 
-    await db.collection(MESSAGES_COLLECTION).doc(messageId).set(message);
-    return message;
+    // Salva in users/{recipientId}/inbox/{messageId}
+    await db
+      .collection(USERS_COLLECTION)
+      .doc(recipientId)
+      .collection(INBOX_COLLECTION)
+      .doc(messageId)
+      .set(message);
+
+    return {
+      id: messageId,
+      recipient_id: recipientId,
+      ...message,
+    };
   }
 
-  // Ottieni tutti i messaggi per un utente
-  async getMessagesForUser(userId) {
-    const sentSnapshot = await db
-      .collection(MESSAGES_COLLECTION)
-      .where('senderId', '==', userId)
+  /**
+   * Ottieni tutti i messaggi dall'inbox di un utente
+   * @param {string} userId - ID dell'utente
+   * @returns {Array} - Lista di messaggi
+   */
+  async getInboxMessages(userId) {
+    const snapshot = await db
+      .collection(USERS_COLLECTION)
+      .doc(userId)
+      .collection(INBOX_COLLECTION)
+      .orderBy('created_at', 'asc')
       .get();
 
-    const receivedSnapshot = await db
-      .collection(MESSAGES_COLLECTION)
-      .where('receiverId', '==', userId)
-      .get();
-
-    const messages = [
-      ...sentSnapshot.docs.map((doc) => doc.data()),
-      ...receivedSnapshot.docs.map((doc) => doc.data()),
-    ];
-
-    // Ordina per timestamp
-    messages.sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
-
-    return messages;
+    return snapshot.docs.map((doc) => ({
+      id: doc.id,
+      ...doc.data(),
+    }));
   }
 
-  // Ottieni un messaggio per ID
-  async getMessageById(messageId) {
-    const doc = await db.collection(MESSAGES_COLLECTION).doc(messageId).get();
+  /**
+   * Ottieni un singolo messaggio dall'inbox
+   * @param {string} userId - ID dell'utente proprietario dell'inbox
+   * @param {string} messageId - ID del messaggio
+   * @returns {object|null} - Il messaggio o null
+   */
+  async getMessageById(userId, messageId) {
+    const doc = await db
+      .collection(USERS_COLLECTION)
+      .doc(userId)
+      .collection(INBOX_COLLECTION)
+      .doc(messageId)
+      .get();
 
     if (!doc.exists) {
       return null;
     }
 
-    return doc.data();
+    return {
+      id: doc.id,
+      ...doc.data(),
+    };
   }
 
-  // Marca un messaggio come consegnato
-  async markAsDelivered(messageId) {
-    await db.collection(MESSAGES_COLLECTION).doc(messageId).update({
-      isDelivered: true,
-    });
-  }
-
-  // Marca un messaggio come letto
-  async markAsRead(messageId) {
-    await db.collection(MESSAGES_COLLECTION).doc(messageId).update({
-      isRead: true,
-      readAt: new Date().toISOString(),
-    });
+  /**
+   * Elimina un messaggio dall'inbox
+   * @param {string} userId - ID dell'utente proprietario dell'inbox
+   * @param {string} messageId - ID del messaggio
+   */
+  async deleteMessage(userId, messageId) {
+    await db
+      .collection(USERS_COLLECTION)
+      .doc(userId)
+      .collection(INBOX_COLLECTION)
+      .doc(messageId)
+      .delete();
   }
 }
 

@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:firebase_auth/firebase_auth.dart' as firebase_auth;
 import '../models/message.dart';
 import 'encryption_service.dart';
 
@@ -9,19 +10,22 @@ class AuthService extends ChangeNotifier {
   static const String baseUrl = 'https://private-messaging-backend-668509120760.europe-west1.run.app';
   final _storage = const FlutterSecureStorage();
   final _encryptionService = EncryptionService();
+  final _firebaseAuth = firebase_auth.FirebaseAuth.instance;
 
   User? _currentUser;
-  String? _token;
+  String? _backendToken;
   bool _isAuthenticated = false;
 
   User? get currentUser => _currentUser;
-  String? get token => _token;
+  String? get backendToken => _backendToken;
+  String? get token => _backendToken; // Compatibilità backward
   bool get isAuthenticated => _isAuthenticated;
+  String? get firebaseUid => _firebaseAuth.currentUser?.uid;
 
   // Inizializza il servizio controllando se c'è già un token salvato
   Future<void> initialize() async {
-    _token = await _storage.read(key: 'jwt_token');
-    if (_token != null) {
+    _backendToken = await _storage.read(key: 'backend_token');
+    if (_backendToken != null) {
       final userJson = await _storage.read(key: 'user');
       if (userJson != null) {
         _currentUser = User.fromJson(json.decode(userJson));
@@ -33,37 +37,59 @@ class AuthService extends ChangeNotifier {
           _encryptionService.loadPrivateKey(privateKey);
         }
 
+        // Verifica se Firebase è autenticato
+        if (_firebaseAuth.currentUser == null) {
+          // Se non è autenticato, prova a rifare il login
+          await _reAuthenticateFirebase();
+        }
+
         notifyListeners();
       }
     }
   }
 
-  // Registrazione
-  Future<bool> register(String username, String password) async {
+  // Re-autentica Firebase se la sessione è scaduta
+  Future<void> _reAuthenticateFirebase() async {
+    try {
+      final publicKey = await _storage.read(key: 'public_key');
+      if (publicKey != null) {
+        await login(publicKey);
+      }
+    } catch (e) {
+      if (kDebugMode) print('Firebase re-authentication failed: $e');
+    }
+  }
+
+  // Registrazione con chiave pubblica
+  Future<bool> register() async {
     try {
       // Genera coppia di chiavi RSA
       final keyPair = await _encryptionService.generateKeyPair();
+      final publicKey = keyPair['publicKey']!;
 
       final response = await http.post(
         Uri.parse('$baseUrl/api/auth/register'),
         headers: {'Content-Type': 'application/json'},
         body: json.encode({
-          'username': username,
-          'password': password,
-          'publicKey': keyPair['publicKey'],
+          'publicKey': publicKey,
         }),
       );
 
       if (response.statusCode == 201) {
         final data = json.decode(response.body);
-        _token = data['token'];
+        _backendToken = data['backend_token'];
+        final firebaseToken = data['firebase_token'];
         _currentUser = User.fromJson(data['user']);
+
+        // Autentica a Firebase con Custom Token
+        await _firebaseAuth.signInWithCustomToken(firebaseToken);
         _isAuthenticated = true;
 
-        // Salva token, user e chiave privata
-        await _storage.write(key: 'jwt_token', value: _token);
+        // Salva token, user, chiave privata e pubblica
+        await _storage.write(key: 'backend_token', value: _backendToken);
         await _storage.write(key: 'user', value: json.encode(_currentUser!.toJson()));
         await _storage.write(key: 'private_key', value: keyPair['privateKey']!);
+        await _storage.write(key: 'public_key', value: publicKey);
 
         notifyListeners();
         return true;
@@ -75,29 +101,32 @@ class AuthService extends ChangeNotifier {
     }
   }
 
-  // Login
-  Future<bool> login(String username, String password) async {
+  // Login con chiave pubblica
+  Future<bool> login(String publicKey) async {
     try {
       final response = await http.post(
         Uri.parse('$baseUrl/api/auth/login'),
         headers: {'Content-Type': 'application/json'},
         body: json.encode({
-          'username': username,
-          'password': password,
+          'publicKey': publicKey,
         }),
       );
 
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
-        _token = data['token'];
+        _backendToken = data['backend_token'];
+        final firebaseToken = data['firebase_token'];
         _currentUser = User.fromJson(data['user']);
+
+        // Autentica a Firebase con Custom Token
+        await _firebaseAuth.signInWithCustomToken(firebaseToken);
         _isAuthenticated = true;
 
         // Salva token e user
-        await _storage.write(key: 'jwt_token', value: _token);
+        await _storage.write(key: 'backend_token', value: _backendToken);
         await _storage.write(key: 'user', value: json.encode(_currentUser!.toJson()));
 
-        // La chiave privata dovrebbe essere già salvata dalla registrazione
+        // Carica la chiave privata (dovrebbe essere già salvata dalla registrazione)
         final privateKey = await _storage.read(key: 'private_key');
         if (privateKey != null) {
           _encryptionService.loadPrivateKey(privateKey);
@@ -115,22 +144,47 @@ class AuthService extends ChangeNotifier {
 
   // Logout
   Future<void> logout() async {
-    _token = null;
+    _backendToken = null;
     _currentUser = null;
     _isAuthenticated = false;
+
+    // Logout da Firebase
+    await _firebaseAuth.signOut();
 
     await _storage.deleteAll();
     notifyListeners();
   }
 
-  // Ottieni l'altro utente (il partner)
-  Future<User?> getPartner() async {
+  // Ottieni lista utenti (escluso se stesso)
+  Future<List<User>> getUsers() async {
     try {
       final response = await http.get(
-        Uri.parse('$baseUrl/api/users/partner'),
+        Uri.parse('$baseUrl/api/users'),
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': 'Bearer $_token',
+          'Authorization': 'Bearer $_backendToken',
+        },
+      );
+
+      if (response.statusCode == 200) {
+        final List<dynamic> data = json.decode(response.body);
+        return data.map((u) => User.fromJson(u)).toList();
+      }
+      return [];
+    } catch (e) {
+      if (kDebugMode) print('Get users error: $e');
+      return [];
+    }
+  }
+
+  // Ottieni un utente specifico
+  Future<User?> getUserById(String userId) async {
+    try {
+      final response = await http.get(
+        Uri.parse('$baseUrl/api/users/$userId'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $_backendToken',
         },
       );
 
@@ -139,7 +193,7 @@ class AuthService extends ChangeNotifier {
       }
       return null;
     } catch (e) {
-      if (kDebugMode) print('Get partner error: $e');
+      if (kDebugMode) print('Get user error: $e');
       return null;
     }
   }

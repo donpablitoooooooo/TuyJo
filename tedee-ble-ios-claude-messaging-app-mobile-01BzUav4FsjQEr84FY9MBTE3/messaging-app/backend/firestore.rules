@@ -1,0 +1,27 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Documento utente
+    // Path: users/{userId}
+    match /users/{userId} {
+      // L'utente può leggere SOLO il proprio documento
+      allow read: if request.auth != null && request.auth.uid == userId;
+
+      // Le scritture (create, update, delete) vengono gestite dal backend
+      // tramite Firebase Admin SDK che bypassa queste regole
+      allow write: if false;
+    }
+
+    // Inbox dei messaggi
+    // Path: users/{userId}/inbox/{messageId}
+    match /users/{userId}/inbox/{messageId} {
+      // L'utente può leggere SOLO i propri messaggi
+      allow read: if request.auth != null && request.auth.uid == userId;
+
+      // Le scritture vengono fatte dal backend Node tramite Admin SDK
+      // I client NON possono scrivere direttamente nell'inbox altrui
+      allow write: if false;
+    }
+  }
+}

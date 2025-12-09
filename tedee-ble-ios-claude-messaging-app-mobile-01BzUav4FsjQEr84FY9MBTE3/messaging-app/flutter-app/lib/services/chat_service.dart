@@ -1,91 +1,76 @@
 import 'dart:convert';
+import 'dart:async';
 import 'package:flutter/foundation.dart';
-import 'package:socket_io_client/socket_io_client.dart' as IO;
 import 'package:http/http.dart' as http;
+import 'package:cloud_firestore/cloud_firestore.dart';
 import '../models/message.dart';
-import 'auth_service.dart';
 import 'encryption_service.dart';
 
 class ChatService extends ChangeNotifier {
   static const String baseUrl = 'https://private-messaging-backend-668509120760.europe-west1.run.app';
-  IO.Socket? _socket;
+  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final List<Message> _messages = [];
   final EncryptionService _encryptionService = EncryptionService();
+  StreamSubscription<QuerySnapshot>? _inboxSubscription;
 
   List<Message> get messages => _messages;
-  bool get isConnected => _socket?.connected ?? false;
+  bool get isConnected => _inboxSubscription != null;
 
-  // Connetti al server Socket.io
-  void connect(String token, String userId) {
-    _socket = IO.io(
-      baseUrl,
-      IO.OptionBuilder()
-          .setTransports(['websocket'])
-          .setAuth({'token': token})
-          .enableAutoConnect()
-          .build(),
+  // Connetti al Firestore listener per l'inbox dell'utente
+  void startListening(String userId) {
+    if (_inboxSubscription != null) {
+      if (kDebugMode) print('Already listening to inbox');
+      return;
+    }
+
+    if (kDebugMode) print('Starting Firestore listener for user: $userId');
+
+    // Ascolta i messaggi nella propria inbox
+    _inboxSubscription = _firestore
+        .collection('users')
+        .doc(userId)
+        .collection('inbox')
+        .orderBy('created_at', descending: false)
+        .snapshots()
+        .listen(
+      (snapshot) {
+        for (var change in snapshot.docChanges) {
+          if (change.type == DocumentChangeType.added) {
+            final message = Message.fromFirestore(
+              change.doc.id,
+              change.doc.data()!,
+            );
+
+            // Aggiungi solo se non esiste già
+            if (!_messages.any((m) => m.id == message.id)) {
+              _messages.add(message);
+              _messages.sort((a, b) => a.timestamp.compareTo(b.timestamp));
+
+              if (kDebugMode) {
+                print('New message received: ${message.id}');
+              }
+            }
+          }
+        }
+        notifyListeners();
+      },
+      onError: (error) {
+        if (kDebugMode) print('Firestore listener error: $error');
+      },
     );
 
-    _socket!.on('connect', (_) {
-      if (kDebugMode) print('Connected to chat server');
-      notifyListeners();
-    });
-
-    _socket!.on('disconnect', (_) {
-      if (kDebugMode) print('Disconnected from chat server');
-      notifyListeners();
-    });
-
-    _socket!.on('new_message', (data) {
-      final message = Message.fromJson(data);
-      _messages.add(message);
-      _messages.sort((a, b) => a.timestamp.compareTo(b.timestamp));
-      notifyListeners();
-    });
-
-    _socket!.on('message_delivered', (data) {
-      final messageId = data['messageId'];
-      final index = _messages.indexWhere((m) => m.id == messageId);
-      if (index != -1) {
-        _messages[index] = Message(
-          id: _messages[index].id,
-          senderId: _messages[index].senderId,
-          receiverId: _messages[index].receiverId,
-          encryptedContent: _messages[index].encryptedContent,
-          timestamp: _messages[index].timestamp,
-          isDelivered: true,
-          isRead: _messages[index].isRead,
-        );
-        notifyListeners();
-      }
-    });
-
-    _socket!.on('message_read', (data) {
-      final messageId = data['messageId'];
-      final index = _messages.indexWhere((m) => m.id == messageId);
-      if (index != -1) {
-        _messages[index] = Message(
-          id: _messages[index].id,
-          senderId: _messages[index].senderId,
-          receiverId: _messages[index].receiverId,
-          encryptedContent: _messages[index].encryptedContent,
-          timestamp: _messages[index].timestamp,
-          isDelivered: _messages[index].isDelivered,
-          isRead: true,
-        );
-        notifyListeners();
-      }
-    });
+    notifyListeners();
   }
 
-  // Disconnetti dal server
-  void disconnect() {
-    _socket?.disconnect();
-    _socket?.dispose();
-    _socket = null;
+  // Disconnetti dal listener
+  void stopListening() {
+    _inboxSubscription?.cancel();
+    _inboxSubscription = null;
+    if (kDebugMode) print('Stopped listening to inbox');
+    notifyListeners();
   }
 
-  // Carica la cronologia dei messaggi
+  // Carica la cronologia dei messaggi dall'API (per retrocompatibilità)
   Future<void> loadMessages(String token) async {
     try {
       final response = await http.get(
@@ -102,55 +87,91 @@ class ChatService extends ChangeNotifier {
         _messages.addAll(data.map((m) => Message.fromJson(m)).toList());
         _messages.sort((a, b) => a.timestamp.compareTo(b.timestamp));
         notifyListeners();
+
+        if (kDebugMode) print('Loaded ${_messages.length} messages from API');
       }
     } catch (e) {
       if (kDebugMode) print('Load messages error: $e');
     }
   }
 
-  // Invia un messaggio
-  Future<void> sendMessage(
+  // Invia un messaggio cifrato
+  Future<bool> sendMessage(
     String content,
-    String receiverId,
-    String receiverPublicKey,
-    String senderId,
+    String recipientId,
+    String backendToken,
   ) async {
     try {
-      // Cripta il messaggio con la chiave pubblica del destinatario
-      final encryptedContent = _encryptionService.encryptMessage(
-        content,
-        receiverPublicKey,
+      // Costruisci il plaintext con sender, timestamp, type, body
+      final plaintext = json.encode({
+        'sender': recipientId, // TODO: usare senderId attuale
+        'timestamp': DateTime.now().millisecondsSinceEpoch ~/ 1000,
+        'type': 'text',
+        'body': content,
+      });
+
+      // Cifra con K_family (per ora usa encryption_service)
+      // TODO: Implementare cifra con K_family invece di chiave pubblica
+      final encrypted = _encryptionService.encryptMessageWithSharedKey(
+        plaintext,
       );
 
-      final message = {
-        'receiverId': receiverId,
-        'encryptedContent': encryptedContent,
-      };
+      // Invia al backend
+      final response = await http.post(
+        Uri.parse('$baseUrl/api/messages'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $backendToken',
+        },
+        body: json.encode({
+          'recipient_id': recipientId,
+          'ciphertext': encrypted['ciphertext'],
+          'nonce': encrypted['nonce'],
+          'tag': encrypted['tag'],
+        }),
+      );
 
-      _socket?.emit('send_message', message);
+      if (response.statusCode == 201) {
+        if (kDebugMode) print('Message sent successfully');
+        return true;
+      } else {
+        if (kDebugMode) print('Failed to send message: ${response.statusCode}');
+        return false;
+      }
     } catch (e) {
       if (kDebugMode) print('Send message error: $e');
+      return false;
     }
   }
 
   // Decripta un messaggio
-  String decryptMessage(String encryptedContent) {
+  String decryptMessage(Message message) {
     try {
-      return _encryptionService.decryptMessage(encryptedContent);
+      // TODO: Implementare decifra con K_family
+      final plaintext = _encryptionService.decryptMessageWithSharedKey(
+        message.ciphertext,
+        message.nonce,
+        message.tag,
+      );
+
+      // Parse del plaintext JSON
+      final data = json.decode(plaintext);
+      return data['body'] ?? plaintext;
     } catch (e) {
       if (kDebugMode) print('Decrypt error: $e');
       return '[Messaggio non decifrabile]';
     }
   }
 
-  // Marca un messaggio come letto
-  void markAsRead(String messageId) {
-    _socket?.emit('mark_read', {'messageId': messageId});
+  // Pulisci i messaggi
+  void clearMessages() {
+    _messages.clear();
+    notifyListeners();
   }
 
   @override
   void dispose() {
-    disconnect();
+    stopListening();
     super.dispose();
   }
 }

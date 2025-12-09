@@ -1,38 +1,31 @@
 const { db } = require('./database');
-const { v4: uuidv4 } = require('crypto');
+const { generateUserId } = require('../utils/crypto');
 
 const USERS_COLLECTION = 'users';
 
 class UserService {
   // Crea un nuovo utente
-  async createUser({ username, password, publicKey }) {
-    const userId = uuidv4();
+  async createUser({ publicKey }) {
+    // userId = SHA-256(publicKey)
+    const userId = generateUserId(publicKey);
+
     const user = {
-      id: userId,
-      username,
-      password,
-      publicKey,
-      fcmToken: null,
-      createdAt: new Date().toISOString(),
+      public_key: publicKey,
+      created_at: Date.now(),
     };
 
     await db.collection(USERS_COLLECTION).doc(userId).set(user);
-    return user;
+
+    return {
+      id: userId,
+      ...user,
+    };
   }
 
-  // Ottieni utente per username
-  async getUserByUsername(username) {
-    const snapshot = await db
-      .collection(USERS_COLLECTION)
-      .where('username', '==', username)
-      .limit(1)
-      .get();
-
-    if (snapshot.empty) {
-      return null;
-    }
-
-    return snapshot.docs[0].data();
+  // Ottieni utente per chiave pubblica
+  async getUserByPublicKey(publicKey) {
+    const userId = generateUserId(publicKey);
+    return this.getUserById(userId);
   }
 
   // Ottieni utente per ID
@@ -43,29 +36,33 @@ class UserService {
       return null;
     }
 
-    return doc.data();
+    return {
+      id: doc.id,
+      ...doc.data(),
+    };
   }
 
-  // Ottieni il partner (l'altro utente, non quello corrente)
-  async getPartner(currentUserId) {
-    const snapshot = await db
-      .collection(USERS_COLLECTION)
-      .where('id', '!=', currentUserId)
-      .limit(1)
-      .get();
+  // Verifica se un utente esiste
+  async userExists(publicKey) {
+    const userId = generateUserId(publicKey);
+    const doc = await db.collection(USERS_COLLECTION).doc(userId).get();
+    return doc.exists;
+  }
 
-    if (snapshot.empty) {
-      return null;
-    }
-
-    return snapshot.docs[0].data();
+  // Ottieni tutti gli utenti (per test)
+  async getAllUsers() {
+    const snapshot = await db.collection(USERS_COLLECTION).get();
+    return snapshot.docs.map((doc) => ({
+      id: doc.id,
+      ...doc.data(),
+    }));
   }
 
   // Aggiorna FCM token
   async updateFcmToken(userId, fcmToken) {
     await db.collection(USERS_COLLECTION).doc(userId).update({
       fcmToken,
-      updatedAt: new Date().toISOString(),
+      updated_at: Date.now(),
     });
   }
 }
