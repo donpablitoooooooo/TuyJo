@@ -15,12 +15,14 @@ class AuthService extends ChangeNotifier {
   User? _currentUser;
   String? _backendToken;
   bool _isAuthenticated = false;
+  String? _lastError;
 
   User? get currentUser => _currentUser;
   String? get backendToken => _backendToken;
   String? get token => _backendToken; // Compatibilità backward
   bool get isAuthenticated => _isAuthenticated;
   String? get firebaseUid => _firebaseAuth.currentUser?.uid;
+  String? get lastError => _lastError;
 
   // Inizializza il servizio controllando se c'è già un token salvato
   Future<void> initialize() async {
@@ -63,9 +65,13 @@ class AuthService extends ChangeNotifier {
   // Registrazione con chiave pubblica
   Future<bool> register() async {
     try {
+      if (kDebugMode) print('🔑 Generating RSA key pair...');
+
       // Genera coppia di chiavi RSA
       final keyPair = await _encryptionService.generateKeyPair();
       final publicKey = keyPair['publicKey']!;
+
+      if (kDebugMode) print('🌐 Calling backend API: $baseUrl/api/auth/register');
 
       final response = await http.post(
         Uri.parse('$baseUrl/api/auth/register'),
@@ -73,13 +79,17 @@ class AuthService extends ChangeNotifier {
         body: json.encode({
           'publicKey': publicKey,
         }),
-      );
+      ).timeout(const Duration(seconds: 10));
+
+      if (kDebugMode) print('📡 Backend response status: ${response.statusCode}');
 
       if (response.statusCode == 201) {
         final data = json.decode(response.body);
         _backendToken = data['backend_token'];
         final firebaseToken = data['firebase_token'];
         _currentUser = User.fromJson(data['user']);
+
+        if (kDebugMode) print('🔥 Authenticating with Firebase Custom Token...');
 
         // Autentica a Firebase con Custom Token
         await _firebaseAuth.signInWithCustomToken(firebaseToken);
@@ -91,12 +101,19 @@ class AuthService extends ChangeNotifier {
         await _storage.write(key: 'private_key', value: keyPair['privateKey']!);
         await _storage.write(key: 'public_key', value: publicKey);
 
+        if (kDebugMode) print('✅ Registration successful! User ID: ${_currentUser!.id}');
+
+        _lastError = null;
         notifyListeners();
         return true;
+      } else {
+        _lastError = 'Backend error: ${response.statusCode} - ${response.body}';
+        if (kDebugMode) print('❌ $_lastError');
+        return false;
       }
-      return false;
     } catch (e) {
-      if (kDebugMode) print('Register error: $e');
+      _lastError = e.toString();
+      if (kDebugMode) print('❌ Register error: $e');
       return false;
     }
   }

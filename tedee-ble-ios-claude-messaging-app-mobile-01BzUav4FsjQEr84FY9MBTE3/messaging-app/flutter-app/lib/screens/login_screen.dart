@@ -32,8 +32,13 @@ class _LoginScreenState extends State<LoginScreen> {
         ),
       );
     } else if (mounted) {
+      final errorMessage = authService.lastError ?? 'Errore sconosciuto';
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Errore durante la registrazione')),
+        SnackBar(
+          content: Text('Errore: $errorMessage'),
+          duration: const Duration(seconds: 5),
+          backgroundColor: Colors.red,
+        ),
       );
     }
   }
