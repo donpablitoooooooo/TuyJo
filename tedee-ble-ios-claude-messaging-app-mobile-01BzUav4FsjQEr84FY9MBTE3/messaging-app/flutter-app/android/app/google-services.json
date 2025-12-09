@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "668509120760",
+    "project_id": "youandme-b3b4c",
+    "storage_bucket": "youandme-b3b4c.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:668509120760:android:d9c7695c771f33edb3f30d",
+        "android_client_info": {
+          "package_name": "com.privatemessaging.private_messaging"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAHSq0h82ii6Wa3MqSqZVqqHxOH_WPTHIQ"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
