@@ -1,5 +1,8 @@
 FROM node:18-alpine
 
+# Installa dipendenze native necessarie per bcryptjs
+RUN apk add --no-cache python3 make g++
+
 # Imposta la directory di lavoro
 WORKDIR /app
 
