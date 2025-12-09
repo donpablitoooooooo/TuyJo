@@ -33,7 +33,7 @@ class _ChatScreenState extends State<ChatScreen> {
 
     // Ottieni K_family e chiave pubblica del partner
     _kFamily = await pairingService.getFamilyKey();
-    _partnerPublicKey = await pairingService.getPartnerPublicKey();
+    _partnerPublicKey = pairingService.partnerPublicKey;
 
     // Avvia il listener Firestore per i messaggi in arrivo
     chatService.startListening(authService.currentUser!.id);
@@ -142,30 +142,28 @@ class _ChatScreenState extends State<ChatScreen> {
                       final message = chatService.messages[index];
 
                       // Decripta il messaggio
-                      String? decryptedContent;
+                      String decryptedContent = '[Messaggio crittografato]';
                       bool isMe = false;
 
                       try {
                         if (_kFamily != null) {
-                          decryptedContent = chatService.decryptMessage(
-                            message.ciphertext,
-                            message.nonce,
-                            message.tag,
+                          final plaintext = chatService.decryptMessage(
+                            message,
                             _kFamily!,
                           );
 
                           // Estrai il sender dal JSON decriptato
-                          final payload = json.decode(decryptedContent);
+                          final payload = json.decode(plaintext);
                           final senderId = payload['sender'] as String?;
                           isMe = senderId == authService.currentUser!.id;
-                          decryptedContent = payload['body'] as String? ?? '';
+                          decryptedContent = payload['body'] as String? ?? plaintext;
                         }
                       } catch (e) {
                         decryptedContent = '[Errore decrittazione]';
                       }
 
                       return _MessageBubble(
-                        message: decryptedContent ?? '[Messaggio crittografato]',
+                        message: decryptedContent,
                         timestamp: message.timestamp,
                         isMe: isMe,
                       );
