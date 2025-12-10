@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
 import '../services/pairing_service.dart';
 import '../services/chat_service.dart';
+import '../services/notification_service.dart';
 import '../models/message.dart';
 
 class ChatScreen extends StatefulWidget {
@@ -28,6 +29,7 @@ class _ChatScreenState extends State<ChatScreen> {
   Future<void> _initialize() async {
     final pairingService = Provider.of<PairingService>(context, listen: false);
     final chatService = Provider.of<ChatService>(context, listen: false);
+    final notificationService = Provider.of<NotificationService>(context, listen: false);
 
     // Ottieni K_family e calcola family chat ID
     _kFamily = await pairingService.getKFamily();
@@ -43,6 +45,17 @@ class _ChatScreenState extends State<ChatScreen> {
       // Avvia il listener Firestore sulla chat famiglia
       chatService.startListening(_familyChatId!);
       print('✅ Firestore listener started for family: $_familyChatId');
+
+      // Salva il token FCM in Firestore
+      if (_myDeviceId != null) {
+        await notificationService.saveTokenToFirestore(_familyChatId!, _myDeviceId!);
+
+        // Aggiorna il token anche quando cambia
+        notificationService.onTokenRefresh((newToken) async {
+          print('🔄 FCM token refreshed: $newToken');
+          await notificationService.saveTokenToFirestore(_familyChatId!, _myDeviceId!);
+        });
+      }
     } else {
       print('❌ Cannot start listener - familyChatId is null');
     }
