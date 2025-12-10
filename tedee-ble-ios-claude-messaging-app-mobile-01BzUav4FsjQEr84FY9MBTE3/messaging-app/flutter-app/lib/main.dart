@@ -4,6 +4,8 @@ import 'package:firebase_core/firebase_core.dart';
 import 'firebase_options.dart';
 import 'screens/login_screen.dart';
 import 'screens/chat_screen.dart';
+import 'screens/pairing_choice_screen.dart';
+import 'screens/main_screen.dart';
 import 'services/auth_service.dart';
 import 'services/chat_service.dart';
 import 'services/encryption_service.dart';
@@ -45,17 +47,57 @@ class MyApp extends StatelessWidget {
   }
 }
 
-class AuthWrapper extends StatelessWidget {
+class AuthWrapper extends StatefulWidget {
   const AuthWrapper({super.key});
 
   @override
-  Widget build(BuildContext context) {
-    final authService = Provider.of<AuthService>(context);
+  State<AuthWrapper> createState() => _AuthWrapperState();
+}
 
-    if (authService.isAuthenticated) {
-      return const ChatScreen();
-    } else {
+class _AuthWrapperState extends State<AuthWrapper> {
+  bool _isLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _initializeServices();
+  }
+
+  Future<void> _initializeServices() async {
+    final authService = Provider.of<AuthService>(context, listen: false);
+    final pairingService = Provider.of<PairingService>(context, listen: false);
+
+    // Inizializza i servizi
+    await authService.initialize();
+    await pairingService.initialize();
+
+    setState(() {
+      _isLoading = false;
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_isLoading) {
+      return const Scaffold(
+        body: Center(child: CircularProgressIndicator()),
+      );
+    }
+
+    final authService = Provider.of<AuthService>(context);
+    final pairingService = Provider.of<PairingService>(context);
+
+    // Se non autenticato → LoginScreen
+    if (!authService.isAuthenticated) {
       return const LoginScreen();
     }
+
+    // Se autenticato ma non paired → PairingChoiceScreen
+    if (!pairingService.isPaired) {
+      return const PairingChoiceScreen();
+    }
+
+    // Se autenticato E paired → MainScreen (con menu di navigazione)
+    return const MainScreen();
   }
 }
