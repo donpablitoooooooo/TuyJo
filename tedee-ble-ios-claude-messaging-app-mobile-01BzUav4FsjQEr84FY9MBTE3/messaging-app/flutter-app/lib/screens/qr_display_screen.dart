@@ -3,7 +3,7 @@ import 'package:provider/provider.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 import '../services/pairing_service.dart';
 import '../services/auth_service.dart';
-import 'chat_screen.dart';
+import 'main_screen.dart';
 
 /// Schermata che genera e mostra il QR code contenente K_family
 /// Questa è l'opzione "Creo io la chiave famiglia"
@@ -161,9 +161,9 @@ class _QRDisplayScreenState extends State<QRDisplayScreen> {
 
                   ElevatedButton.icon(
                     onPressed: () {
-                      // Vai alla chat (rimuovi tutte le schermate precedenti dallo stack)
+                      // Vai alla MainScreen con menu (rimuovi tutte le schermate precedenti dallo stack)
                       Navigator.of(context).pushAndRemoveUntil(
-                        MaterialPageRoute(builder: (context) => const ChatScreen()),
+                        MaterialPageRoute(builder: (context) => const MainScreen()),
                         (route) => false,
                       );
                     },
