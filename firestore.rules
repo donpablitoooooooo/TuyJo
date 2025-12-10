@@ -1,0 +1,21 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Regole per la collezione families
+    match /families/{familyId} {
+
+      // Permetti a tutti di leggere/scrivere messaggi nella famiglia
+      // (In produzione, dovresti limitare in base all'autenticazione)
+      match /messages/{messageId} {
+        allow read, write: if true;
+      }
+
+      // Permetti a tutti di scrivere il proprio token FCM
+      // (In produzione, dovresti verificare che userId corrisponda all'utente autenticato)
+      match /users/{userId} {
+        allow read, write: if true;
+      }
+    }
+  }
+}
