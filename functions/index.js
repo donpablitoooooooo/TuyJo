@@ -6,8 +6,11 @@ admin.initializeApp();
 /**
  * Cloud Function che invia una notifica push quando viene creato un nuovo messaggio
  * Triggered da: Firestore onCreate su /families/{familyChatId}/messages/{messageId}
+ * Region: europe-west1 (Belgio - EU)
  */
-exports.sendMessageNotification = functions.firestore
+exports.sendMessageNotification = functions
+  .region('europe-west1')
+  .firestore
   .document('families/{familyChatId}/messages/{messageId}')
   .onCreate(async (snapshot, context) => {
     try {
@@ -130,8 +133,11 @@ exports.sendMessageNotification = functions.firestore
 /**
  * Cloud Function per pulire i token FCM scaduti (opzionale)
  * Può essere chiamata periodicamente con Cloud Scheduler
+ * Region: europe-west1 (Belgio - EU)
  */
-exports.cleanupExpiredTokens = functions.https.onRequest(async (req, res) => {
+exports.cleanupExpiredTokens = functions
+  .region('europe-west1')
+  .https.onRequest(async (req, res) => {
   try {
     console.log('🧹 Starting token cleanup...');
 
