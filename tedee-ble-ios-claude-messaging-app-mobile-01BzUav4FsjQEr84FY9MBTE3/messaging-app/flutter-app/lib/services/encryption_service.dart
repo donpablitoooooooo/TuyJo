@@ -5,9 +5,11 @@ import 'package:pointycastle/export.dart';
 import 'package:asn1lib/asn1lib.dart';
 import 'package:crypto/crypto.dart';
 import 'package:encrypt/encrypt.dart' as encrypt_lib;
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 class EncryptionService {
   AsymmetricKeyPair<PublicKey, PrivateKey>? _keyPair;
+  final _storage = const FlutterSecureStorage();
 
   // Genera una coppia di chiavi RSA (pubblica/privata)
   Future<Map<String, String>> generateKeyPair() async {
@@ -38,6 +40,32 @@ class EncryptionService {
       (privateKey).publicExponent!,
     );
     _keyPair = AsymmetricKeyPair(publicKey, privateKey);
+  }
+
+  // Genera e salva keypair in secure storage
+  Future<void> generateAndStoreKeyPair() async {
+    // Verifica se esiste già
+    final existingPublicKey = await _storage.read(key: 'rsa_public_key');
+    if (existingPublicKey != null) {
+      // Keypair già esistente, carica la privata
+      final privateKey = await _storage.read(key: 'rsa_private_key');
+      if (privateKey != null) {
+        loadPrivateKey(privateKey);
+      }
+      return;
+    }
+
+    // Genera nuova coppia di chiavi
+    final keys = await generateKeyPair();
+
+    // Salva in secure storage
+    await _storage.write(key: 'rsa_public_key', value: keys['publicKey']!);
+    await _storage.write(key: 'rsa_private_key', value: keys['privateKey']!);
+  }
+
+  // Ottiene la chiave pubblica dal secure storage
+  Future<String?> getPublicKey() async {
+    return await _storage.read(key: 'rsa_public_key');
   }
 
   // Cripta un messaggio usando la chiave pubblica del destinatario
