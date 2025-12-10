@@ -68,3 +68,6 @@ dependencies {
     implementation 'com.google.firebase:firebase-messaging'
     implementation 'com.google.firebase:firebase-analytics'
 }
+
+// Must be at the bottom
+apply plugin: 'com.google.gms.google-services'
