@@ -13,11 +13,17 @@ void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp();
 
-  runApp(const MyApp());
+  // Inizializza PairingService
+  final pairingService = PairingService();
+  await pairingService.initialize();
+
+  runApp(MyApp(pairingService: pairingService));
 }
 
 class MyApp extends StatelessWidget {
-  const MyApp({super.key});
+  final PairingService pairingService;
+
+  const MyApp({super.key, required this.pairingService});
 
   @override
   Widget build(BuildContext context) {
@@ -25,7 +31,7 @@ class MyApp extends StatelessWidget {
       providers: [
         ChangeNotifierProvider(create: (_) => AuthService()),
         ChangeNotifierProvider(create: (_) => ChatService()),
-        ChangeNotifierProvider(create: (_) => PairingService()),
+        ChangeNotifierProvider.value(value: pairingService),
         Provider(create: (_) => EncryptionService()),
         Provider(create: (_) => NotificationService()),
       ],
