@@ -15,8 +15,8 @@ class ChatScreen extends StatefulWidget {
 class _ChatScreenState extends State<ChatScreen> {
   final _messageController = TextEditingController();
   bool _isLoading = true;
-  String? _myUserId;
-  String? _partnerUserId;
+  String? _familyChatId;
+  String? _myDeviceId;
   String? _kFamily;
 
   @override
@@ -29,22 +29,22 @@ class _ChatScreenState extends State<ChatScreen> {
     final pairingService = Provider.of<PairingService>(context, listen: false);
     final chatService = Provider.of<ChatService>(context, listen: false);
 
-    // Ottieni K_family e partner ID
+    // Ottieni K_family e calcola family chat ID
     _kFamily = await pairingService.getKFamily();
-    _partnerUserId = await pairingService.getPartnerId();
-    _myUserId = await pairingService.getMyUserId();
+    _familyChatId = await pairingService.getFamilyChatId();
+    _myDeviceId = await pairingService.getMyUserId(); // Riuso per device ID
 
     print('🔍 Chat initialization:');
-    print('   My User ID: $_myUserId');
-    print('   Partner User ID: $_partnerUserId');
+    print('   Family Chat ID: $_familyChatId');
+    print('   My Device ID: $_myDeviceId');
     print('   K_family: ${_kFamily != null ? "${_kFamily!.substring(0, 10)}..." : "null"}');
 
-    if (_myUserId != null) {
-      // Avvia il listener Firestore
-      chatService.startListening(_myUserId!);
-      print('✅ Firestore listener started for user: $_myUserId');
+    if (_familyChatId != null) {
+      // Avvia il listener Firestore sulla chat famiglia
+      chatService.startListening(_familyChatId!);
+      print('✅ Firestore listener started for family: $_familyChatId');
     } else {
-      print('❌ Cannot start listener - myUserId is null');
+      print('❌ Cannot start listener - familyChatId is null');
     }
 
     setState(() => _isLoading = false);
@@ -62,8 +62,8 @@ class _ChatScreenState extends State<ChatScreen> {
       return;
     }
 
-    if (_partnerUserId == null || _myUserId == null || _kFamily == null) {
-      print('❌ Missing data - myUserId: $_myUserId, partnerUserId: $_partnerUserId, kFamily: ${_kFamily?.substring(0, 10)}');
+    if (_familyChatId == null || _myDeviceId == null || _kFamily == null) {
+      print('❌ Missing data - familyChatId: $_familyChatId, myDeviceId: $_myDeviceId, kFamily: ${_kFamily?.substring(0, 10)}');
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Errore: dati pairing mancanti. Riprova il pairing.')),
       );
@@ -71,17 +71,16 @@ class _ChatScreenState extends State<ChatScreen> {
     }
 
     print('📤 Sending message...');
-    print('   From: $_myUserId');
-    print('   To: $_partnerUserId');
+    print('   To family chat: $_familyChatId');
+    print('   From device: $_myDeviceId');
     print('   Content: ${_messageController.text.trim()}');
 
     final chatService = Provider.of<ChatService>(context, listen: false);
 
     final success = await chatService.sendMessage(
       _messageController.text.trim(),
-      _myUserId!,
-      _partnerUserId!,
-      '', // backendToken non più necessario
+      _familyChatId!,
+      _myDeviceId!,
       _kFamily!,
     );
 
@@ -164,7 +163,7 @@ class _ChatScreenState extends State<ChatScreen> {
                     itemCount: chatService.messages.length,
                     itemBuilder: (context, index) {
                       final message = chatService.messages[index];
-                      final isMe = message.senderId == _myUserId;
+                      final isMe = message.senderId == _myDeviceId;
 
                       String decryptedContent = '[Errore decifratura]';
                       if (_kFamily != null) {

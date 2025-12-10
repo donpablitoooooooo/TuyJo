@@ -16,20 +16,20 @@ class ChatService extends ChangeNotifier {
   List<Message> get messages => _messages;
   bool get isConnected => _inboxSubscription != null;
 
-  // Connetti al Firestore listener per l'inbox dell'utente
-  void startListening(String userId) {
+  // Connetti al Firestore listener per la chat famiglia
+  void startListening(String familyChatId) {
     if (_inboxSubscription != null) {
-      if (kDebugMode) print('Already listening to inbox');
+      if (kDebugMode) print('Already listening to family chat');
       return;
     }
 
-    if (kDebugMode) print('Starting Firestore listener for user: $userId');
+    if (kDebugMode) print('Starting Firestore listener for family: $familyChatId');
 
-    // Ascolta i messaggi nella propria inbox
+    // Ascolta i messaggi nella chat famiglia
     _inboxSubscription = _firestore
-        .collection('users')
-        .doc(userId)
-        .collection('inbox')
+        .collection('families')
+        .doc(familyChatId)
+        .collection('messages')
         .orderBy('created_at', descending: false)
         .snapshots()
         .listen(
@@ -95,12 +95,11 @@ class ChatService extends ChangeNotifier {
     }
   }
 
-  // Invia un messaggio cifrato con K_family direttamente su Firestore
+  // Invia un messaggio cifrato con K_family alla chat famiglia
   Future<bool> sendMessage(
     String content,
+    String familyChatId,
     String senderId,
-    String recipientId,
-    String backendToken,
     String kFamilyBase64,
   ) async {
     try {
@@ -120,14 +119,14 @@ class ChatService extends ChangeNotifier {
         kFamilyBase64,
       );
 
-      // Scrivi direttamente su Firestore - inbox del destinatario
-      final recipientInboxRef = _firestore
-          .collection('users')
-          .doc(recipientId)
-          .collection('inbox')
+      // Scrivi nella chat famiglia condivisa
+      final messageRef = _firestore
+          .collection('families')
+          .doc(familyChatId)
+          .collection('messages')
           .doc();
 
-      await recipientInboxRef.set({
+      await messageRef.set({
         'sender_id': senderId,
         'ciphertext': encrypted['ciphertext'],
         'nonce': encrypted['nonce'],
@@ -135,25 +134,10 @@ class ChatService extends ChangeNotifier {
         'created_at': timestamp.toIso8601String(),
       });
 
-      // Scrivi anche nella inbox del sender per mostrare i messaggi inviati
-      final senderInboxRef = _firestore
-          .collection('users')
-          .doc(senderId)
-          .collection('inbox')
-          .doc(recipientInboxRef.id); // Stesso ID per sincronizzazione
-
-      await senderInboxRef.set({
-        'sender_id': senderId,
-        'ciphertext': encrypted['ciphertext'],
-        'nonce': encrypted['nonce'],
-        'tag': encrypted['tag'],
-        'created_at': timestamp.toIso8601String(),
-      });
-
-      if (kDebugMode) print('Message sent via Firestore SDK: ${recipientInboxRef.id}');
+      if (kDebugMode) print('✅ Message sent to family chat: ${messageRef.id}');
       return true;
     } catch (e) {
-      if (kDebugMode) print('Send message error: $e');
+      if (kDebugMode) print('❌ Send message error: $e');
       return false;
     }
   }

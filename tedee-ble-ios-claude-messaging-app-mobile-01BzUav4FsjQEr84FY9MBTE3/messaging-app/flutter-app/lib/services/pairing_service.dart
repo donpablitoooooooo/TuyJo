@@ -171,4 +171,16 @@ class PairingService extends ChangeNotifier {
   Future<void> clearPairing() async {
     await resetPairing();
   }
+
+  /// Calcola l'ID della chat famiglia basato su K_family
+  /// Questo è l'ID condiviso da entrambi gli utenti
+  Future<String?> getFamilyChatId() async {
+    final kFamily = await getFamilyKey();
+    if (kFamily == null) return null;
+
+    // family_chat_id = SHA-256(K_family)
+    final bytes = utf8.encode(kFamily);
+    final digest = sha256.convert(bytes);
+    return digest.toString();
+  }
 }
