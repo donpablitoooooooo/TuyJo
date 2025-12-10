@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
 import 'dart:convert';
@@ -50,21 +51,45 @@ class _ChatScreenState extends State<ChatScreen> {
   }
 
   void _sendMessage() async {
-    if (_messageController.text.trim().isEmpty || _partnerPublicKey == null || _kFamily == null) return;
+    if (_messageController.text.trim().isEmpty || _partnerPublicKey == null || _kFamily == null) {
+      if (kDebugMode) {
+        print('⚠️ Cannot send message:');
+        print('  - Text empty: ${_messageController.text.trim().isEmpty}');
+        print('  - Partner key null: ${_partnerPublicKey == null}');
+        print('  - K_family null: ${_kFamily == null}');
+      }
+      return;
+    }
 
     final authService = Provider.of<AuthService>(context, listen: false);
     final chatService = Provider.of<ChatService>(context, listen: false);
+    final pairingService = Provider.of<PairingService>(context, listen: false);
+
+    // Calcola l'ID del partner (SHA-256 della chiave pubblica)
+    final partnerId = pairingService.getPartnerId();
+    if (partnerId == null) {
+      if (kDebugMode) print('❌ Partner ID is null!');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Errore: partner non trovato')),
+        );
+      }
+      return;
+    }
+
+    if (kDebugMode) print('📤 Sending message to partner: $partnerId');
 
     final success = await chatService.sendMessage(
       _messageController.text.trim(),
       authService.currentUser!.id,
-      _partnerPublicKey!,
+      partnerId, // Usa l'ID del partner, non la chiave pubblica!
       authService.token!,
       _kFamily!,
     );
 
     if (success) {
       _messageController.clear();
+      if (kDebugMode) print('✅ Message sent successfully');
     } else if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Errore nell\'invio del messaggio')),
