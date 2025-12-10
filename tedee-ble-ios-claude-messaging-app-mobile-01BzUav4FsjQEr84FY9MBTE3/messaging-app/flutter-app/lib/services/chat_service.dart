@@ -95,7 +95,7 @@ class ChatService extends ChangeNotifier {
     }
   }
 
-  // Invia un messaggio cifrato con K_family
+  // Invia un messaggio cifrato con K_family direttamente su Firestore
   Future<bool> sendMessage(
     String content,
     String senderId,
@@ -104,10 +104,12 @@ class ChatService extends ChangeNotifier {
     String kFamilyBase64,
   ) async {
     try {
+      final timestamp = DateTime.now();
+
       // Costruisci il plaintext con sender, timestamp, type, body
       final plaintext = json.encode({
         'sender': senderId,
-        'timestamp': DateTime.now().millisecondsSinceEpoch ~/ 1000,
+        'timestamp': timestamp.millisecondsSinceEpoch ~/ 1000,
         'type': 'text',
         'body': content,
       });
@@ -118,28 +120,38 @@ class ChatService extends ChangeNotifier {
         kFamilyBase64,
       );
 
-      // Invia al backend
-      final response = await http.post(
-        Uri.parse('$baseUrl/api/messages'),
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer $backendToken',
-        },
-        body: json.encode({
-          'recipient_id': recipientId,
-          'ciphertext': encrypted['ciphertext'],
-          'nonce': encrypted['nonce'],
-          'tag': encrypted['tag'],
-        }),
-      );
+      // Scrivi direttamente su Firestore - inbox del destinatario
+      final recipientInboxRef = _firestore
+          .collection('users')
+          .doc(recipientId)
+          .collection('inbox')
+          .doc();
 
-      if (response.statusCode == 201) {
-        if (kDebugMode) print('Message sent successfully');
-        return true;
-      } else {
-        if (kDebugMode) print('Failed to send message: ${response.statusCode}');
-        return false;
-      }
+      await recipientInboxRef.set({
+        'sender_id': senderId,
+        'ciphertext': encrypted['ciphertext'],
+        'nonce': encrypted['nonce'],
+        'tag': encrypted['tag'],
+        'created_at': timestamp.toIso8601String(),
+      });
+
+      // Scrivi anche nella inbox del sender per mostrare i messaggi inviati
+      final senderInboxRef = _firestore
+          .collection('users')
+          .doc(senderId)
+          .collection('inbox')
+          .doc(recipientInboxRef.id); // Stesso ID per sincronizzazione
+
+      await senderInboxRef.set({
+        'sender_id': senderId,
+        'ciphertext': encrypted['ciphertext'],
+        'nonce': encrypted['nonce'],
+        'tag': encrypted['tag'],
+        'created_at': timestamp.toIso8601String(),
+      });
+
+      if (kDebugMode) print('Message sent via Firestore SDK: ${recipientInboxRef.id}');
+      return true;
     } catch (e) {
       if (kDebugMode) print('Send message error: $e');
       return false;
