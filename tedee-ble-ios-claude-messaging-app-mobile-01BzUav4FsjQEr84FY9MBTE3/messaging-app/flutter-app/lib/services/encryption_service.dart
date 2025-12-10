@@ -341,9 +341,9 @@ class EncryptionService {
       // Decifra
       final plaintext = Uint8List(cipher.getOutputSize(ciphertext.length));
       var offset = cipher.processBytes(ciphertext, 0, ciphertext.length, plaintext, 0);
-      cipher.doFinal(plaintext, offset);
+      offset += cipher.doFinal(plaintext, offset);
 
-      // Rimuovi padding se necessario (GCM non usa padding, ma per sicurezza)
+      // Estrai solo i byte effettivi (GCM non usa padding)
       final actualPlaintext = plaintext.sublist(0, offset);
 
       return utf8.decode(actualPlaintext);
