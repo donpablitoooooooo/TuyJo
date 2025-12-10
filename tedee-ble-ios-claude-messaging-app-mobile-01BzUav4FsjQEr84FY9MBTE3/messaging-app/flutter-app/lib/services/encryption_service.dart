@@ -171,8 +171,8 @@ class EncryptionService {
         throw FormatException('Invalid public key sequence structure');
       }
       
-      final modulus = (publicKeySeq.elements![0] as ASN1Integer).intValue;
-      final exponent = (publicKeySeq.elements![1] as ASN1Integer).intValue;
+      final modulus = (publicKeySeq.elements![0] as ASN1Integer).valueAsBigInteger!;
+      final exponent = (publicKeySeq.elements![1] as ASN1Integer).valueAsBigInteger!;
 
       return RSAPublicKey(modulus, exponent);
     } catch (e) {
@@ -191,11 +191,11 @@ class EncryptionService {
         throw FormatException('Invalid private key ASN.1 structure - requires 9 elements');
       }
 
-      final modulus = (privateKeySeq.elements![1] as ASN1Integer).intValue;
-      final publicExponent = (privateKeySeq.elements![2] as ASN1Integer).intValue;
-      final privateExponent = (privateKeySeq.elements![3] as ASN1Integer).intValue;
-      final p = (privateKeySeq.elements![4] as ASN1Integer).intValue;
-      final q = (privateKeySeq.elements![5] as ASN1Integer).intValue;
+      final modulus = (privateKeySeq.elements![1] as ASN1Integer).valueAsBigInteger!;
+      final publicExponent = (privateKeySeq.elements![2] as ASN1Integer).valueAsBigInteger!;
+      final privateExponent = (privateKeySeq.elements![3] as ASN1Integer).valueAsBigInteger!;
+      final p = (privateKeySeq.elements![4] as ASN1Integer).valueAsBigInteger!;
+      final q = (privateKeySeq.elements![5] as ASN1Integer).valueAsBigInteger!;
 
       // Check if the RSAPrivateKey constructor expects different parameter order
       // Standard: RSAPrivateKey(modulus, privateExponent, p, q)
