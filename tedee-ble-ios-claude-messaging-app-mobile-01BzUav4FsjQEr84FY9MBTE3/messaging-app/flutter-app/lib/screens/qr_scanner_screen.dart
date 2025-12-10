@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 import '../services/pairing_service.dart';
+import '../services/encryption_service.dart';
 
 /// Schermata per scansionare il QR code e importare K_family
 /// Questa è l'opzione "Leggo la chiave famiglia"
@@ -24,8 +25,21 @@ class _QRScannerScreenState extends State<QRScannerScreen> {
     });
 
     final pairingService = Provider.of<PairingService>(context, listen: false);
+    final encryptionService = Provider.of<EncryptionService>(context, listen: false);
 
     try {
+      // Genera le chiavi RSA per questo utente se non esistono
+      await encryptionService.generateAndStoreKeyPair();
+
+      // Ottieni la chiave pubblica
+      final myPublicKey = await encryptionService.getPublicKey();
+      if (myPublicKey == null) {
+        throw Exception('Impossibile generare chiave pubblica');
+      }
+
+      // Salva la chiave pubblica per calcolare l'ID utente
+      await pairingService.saveMyPublicKey(myPublicKey);
+
       // Importa K_family dal QR
       final success = await pairingService.importFamilyKeyFromQR(qrData);
 

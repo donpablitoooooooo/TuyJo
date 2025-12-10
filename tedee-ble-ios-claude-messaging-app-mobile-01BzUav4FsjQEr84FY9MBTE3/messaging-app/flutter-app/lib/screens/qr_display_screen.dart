@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 import '../services/pairing_service.dart';
-import '../services/auth_service.dart';
+import '../services/encryption_service.dart';
 
 /// Schermata che genera e mostra il QR code contenente K_family
 /// Questa è l'opzione "Creo io la chiave famiglia"
@@ -24,23 +24,21 @@ class _QRDisplayScreenState extends State<QRDisplayScreen> {
   }
 
   Future<void> _generateQRData() async {
-    final authService = Provider.of<AuthService>(context, listen: false);
     final pairingService = Provider.of<PairingService>(context, listen: false);
+    final encryptionService = Provider.of<EncryptionService>(context, listen: false);
 
     try {
-      // Verifica che l'utente sia autenticato
-      if (authService.currentUser == null) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Devi prima autenticarti')),
-          );
-          Navigator.pop(context);
-        }
-        return;
+      // Genera le chiavi RSA per l'utente se non esistono
+      await encryptionService.generateAndStoreKeyPair();
+
+      // Ottieni la chiave pubblica
+      final myPublicKey = await encryptionService.getPublicKey();
+      if (myPublicKey == null) {
+        throw Exception('Impossibile generare chiave pubblica');
       }
 
-      // Ottieni chiave pubblica dell'utente corrente
-      final myPublicKey = authService.currentUser!.publicKey;
+      // Salva la chiave pubblica nel PairingService per calcolare l'ID utente
+      await pairingService.saveMyPublicKey(myPublicKey);
 
       // Genera QR data (include K_family + chiave pubblica)
       final qrData = await pairingService.getFamilyKeyQRData(myPublicKey);

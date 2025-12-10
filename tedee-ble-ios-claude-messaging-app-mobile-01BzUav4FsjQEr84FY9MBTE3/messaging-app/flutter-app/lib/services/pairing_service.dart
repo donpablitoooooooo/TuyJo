@@ -137,12 +137,38 @@ class PairingService extends ChangeNotifier {
   }
 
   /// Calcola l'ID utente del partner basato sulla sua chiave pubblica
-  String? getPartnerId() {
+  Future<String?> getPartnerId() async {
     if (_partnerPublicKey == null) return null;
 
     // userId = SHA-256(publicKey)
     final bytes = utf8.encode(_partnerPublicKey!);
     final digest = sha256.convert(bytes);
     return digest.toString();
+  }
+
+  /// Ottiene l'ID dell'utente corrente basato sulla propria chiave pubblica
+  Future<String?> getMyUserId() async {
+    final myPublicKey = await _storage.read(key: 'my_public_key');
+    if (myPublicKey == null) return null;
+
+    // userId = SHA-256(publicKey)
+    final bytes = utf8.encode(myPublicKey);
+    final digest = sha256.convert(bytes);
+    return digest.toString();
+  }
+
+  /// Salva la chiave pubblica dell'utente corrente
+  Future<void> saveMyPublicKey(String publicKey) async {
+    await _storage.write(key: 'my_public_key', value: publicKey);
+  }
+
+  /// Alias per getFamilyKey (per compatibilità)
+  Future<String?> getKFamily() async {
+    return await getFamilyKey();
+  }
+
+  /// Alias per resetPairing (per compatibilità)
+  Future<void> clearPairing() async {
+    await resetPairing();
   }
 }
