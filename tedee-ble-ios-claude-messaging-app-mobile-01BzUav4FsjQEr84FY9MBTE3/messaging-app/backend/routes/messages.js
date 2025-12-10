@@ -5,6 +5,8 @@ const messageService = require('../services/messageService');
 const router = express.Router();
 
 // Get all messages for the authenticated user
+// (Optional: può essere utile per caricamento iniziale, 
+//  ma con Firestore listener non è strettamente necessario)
 router.get('/', authenticateToken, async (req, res) => {
   try {
     const userId = req.user.userId;

@@ -18,21 +18,4 @@ const authenticateToken = (req, res, next) => {
   });
 };
 
-// Middleware per autenticare le connessioni Socket.io
-const authenticateSocket = (socket, next) => {
-  const token = socket.handshake.auth.token;
-
-  if (!token) {
-    return next(new Error('Authentication error: Token required'));
-  }
-
-  jwt.verify(token, process.env.JWT_SECRET, (err, decoded) => {
-    if (err) {
-      return next(new Error('Authentication error: Invalid token'));
-    }
-    socket.userId = decoded.userId;
-    next();
-  });
-};
-
-module.exports = { authenticateToken, authenticateSocket };
+module.exports = { authenticateToken };
