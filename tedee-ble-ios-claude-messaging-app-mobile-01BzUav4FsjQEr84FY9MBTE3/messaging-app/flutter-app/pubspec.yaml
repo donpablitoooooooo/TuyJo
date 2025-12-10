@@ -13,8 +13,7 @@ dependencies:
   # State Management
   provider: ^6.1.1
 
-  # Networking & Real-time
-  socket_io_client: ^2.0.3+1
+  # Networking
   http: ^1.1.0
 
   # Storage
@@ -30,6 +29,7 @@ dependencies:
   # Firebase
   firebase_core: ^2.24.2
   firebase_messaging: ^14.7.9
+  cloud_firestore: ^4.13.6
 
   # UI
   flutter_chat_ui: ^1.6.10
