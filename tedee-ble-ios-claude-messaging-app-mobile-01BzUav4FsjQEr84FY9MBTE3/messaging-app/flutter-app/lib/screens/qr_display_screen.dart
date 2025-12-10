@@ -158,7 +158,9 @@ class _QRDisplayScreenState extends State<QRDisplayScreen> {
 
                   ElevatedButton.icon(
                     onPressed: () {
-                      Navigator.pop(context);
+                      // Torna alla root per far rivalutare AuthWrapper
+                      // che vedrà isPaired = true e mostrerà ChatScreen
+                      Navigator.of(context).popUntil((route) => route.isFirst);
                     },
                     icon: const Icon(Icons.check),
                     label: const Text('Fatto'),
