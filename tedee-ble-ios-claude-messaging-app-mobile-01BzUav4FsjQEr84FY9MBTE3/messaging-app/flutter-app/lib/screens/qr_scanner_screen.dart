@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 import '../services/pairing_service.dart';
+import 'chat_screen.dart';
 
 /// Schermata per scansionare il QR code e importare K_family
 /// Questa è l'opzione "Leggo la chiave famiglia"
@@ -31,16 +32,25 @@ class _QRScannerScreenState extends State<QRScannerScreen> {
 
       if (mounted) {
         if (success) {
-          // Pairing completato
+          // Pairing completato - vai alla chat
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
               content: Text('✅ Pairing completato con successo!'),
               backgroundColor: Colors.green,
+              duration: Duration(seconds: 1),
             ),
           );
 
-          // Torna indietro
-          Navigator.pop(context, true);
+          // Aspetta che lo snackbar si mostri poi vai alla chat
+          await Future.delayed(const Duration(milliseconds: 500));
+
+          // Vai alla chat (rimuovi tutte le schermate precedenti dallo stack)
+          if (mounted) {
+            Navigator.of(context).pushAndRemoveUntil(
+              MaterialPageRoute(builder: (context) => const ChatScreen()),
+              (route) => false,
+            );
+          }
         } else {
           // Errore nel pairing
           ScaffoldMessenger.of(context).showSnackBar(
