@@ -89,10 +89,19 @@ class AuthService extends ChangeNotifier {
         final firebaseToken = data['firebase_token'];
         _currentUser = User.fromJson(data['user']);
 
-        if (kDebugMode) print('🔥 Authenticating with Firebase Custom Token...');
+        if (kDebugMode) print('🔥 Authenticating with Firebase...');
 
-        // Autentica a Firebase con Custom Token
-        await _firebaseAuth.signInWithCustomToken(firebaseToken);
+        // TEMPORARY: Test with Anonymous Auth instead of Custom Token
+        try {
+          await _firebaseAuth.signInAnonymously();
+          if (kDebugMode) print('✅ Anonymous auth successful!');
+        } catch (e) {
+          if (kDebugMode) print('❌ Anonymous auth failed: $e');
+          // Fallback to Custom Token
+          if (kDebugMode) print('🔥 Trying Custom Token...');
+          await _firebaseAuth.signInWithCustomToken(firebaseToken);
+        }
+
         _isAuthenticated = true;
 
         // Salva token, user, chiave privata e pubblica
