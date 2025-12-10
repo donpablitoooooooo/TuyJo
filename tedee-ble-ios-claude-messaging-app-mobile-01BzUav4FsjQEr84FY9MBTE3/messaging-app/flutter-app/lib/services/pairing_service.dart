@@ -43,6 +43,10 @@ class PairingService extends ChangeNotifier {
     // Salva in secure storage
     await _storage.write(key: 'k_family', value: kFamilyBase64);
 
+    // Imposta come paired
+    _isPaired = true;
+    notifyListeners();
+
     if (kDebugMode) print('K_family generated: ${kFamilyBase64.substring(0, 10)}...');
 
     return kFamilyBase64;

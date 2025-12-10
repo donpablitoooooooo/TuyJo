@@ -145,6 +145,15 @@ class ChatService extends ChangeNotifier {
   // Decripta un messaggio con K_family
   String decryptMessage(Message message, String kFamilyBase64) {
     try {
+      if (kDebugMode) {
+        print('🔓 Decrypting message:');
+        print('   Message ID: ${message.id}');
+        print('   Ciphertext: ${message.ciphertext.substring(0, 20)}...');
+        print('   Nonce: ${message.nonce}');
+        print('   Tag: ${message.tag}');
+        print('   K_family: ${kFamilyBase64.substring(0, 10)}...');
+      }
+
       // Decifra con K_family usando AES-GCM
       final plaintext = _encryptionService.decryptWithFamilyKey(
         message.ciphertext,
@@ -153,11 +162,13 @@ class ChatService extends ChangeNotifier {
         kFamilyBase64,
       );
 
+      if (kDebugMode) print('✅ Decrypted plaintext: $plaintext');
+
       // Parse del plaintext JSON
       final data = json.decode(plaintext);
       return data['body'] ?? plaintext;
     } catch (e) {
-      if (kDebugMode) print('Decrypt error: $e');
+      if (kDebugMode) print('❌ Decrypt error: $e');
       return '[Messaggio non decifrabile]';
     }
   }
