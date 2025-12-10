@@ -1,12 +1,14 @@
 const { db } = require('./database');
-const { v4: uuidv4 } = require('crypto');
 
 const MESSAGES_COLLECTION = 'messages';
 
 class MessageService {
   // Salva un nuovo messaggio
   async saveMessage({ senderId, receiverId, encryptedContent }) {
-    const messageId = uuidv4();
+    // Genera automaticamente un ID usando Firestore
+    const messageRef = db.collection(MESSAGES_COLLECTION).doc();
+    const messageId = messageRef.id;
+
     const message = {
       id: messageId,
       senderId,
@@ -17,7 +19,7 @@ class MessageService {
       isRead: false,
     };
 
-    await db.collection(MESSAGES_COLLECTION).doc(messageId).set(message);
+    await messageRef.set(message);
     return message;
   }
 

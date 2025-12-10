@@ -1,12 +1,14 @@
 const { db } = require('./database');
-const { v4: uuidv4 } = require('crypto');
 
 const USERS_COLLECTION = 'users';
 
 class UserService {
   // Crea un nuovo utente
   async createUser({ username, password, publicKey }) {
-    const userId = uuidv4();
+    // Genera automaticamente un ID usando Firestore
+    const userRef = db.collection(USERS_COLLECTION).doc();
+    const userId = userRef.id;
+
     const user = {
       id: userId,
       username,
@@ -16,7 +18,7 @@ class UserService {
       createdAt: new Date().toISOString(),
     };
 
-    await db.collection(USERS_COLLECTION).doc(userId).set(user);
+    await userRef.set(user);
     return user;
   }
 
