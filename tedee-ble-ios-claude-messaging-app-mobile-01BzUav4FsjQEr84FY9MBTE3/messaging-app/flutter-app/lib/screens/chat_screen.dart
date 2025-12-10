@@ -34,9 +34,17 @@ class _ChatScreenState extends State<ChatScreen> {
     _partnerUserId = await pairingService.getPartnerId();
     _myUserId = await pairingService.getMyUserId();
 
+    print('🔍 Chat initialization:');
+    print('   My User ID: $_myUserId');
+    print('   Partner User ID: $_partnerUserId');
+    print('   K_family: ${_kFamily != null ? "${_kFamily!.substring(0, 10)}..." : "null"}');
+
     if (_myUserId != null) {
       // Avvia il listener Firestore
       chatService.startListening(_myUserId!);
+      print('✅ Firestore listener started for user: $_myUserId');
+    } else {
+      print('❌ Cannot start listener - myUserId is null');
     }
 
     setState(() => _isLoading = false);
@@ -49,12 +57,23 @@ class _ChatScreenState extends State<ChatScreen> {
   }
 
   void _sendMessage() async {
-    if (_messageController.text.trim().isEmpty ||
-        _partnerUserId == null ||
-        _myUserId == null ||
-        _kFamily == null) {
+    if (_messageController.text.trim().isEmpty) {
+      print('❌ Message is empty');
       return;
     }
+
+    if (_partnerUserId == null || _myUserId == null || _kFamily == null) {
+      print('❌ Missing data - myUserId: $_myUserId, partnerUserId: $_partnerUserId, kFamily: ${_kFamily?.substring(0, 10)}');
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Errore: dati pairing mancanti. Riprova il pairing.')),
+      );
+      return;
+    }
+
+    print('📤 Sending message...');
+    print('   From: $_myUserId');
+    print('   To: $_partnerUserId');
+    print('   Content: ${_messageController.text.trim()}');
 
     final chatService = Provider.of<ChatService>(context, listen: false);
 
@@ -67,7 +86,13 @@ class _ChatScreenState extends State<ChatScreen> {
     );
 
     if (success) {
+      print('✅ Message sent successfully');
       _messageController.clear();
+    } else {
+      print('❌ Message send failed');
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Errore invio messaggio'), backgroundColor: Colors.red),
+      );
     }
   }
 
