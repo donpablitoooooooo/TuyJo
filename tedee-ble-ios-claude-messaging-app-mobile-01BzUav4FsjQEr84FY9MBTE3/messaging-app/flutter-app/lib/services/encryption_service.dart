@@ -170,7 +170,7 @@ class EncryptionService {
       if (publicKeySeq.elements == null || publicKeySeq.elements!.length < 2) {
         throw FormatException('Invalid public key sequence structure');
       }
-      
+
       final modulus = (publicKeySeq.elements![0] as ASN1Integer).valueAsBigInteger!;
       final exponent = (publicKeySeq.elements![1] as ASN1Integer).valueAsBigInteger!;
 
@@ -225,13 +225,100 @@ class EncryptionService {
 
     for (var i = 0; i < numBlocks; i++) {
       final start = i * engine.inputBlockSize;
-      final end = (start + engine.inputBlockSize <= input.length) 
-          ? start + engine.inputBlockSize 
+      final end = (start + engine.inputBlockSize <= input.length)
+          ? start + engine.inputBlockSize
           : input.length;
 
       output.add(engine.process(input.sublist(start, end)));
     }
 
     return output.toBytes();
+  }
+
+  // ========== K_family Encryption Methods (AES-GCM) ==========
+
+  /// Cifra un messaggio con K_family usando AES-256-GCM
+  /// Restituisce una Map con ciphertext, nonce, tag (tutti in base64)
+  Map<String, String> encryptWithFamilyKey(String plaintext, String kFamilyBase64) {
+    try {
+      // Decode K_family da base64
+      final kFamily = base64Decode(kFamilyBase64);
+
+      // Genera un nonce random (12 byte per GCM)
+      final nonce = _generateRandomKey(12);
+
+      // Converti plaintext in bytes
+      final plaintextBytes = utf8.encode(plaintext);
+
+      // Setup GCM cipher
+      final cipher = GCMBlockCipher(AESEngine());
+      final params = AEADParameters(
+        KeyParameter(kFamily),
+        128, // tag size in bits
+        nonce,
+        Uint8List(0), // no additional authenticated data
+      );
+
+      cipher.init(true, params);
+
+      // Cifra
+      final ciphertext = Uint8List(cipher.getOutputSize(plaintextBytes.length));
+      var offset = cipher.processBytes(plaintextBytes, 0, plaintextBytes.length, ciphertext, 0);
+      cipher.doFinal(ciphertext, offset);
+
+      // Estrai tag (ultimi 16 byte del ciphertext in GCM)
+      final ciphertextOnly = ciphertext.sublist(0, ciphertext.length - 16);
+      final tag = ciphertext.sublist(ciphertext.length - 16);
+
+      return {
+        'ciphertext': base64Encode(ciphertextOnly),
+        'nonce': base64Encode(nonce),
+        'tag': base64Encode(tag),
+      };
+    } catch (e) {
+      throw Exception('K_family encryption failed: $e');
+    }
+  }
+
+  /// Decifra un messaggio con K_family usando AES-256-GCM
+  String decryptWithFamilyKey(
+    String ciphertextBase64,
+    String nonceBase64,
+    String tagBase64,
+    String kFamilyBase64,
+  ) {
+    try {
+      // Decode tutto da base64
+      final kFamily = base64Decode(kFamilyBase64);
+      final nonce = base64Decode(nonceBase64);
+      final ciphertextOnly = base64Decode(ciphertextBase64);
+      final tag = base64Decode(tagBase64);
+
+      // Ricombina ciphertext + tag per GCM
+      final ciphertext = Uint8List.fromList([...ciphertextOnly, ...tag]);
+
+      // Setup GCM cipher
+      final cipher = GCMBlockCipher(AESEngine());
+      final params = AEADParameters(
+        KeyParameter(kFamily),
+        128, // tag size in bits
+        nonce,
+        Uint8List(0), // no additional authenticated data
+      );
+
+      cipher.init(false, params);
+
+      // Decifra
+      final plaintext = Uint8List(cipher.getOutputSize(ciphertext.length));
+      var offset = cipher.processBytes(ciphertext, 0, ciphertext.length, plaintext, 0);
+      cipher.doFinal(plaintext, offset);
+
+      // Rimuovi padding se necessario (GCM non usa padding, ma per sicurezza)
+      final actualPlaintext = plaintext.sublist(0, offset);
+
+      return utf8.decode(actualPlaintext);
+    } catch (e) {
+      throw Exception('K_family decryption failed: $e');
+    }
   }
 }

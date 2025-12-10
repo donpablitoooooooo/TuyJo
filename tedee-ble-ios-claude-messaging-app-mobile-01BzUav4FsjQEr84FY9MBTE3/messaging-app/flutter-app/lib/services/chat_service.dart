@@ -1,168 +1,180 @@
+import 'dart:convert';
 import 'dart:async';
 import 'package:flutter/foundation.dart';
+import 'package:http/http.dart' as http;
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../models/message.dart';
 import 'encryption_service.dart';
 
 class ChatService extends ChangeNotifier {
+  static const String baseUrl = 'https://private-messaging-backend-668509120760.europe-west1.run.app';
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
-  final EncryptionService _encryptionService = EncryptionService();
-  
   final List<Message> _messages = [];
-  StreamSubscription<QuerySnapshot>? _messagesSubscription;
-  String? _currentUserId;
+  final EncryptionService _encryptionService = EncryptionService();
+  StreamSubscription<QuerySnapshot>? _inboxSubscription;
 
   List<Message> get messages => _messages;
-  bool get isConnected => _messagesSubscription != null;
+  bool get isConnected => _inboxSubscription != null;
 
-  // Inizializza il listener Firestore per i messaggi
-  void connect(String token, String userId) {
-    _currentUserId = userId;
-    
-    // Listener per messaggi inviati dall'utente corrente
-    final sentQuery = _firestore
-        .collection('messages')
-        .where('senderId', isEqualTo: userId)
-        .orderBy('timestamp', descending: false);
-    
-    // Listener per messaggi ricevuti dall'utente corrente
-    final receivedQuery = _firestore
-        .collection('messages')
-        .where('receiverId', isEqualTo: userId)
-        .orderBy('timestamp', descending: false);
-
-    // Ascolta entrambe le query e combina i risultati
-    _setupMessageListener(userId);
-    
-    if (kDebugMode) print('Connected to Firestore - listening for messages');
-  }
-
-  void _setupMessageListener(String userId) {
-    // Ascolta tutti i messaggi dove l'utente è sender O receiver
-    _messagesSubscription = _firestore
-        .collection('messages')
-        .where('senderId', isEqualTo: userId)
-        .snapshots()
-        .listen((snapshot) {
-      _updateMessages(snapshot);
-    });
-
-    // Seconda subscription per i messaggi ricevuti
-    _firestore
-        .collection('messages')
-        .where('receiverId', isEqualTo: userId)
-        .snapshots()
-        .listen((snapshot) {
-      _updateMessages(snapshot);
-    });
-  }
-
-  void _updateMessages(QuerySnapshot snapshot) {
-    for (var change in snapshot.docChanges) {
-      final message = Message.fromJson(change.doc.data() as Map<String, dynamic>);
-      
-      switch (change.type) {
-        case DocumentChangeType.added:
-          // Aggiungi solo se non esiste già
-          if (!_messages.any((m) => m.id == message.id)) {
-            _messages.add(message);
-          }
-          break;
-        case DocumentChangeType.modified:
-          // Aggiorna il messaggio esistente
-          final index = _messages.indexWhere((m) => m.id == message.id);
-          if (index != -1) {
-            _messages[index] = message;
-          }
-          break;
-        case DocumentChangeType.removed:
-          // Rimuovi il messaggio
-          _messages.removeWhere((m) => m.id == message.id);
-          break;
-      }
+  // Connetti al Firestore listener per l'inbox dell'utente
+  void startListening(String userId) {
+    if (_inboxSubscription != null) {
+      if (kDebugMode) print('Already listening to inbox');
+      return;
     }
 
-    // Ordina per timestamp
-    _messages.sort((a, b) => a.timestamp.compareTo(b.timestamp));
+    if (kDebugMode) print('Starting Firestore listener for user: $userId');
+
+    // Ascolta i messaggi nella propria inbox
+    _inboxSubscription = _firestore
+        .collection('users')
+        .doc(userId)
+        .collection('inbox')
+        .orderBy('created_at', descending: false)
+        .snapshots()
+        .listen(
+      (snapshot) {
+        for (var change in snapshot.docChanges) {
+          if (change.type == DocumentChangeType.added) {
+            final message = Message.fromFirestore(
+              change.doc.id,
+              change.doc.data()!,
+            );
+
+            // Aggiungi solo se non esiste già
+            if (!_messages.any((m) => m.id == message.id)) {
+              _messages.add(message);
+              _messages.sort((a, b) => a.timestamp.compareTo(b.timestamp));
+
+              if (kDebugMode) {
+                print('New message received: ${message.id}');
+              }
+            }
+          }
+        }
+        notifyListeners();
+      },
+      onError: (error) {
+        if (kDebugMode) print('Firestore listener error: $error');
+      },
+    );
+
     notifyListeners();
   }
 
   // Disconnetti dal listener
-  void disconnect() {
-    _messagesSubscription?.cancel();
-    _messagesSubscription = null;
-    _currentUserId = null;
+  void stopListening() {
+    _inboxSubscription?.cancel();
+    _inboxSubscription = null;
+    if (kDebugMode) print('Stopped listening to inbox');
+    notifyListeners();
   }
 
-  // Carica la cronologia messaggi (opzionale con listener)
+  // Carica la cronologia dei messaggi dall'API (per retrocompatibilità)
   Future<void> loadMessages(String token) async {
-    // Con i listener Firestore, questo metodo è opzionale
-    // I messaggi verranno caricati automaticamente dal listener
-    if (kDebugMode) print('Messages will be loaded via Firestore listener');
-  }
-
-  // Invia un messaggio scrivendo direttamente su Firestore
-  Future<void> sendMessage(
-    String content,
-    String receiverId,
-    String receiverPublicKey,
-    String senderId,
-  ) async {
     try {
-      // Cripta il messaggio con la chiave pubblica del destinatario
-      final encryptedContent = _encryptionService.encryptMessage(
-        content,
-        receiverPublicKey,
+      final response = await http.get(
+        Uri.parse('$baseUrl/api/messages'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
       );
 
-      // Crea un nuovo documento con ID auto-generato
-      final docRef = _firestore.collection('messages').doc();
-      
-      final message = {
-        'id': docRef.id,
-        'senderId': senderId,
-        'receiverId': receiverId,
-        'encryptedContent': encryptedContent,
-        'timestamp': DateTime.now().toIso8601String(),
-        'isDelivered': false,
-        'isRead': false,
-      };
+      if (response.statusCode == 200) {
+        final List<dynamic> data = json.decode(response.body);
+        _messages.clear();
+        _messages.addAll(data.map((m) => Message.fromJson(m)).toList());
+        _messages.sort((a, b) => a.timestamp.compareTo(b.timestamp));
+        notifyListeners();
 
-      // Scrivi direttamente su Firestore
-      await docRef.set(message);
-      
-      if (kDebugMode) print('Message sent to Firestore: ${docRef.id}');
+        if (kDebugMode) print('Loaded ${_messages.length} messages from API');
+      }
     } catch (e) {
-      if (kDebugMode) print('Send message error: $e');
-      rethrow;
+      if (kDebugMode) print('Load messages error: $e');
     }
   }
 
-  // Decripta un messaggio
-  String decryptMessage(String encryptedContent) {
+  // Invia un messaggio cifrato con K_family
+  Future<bool> sendMessage(
+    String content,
+    String senderId,
+    String recipientId,
+    String backendToken,
+    String kFamilyBase64,
+  ) async {
     try {
-      return _encryptionService.decryptMessage(encryptedContent);
+      // Costruisci il plaintext con sender, timestamp, type, body
+      final plaintext = json.encode({
+        'sender': senderId,
+        'timestamp': DateTime.now().millisecondsSinceEpoch ~/ 1000,
+        'type': 'text',
+        'body': content,
+      });
+
+      // Cifra con K_family usando AES-GCM
+      final encrypted = _encryptionService.encryptWithFamilyKey(
+        plaintext,
+        kFamilyBase64,
+      );
+
+      // Invia al backend
+      final response = await http.post(
+        Uri.parse('$baseUrl/api/messages'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $backendToken',
+        },
+        body: json.encode({
+          'recipient_id': recipientId,
+          'ciphertext': encrypted['ciphertext'],
+          'nonce': encrypted['nonce'],
+          'tag': encrypted['tag'],
+        }),
+      );
+
+      if (response.statusCode == 201) {
+        if (kDebugMode) print('Message sent successfully');
+        return true;
+      } else {
+        if (kDebugMode) print('Failed to send message: ${response.statusCode}');
+        return false;
+      }
+    } catch (e) {
+      if (kDebugMode) print('Send message error: $e');
+      return false;
+    }
+  }
+
+  // Decripta un messaggio con K_family
+  String decryptMessage(Message message, String kFamilyBase64) {
+    try {
+      // Decifra con K_family usando AES-GCM
+      final plaintext = _encryptionService.decryptWithFamilyKey(
+        message.ciphertext,
+        message.nonce,
+        message.tag,
+        kFamilyBase64,
+      );
+
+      // Parse del plaintext JSON
+      final data = json.decode(plaintext);
+      return data['body'] ?? plaintext;
     } catch (e) {
       if (kDebugMode) print('Decrypt error: $e');
       return '[Messaggio non decifrabile]';
     }
   }
 
-  // Marca un messaggio come letto
-  Future<void> markAsRead(String messageId) async {
-    try {
-      await _firestore.collection('messages').doc(messageId).update({
-        'isRead': true,
-        'readAt': DateTime.now().toIso8601String(),
-      });
-    } catch (e) {
-      if (kDebugMode) print('Mark as read error: $e');
-    }
+  // Pulisci i messaggi
+  void clearMessages() {
+    _messages.clear();
+    notifyListeners();
   }
 
   @override
   void dispose() {
-    disconnect();
+    stopListening();
     super.dispose();
   }
 }
