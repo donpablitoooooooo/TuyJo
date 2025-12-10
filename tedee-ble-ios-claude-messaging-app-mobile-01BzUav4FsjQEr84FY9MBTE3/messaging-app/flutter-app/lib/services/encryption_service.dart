@@ -290,13 +290,15 @@ class EncryptionService {
       cipher.init(true, params);
 
       // Cifra
-      final ciphertext = Uint8List(cipher.getOutputSize(plaintextBytes.length));
-      var offset = cipher.processBytes(plaintextBytes, 0, plaintextBytes.length, ciphertext, 0);
-      cipher.doFinal(ciphertext, offset);
+      final outputBuffer = Uint8List(cipher.getOutputSize(plaintextBytes.length));
+      var offset = cipher.processBytes(plaintextBytes, 0, plaintextBytes.length, outputBuffer, 0);
+      offset += cipher.doFinal(outputBuffer, offset);
 
-      // Estrai tag (ultimi 16 byte del ciphertext in GCM)
-      final ciphertextOnly = ciphertext.sublist(0, ciphertext.length - 16);
-      final tag = ciphertext.sublist(ciphertext.length - 16);
+      // Il buffer contiene: ciphertext + tag
+      // Estrai le parti (tag è gli ultimi 16 byte)
+      final actualOutput = outputBuffer.sublist(0, offset);
+      final ciphertextOnly = actualOutput.sublist(0, actualOutput.length - 16);
+      final tag = actualOutput.sublist(actualOutput.length - 16);
 
       return {
         'ciphertext': base64Encode(ciphertextOnly),
