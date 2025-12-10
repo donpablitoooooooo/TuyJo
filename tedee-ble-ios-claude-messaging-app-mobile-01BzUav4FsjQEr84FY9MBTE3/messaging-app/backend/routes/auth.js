@@ -36,6 +36,8 @@ router.post('/register', async (req, res) => {
 
     // Genera Firebase Custom Token
     const firebaseToken = await admin.auth().createCustomToken(user.id);
+    console.log('✅ Firebase Custom Token generated for user:', user.id);
+    console.log('🔑 Token length:', firebaseToken.length);
 
     res.status(201).json({
       backend_token: backendToken,
