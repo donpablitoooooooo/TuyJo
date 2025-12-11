@@ -1,17 +1,29 @@
 class Message {
   final String id;
   final String senderId;
-  final String ciphertext;
-  final String nonce;
-  final String tag;
+  // Dual encryption: due versioni dell'encrypted_key
+  final String? encryptedKeyRecipient; // Chiave AES cifrata per il destinatario
+  final String? encryptedKeySender; // Chiave AES cifrata per il mittente
+  final String? iv; // IV per AES
+  final String? encryptedMessage; // Messaggio cifrato con AES
+  // Vecchi campi per retrocompatibilità
+  final String? encryptedKey; // Singola chiave (vecchia architettura)
+  final String? ciphertext;
+  final String? nonce;
+  final String? tag;
   final DateTime timestamp;
 
   Message({
     required this.id,
     required this.senderId,
-    required this.ciphertext,
-    required this.nonce,
-    required this.tag,
+    this.encryptedKeyRecipient,
+    this.encryptedKeySender,
+    this.iv,
+    this.encryptedMessage,
+    this.encryptedKey,
+    this.ciphertext,
+    this.nonce,
+    this.tag,
     required this.timestamp,
   });
 
@@ -19,9 +31,14 @@ class Message {
     return Message(
       id: json['id'] ?? json['_id'] ?? '',
       senderId: json['sender_id'] ?? json['senderId'] ?? '',
-      ciphertext: json['ciphertext'] ?? '',
-      nonce: json['nonce'] ?? '',
-      tag: json['tag'] ?? '',
+      encryptedKeyRecipient: json['encrypted_key_recipient'],
+      encryptedKeySender: json['encrypted_key_sender'],
+      iv: json['iv'],
+      encryptedMessage: json['message'],
+      encryptedKey: json['encrypted_key'], // Vecchia architettura
+      ciphertext: json['ciphertext'],
+      nonce: json['nonce'],
+      tag: json['tag'],
       timestamp: DateTime.parse(json['created_at'] ?? json['timestamp'] ?? DateTime.now().toIso8601String()),
     );
   }
@@ -30,9 +47,14 @@ class Message {
     return Message(
       id: docId,
       senderId: data['sender_id'] ?? '',
-      ciphertext: data['ciphertext'] ?? '',
-      nonce: data['nonce'] ?? '',
-      tag: data['tag'] ?? '',
+      encryptedKeyRecipient: data['encrypted_key_recipient'],
+      encryptedKeySender: data['encrypted_key_sender'],
+      iv: data['iv'],
+      encryptedMessage: data['message'],
+      encryptedKey: data['encrypted_key'], // Vecchia architettura
+      ciphertext: data['ciphertext'],
+      nonce: data['nonce'],
+      tag: data['tag'],
       timestamp: DateTime.parse(data['created_at'] ?? DateTime.now().toIso8601String()),
     );
   }
@@ -41,9 +63,14 @@ class Message {
     return {
       'id': id,
       'sender_id': senderId,
-      'ciphertext': ciphertext,
-      'nonce': nonce,
-      'tag': tag,
+      if (encryptedKeyRecipient != null) 'encrypted_key_recipient': encryptedKeyRecipient,
+      if (encryptedKeySender != null) 'encrypted_key_sender': encryptedKeySender,
+      if (iv != null) 'iv': iv,
+      if (encryptedMessage != null) 'message': encryptedMessage,
+      if (encryptedKey != null) 'encrypted_key': encryptedKey, // Vecchia architettura
+      if (ciphertext != null) 'ciphertext': ciphertext,
+      if (nonce != null) 'nonce': nonce,
+      if (tag != null) 'tag': tag,
       'created_at': timestamp.toIso8601String(),
     };
   }

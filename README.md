@@ -2,7 +2,7 @@
 
 App di messaggistica privata per due persone con crittografia end-to-end e pairing tramite QR code.
 
-[![Status](https://img.shields.io/badge/status-v1.0--stable-success)](./MILESTONE.md)
+[![Status](https://img.shields.io/badge/status-v1.2--stable-success)](./MILESTONE.md)
 [![Flutter](https://img.shields.io/badge/Flutter-3.x-blue)](https://flutter.dev)
 [![Firebase](https://img.shields.io/badge/Firebase-Firestore-orange)](https://firebase.google.com)
 
@@ -10,14 +10,16 @@ App di messaggistica privata per due persone con crittografia end-to-end e pairi
 
 ## ✨ Caratteristiche Principali
 
-- 🔐 **Crittografia End-to-End** con AES-256-GCM
-- 📱 **Pairing tramite QR Code** - zero configurazione
-- 🔑 **Chiave famiglia condivisa (K_family)** - un solo QR per entrambi i dispositivi
+- 🔐 **Crittografia End-to-End** con RSA-2048 + AES-256
+- 🔑 **Architettura RSA-only** - QR code contiene solo chiavi pubbliche (SICURO)
+- 🔄 **Dual Encryption** - mittente e destinatario possono sempre decifrare i loro messaggi
+- 📱 **Pairing tramite QR Code** - wizard guidato con checklist
 - ☁️ **Firestore real-time** - sincronizzazione istantanea
 - 🔔 **Notifiche Push** - Firebase Cloud Messaging per nuovi messaggi
 - 🚫 **Zero backend** - solo Cloud Functions serverless
 - 🔒 **Storage sicuro** - chiavi memorizzate con flutter_secure_storage
 - 📲 **Cross-platform** - iOS e Android
+- 📑 **Bottom Navigation** - tab Chat e Impostazioni
 
 ---
 
@@ -26,7 +28,7 @@ App di messaggistica privata per due persone con crittografia end-to-end e pairi
 ### Stack Tecnologico
 - **Frontend:** Flutter 3.x
 - **Database:** Google Cloud Firestore (real-time)
-- **Crittografia:** AES-256-GCM (PointyCastle)
+- **Crittografia:** RSA-2048 + AES-256 (PointyCastle)
 - **Storage Locale:** flutter_secure_storage
 - **Notifiche:** Firebase Cloud Messaging + flutter_local_notifications
 - **Cloud Functions:** Node.js 18 (serverless)
@@ -41,37 +43,57 @@ App di messaggistica privata per due persone con crittografia end-to-end e pairi
 
 ---
 
-## 🔐 Sistema di Sicurezza
+## 🔐 Sistema di Sicurezza (v1.2)
 
-### Crittografia K_family (Chiave Famiglia)
+### Architettura RSA-only con Dual Encryption
 
-L'app utilizza un sistema semplificato basato su una **chiave famiglia condivisa**:
+L'app utilizza un sistema **ibrido RSA + AES** completamente sicuro:
 
-1. **Generazione K_family**
-   - Un dispositivo genera una chiave AES-256 casuale (K_family)
-   - La chiave viene codificata in un QR code
+#### 1. **Generazione Chiavi RSA**
+- Ogni dispositivo genera una coppia RSA-2048 (pubblica + privata)
+- La chiave privata NON viene mai condivisa
+- Solo la chiave pubblica viene scambiata tramite QR code
 
-2. **Pairing**
-   - Il secondo dispositivo scansiona il QR code
-   - Entrambi memorizzano K_family localmente in modo sicuro
+#### 2. **Pairing Sicuro**
+- **Dispositivo A:** Mostra QR con la propria chiave pubblica RSA
+- **Dispositivo B:** Scansiona il QR e importa la chiave pubblica di A
+- **Dispositivo B:** Mostra il proprio QR con la sua chiave pubblica RSA
+- **Dispositivo A:** Scansiona il QR e importa la chiave pubblica di B
+- ✅ Nessuna chiave simmetrica condivisa nel QR (SICURO!)
 
-3. **Chat ID condiviso**
-   - `family_chat_id = SHA-256(K_family)`
-   - Entrambi i dispositivi usano lo stesso chat ID su Firestore
+#### 3. **Chat ID Condiviso**
+- `family_chat_id = SHA-256(sorted([publicKey_A, publicKey_B]))`
+- Entrambi i dispositivi calcolano lo stesso ID deterministicamente
 
-4. **Messaggi cifrati**
-   - Ogni messaggio viene cifrato con AES-256-GCM usando K_family
-   - Nonce unico per ogni messaggio (12 bytes)
-   - Tag di autenticazione (16 bytes)
-   - Formato: `{ciphertext, nonce, tag}`
+#### 4. **Hybrid Encryption + Dual Encryption**
 
-5. **Storage Firestore**
+Ogni messaggio:
+1. Genera una **chiave AES-256 casuale** univoca
+2. Cifra il messaggio con **AES-256** (veloce)
+3. Cifra la chiave AES **DUE volte** con RSA:
+   - Una volta con la chiave pubblica del **mittente** → `encrypted_key_sender`
+   - Una volta con la chiave pubblica del **destinatario** → `encrypted_key_recipient`
+4. Salva su Firestore:
+   ```json
+   {
+     "encrypted_key_sender": "...",    // Per il mittente
+     "encrypted_key_recipient": "...", // Per il destinatario
+     "iv": "...",
+     "message": "..."                  // Cifrato con AES
+   }
    ```
-   families/{family_chat_id}/messages/{message_id}
-   ```
-   - Solo messaggi cifrati vengono salvati
-   - Nessuna informazione in chiaro
-   - Il server NON può decifrare i messaggi
+
+#### 5. **Decifrazione**
+- Il **mittente** usa `encrypted_key_sender` + la propria chiave privata RSA
+- Il **destinatario** usa `encrypted_key_recipient` + la propria chiave privata RSA
+- Entrambi possono decifrare usando la stessa chiave AES
+- ✅ Funziona anche dopo riavvio app (no cache!)
+
+#### 6. **Vantaggi Sicurezza**
+- ✅ **Zero chiavi simmetriche nel QR** (nessun rischio di intercettazione)
+- ✅ **Forward secrecy** (ogni messaggio ha chiave AES univoca)
+- ✅ **Dual encryption** (mittente può rileggere i propri messaggi)
+- ✅ **Nessuna cache in chiaro** (tutto cifrato con RSA/AES)
 
 ---
 
@@ -118,21 +140,22 @@ L'app implementa un sistema completo di notifiche push per avvisare gli utenti d
 ```
 youandme/
 ├── README.md                    # Questo file
-├── MILESTONE.md                 # Documentazione v1.0 stable
+├── MILESTONE.md                 # Documentazione v1.2 stable
 ├── flutter-app/                 # App Flutter
 │   ├── lib/
-│   │   ├── main.dart           # Entry point + AuthWrapper
+│   │   ├── main.dart           # Entry point + bottom navigation
 │   │   ├── models/
-│   │   │   └── message.dart    # Message data model
+│   │   │   └── message.dart    # Message model (dual encryption)
 │   │   ├── screens/
 │   │   │   ├── chat_screen.dart              # Main chat UI
-│   │   │   ├── pairing_choice_screen.dart    # Scelta metodo pairing
-│   │   │   ├── qr_display_screen.dart        # Mostra QR (creator)
-│   │   │   └── qr_scanner_screen.dart        # Scansiona QR (joiner)
+│   │   │   ├── settings_screen.dart          # Settings tab
+│   │   │   ├── pairing_wizard_screen.dart    # Wizard pairing con checklist
+│   │   │   ├── qr_display_screen.dart        # Mostra QR (public key)
+│   │   │   └── qr_scanner_screen.dart        # Scansiona QR (public key)
 │   │   └── services/
-│   │       ├── pairing_service.dart          # K_family + QR logic
-│   │       ├── chat_service.dart             # Firestore messaging
-│   │       ├── encryption_service.dart       # AES-256-GCM
+│   │       ├── pairing_service.dart          # RSA pairing logic
+│   │       ├── chat_service.dart             # Firestore messaging + dual encryption
+│   │       ├── encryption_service.dart       # RSA-2048 + AES-256
 │   │       └── notification_service.dart     # FCM + notifiche locali
 │   ├── android/                 # Configurazione Android
 │   │   ├── app/
@@ -188,6 +211,10 @@ service cloud.firestore {
     match /families/{familyId}/messages/{messageId} {
       allow read, write: if true;
     }
+    // Allow read/write to FCM tokens
+    match /families/{familyId}/users/{userId} {
+      allow read, write: if true;
+    }
   }
 }
 ```
@@ -227,34 +254,46 @@ flutter build apk --release
 
 ## 📱 Come Usare l'App
 
-### Primo avvio - Pairing
+### Primo avvio - Pairing (v1.2)
 
 1. **Sul primo telefono:**
    - Apri l'app
-   - Premi "Creo io la chiave famiglia"
-   - Mostra il QR code
+   - Vai nella tab "Impostazioni"
+   - Premi "Pairing guidato"
+   - **Step 1:** Mostra il tuo QR code (chiave pubblica RSA)
+   - Fai scansionare il QR al tuo partner
+   - ✅ Step 1 completato
 
 2. **Sul secondo telefono:**
    - Apri l'app
-   - Premi "Leggo la chiave famiglia"
-   - Scansiona il QR code
+   - Vai nella tab "Impostazioni"
+   - Premi "Pairing guidato"
+   - **Step 2:** Premi "Scansiona QR del partner"
+   - Scansiona il QR mostrato dal primo telefono
+   - ✅ Step 2 completato
 
-3. **Entrambi i telefoni:**
-   - Verranno automaticamente portati alla chat
+3. **Sul primo telefono (di nuovo):**
+   - **Step 2:** Premi "Scansiona QR del partner"
+   - Scansiona il QR del secondo telefono
+   - ✅ Pairing completato!
+
+4. **Entrambi i telefoni:**
+   - Tornano automaticamente alla tab "Chat"
    - Ora potete inviarvi messaggi cifrati!
 
 ### Invio Messaggi
 
 - Scrivi il messaggio nella casella di testo
 - Premi il pulsante di invio
-- Il messaggio viene automaticamente cifrato con K_family
+- Il messaggio viene automaticamente cifrato con RSA + AES hybrid encryption + dual encryption
 - Appare istantaneamente sull'altro telefono (decifrato)
+- Entrambi possono rileggere i messaggi anche dopo riavvio app
 
 ---
 
-## 🔧 Configurazione Milestone v1.0
+## 🔧 Configurazione Milestone v1.2
 
-Per dettagli completi sulla configurazione stabile (versioni Gradle, bug fix, etc.), consulta:
+Per dettagli completi sulla configurazione stabile (dual encryption, RSA-only, bug fix, etc.), consulta:
 
 📖 **[MILESTONE.md](./MILESTONE.md)**
 
@@ -272,15 +311,21 @@ La configurazione corretta è documentata in [MILESTONE.md](./MILESTONE.md). Ver
 
 Per ripristinare configurazione funzionante:
 ```bash
-git checkout v1.0-stable
+git checkout v1.2-stable
 ```
 
 ### Messaggi non si decifrano
 
 Verifica che:
-1. Entrambi i dispositivi abbiano scansionato lo stesso QR code
-2. K_family sia presente in entrambi: verifica i log
+1. Entrambi i dispositivi abbiano completato il pairing (scambiato le chiavi pubbliche RSA)
+2. I log mostrino "✅ Message sent successfully with dual encryption"
 3. Firestore security rules permettano accesso a `families/{familyId}/messages`
+
+### Sender non può decifrare i propri messaggi
+
+Se vedi `[Messaggio non decifrabile]` sui tuoi messaggi inviati:
+1. Verifica che il messaggio sia stato inviato con dual encryption (v1.2+)
+2. I vecchi messaggi (pre-v1.2) non sono decifrabili dal mittente
 
 ### Firestore Permission Denied
 
@@ -290,14 +335,17 @@ Aggiorna le security rules come indicato nella sezione Setup.
 
 ## 📊 Features Status
 
-### ✅ Implementato (v1.0)
-- [x] Generazione K_family (AES-256)
-- [x] QR code pairing
-- [x] Encryption/Decryption AES-256-GCM
+### ✅ Implementato (v1.2)
+- [x] Architettura RSA-only (no chiavi simmetriche nel QR)
+- [x] Dual encryption (sender + recipient access)
+- [x] RSA-2048 key generation
+- [x] Hybrid encryption (RSA + AES-256)
+- [x] QR code pairing con chiavi pubbliche
+- [x] Pairing wizard con checklist UI
+- [x] Bottom navigation (Chat / Impostazioni)
 - [x] Firestore real-time messaging
 - [x] Chat UI con messaggi cifrati
-- [x] Navigazione post-pairing
-- [x] Storage sicuro chiavi
+- [x] Storage sicuro chiavi RSA
 - [x] Build Android funzionante
 - [x] **Notifiche push** (Firebase Cloud Messaging)
 - [x] **Notifiche locali** (foreground + background)
@@ -310,20 +358,29 @@ Aggiorna le security rules come indicato nella sezione Setup.
 - [ ] Multiple device support
 - [ ] iOS build completo
 - [ ] Notifiche programmate e reminder
+- [ ] Message deletion / editing
+- [ ] Key rotation
 
 ---
 
-## 🐛 Bug Fix Critici (v1.0)
+## 🐛 Bug Fix Critici (v1.2)
 
-La versione stabile include fix per:
+La versione 1.2 include fix per:
 
-1. **GCM Tag Extraction** - Tag estratto dalla posizione corretta usando output size effettivo
-2. **Decryption Truncation** - Aggiunto return value di `doFinal()` all'offset
-3. **QR Creator Navigation** - `popUntil()` invece di `pop()` per routing corretto
-4. **isPaired State** - Auto-set quando K_family viene generata
-5. **BigInt Conversion** - Uso di `valueAsBigInteger!` invece di `intValue`
+1. **Dual Encryption Bug** - AES key encrypting mismatch
+   - Problema: `encryptMessage()` chiamato due volte creava due chiavi AES diverse
+   - Fix: Nuovo metodo `encryptMessageDual()` che genera UNA chiave AES e la cifra DUE volte
+   - Risultato: Sender e recipient usano la stessa chiave AES (cifrata diversamente con RSA)
 
-Dettagli completi in [MILESTONE.md](./MILESTONE.md#4-errori-e-fix).
+2. **ASN1 Public Key Parsing** - BitString decoding error
+   - Problema: Errore nell'estrarre la chiave RSA dalla struttura ASN1 X.509
+   - Fix: Usare `valueBytes()` e skippare solo il primo byte (padding)
+
+3. **EncryptionService Dependency Injection**
+   - Problema: ChatService creava nuova istanza senza chiavi caricate
+   - Fix: Passare EncryptionService via constructor da main.dart
+
+Dettagli completi in [MILESTONE.md](./MILESTONE.md#-bug-fix-critici).
 
 ---
 
@@ -342,6 +399,6 @@ Per problemi o domande:
 
 ---
 
-**Versione:** 1.0 Stable
-**Ultima modifica:** 2025-12-10
-**Commit milestone:** `9f6cd74`
+**Versione:** 1.2 Stable
+**Ultima modifica:** 2025-12-11
+**Architettura:** RSA-only + Dual Encryption

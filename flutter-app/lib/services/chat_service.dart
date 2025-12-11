@@ -10,23 +10,24 @@ class ChatService extends ChangeNotifier {
   static const String baseUrl = 'https://private-messaging-backend-668509120760.europe-west1.run.app';
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final List<Message> _messages = [];
-  final EncryptionService _encryptionService = EncryptionService();
-  StreamSubscription<QuerySnapshot>? _inboxSubscription;
+  late final EncryptionService _encryptionService;
+  StreamSubscription<QuerySnapshot>? _subscription;
+
+  ChatService(this._encryptionService);
 
   List<Message> get messages => _messages;
-  bool get isConnected => _inboxSubscription != null;
+  bool get isConnected => _subscription != null;
 
-  // Connetti al Firestore listener per la chat famiglia
+  // Connetti al Firestore listener per la chat
   void startListening(String familyChatId) {
-    if (_inboxSubscription != null) {
-      if (kDebugMode) print('Already listening to family chat');
+    if (_subscription != null) {
+      if (kDebugMode) print('Already listening to chat');
       return;
     }
 
-    if (kDebugMode) print('Starting Firestore listener for family: $familyChatId');
+    if (kDebugMode) print('🎧 Starting listener for chat: ${familyChatId.substring(0, 10)}...');
 
-    // Ascolta i messaggi nella chat famiglia
-    _inboxSubscription = _firestore
+    _subscription = _firestore
         .collection('families')
         .doc(familyChatId)
         .collection('messages')
@@ -47,7 +48,7 @@ class ChatService extends ChangeNotifier {
               _messages.sort((a, b) => a.timestamp.compareTo(b.timestamp));
 
               if (kDebugMode) {
-                print('New message received: ${message.id}');
+                print('📨 New message: ${message.id}');
               }
             }
           }
@@ -64,9 +65,9 @@ class ChatService extends ChangeNotifier {
 
   // Disconnetti dal listener
   void stopListening() {
-    _inboxSubscription?.cancel();
-    _inboxSubscription = null;
-    if (kDebugMode) print('Stopped listening to inbox');
+    _subscription?.cancel();
+    _subscription = null;
+    if (kDebugMode) print('🔇 Stopped listening to chat');
     notifyListeners();
   }
 
@@ -95,12 +96,14 @@ class ChatService extends ChangeNotifier {
     }
   }
 
-  // Invia un messaggio cifrato con K_family alla chat famiglia
+  /// Invia un messaggio cifrato con RSA hybrid encryption e dual encryption
+  /// Ogni messaggio ha una chiave AES univoca, cifrata con ENTRAMBE le public key
   Future<bool> sendMessage(
     String content,
     String familyChatId,
     String senderId,
-    String kFamilyBase64,
+    String senderPublicKey, // Nuova! Per cifrare anche per noi stessi
+    String recipientPublicKey,
   ) async {
     try {
       final timestamp = DateTime.now();
@@ -113,13 +116,14 @@ class ChatService extends ChangeNotifier {
         'body': content,
       });
 
-      // Cifra con K_family usando AES-GCM
-      final encrypted = _encryptionService.encryptWithFamilyKey(
+      // Cifra con dual encryption: UNA chiave AES, cifrata DUE volte con RSA
+      final encryptedPayload = _encryptionService.encryptMessageDual(
         plaintext,
-        kFamilyBase64,
+        senderPublicKey,   // Per il mittente
+        recipientPublicKey, // Per il destinatario
       );
 
-      // Scrivi nella chat famiglia condivisa
+      // Scrivi nella chat condivisa
       final messageRef = _firestore
           .collection('families')
           .doc(familyChatId)
@@ -128,13 +132,18 @@ class ChatService extends ChangeNotifier {
 
       await messageRef.set({
         'sender_id': senderId,
-        'ciphertext': encrypted['ciphertext'],
-        'nonce': encrypted['nonce'],
-        'tag': encrypted['tag'],
+        // Dual encryption: la STESSA chiave AES cifrata con DUE chiavi pubbliche RSA
+        'encrypted_key_recipient': encryptedPayload['encryptedKeyRecipient'], // Per il destinatario
+        'encrypted_key_sender': encryptedPayload['encryptedKeySender'], // Per il mittente
+        'iv': encryptedPayload['iv'], // IV
+        'message': encryptedPayload['message'], // Messaggio cifrato con AES
         'created_at': timestamp.toIso8601String(),
       });
 
-      if (kDebugMode) print('✅ Message sent to family chat: ${messageRef.id}');
+      if (kDebugMode) {
+        print('✅ Message sent to chat: ${messageRef.id}');
+        print('   Dual encryption: encrypted_key_recipient + encrypted_key_sender');
+      }
       return true;
     } catch (e) {
       if (kDebugMode) print('❌ Send message error: $e');
@@ -142,25 +151,57 @@ class ChatService extends ChangeNotifier {
     }
   }
 
-  // Decripta un messaggio con K_family
-  String decryptMessage(Message message, String kFamilyBase64) {
+  /// Decripta un messaggio usando la propria chiave privata RSA
+  /// Con dual encryption, usa encrypted_key_sender se siamo il mittente,
+  /// altrimenti encrypted_key_recipient
+  String decryptMessage(Message message, String myDeviceId) {
     try {
+      // Determina quale chiave AES usare in base a chi siamo
+      final bool iAmSender = message.senderId == myDeviceId;
+      final String? encryptedKeyToUse = iAmSender
+          ? message.encryptedKeySender
+          : message.encryptedKeyRecipient;
+
+      // Fallback per messaggi vecchi (pre-dual-encryption)
+      String? finalEncryptedKey = encryptedKeyToUse;
+
+      // Se sono il DESTINATARIO e non c'è encrypted_key_recipient, usa il vecchio campo
+      if (!iAmSender && finalEncryptedKey == null) {
+        finalEncryptedKey = message.encryptedKey;
+      }
+
+      // Se sono il MITTENTE e non c'è encrypted_key_sender, il messaggio è vecchio
+      // e non è decifrabile (era cifrato solo per il destinatario)
+      if (iAmSender && finalEncryptedKey == null) {
+        if (kDebugMode) print('⚠️ Old message sent by me - cannot decrypt (was only encrypted for recipient)');
+        return '[Vecchio messaggio non decifrabile]';
+      }
+
       if (kDebugMode) {
         print('🔓 Decrypting message:');
         print('   Message ID: ${message.id}');
-        print('   Ciphertext: ${message.ciphertext.substring(0, 20)}...');
-        print('   Nonce: ${message.nonce}');
-        print('   Tag: ${message.tag}');
-        print('   K_family: ${kFamilyBase64.substring(0, 10)}...');
+        print('   I am: ${iAmSender ? "SENDER" : "RECIPIENT"}');
+        print('   Using: ${iAmSender ? "encrypted_key_sender" : "encrypted_key_recipient"}');
+        print('   Encrypted key: ${finalEncryptedKey?.substring(0, 20) ?? 'null'}...');
+        print('   IV: ${message.iv}');
+        print('   Message: ${message.encryptedMessage?.substring(0, 20) ?? 'null'}...');
       }
 
-      // Decifra con K_family usando AES-GCM
-      final plaintext = _encryptionService.decryptWithFamilyKey(
-        message.ciphertext,
-        message.nonce,
-        message.tag,
-        kFamilyBase64,
-      );
+      if (finalEncryptedKey == null) {
+        throw Exception('No encrypted key available');
+      }
+
+      // Ricostruisci il payload per decryptMessage
+      final payload = {
+        'encryptedKey': finalEncryptedKey,
+        'iv': message.iv,
+        'message': message.encryptedMessage,
+      };
+
+      final encryptedPayload = base64Encode(utf8.encode(json.encode(payload)));
+
+      // Decifra con la propria chiave privata RSA
+      final plaintext = _encryptionService.decryptMessage(encryptedPayload);
 
       if (kDebugMode) print('✅ Decrypted plaintext: $plaintext');
 
@@ -177,6 +218,35 @@ class ChatService extends ChangeNotifier {
   void clearMessages() {
     _messages.clear();
     notifyListeners();
+  }
+
+  // Elimina tutti i messaggi da Firestore per una famiglia
+  Future<void> deleteAllMessages(String familyChatId) async {
+    try {
+      if (kDebugMode) print('🗑️ Deleting all messages for family: $familyChatId');
+
+      final messagesRef = _firestore
+          .collection('families')
+          .doc(familyChatId)
+          .collection('messages');
+
+      // Ottieni tutti i messaggi
+      final snapshot = await messagesRef.get();
+
+      if (kDebugMode) print('Found ${snapshot.docs.length} messages to delete');
+
+      // Elimina tutti i messaggi in batch
+      final batch = _firestore.batch();
+      for (var doc in snapshot.docs) {
+        batch.delete(doc.reference);
+      }
+      await batch.commit();
+
+      if (kDebugMode) print('✅ All messages deleted from Firestore');
+    } catch (e) {
+      if (kDebugMode) print('❌ Error deleting messages: $e');
+      rethrow;
+    }
   }
 
   @override

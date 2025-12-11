@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
 import '../services/pairing_service.dart';
 import '../services/chat_service.dart';
+import '../services/encryption_service.dart';
 import '../services/notification_service.dart';
 import '../models/message.dart';
 
@@ -18,12 +19,30 @@ class _ChatScreenState extends State<ChatScreen> {
   bool _isLoading = true;
   String? _familyChatId;
   String? _myDeviceId;
-  String? _kFamily;
+  String? _partnerPublicKey;
+  bool _lastPairingStatus = false;
 
   @override
   void initState() {
     super.initState();
-    _initialize();
+    // Non chiamiamo _initialize qui, aspettiamo didChangeDependencies
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+
+    // Controlla se lo stato del pairing è cambiato
+    final pairingService = Provider.of<PairingService>(context);
+    final currentPairingStatus = pairingService.isPaired;
+
+    // Inizializza o re-inizializza se il pairing è attivo e lo stato è cambiato
+    if (currentPairingStatus && !_lastPairingStatus) {
+      print('🔄 Pairing detected, initializing chat...');
+      _initialize();
+    }
+
+    _lastPairingStatus = currentPairingStatus;
   }
 
   Future<void> _initialize() async {
@@ -31,20 +50,20 @@ class _ChatScreenState extends State<ChatScreen> {
     final chatService = Provider.of<ChatService>(context, listen: false);
     final notificationService = Provider.of<NotificationService>(context, listen: false);
 
-    // Ottieni K_family e calcola family chat ID
-    _kFamily = await pairingService.getKFamily();
+    // Ottieni il family_chat_id e le chiavi
     _familyChatId = await pairingService.getFamilyChatId();
-    _myDeviceId = await pairingService.getMyUserId(); // Riuso per device ID
+    _myDeviceId = await pairingService.getMyUserId();
+    _partnerPublicKey = pairingService.partnerPublicKey;
 
     print('🔍 Chat initialization:');
     print('   Family Chat ID: $_familyChatId');
     print('   My Device ID: $_myDeviceId');
-    print('   K_family: ${_kFamily != null ? "${_kFamily!.substring(0, 10)}..." : "null"}');
+    print('   Partner Public Key: ${_partnerPublicKey != null ? "${_partnerPublicKey!.substring(0, 20)}..." : "null"}');
 
-    if (_familyChatId != null) {
-      // Avvia il listener Firestore sulla chat famiglia
+    if (_familyChatId != null && _partnerPublicKey != null) {
+      // Avvia listener per la chat
       chatService.startListening(_familyChatId!);
-      print('✅ Firestore listener started for family: $_familyChatId');
+      print('✅ Firestore listener started for chat');
 
       // Salva il token FCM in Firestore
       if (_myDeviceId != null) {
@@ -57,7 +76,7 @@ class _ChatScreenState extends State<ChatScreen> {
         });
       }
     } else {
-      print('❌ Cannot start listener - familyChatId is null');
+      print('❌ Cannot start listener - missing chat ID or partner public key');
     }
 
     setState(() => _isLoading = false);
@@ -75,8 +94,8 @@ class _ChatScreenState extends State<ChatScreen> {
       return;
     }
 
-    if (_familyChatId == null || _myDeviceId == null || _kFamily == null) {
-      print('❌ Missing data - familyChatId: $_familyChatId, myDeviceId: $_myDeviceId, kFamily: ${_kFamily?.substring(0, 10)}');
+    if (_familyChatId == null || _myDeviceId == null || _partnerPublicKey == null) {
+      print('❌ Missing data - familyChatId: $_familyChatId, myDeviceId: $_myDeviceId, partnerPublicKey: ${_partnerPublicKey?.substring(0, 20)}');
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Errore: dati pairing mancanti. Riprova il pairing.')),
       );
@@ -89,16 +108,28 @@ class _ChatScreenState extends State<ChatScreen> {
     print('   Content: ${_messageController.text.trim()}');
 
     final chatService = Provider.of<ChatService>(context, listen: false);
+    final encryptionService = Provider.of<EncryptionService>(context, listen: false);
+
+    // Ottieni la propria chiave pubblica per la dual encryption
+    final myPublicKey = await encryptionService.getPublicKey();
+    if (myPublicKey == null) {
+      print('❌ My public key is null');
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Errore: chiave pubblica non trovata'), backgroundColor: Colors.red),
+      );
+      return;
+    }
 
     final success = await chatService.sendMessage(
       _messageController.text.trim(),
       _familyChatId!,
       _myDeviceId!,
-      _kFamily!,
+      myPublicKey, // Chiave pubblica del mittente (per dual encryption)
+      _partnerPublicKey!, // Chiave pubblica del destinatario
     );
 
     if (success) {
-      print('✅ Message sent successfully');
+      print('✅ Message sent successfully with dual encryption');
       _messageController.clear();
     } else {
       print('❌ Message send failed');
@@ -121,7 +152,7 @@ class _ChatScreenState extends State<ChatScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Family Chat'),
+        title: const Text('Family Chat ❤️'),
         actions: [
           IconButton(
             icon: Icon(
@@ -178,10 +209,9 @@ class _ChatScreenState extends State<ChatScreen> {
                       final message = chatService.messages[index];
                       final isMe = message.senderId == _myDeviceId;
 
-                      String decryptedContent = '[Errore decifratura]';
-                      if (_kFamily != null) {
-                        decryptedContent = chatService.decryptMessage(message, _kFamily!);
-                      }
+                      // Decifra il messaggio con la propria chiave privata RSA
+                      // Con dual encryption, usa la chiave corretta (sender o recipient)
+                      final decryptedContent = chatService.decryptMessage(message, _myDeviceId!);
 
                       return _MessageBubble(
                         message: decryptedContent,

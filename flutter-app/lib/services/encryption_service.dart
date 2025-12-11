@@ -68,6 +68,21 @@ class EncryptionService {
     return await _storage.read(key: 'rsa_public_key');
   }
 
+  // Deriva la chiave pubblica dalla chiave privata caricata e la salva
+  Future<String?> deriveAndSavePublicKey() async {
+    if (_keyPair == null) {
+      return null;
+    }
+
+    final publicKey = _keyPair!.publicKey as RSAPublicKey;
+    final encodedPublicKey = _encodePublicKey(publicKey);
+
+    // Salva in secure storage
+    await _storage.write(key: 'rsa_public_key', value: encodedPublicKey);
+
+    return encodedPublicKey;
+  }
+
   // Cripta un messaggio usando la chiave pubblica del destinatario
   String encryptMessage(String message, String recipientPublicKey) {
     try {
@@ -94,6 +109,51 @@ class EncryptionService {
       return base64Encode(utf8.encode(json.encode(payload)));
     } catch (e) {
       throw Exception('Encryption failed: $e');
+    }
+  }
+
+  /// Cifra solo una chiave AES con una chiave pubblica RSA
+  /// Usato per la dual encryption (cifrare la stessa AES key con due chiavi pubbliche diverse)
+  String encryptAesKeyOnly(Uint8List aesKey, String publicKeyStr) {
+    try {
+      final publicKey = _decodePublicKey(publicKeyStr);
+      final encryptedAesKey = _rsaEncrypt(aesKey, publicKey);
+      return base64Encode(encryptedAesKey);
+    } catch (e) {
+      throw Exception('AES key encryption failed: $e');
+    }
+  }
+
+  /// Cifra un messaggio con AES e cifra la chiave AES con DUE chiavi pubbliche RSA (dual encryption)
+  /// Restituisce un map con: encryptedKeyRecipient, encryptedKeySender, iv, message
+  Map<String, String> encryptMessageDual(
+    String message,
+    String senderPublicKey,
+    String recipientPublicKey,
+  ) {
+    try {
+      // 1. Genera UNA chiave AES casuale per questo messaggio
+      final aesKey = _generateRandomKey(32);
+
+      // 2. Cifra il messaggio con AES (UNA volta)
+      final key = encrypt_lib.Key(aesKey);
+      final iv = encrypt_lib.IV.fromSecureRandom(16);
+      final encrypter = encrypt_lib.Encrypter(encrypt_lib.AES(key));
+      final encryptedMessage = encrypter.encrypt(message, iv: iv);
+
+      // 3. Cifra la chiave AES DUE volte con RSA (una per ogni public key)
+      final encryptedAesKeyRecipient = encryptAesKeyOnly(aesKey, recipientPublicKey);
+      final encryptedAesKeySender = encryptAesKeyOnly(aesKey, senderPublicKey);
+
+      // 4. Restituisci tutto
+      return {
+        'encryptedKeyRecipient': encryptedAesKeyRecipient,
+        'encryptedKeySender': encryptedAesKeySender,
+        'iv': iv.base64,
+        'message': encryptedMessage.base64,
+      };
+    } catch (e) {
+      throw Exception('Dual encryption failed: $e');
     }
   }
 
@@ -181,20 +241,45 @@ class EncryptionService {
     if (publicKeyStr.isEmpty) {
       throw ArgumentError('Public key string cannot be empty');
     }
-    
+
     try {
+      print('🔍 DEBUG _decodePublicKey:');
+      print('   Input length: ${publicKeyStr.length}');
+      print('   First 30: ${publicKeyStr.substring(0, 30)}');
+
       final bytes = base64Decode(publicKeyStr);
+      print('   Decoded bytes length: ${bytes.length}');
+
       final asn1Parser = ASN1Parser(bytes);
-      final topLevelSeq = asn1Parser.nextObject() as ASN1Sequence;
-      
+      final topLevelObj = asn1Parser.nextObject();
+      print('   Top level object type: ${topLevelObj.runtimeType}');
+
+      final topLevelSeq = topLevelObj as ASN1Sequence;
+      print('   Top level seq elements: ${topLevelSeq.elements?.length}');
+
       if (topLevelSeq.elements == null || topLevelSeq.elements!.length < 2) {
-        throw FormatException('Invalid public key ASN.1 structure');
+        throw FormatException('Invalid public key ASN.1 structure - expected at least 2 elements, got ${topLevelSeq.elements?.length}');
       }
-      
+
+      print('   Element 0 type: ${topLevelSeq.elements![0].runtimeType}');
+      print('   Element 1 type: ${topLevelSeq.elements![1].runtimeType}');
+
       final publicKeyBitString = topLevelSeq.elements![1] as ASN1BitString;
-      
-      final publicKeySeq = ASN1Parser(publicKeyBitString.valueBytes()).nextObject() as ASN1Sequence;
-      
+
+      // In X.509 SubjectPublicKeyInfo, il BitString contiene:
+      // byte 0: numero di bit di padding (solitamente 0x00)
+      // byte 1+: sequenza della chiave pubblica (modulus, exponent)
+      final bitStringValueBytes = publicKeyBitString.valueBytes();
+      print('   BitString valueBytes length: ${bitStringValueBytes.length}');
+      print('   First byte (padding): 0x${bitStringValueBytes[0].toRadixString(16)}');
+
+      // Skippa il primo byte (padding) per ottenere la sequenza della chiave
+      final keySequenceBytes = bitStringValueBytes.sublist(1);
+      print('   Key sequence bytes length: ${keySequenceBytes.length}');
+
+      final publicKeySeq = ASN1Parser(keySequenceBytes).nextObject() as ASN1Sequence;
+      print('   Public key seq elements: ${publicKeySeq.elements?.length}');
+
       if (publicKeySeq.elements == null || publicKeySeq.elements!.length < 2) {
         throw FormatException('Invalid public key sequence structure');
       }
@@ -202,8 +287,12 @@ class EncryptionService {
       final modulus = (publicKeySeq.elements![0] as ASN1Integer).valueAsBigInteger!;
       final exponent = (publicKeySeq.elements![1] as ASN1Integer).valueAsBigInteger!;
 
+      print('   ✅ Decoded successfully');
+
       return RSAPublicKey(modulus, exponent);
-    } catch (e) {
+    } catch (e, stackTrace) {
+      print('   ❌ Decoding failed: $e');
+      print('   Stack trace: $stackTrace');
       throw FormatException('Failed to decode public key: $e');
     }
   }

@@ -1,12 +1,10 @@
 import 'dart:convert';
-import 'dart:typed_data';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:crypto/crypto.dart';
-import 'dart:math';
 
-/// Servizio per gestire il pairing tra dispositivi tramite K_family
-/// K_family è una chiave simmetrica AES-256 condivisa tra i membri della famiglia
+/// Servizio per gestire il pairing tra dispositivi tramite RSA public keys
+/// Architettura RSA-only: ogni dispositivo condivide solo la propria chiave pubblica
 class PairingService extends ChangeNotifier {
   final _storage = const FlutterSecureStorage();
 
@@ -17,120 +15,78 @@ class PairingService extends ChangeNotifier {
   String? get partnerPublicKey => _partnerPublicKey;
 
   /// Inizializza il servizio verificando se esiste già un pairing
+  /// Il pairing è considerato valido se esiste partner_public_key
   Future<void> initialize() async {
-    final kFamily = await _storage.read(key: 'k_family');
     final partnerPubKey = await _storage.read(key: 'partner_public_key');
 
-    if (kFamily != null && partnerPubKey != null) {
+    if (partnerPubKey != null) {
       _isPaired = true;
       _partnerPublicKey = partnerPubKey;
       notifyListeners();
+
+      if (kDebugMode) {
+        print('✅ Pairing initialized');
+        print('   Partner public key: ${partnerPubKey.substring(0, 20)}...');
+      }
     }
   }
 
-  /// Genera una nuova K_family (chiave AES-256)
-  /// Questa funzione viene chiamata dall'utente che MOSTRA il QR code
-  Future<String> generateFamilyKey() async {
-    // Genera 32 byte random per AES-256
-    final random = Random.secure();
-    final keyBytes = Uint8List.fromList(
-      List<int>.generate(32, (i) => random.nextInt(256))
-    );
-
-    // Converti in base64 per storage e trasferimento
-    final kFamilyBase64 = base64Encode(keyBytes);
-
-    // Salva in secure storage
-    await _storage.write(key: 'k_family', value: kFamilyBase64);
-
-    // Imposta come paired
-    _isPaired = true;
-    notifyListeners();
-
-    if (kDebugMode) print('K_family generated: ${kFamilyBase64.substring(0, 10)}...');
-
-    return kFamilyBase64;
-  }
-
   /// Ottiene i dati da codificare nel QR code
-  /// Include K_family + chiave pubblica del creatore
-  Future<String> getFamilyKeyQRData(String myPublicKey) async {
-    String? kFamily = await _storage.read(key: 'k_family');
-
-    // Se non esiste, generala
-    kFamily ??= await generateFamilyKey();
-
-    // Crea payload JSON
+  /// Include solo la chiave pubblica RSA (SICURO!)
+  Future<String> getMyPublicKeyQRData(String myPublicKey) async {
     final qrData = {
-      'k_family': kFamily,
-      'creator_public_key': myPublicKey,
+      'public_key': myPublicKey,
+      'version': '2.0', // Nuova versione architettura RSA-only
     };
 
     return json.encode(qrData);
   }
 
-  /// Importa K_family da QR code scansionato
-  /// Questa funzione viene chiamata dall'utente che SCANSIONA il QR code
-  Future<bool> importFamilyKeyFromQR(String qrData) async {
+  /// Importa la chiave pubblica del partner da QR code scansionato
+  Future<bool> importPartnerPublicKeyFromQR(String qrData) async {
     try {
+      if (kDebugMode) {
+        print('🔍 DEBUG QR Data:');
+        print('   QR Length: ${qrData.length}');
+        print('   QR First 100: ${qrData.substring(0, qrData.length > 100 ? 100 : qrData.length)}');
+      }
+
       final data = json.decode(qrData) as Map<String, dynamic>;
 
-      final kFamily = data['k_family'] as String?;
-      final creatorPublicKey = data['creator_public_key'] as String?;
+      final partnerPublicKey = data['public_key'] as String?;
 
-      if (kFamily == null || creatorPublicKey == null) {
-        if (kDebugMode) print('Invalid QR data: missing fields');
+      if (partnerPublicKey == null) {
+        if (kDebugMode) print('Invalid QR data: missing public_key');
         return false;
       }
 
-      // Salva K_family
-      await _storage.write(key: 'k_family', value: kFamily);
+      if (kDebugMode) {
+        print('🔍 DEBUG Partner Public Key from QR:');
+        print('   Length: ${partnerPublicKey.length}');
+        print('   First 50: ${partnerPublicKey.substring(0, partnerPublicKey.length > 50 ? 50 : partnerPublicKey.length)}');
+        print('   Last 50: ${partnerPublicKey.substring(partnerPublicKey.length > 50 ? partnerPublicKey.length - 50 : 0)}');
+      }
 
-      // Salva chiave pubblica del partner (creatore)
-      await _storage.write(key: 'partner_public_key', value: creatorPublicKey);
+      // Salva chiave pubblica del partner
+      await _storage.write(key: 'partner_public_key', value: partnerPublicKey);
 
       _isPaired = true;
-      _partnerPublicKey = creatorPublicKey;
+      _partnerPublicKey = partnerPublicKey;
       notifyListeners();
 
       if (kDebugMode) {
-        print('K_family imported: ${kFamily.substring(0, 10)}...');
-        print('Partner public key: ${creatorPublicKey.substring(0, 20)}...');
+        print('✅ Partner public key imported: ${partnerPublicKey.substring(0, 20)}...');
       }
 
       return true;
     } catch (e) {
-      if (kDebugMode) print('Error importing family key: $e');
+      if (kDebugMode) print('Error importing partner public key: $e');
       return false;
     }
   }
 
-  /// Completa il pairing per chi ha CREATO il QR
-  /// Salva la chiave pubblica del partner dopo che ha scansionato
-  Future<void> completePairing(String partnerPublicKey) async {
-    await _storage.write(key: 'partner_public_key', value: partnerPublicKey);
-
-    _isPaired = true;
-    _partnerPublicKey = partnerPublicKey;
-    notifyListeners();
-
-    if (kDebugMode) print('Pairing completed with partner: ${partnerPublicKey.substring(0, 20)}...');
-  }
-
-  /// Ottiene K_family dal secure storage
-  Future<String?> getFamilyKey() async {
-    return await _storage.read(key: 'k_family');
-  }
-
-  /// Verifica se K_family esiste
-  Future<bool> hasFamilyKey() async {
-    final kFamily = await _storage.read(key: 'k_family');
-    return kFamily != null;
-  }
-
-  /// Reset del pairing (elimina K_family e partner)
+  /// Reset del pairing (elimina partner)
   Future<void> resetPairing() async {
-    await _storage.delete(key: 'k_family');
     await _storage.delete(key: 'partner_public_key');
 
     _isPaired = false;
@@ -152,7 +108,7 @@ class PairingService extends ChangeNotifier {
 
   /// Ottiene l'ID dell'utente corrente basato sulla propria chiave pubblica
   Future<String?> getMyUserId() async {
-    final myPublicKey = await _storage.read(key: 'my_public_key');
+    final myPublicKey = await _storage.read(key: 'rsa_public_key');
     if (myPublicKey == null) return null;
 
     // userId = SHA-256(publicKey)
@@ -163,12 +119,7 @@ class PairingService extends ChangeNotifier {
 
   /// Salva la chiave pubblica dell'utente corrente
   Future<void> saveMyPublicKey(String publicKey) async {
-    await _storage.write(key: 'my_public_key', value: publicKey);
-  }
-
-  /// Alias per getFamilyKey (per compatibilità)
-  Future<String?> getKFamily() async {
-    return await getFamilyKey();
+    await _storage.write(key: 'rsa_public_key', value: publicKey);
   }
 
   /// Alias per resetPairing (per compatibilità)
@@ -176,14 +127,21 @@ class PairingService extends ChangeNotifier {
     await resetPairing();
   }
 
-  /// Calcola l'ID della chat famiglia basato su K_family
-  /// Questo è l'ID condiviso da entrambi gli utenti
+  /// Calcola l'ID della chat condivisa tra i due utenti
+  /// family_chat_id = SHA-256(sorted([myPublicKey, partnerPublicKey]))
+  /// Questo garantisce che entrambi gli utenti calcolino lo stesso ID
   Future<String?> getFamilyChatId() async {
-    final kFamily = await getFamilyKey();
-    if (kFamily == null) return null;
+    final myPublicKey = await _storage.read(key: 'rsa_public_key');
+    final partnerPublicKey = _partnerPublicKey;
 
-    // family_chat_id = SHA-256(K_family)
-    final bytes = utf8.encode(kFamily);
+    if (myPublicKey == null || partnerPublicKey == null) return null;
+
+    // Sort per garantire stesso ID da entrambe le parti
+    final keys = [myPublicKey, partnerPublicKey]..sort();
+    final combined = keys.join('|');
+
+    // family_chat_id = SHA-256(combined sorted keys)
+    final bytes = utf8.encode(combined);
     final digest = sha256.convert(bytes);
     return digest.toString();
   }
