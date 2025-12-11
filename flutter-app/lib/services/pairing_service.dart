@@ -45,6 +45,12 @@ class PairingService extends ChangeNotifier {
   /// Importa la chiave pubblica del partner da QR code scansionato
   Future<bool> importPartnerPublicKeyFromQR(String qrData) async {
     try {
+      if (kDebugMode) {
+        print('🔍 DEBUG QR Data:');
+        print('   QR Length: ${qrData.length}');
+        print('   QR First 100: ${qrData.substring(0, qrData.length > 100 ? 100 : qrData.length)}');
+      }
+
       final data = json.decode(qrData) as Map<String, dynamic>;
 
       final partnerPublicKey = data['public_key'] as String?;
@@ -52,6 +58,13 @@ class PairingService extends ChangeNotifier {
       if (partnerPublicKey == null) {
         if (kDebugMode) print('Invalid QR data: missing public_key');
         return false;
+      }
+
+      if (kDebugMode) {
+        print('🔍 DEBUG Partner Public Key from QR:');
+        print('   Length: ${partnerPublicKey.length}');
+        print('   First 50: ${partnerPublicKey.substring(0, partnerPublicKey.length > 50 ? 50 : partnerPublicKey.length)}');
+        print('   Last 50: ${partnerPublicKey.substring(partnerPublicKey.length > 50 ? partnerPublicKey.length - 50 : 0)}');
       }
 
       // Salva chiave pubblica del partner

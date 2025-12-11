@@ -101,6 +101,12 @@ class _ChatScreenState extends State<ChatScreen> {
       return;
     }
 
+    // Debug: verifica formato chiave pubblica del partner
+    print('🔍 DEBUG Partner Public Key:');
+    print('   Length: ${_partnerPublicKey!.length}');
+    print('   First 50 chars: ${_partnerPublicKey!.substring(0, _partnerPublicKey!.length > 50 ? 50 : _partnerPublicKey!.length)}');
+    print('   Last 50 chars: ${_partnerPublicKey!.substring(_partnerPublicKey!.length > 50 ? _partnerPublicKey!.length - 50 : 0)}');
+
     print('📤 Sending message...');
     print('   To family chat: $_familyChatId');
     print('   From device: $_myDeviceId');
