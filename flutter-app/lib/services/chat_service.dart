@@ -10,8 +10,10 @@ class ChatService extends ChangeNotifier {
   static const String baseUrl = 'https://private-messaging-backend-668509120760.europe-west1.run.app';
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final List<Message> _messages = [];
-  final EncryptionService _encryptionService = EncryptionService();
+  late final EncryptionService _encryptionService;
   StreamSubscription<QuerySnapshot>? _subscription;
+
+  ChatService(this._encryptionService);
 
   List<Message> get messages => _messages;
   bool get isConnected => _subscription != null;
