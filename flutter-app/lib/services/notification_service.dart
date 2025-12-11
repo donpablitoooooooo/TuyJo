@@ -18,10 +18,10 @@ class NotificationService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
   static const AndroidNotificationChannel _channel = AndroidNotificationChannel(
-    'high_importance_channel', // id
-    'Notifiche Messaggi', // nome
+    'messages_channel', // id
+    'Messaggi', // nome
     description: 'Notifiche per i nuovi messaggi',
-    importance: Importance.high,
+    importance: Importance.defaultImportance,
   );
 
   // Inizializza le notifiche

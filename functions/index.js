@@ -77,8 +77,8 @@ exports.sendMessageNotification = functions
           // Configurazioni Android
           android: {
             notification: {
-              channelId: 'high_importance_channel',
-              priority: 'high',
+              channelId: 'messages_channel',
+              priority: 'default',
               sound: 'default',
             },
           },
