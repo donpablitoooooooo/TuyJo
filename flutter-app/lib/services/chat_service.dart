@@ -116,21 +116,12 @@ class ChatService extends ChangeNotifier {
         'body': content,
       });
 
-      // Cifra con hybrid RSA encryption per il DESTINATARIO
-      final encryptedPayloadRecipient = _encryptionService.encryptMessage(
+      // Cifra con dual encryption: UNA chiave AES, cifrata DUE volte con RSA
+      final encryptedPayload = _encryptionService.encryptMessageDual(
         plaintext,
-        recipientPublicKey,
+        senderPublicKey,   // Per il mittente
+        recipientPublicKey, // Per il destinatario
       );
-      final payloadBytesRecipient = base64Decode(encryptedPayloadRecipient);
-      final payloadJsonRecipient = json.decode(utf8.decode(payloadBytesRecipient));
-
-      // Cifra con hybrid RSA encryption per il MITTENTE (noi stessi!)
-      final encryptedPayloadSender = _encryptionService.encryptMessage(
-        plaintext,
-        senderPublicKey,
-      );
-      final payloadBytesSender = base64Decode(encryptedPayloadSender);
-      final payloadJsonSender = json.decode(utf8.decode(payloadBytesSender));
 
       // Scrivi nella chat condivisa
       final messageRef = _firestore
@@ -141,11 +132,11 @@ class ChatService extends ChangeNotifier {
 
       await messageRef.set({
         'sender_id': senderId,
-        // Dual encryption: entrambe le chiavi AES (cifrate con RSA)
-        'encrypted_key_recipient': payloadJsonRecipient['encryptedKey'], // Per il destinatario
-        'encrypted_key_sender': payloadJsonSender['encryptedKey'], // Per il mittente
-        'iv': payloadJsonRecipient['iv'], // IV (uguale per entrambi)
-        'message': payloadJsonRecipient['message'], // Messaggio cifrato con AES (uguale per entrambi)
+        // Dual encryption: la STESSA chiave AES cifrata con DUE chiavi pubbliche RSA
+        'encrypted_key_recipient': encryptedPayload['encryptedKeyRecipient'], // Per il destinatario
+        'encrypted_key_sender': encryptedPayload['encryptedKeySender'], // Per il mittente
+        'iv': encryptedPayload['iv'], // IV
+        'message': encryptedPayload['message'], // Messaggio cifrato con AES
         'created_at': timestamp.toIso8601String(),
       });
 

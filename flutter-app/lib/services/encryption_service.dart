@@ -112,6 +112,51 @@ class EncryptionService {
     }
   }
 
+  /// Cifra solo una chiave AES con una chiave pubblica RSA
+  /// Usato per la dual encryption (cifrare la stessa AES key con due chiavi pubbliche diverse)
+  String encryptAesKeyOnly(Uint8List aesKey, String publicKeyStr) {
+    try {
+      final publicKey = _decodePublicKey(publicKeyStr);
+      final encryptedAesKey = _rsaEncrypt(aesKey, publicKey);
+      return base64Encode(encryptedAesKey);
+    } catch (e) {
+      throw Exception('AES key encryption failed: $e');
+    }
+  }
+
+  /// Cifra un messaggio con AES e cifra la chiave AES con DUE chiavi pubbliche RSA (dual encryption)
+  /// Restituisce un map con: encryptedKeyRecipient, encryptedKeySender, iv, message
+  Map<String, String> encryptMessageDual(
+    String message,
+    String senderPublicKey,
+    String recipientPublicKey,
+  ) {
+    try {
+      // 1. Genera UNA chiave AES casuale per questo messaggio
+      final aesKey = _generateRandomKey(32);
+
+      // 2. Cifra il messaggio con AES (UNA volta)
+      final key = encrypt_lib.Key(aesKey);
+      final iv = encrypt_lib.IV.fromSecureRandom(16);
+      final encrypter = encrypt_lib.Encrypter(encrypt_lib.AES(key));
+      final encryptedMessage = encrypter.encrypt(message, iv: iv);
+
+      // 3. Cifra la chiave AES DUE volte con RSA (una per ogni public key)
+      final encryptedAesKeyRecipient = encryptAesKeyOnly(aesKey, recipientPublicKey);
+      final encryptedAesKeySender = encryptAesKeyOnly(aesKey, senderPublicKey);
+
+      // 4. Restituisci tutto
+      return {
+        'encryptedKeyRecipient': encryptedAesKeyRecipient,
+        'encryptedKeySender': encryptedAesKeySender,
+        'iv': iv.base64,
+        'message': encryptedMessage.base64,
+      };
+    } catch (e) {
+      throw Exception('Dual encryption failed: $e');
+    }
+  }
+
   // Decripta un messaggio usando la propria chiave privata
   String decryptMessage(String encryptedPayload) {
     try {
