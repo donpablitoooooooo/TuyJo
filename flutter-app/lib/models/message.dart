@@ -1,11 +1,13 @@
 class Message {
   final String id;
   final String senderId;
-  // Nuovi campi per architettura RSA-only
-  final String? encryptedKey; // Chiave AES cifrata con RSA
+  // Dual encryption: due versioni dell'encrypted_key
+  final String? encryptedKeyRecipient; // Chiave AES cifrata per il destinatario
+  final String? encryptedKeySender; // Chiave AES cifrata per il mittente
   final String? iv; // IV per AES
   final String? encryptedMessage; // Messaggio cifrato con AES
   // Vecchi campi per retrocompatibilità
+  final String? encryptedKey; // Singola chiave (vecchia architettura)
   final String? ciphertext;
   final String? nonce;
   final String? tag;
@@ -14,9 +16,11 @@ class Message {
   Message({
     required this.id,
     required this.senderId,
-    this.encryptedKey,
+    this.encryptedKeyRecipient,
+    this.encryptedKeySender,
     this.iv,
     this.encryptedMessage,
+    this.encryptedKey,
     this.ciphertext,
     this.nonce,
     this.tag,
@@ -27,9 +31,11 @@ class Message {
     return Message(
       id: json['id'] ?? json['_id'] ?? '',
       senderId: json['sender_id'] ?? json['senderId'] ?? '',
-      encryptedKey: json['encrypted_key'],
+      encryptedKeyRecipient: json['encrypted_key_recipient'],
+      encryptedKeySender: json['encrypted_key_sender'],
       iv: json['iv'],
       encryptedMessage: json['message'],
+      encryptedKey: json['encrypted_key'], // Vecchia architettura
       ciphertext: json['ciphertext'],
       nonce: json['nonce'],
       tag: json['tag'],
@@ -41,9 +47,11 @@ class Message {
     return Message(
       id: docId,
       senderId: data['sender_id'] ?? '',
-      encryptedKey: data['encrypted_key'],
+      encryptedKeyRecipient: data['encrypted_key_recipient'],
+      encryptedKeySender: data['encrypted_key_sender'],
       iv: data['iv'],
       encryptedMessage: data['message'],
+      encryptedKey: data['encrypted_key'], // Vecchia architettura
       ciphertext: data['ciphertext'],
       nonce: data['nonce'],
       tag: data['tag'],
@@ -55,9 +63,11 @@ class Message {
     return {
       'id': id,
       'sender_id': senderId,
-      if (encryptedKey != null) 'encrypted_key': encryptedKey,
+      if (encryptedKeyRecipient != null) 'encrypted_key_recipient': encryptedKeyRecipient,
+      if (encryptedKeySender != null) 'encrypted_key_sender': encryptedKeySender,
       if (iv != null) 'iv': iv,
       if (encryptedMessage != null) 'message': encryptedMessage,
+      if (encryptedKey != null) 'encrypted_key': encryptedKey, // Vecchia architettura
       if (ciphertext != null) 'ciphertext': ciphertext,
       if (nonce != null) 'nonce': nonce,
       if (tag != null) 'tag': tag,

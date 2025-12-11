@@ -13,9 +13,6 @@ class ChatService extends ChangeNotifier {
   late final EncryptionService _encryptionService;
   StreamSubscription<QuerySnapshot>? _subscription;
 
-  // Cache per i plaintext dei messaggi che inviamo (messageId -> plaintext)
-  final Map<String, String> _sentMessagesCache = {};
-
   ChatService(this._encryptionService);
 
   List<Message> get messages => _messages;
@@ -99,12 +96,13 @@ class ChatService extends ChangeNotifier {
     }
   }
 
-  /// Invia un messaggio cifrato con RSA hybrid encryption
-  /// Ogni messaggio ha una chiave AES univoca, cifrata con la public key del destinatario
+  /// Invia un messaggio cifrato con RSA hybrid encryption e dual encryption
+  /// Ogni messaggio ha una chiave AES univoca, cifrata con ENTRAMBE le public key
   Future<bool> sendMessage(
     String content,
     String familyChatId,
     String senderId,
+    String senderPublicKey, // Nuova! Per cifrare anche per noi stessi
     String recipientPublicKey,
   ) async {
     try {
@@ -118,16 +116,21 @@ class ChatService extends ChangeNotifier {
         'body': content,
       });
 
-      // Cifra con hybrid RSA encryption (RSA per chiave AES, AES per messaggio)
-      final encryptedPayload = _encryptionService.encryptMessage(
+      // Cifra con hybrid RSA encryption per il DESTINATARIO
+      final encryptedPayloadRecipient = _encryptionService.encryptMessage(
         plaintext,
         recipientPublicKey,
       );
+      final payloadBytesRecipient = base64Decode(encryptedPayloadRecipient);
+      final payloadJsonRecipient = json.decode(utf8.decode(payloadBytesRecipient));
 
-      // Il payload è già un base64 che contiene {encryptedKey, iv, message}
-      // Lo decodifichiamo per separare i componenti in Firestore
-      final payloadBytes = base64Decode(encryptedPayload);
-      final payloadJson = json.decode(utf8.decode(payloadBytes));
+      // Cifra con hybrid RSA encryption per il MITTENTE (noi stessi!)
+      final encryptedPayloadSender = _encryptionService.encryptMessage(
+        plaintext,
+        senderPublicKey,
+      );
+      final payloadBytesSender = base64Decode(encryptedPayloadSender);
+      final payloadJsonSender = json.decode(utf8.decode(payloadBytesSender));
 
       // Scrivi nella chat condivisa
       final messageRef = _firestore
@@ -138,18 +141,17 @@ class ChatService extends ChangeNotifier {
 
       await messageRef.set({
         'sender_id': senderId,
-        'encrypted_key': payloadJson['encryptedKey'], // Chiave AES cifrata con RSA
-        'iv': payloadJson['iv'], // IV per AES
-        'message': payloadJson['message'], // Messaggio cifrato con AES
+        // Dual encryption: entrambe le chiavi AES (cifrate con RSA)
+        'encrypted_key_recipient': payloadJsonRecipient['encryptedKey'], // Per il destinatario
+        'encrypted_key_sender': payloadJsonSender['encryptedKey'], // Per il mittente
+        'iv': payloadJsonRecipient['iv'], // IV (uguale per entrambi)
+        'message': payloadJsonRecipient['message'], // Messaggio cifrato con AES (uguale per entrambi)
         'created_at': timestamp.toIso8601String(),
       });
 
-      // Salva il plaintext nella cache (così possiamo mostrarlo senza decifrarlo)
-      _sentMessagesCache[messageRef.id] = content;
-
       if (kDebugMode) {
         print('✅ Message sent to chat: ${messageRef.id}');
-        print('   Saved plaintext in cache for display');
+        print('   Dual encryption: encrypted_key_recipient + encrypted_key_sender');
       }
       return true;
     } catch (e) {
@@ -159,29 +161,36 @@ class ChatService extends ChangeNotifier {
   }
 
   /// Decripta un messaggio usando la propria chiave privata RSA
-  String decryptMessage(Message message) {
+  /// Con dual encryption, usa encrypted_key_sender se siamo il mittente,
+  /// altrimenti encrypted_key_recipient
+  String decryptMessage(Message message, String myDeviceId) {
     try {
-      // Se abbiamo il plaintext in cache (messaggio che abbiamo inviato noi),
-      // usalo direttamente invece di provare a decifrarlo
-      if (_sentMessagesCache.containsKey(message.id)) {
-        final cachedPlaintext = _sentMessagesCache[message.id]!;
-        if (kDebugMode) {
-          print('✅ Using cached plaintext for sent message: ${message.id}');
-        }
-        return cachedPlaintext;
-      }
+      // Determina quale chiave AES usare in base a chi siamo
+      final bool iAmSender = message.senderId == myDeviceId;
+      final String? encryptedKeyToUse = iAmSender
+          ? message.encryptedKeySender
+          : message.encryptedKeyRecipient;
+
+      // Fallback alla vecchia architettura (singola encrypted_key)
+      final String? finalEncryptedKey = encryptedKeyToUse ?? message.encryptedKey;
 
       if (kDebugMode) {
         print('🔓 Decrypting message:');
         print('   Message ID: ${message.id}');
-        print('   Encrypted key: ${message.encryptedKey?.substring(0, 20) ?? 'null'}...');
+        print('   I am: ${iAmSender ? "SENDER" : "RECIPIENT"}');
+        print('   Using: ${iAmSender ? "encrypted_key_sender" : "encrypted_key_recipient"}');
+        print('   Encrypted key: ${finalEncryptedKey?.substring(0, 20) ?? 'null'}...');
         print('   IV: ${message.iv}');
         print('   Message: ${message.encryptedMessage?.substring(0, 20) ?? 'null'}...');
       }
 
+      if (finalEncryptedKey == null) {
+        throw Exception('No encrypted key available');
+      }
+
       // Ricostruisci il payload per decryptMessage
       final payload = {
-        'encryptedKey': message.encryptedKey,
+        'encryptedKey': finalEncryptedKey,
         'iv': message.iv,
         'message': message.encryptedMessage,
       };
@@ -205,7 +214,6 @@ class ChatService extends ChangeNotifier {
   // Pulisci i messaggi
   void clearMessages() {
     _messages.clear();
-    _sentMessagesCache.clear(); // Pulisci anche la cache
     notifyListeners();
   }
 

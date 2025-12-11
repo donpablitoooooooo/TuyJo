@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
 import '../services/pairing_service.dart';
 import '../services/chat_service.dart';
+import '../services/encryption_service.dart';
 import '../services/notification_service.dart';
 import '../models/message.dart';
 
@@ -101,28 +102,34 @@ class _ChatScreenState extends State<ChatScreen> {
       return;
     }
 
-    // Debug: verifica formato chiave pubblica del partner
-    print('🔍 DEBUG Partner Public Key:');
-    print('   Length: ${_partnerPublicKey!.length}');
-    print('   First 50 chars: ${_partnerPublicKey!.substring(0, _partnerPublicKey!.length > 50 ? 50 : _partnerPublicKey!.length)}');
-    print('   Last 50 chars: ${_partnerPublicKey!.substring(_partnerPublicKey!.length > 50 ? _partnerPublicKey!.length - 50 : 0)}');
-
     print('📤 Sending message...');
     print('   To family chat: $_familyChatId');
     print('   From device: $_myDeviceId');
     print('   Content: ${_messageController.text.trim()}');
 
     final chatService = Provider.of<ChatService>(context, listen: false);
+    final encryptionService = Provider.of<EncryptionService>(context, listen: false);
+
+    // Ottieni la propria chiave pubblica per la dual encryption
+    final myPublicKey = await encryptionService.getPublicKey();
+    if (myPublicKey == null) {
+      print('❌ My public key is null');
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Errore: chiave pubblica non trovata'), backgroundColor: Colors.red),
+      );
+      return;
+    }
 
     final success = await chatService.sendMessage(
       _messageController.text.trim(),
       _familyChatId!,
       _myDeviceId!,
-      _partnerPublicKey!,
+      myPublicKey, // Chiave pubblica del mittente (per dual encryption)
+      _partnerPublicKey!, // Chiave pubblica del destinatario
     );
 
     if (success) {
-      print('✅ Message sent successfully');
+      print('✅ Message sent successfully with dual encryption');
       _messageController.clear();
     } else {
       print('❌ Message send failed');
@@ -203,7 +210,8 @@ class _ChatScreenState extends State<ChatScreen> {
                       final isMe = message.senderId == _myDeviceId;
 
                       // Decifra il messaggio con la propria chiave privata RSA
-                      final decryptedContent = chatService.decryptMessage(message);
+                      // Con dual encryption, usa la chiave corretta (sender o recipient)
+                      final decryptedContent = chatService.decryptMessage(message, _myDeviceId!);
 
                       return _MessageBubble(
                         message: decryptedContent,
