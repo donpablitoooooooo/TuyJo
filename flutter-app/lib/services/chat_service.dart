@@ -171,8 +171,20 @@ class ChatService extends ChangeNotifier {
           ? message.encryptedKeySender
           : message.encryptedKeyRecipient;
 
-      // Fallback alla vecchia architettura (singola encrypted_key)
-      final String? finalEncryptedKey = encryptedKeyToUse ?? message.encryptedKey;
+      // Fallback per messaggi vecchi (pre-dual-encryption)
+      String? finalEncryptedKey = encryptedKeyToUse;
+
+      // Se sono il DESTINATARIO e non c'è encrypted_key_recipient, usa il vecchio campo
+      if (!iAmSender && finalEncryptedKey == null) {
+        finalEncryptedKey = message.encryptedKey;
+      }
+
+      // Se sono il MITTENTE e non c'è encrypted_key_sender, il messaggio è vecchio
+      // e non è decifrabile (era cifrato solo per il destinatario)
+      if (iAmSender && finalEncryptedKey == null) {
+        if (kDebugMode) print('⚠️ Old message sent by me - cannot decrypt (was only encrypted for recipient)');
+        return '[Vecchio messaggio non decifrabile]';
+      }
 
       if (kDebugMode) {
         print('🔓 Decrypting message:');
