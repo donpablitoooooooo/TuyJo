@@ -12,6 +12,10 @@ void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp();
 
+  // Inizializza EncryptionService (carica chiavi RSA se esistono)
+  final encryptionService = EncryptionService();
+  await encryptionService.generateAndStoreKeyPair();
+
   // Inizializza PairingService
   final pairingService = PairingService();
   await pairingService.initialize();
@@ -21,17 +25,20 @@ void main() async {
   await notificationService.initialize();
 
   runApp(MyApp(
+    encryptionService: encryptionService,
     pairingService: pairingService,
     notificationService: notificationService,
   ));
 }
 
 class MyApp extends StatelessWidget {
+  final EncryptionService encryptionService;
   final PairingService pairingService;
   final NotificationService notificationService;
 
   const MyApp({
     super.key,
+    required this.encryptionService,
     required this.pairingService,
     required this.notificationService,
   });
@@ -43,7 +50,7 @@ class MyApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => AuthService()),
         ChangeNotifierProvider(create: (_) => ChatService()),
         ChangeNotifierProvider.value(value: pairingService),
-        Provider(create: (_) => EncryptionService()),
+        Provider.value(value: encryptionService),
         Provider.value(value: notificationService),
       ],
       child: MaterialApp(

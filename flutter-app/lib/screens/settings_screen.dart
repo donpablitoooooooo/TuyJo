@@ -4,8 +4,7 @@ import 'package:provider/provider.dart';
 import '../services/pairing_service.dart';
 import '../services/encryption_service.dart';
 import '../services/chat_service.dart';
-import 'qr_display_screen.dart';
-import 'qr_scanner_screen.dart';
+import 'pairing_wizard_screen.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 class SettingsScreen extends StatefulWidget {
@@ -136,37 +135,29 @@ class _SettingsScreenState extends State<SettingsScreen> {
       final chatService = Provider.of<ChatService>(context, listen: false);
 
       if (deleteMessages) {
-        // Elimina TUTTI i messaggi da Firestore (tutte le chat)
-        final allChatIds = await pairingService.getAllFamilyChatIds();
-        for (var chatId in allChatIds) {
-          await _deleteAllMessagesFromFirestore(chatId);
+        // Elimina TUTTI i messaggi da Firestore
+        final chatId = await pairingService.getFamilyChatId();
+        if (chatId != null) {
+          await chatService.deleteAllMessages(chatId);
         }
-
-        // Elimina completamente il pairing (K_family + storico)
-        await pairingService.clearPairing();
-
-        // Elimina anche lo storico delle K_family
-        await _storage.delete(key: 'k_family_history');
-      } else {
-        // NON eliminare la K_family: verrà archiviata automaticamente
-        // quando farai il prossimo pairing con generateFamilyKey()
-        // I messaggi vecchi restano su Firestore, accessibili con la vecchia K_family
-        print('⚠️ Pairing reset: K_family mantenuta per storico messaggi');
       }
 
-      // Ferma i listener e pulisci i messaggi locali (in entrambi i casi)
+      // Elimina il pairing
+      await pairingService.clearPairing();
+
+      // Ferma i listener e pulisci i messaggi locali
       chatService.stopListening();
       chatService.clearMessages();
 
       if (!mounted) return;
-      setState(() => _isPaired = !deleteMessages); // Paired se manteniamo K_family
+      setState(() => _isPaired = false);
 
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
             deleteMessages
-              ? 'Pairing e messaggi eliminati completamente'
-              : 'Pronto per nuovo pairing. I messaggi vecchi saranno ancora visibili.'
+                ? 'Pairing e messaggi eliminati completamente'
+                : 'Pairing eliminato. Messaggi conservati su Firestore.'
           ),
           backgroundColor: Colors.green,
         ),
@@ -181,18 +172,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
       );
     } finally {
       setState(() => _isLoading = false);
-    }
-  }
-
-  Future<void> _deleteAllMessagesFromFirestore(String familyChatId) async {
-    try {
-      final chatService = Provider.of<ChatService>(context, listen: false);
-      // Usa il metodo deleteAllMessages che aggiungeremo al ChatService
-      await chatService.deleteAllMessages(familyChatId);
-      print('✅ All messages deleted from Firestore');
-    } catch (e) {
-      print('❌ Error deleting messages: $e');
-      rethrow;
     }
   }
 
@@ -213,14 +192,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
             Text('📱 Solo Pairing'),
             SizedBox(height: 4),
             Text(
-              'Prepara per nuovo pairing. I messaggi vecchi saranno ancora visibili dopo il re-pairing.',
+              'Elimina solo il pairing. I messaggi restano su Firestore (ma non saranno più leggibili senza re-pairing).',
               style: TextStyle(fontSize: 12, color: Colors.grey),
             ),
             SizedBox(height: 16),
             Text('🗑️ Pairing e Messaggi'),
             SizedBox(height: 4),
             Text(
-              'Elimina TUTTO: pairing, messaggi e storico. Nessun recupero possibile.',
+              'Elimina TUTTO: pairing e messaggi da Firestore. Nessun recupero possibile.',
               style: TextStyle(fontSize: 12, color: Colors.red),
             ),
           ],
@@ -336,7 +315,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       children: [
                         Row(
                           children: const [
-                            Icon(Icons.qr_code, color: Colors.green),
+                            Icon(Icons.favorite, color: Colors.red),
                             SizedBox(width: 8),
                             Text(
                               'Pairing',
@@ -350,11 +329,17 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         const SizedBox(height: 16),
                         if (_isPaired) ...[
                           const Text(
-                            'Dispositivi già accoppiati',
+                            'Dispositivi già accoppiati ❤️',
                             style: TextStyle(
                               color: Colors.green,
                               fontWeight: FontWeight.bold,
                             ),
+                          ),
+                          const SizedBox(height: 8),
+                        ] else ...[
+                          const Text(
+                            'Accoppia i dispositivi per chattare',
+                            style: TextStyle(fontSize: 12, color: Colors.grey),
                           ),
                           const SizedBox(height: 8),
                         ],
@@ -365,30 +350,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
                               await Navigator.push(
                                 context,
                                 MaterialPageRoute(
-                                  builder: (context) => const QRDisplayScreen(),
+                                  builder: (context) => const PairingWizardScreen(),
                                 ),
                               );
                               _checkPairingStatus();
                             },
-                            icon: const Icon(Icons.qr_code_2),
-                            label: const Text('Crea QR Code'),
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        SizedBox(
-                          width: double.infinity,
-                          child: OutlinedButton.icon(
-                            onPressed: () async {
-                              await Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (context) => const QRScannerScreen(),
-                                ),
-                              );
-                              _checkPairingStatus();
-                            },
-                            icon: const Icon(Icons.qr_code_scanner),
-                            label: const Text('Scansiona QR Code'),
+                            icon: const Icon(Icons.qr_code),
+                            label: Text(_isPaired ? 'Rifai Pairing' : 'Inizia Pairing'),
                           ),
                         ),
                       ],

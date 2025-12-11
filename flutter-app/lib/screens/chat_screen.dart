@@ -18,7 +18,7 @@ class _ChatScreenState extends State<ChatScreen> {
   bool _isLoading = true;
   String? _familyChatId;
   String? _myDeviceId;
-  String? _kFamily;
+  String? _partnerPublicKey;
   bool _lastPairingStatus = false;
 
   @override
@@ -49,28 +49,23 @@ class _ChatScreenState extends State<ChatScreen> {
     final chatService = Provider.of<ChatService>(context, listen: false);
     final notificationService = Provider.of<NotificationService>(context, listen: false);
 
-    // Ottieni TUTTE le K_family (corrente + storiche)
-    final allKFamilies = await pairingService.getAllKFamilies();
-    final allChatIds = await pairingService.getAllFamilyChatIds();
-
-    // La K_family corrente e il chat ID corrente (primi nella lista)
-    _kFamily = allKFamilies.isNotEmpty ? allKFamilies.first : null;
-    _familyChatId = allChatIds.isNotEmpty ? allChatIds.first : null;
+    // Ottieni il family_chat_id e le chiavi
+    _familyChatId = await pairingService.getFamilyChatId();
     _myDeviceId = await pairingService.getMyUserId();
+    _partnerPublicKey = pairingService.partnerPublicKey;
 
     print('🔍 Chat initialization:');
-    print('   Total K_families: ${allKFamilies.length}');
-    print('   Current Family Chat ID: $_familyChatId');
+    print('   Family Chat ID: $_familyChatId');
     print('   My Device ID: $_myDeviceId');
-    print('   Current K_family: ${_kFamily != null ? "${_kFamily!.substring(0, 10)}..." : "null"}');
+    print('   Partner Public Key: ${_partnerPublicKey != null ? "${_partnerPublicKey!.substring(0, 20)}..." : "null"}');
 
-    if (allChatIds.isNotEmpty && allKFamilies.isNotEmpty) {
-      // Avvia listener multipli per tutte le chat (corrente + storiche)
-      chatService.startListeningMultiple(allChatIds, allKFamilies);
-      print('✅ Firestore listeners started for ${allChatIds.length} chat(s)');
+    if (_familyChatId != null && _partnerPublicKey != null) {
+      // Avvia listener per la chat
+      chatService.startListening(_familyChatId!);
+      print('✅ Firestore listener started for chat');
 
-      // Salva il token FCM in Firestore (sulla chat corrente)
-      if (_familyChatId != null && _myDeviceId != null) {
+      // Salva il token FCM in Firestore
+      if (_myDeviceId != null) {
         await notificationService.saveTokenToFirestore(_familyChatId!, _myDeviceId!);
 
         // Aggiorna il token anche quando cambia
@@ -80,7 +75,7 @@ class _ChatScreenState extends State<ChatScreen> {
         });
       }
     } else {
-      print('❌ Cannot start listeners - no chat IDs or K_families');
+      print('❌ Cannot start listener - missing chat ID or partner public key');
     }
 
     setState(() => _isLoading = false);
@@ -98,8 +93,8 @@ class _ChatScreenState extends State<ChatScreen> {
       return;
     }
 
-    if (_familyChatId == null || _myDeviceId == null || _kFamily == null) {
-      print('❌ Missing data - familyChatId: $_familyChatId, myDeviceId: $_myDeviceId, kFamily: ${_kFamily?.substring(0, 10)}');
+    if (_familyChatId == null || _myDeviceId == null || _partnerPublicKey == null) {
+      print('❌ Missing data - familyChatId: $_familyChatId, myDeviceId: $_myDeviceId, partnerPublicKey: ${_partnerPublicKey?.substring(0, 20)}');
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Errore: dati pairing mancanti. Riprova il pairing.')),
       );
@@ -117,7 +112,7 @@ class _ChatScreenState extends State<ChatScreen> {
       _messageController.text.trim(),
       _familyChatId!,
       _myDeviceId!,
-      _kFamily!,
+      _partnerPublicKey!,
     );
 
     if (success) {
@@ -144,7 +139,7 @@ class _ChatScreenState extends State<ChatScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Family Chat'),
+        title: const Text('Family Chat ❤️'),
         actions: [
           IconButton(
             icon: Icon(
@@ -201,8 +196,8 @@ class _ChatScreenState extends State<ChatScreen> {
                       final message = chatService.messages[index];
                       final isMe = message.senderId == _myDeviceId;
 
-                      // Usa decifratura automatica (trova la K_family giusta automaticamente)
-                      final decryptedContent = chatService.decryptMessageAuto(message);
+                      // Decifra il messaggio con la propria chiave privata RSA
+                      final decryptedContent = chatService.decryptMessage(message);
 
                       return _MessageBubble(
                         message: decryptedContent,

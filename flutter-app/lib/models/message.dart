@@ -1,17 +1,25 @@
 class Message {
   final String id;
   final String senderId;
-  final String ciphertext;
-  final String nonce;
-  final String tag;
+  // Nuovi campi per architettura RSA-only
+  final String? encryptedKey; // Chiave AES cifrata con RSA
+  final String? iv; // IV per AES
+  final String? encryptedMessage; // Messaggio cifrato con AES
+  // Vecchi campi per retrocompatibilità
+  final String? ciphertext;
+  final String? nonce;
+  final String? tag;
   final DateTime timestamp;
 
   Message({
     required this.id,
     required this.senderId,
-    required this.ciphertext,
-    required this.nonce,
-    required this.tag,
+    this.encryptedKey,
+    this.iv,
+    this.encryptedMessage,
+    this.ciphertext,
+    this.nonce,
+    this.tag,
     required this.timestamp,
   });
 
@@ -19,9 +27,12 @@ class Message {
     return Message(
       id: json['id'] ?? json['_id'] ?? '',
       senderId: json['sender_id'] ?? json['senderId'] ?? '',
-      ciphertext: json['ciphertext'] ?? '',
-      nonce: json['nonce'] ?? '',
-      tag: json['tag'] ?? '',
+      encryptedKey: json['encrypted_key'],
+      iv: json['iv'],
+      encryptedMessage: json['message'],
+      ciphertext: json['ciphertext'],
+      nonce: json['nonce'],
+      tag: json['tag'],
       timestamp: DateTime.parse(json['created_at'] ?? json['timestamp'] ?? DateTime.now().toIso8601String()),
     );
   }
@@ -30,9 +41,12 @@ class Message {
     return Message(
       id: docId,
       senderId: data['sender_id'] ?? '',
-      ciphertext: data['ciphertext'] ?? '',
-      nonce: data['nonce'] ?? '',
-      tag: data['tag'] ?? '',
+      encryptedKey: data['encrypted_key'],
+      iv: data['iv'],
+      encryptedMessage: data['message'],
+      ciphertext: data['ciphertext'],
+      nonce: data['nonce'],
+      tag: data['tag'],
       timestamp: DateTime.parse(data['created_at'] ?? DateTime.now().toIso8601String()),
     );
   }
@@ -41,9 +55,12 @@ class Message {
     return {
       'id': id,
       'sender_id': senderId,
-      'ciphertext': ciphertext,
-      'nonce': nonce,
-      'tag': tag,
+      if (encryptedKey != null) 'encrypted_key': encryptedKey,
+      if (iv != null) 'iv': iv,
+      if (encryptedMessage != null) 'message': encryptedMessage,
+      if (ciphertext != null) 'ciphertext': ciphertext,
+      if (nonce != null) 'nonce': nonce,
+      if (tag != null) 'tag': tag,
       'created_at': timestamp.toIso8601String(),
     };
   }
