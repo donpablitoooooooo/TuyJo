@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 import '../services/pairing_service.dart';
 import '../services/encryption_service.dart';
 import '../services/chat_service.dart';
+import '../services/notification_service.dart';
 import 'pairing_wizard_screen.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
@@ -167,8 +168,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
       final pairingService = Provider.of<PairingService>(context, listen: false);
       final chatService = Provider.of<ChatService>(context, listen: false);
 
-      // STEP 1: Ottieni chatId PRIMA di eliminare il pairing
+      // STEP 0: Ottieni dati PRIMA di eliminare il pairing
       final chatId = await pairingService.getFamilyChatId();
+      final myUserId = await pairingService.getMyUserId();
 
       if (deleteMessages) {
         // Fix 3: Elimina TUTTO da Firestore (messaggi + documento family)
@@ -177,6 +179,16 @@ class _SettingsScreenState extends State<SettingsScreen> {
           if (kDebugMode) print('✅ Family completamente eliminata da Firestore');
         } else {
           if (kDebugMode) print('⚠️ Nessun chatId trovato, skip eliminazione Firestore');
+        }
+      } else {
+        // UNPAIR SYNC: Notifica al partner che abbiamo fatto unpair
+        // Solo quando NON eliminiamo i messaggi (unpair semplice)
+        await pairingService.notifyUnpair();
+
+        // CLEANUP FCM: Elimina il proprio token FCM da Firestore
+        if (chatId != null && myUserId != null && mounted) {
+          final notificationService = Provider.of<NotificationService>(context, listen: false);
+          await notificationService.deleteTokenFromFirestore(chatId, myUserId);
         }
       }
 

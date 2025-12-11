@@ -65,6 +65,30 @@ class _ChatScreenState extends State<ChatScreen> {
       chatService.startListening(_familyChatId!);
       print('✅ Firestore listener started for chat');
 
+      // UNPAIR SYNC: Avvia listener per rilevare quando il partner fa unpair
+      pairingService.startListeningToPairingStatus(() {
+        // Callback quando il partner fa unpair
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text(
+                '⚠️ Il tuo partner ha fatto unpair.\n'
+                'Non puoi più inviare messaggi finché non rifate il pairing.',
+              ),
+              backgroundColor: Colors.orange,
+              duration: Duration(seconds: 6),
+            ),
+          );
+          // Ferma il listener della chat
+          chatService.stopListening();
+          chatService.clearMessages();
+          setState(() {
+            _familyChatId = null;
+            _partnerPublicKey = null;
+          });
+        }
+      });
+
       // Salva il token FCM in Firestore
       if (_myDeviceId != null) {
         await notificationService.saveTokenToFirestore(_familyChatId!, _myDeviceId!);
@@ -94,10 +118,29 @@ class _ChatScreenState extends State<ChatScreen> {
       return;
     }
 
+    // BLOCCO INVIO: Verifica che siamo in pairing
+    final pairingService = Provider.of<PairingService>(context, listen: false);
+    if (!pairingService.isPaired) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            '⚠️ Non sei più in pairing!\n'
+            'Vai nelle impostazioni e rifare il pairing per chattare.',
+          ),
+          backgroundColor: Colors.orange,
+          duration: Duration(seconds: 4),
+        ),
+      );
+      return;
+    }
+
     if (_familyChatId == null || _myDeviceId == null || _partnerPublicKey == null) {
       print('❌ Missing data - familyChatId: $_familyChatId, myDeviceId: $_myDeviceId, partnerPublicKey: ${_partnerPublicKey?.substring(0, 20)}');
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Errore: dati pairing mancanti. Riprova il pairing.')),
+        const SnackBar(
+          content: Text('Errore: dati pairing mancanti. Riprova il pairing.'),
+          backgroundColor: Colors.red,
+        ),
       );
       return;
     }

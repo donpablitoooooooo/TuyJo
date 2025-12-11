@@ -1,12 +1,16 @@
 import 'dart:convert';
+import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:crypto/crypto.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 
 /// Servizio per gestire il pairing tra dispositivi tramite RSA public keys
 /// Architettura RSA-only: ogni dispositivo condivide solo la propria chiave pubblica
 class PairingService extends ChangeNotifier {
   final _storage = const FlutterSecureStorage();
+  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  StreamSubscription<DocumentSnapshot>? _pairingStatusSubscription;
 
   bool _isPaired = false;
   String? _partnerPublicKey;
@@ -144,5 +148,110 @@ class PairingService extends ChangeNotifier {
     final bytes = utf8.encode(combined);
     final digest = sha256.convert(bytes);
     return digest.toString();
+  }
+
+  /// Notifica al partner che abbiamo fatto unpair
+  /// Scrive su Firestore che il pairing è stato interrotto
+  Future<void> notifyUnpair() async {
+    try {
+      final chatId = await getFamilyChatId();
+      if (chatId == null) {
+        if (kDebugMode) print('⚠️ No chatId, cannot notify unpair');
+        return;
+      }
+
+      final myUserId = await getMyUserId();
+      if (myUserId == null) {
+        if (kDebugMode) print('⚠️ No userId, cannot notify unpair');
+        return;
+      }
+
+      // Scrivi su Firestore che hai fatto unpair
+      await _firestore.collection('families').doc(chatId).set({
+        'pairing_status': 'unpaired',
+        'unpaired_by': myUserId,
+        'unpaired_at': FieldValue.serverTimestamp(),
+      }, SetOptions(merge: true));
+
+      if (kDebugMode) print('✅ Unpair notificato al partner su Firestore');
+    } catch (e) {
+      if (kDebugMode) print('❌ Errore notifica unpair: $e');
+    }
+  }
+
+  /// Inizia ad ascoltare i cambiamenti di pairing status su Firestore
+  /// Se il partner fa unpair, facciamo unpair automaticamente
+  void startListeningToPairingStatus(Function() onPartnerUnpaired) async {
+    final chatId = await getFamilyChatId();
+    if (chatId == null) {
+      if (kDebugMode) print('⚠️ No chatId, cannot listen to pairing status');
+      return;
+    }
+
+    final myUserId = await getMyUserId();
+    if (myUserId == null) {
+      if (kDebugMode) print('⚠️ No userId, cannot listen to pairing status');
+      return;
+    }
+
+    if (kDebugMode) print('🎧 Listening to pairing status for chat: ${chatId.substring(0, 10)}...');
+
+    _pairingStatusSubscription = _firestore
+        .collection('families')
+        .doc(chatId)
+        .snapshots()
+        .listen((snapshot) async {
+      if (!snapshot.exists) return;
+
+      final data = snapshot.data();
+      if (data == null) return;
+
+      final pairingStatus = data['pairing_status'] as String?;
+      final unpairedBy = data['unpaired_by'] as String?;
+
+      // Se il pairing è unpaired e non sono io che ho fatto unpair
+      if (pairingStatus == 'unpaired' && unpairedBy != null && unpairedBy != myUserId) {
+        if (kDebugMode) print('⚠️ Partner ha fatto unpair, facciamo unpair automatico');
+
+        // Fai unpair locale SENZA notificare (per evitare loop)
+        await _storage.delete(key: 'partner_public_key');
+        _isPaired = false;
+        _partnerPublicKey = null;
+        notifyListeners();
+
+        // Callback per notificare l'UI
+        onPartnerUnpaired();
+      }
+    });
+  }
+
+  /// Ferma il listener del pairing status
+  void stopListeningToPairingStatus() {
+    _pairingStatusSubscription?.cancel();
+    _pairingStatusSubscription = null;
+    if (kDebugMode) print('🔇 Stopped listening to pairing status');
+  }
+
+  /// Ripristina il pairing status su Firestore quando si rifare pairing
+  Future<void> resetPairingStatus() async {
+    try {
+      final chatId = await getFamilyChatId();
+      if (chatId == null) return;
+
+      await _firestore.collection('families').doc(chatId).set({
+        'pairing_status': 'paired',
+        'paired_at': FieldValue.serverTimestamp(),
+      }, SetOptions(merge: true));
+
+      if (kDebugMode) print('✅ Pairing status ripristinato su Firestore');
+    } catch (e) {
+      if (kDebugMode) print('❌ Errore reset pairing status: $e');
+    }
+  }
+
+  @override
+  void dispose() {
+    stopListeningToPairingStatus();
+    super.dispose();
   }
 }

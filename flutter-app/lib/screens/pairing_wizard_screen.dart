@@ -77,6 +77,9 @@ class _PairingWizardScreenState extends State<PairingWizardScreen> {
 
       if (mounted) {
         if (success) {
+          // UNPAIR SYNC: Ripristina pairing status su Firestore quando si completa il pairing
+          await pairingService.resetPairingStatus();
+
           setState(() {
             _step2Completed = true;
             _showScanner = false;
