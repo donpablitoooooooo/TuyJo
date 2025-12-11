@@ -221,16 +221,18 @@ class EncryptionService {
 
       final publicKeyBitString = topLevelSeq.elements![1] as ASN1BitString;
 
-      // ASN1BitString.valueBytes() potrebbe includere il padding byte
-      // Usiamo contentBytes() che skippa automaticamente il padding
-      final bitStringBytes = publicKeyBitString.contentBytes();
-      print('   BitString content bytes length: ${bitStringBytes.length}');
+      // In X.509 SubjectPublicKeyInfo, il BitString contiene:
+      // byte 0: numero di bit di padding (solitamente 0x00)
+      // byte 1+: sequenza della chiave pubblica (modulus, exponent)
+      final bitStringValueBytes = publicKeyBitString.valueBytes();
+      print('   BitString valueBytes length: ${bitStringValueBytes.length}');
+      print('   First byte (padding): 0x${bitStringValueBytes[0].toRadixString(16)}');
 
-      // Il primo byte del contentBytes è il padding count, skippiamolo
-      final actualKeyBytes = bitStringBytes.sublist(1);
-      print('   Actual key bytes (after skipping padding): ${actualKeyBytes.length}');
+      // Skippa il primo byte (padding) per ottenere la sequenza della chiave
+      final keySequenceBytes = bitStringValueBytes.sublist(1);
+      print('   Key sequence bytes length: ${keySequenceBytes.length}');
 
-      final publicKeySeq = ASN1Parser(actualKeyBytes).nextObject() as ASN1Sequence;
+      final publicKeySeq = ASN1Parser(keySequenceBytes).nextObject() as ASN1Sequence;
       print('   Public key seq elements: ${publicKeySeq.elements?.length}');
 
       if (publicKeySeq.elements == null || publicKeySeq.elements!.length < 2) {
