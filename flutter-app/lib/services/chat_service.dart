@@ -13,6 +13,9 @@ class ChatService extends ChangeNotifier {
   late final EncryptionService _encryptionService;
   StreamSubscription<QuerySnapshot>? _subscription;
 
+  // Cache per i plaintext dei messaggi che inviamo (messageId -> plaintext)
+  final Map<String, String> _sentMessagesCache = {};
+
   ChatService(this._encryptionService);
 
   List<Message> get messages => _messages;
@@ -141,7 +144,13 @@ class ChatService extends ChangeNotifier {
         'created_at': timestamp.toIso8601String(),
       });
 
-      if (kDebugMode) print('✅ Message sent to chat: ${messageRef.id}');
+      // Salva il plaintext nella cache (così possiamo mostrarlo senza decifrarlo)
+      _sentMessagesCache[messageRef.id] = content;
+
+      if (kDebugMode) {
+        print('✅ Message sent to chat: ${messageRef.id}');
+        print('   Saved plaintext in cache for display');
+      }
       return true;
     } catch (e) {
       if (kDebugMode) print('❌ Send message error: $e');
@@ -152,6 +161,16 @@ class ChatService extends ChangeNotifier {
   /// Decripta un messaggio usando la propria chiave privata RSA
   String decryptMessage(Message message) {
     try {
+      // Se abbiamo il plaintext in cache (messaggio che abbiamo inviato noi),
+      // usalo direttamente invece di provare a decifrarlo
+      if (_sentMessagesCache.containsKey(message.id)) {
+        final cachedPlaintext = _sentMessagesCache[message.id]!;
+        if (kDebugMode) {
+          print('✅ Using cached plaintext for sent message: ${message.id}');
+        }
+        return cachedPlaintext;
+      }
+
       if (kDebugMode) {
         print('🔓 Decrypting message:');
         print('   Message ID: ${message.id}');
@@ -186,6 +205,7 @@ class ChatService extends ChangeNotifier {
   // Pulisci i messaggi
   void clearMessages() {
     _messages.clear();
+    _sentMessagesCache.clear(); // Pulisci anche la cache
     notifyListeners();
   }
 
