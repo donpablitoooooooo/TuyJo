@@ -257,7 +257,7 @@ class PairingService extends ChangeNotifier {
   }
 
   /// Background listener che ascolta SEMPRE unpair del partner
-  /// Non richiede UI context, funziona anche quando app è in background
+  /// Basato sullo STATO della famiglia (collezione users) invece che su eventi
   void _startBackgroundUnpairListener() async {
     final chatId = await getFamilyChatId();
     if (chatId == null) {
@@ -271,37 +271,53 @@ class PairingService extends ChangeNotifier {
       return;
     }
 
-    if (kDebugMode) print('🎧 Background unpair listener started for chat: ${chatId.substring(0, 10)}...');
+    if (kDebugMode) print('🎧 Background unpair listener (state-based) started for chat: ${chatId.substring(0, 10)}...');
 
+    // STATE-BASED: Ascolta la collezione /users invece di pairing_status
     _pairingStatusSubscription = _firestore
         .collection('families')
         .doc(chatId)
+        .collection('users')
         .snapshots()
         .listen((snapshot) async {
-      if (!snapshot.exists) return;
+      final userCount = snapshot.docs.length;
 
-      final data = snapshot.data();
-      if (data == null) return;
+      if (kDebugMode) print('👥 Family users count: $userCount');
 
-      final pairingStatus = data['pairing_status'] as String?;
-      final unpairedBy = data['unpaired_by'] as String?;
+      // Se ci sono meno di 2 utenti e io sono ancora in pairing → partner ha fatto unpair
+      if (userCount < 2 && _isPaired) {
+        // Verifica che IO sia ancora presente (potrei essere l'unico rimasto)
+        final iAmPresent = snapshot.docs.any((doc) => doc.id == myUserId);
 
-      // Se il pairing è unpaired e non sono io che ho fatto unpair
-      if (pairingStatus == 'unpaired' && unpairedBy != null && unpairedBy != myUserId) {
-        if (kDebugMode) print('⚠️ Partner ha fatto unpair (background listener), facciamo unpair automatico');
+        if (iAmPresent && userCount == 1) {
+          // Solo io presente → partner ha fatto unpair
+          if (kDebugMode) print('⚠️ Partner ha fatto unpair (stato: solo 1 user), facciamo unpair automatico');
 
-        // Fai unpair locale SENZA notificare (per evitare loop)
-        await _storage.delete(key: 'partner_public_key');
-        _isPaired = false;
-        _partnerPublicKey = null;
+          // Fai unpair locale
+          await _storage.delete(key: 'partner_public_key');
+          _isPaired = false;
+          _partnerPublicKey = null;
 
-        // Ferma il listener
-        stopListeningToPairingStatus();
+          // Ferma il listener
+          stopListeningToPairingStatus();
 
-        // Notifica i listener (Provider)
-        notifyListeners();
+          // Notifica i listener (Provider)
+          notifyListeners();
 
-        if (kDebugMode) print('✅ Unpair automatico completato');
+          if (kDebugMode) print('✅ Unpair automatico completato');
+        } else if (!iAmPresent && userCount == 0) {
+          // Nessuno presente → famiglia vuota
+          if (kDebugMode) print('⚠️ Famiglia vuota, facciamo unpair automatico');
+
+          await _storage.delete(key: 'partner_public_key');
+          _isPaired = false;
+          _partnerPublicKey = null;
+          stopListeningToPairingStatus();
+          notifyListeners();
+        }
+      } else if (userCount == 2 && kDebugMode) {
+        // Entrambi presenti → famiglia completa
+        print('✅ Famiglia completa: 2 utenti presenti');
       }
     });
   }
