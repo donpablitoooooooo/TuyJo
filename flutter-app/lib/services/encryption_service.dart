@@ -196,20 +196,35 @@ class EncryptionService {
     if (publicKeyStr.isEmpty) {
       throw ArgumentError('Public key string cannot be empty');
     }
-    
+
     try {
+      print('🔍 DEBUG _decodePublicKey:');
+      print('   Input length: ${publicKeyStr.length}');
+      print('   First 30: ${publicKeyStr.substring(0, 30)}');
+
       final bytes = base64Decode(publicKeyStr);
+      print('   Decoded bytes length: ${bytes.length}');
+
       final asn1Parser = ASN1Parser(bytes);
-      final topLevelSeq = asn1Parser.nextObject() as ASN1Sequence;
-      
+      final topLevelObj = asn1Parser.nextObject();
+      print('   Top level object type: ${topLevelObj.runtimeType}');
+
+      final topLevelSeq = topLevelObj as ASN1Sequence;
+      print('   Top level seq elements: ${topLevelSeq.elements?.length}');
+
       if (topLevelSeq.elements == null || topLevelSeq.elements!.length < 2) {
-        throw FormatException('Invalid public key ASN.1 structure');
+        throw FormatException('Invalid public key ASN.1 structure - expected at least 2 elements, got ${topLevelSeq.elements?.length}');
       }
-      
+
+      print('   Element 0 type: ${topLevelSeq.elements![0].runtimeType}');
+      print('   Element 1 type: ${topLevelSeq.elements![1].runtimeType}');
+
       final publicKeyBitString = topLevelSeq.elements![1] as ASN1BitString;
-      
+      print('   BitString value bytes length: ${publicKeyBitString.valueBytes().length}');
+
       final publicKeySeq = ASN1Parser(publicKeyBitString.valueBytes()).nextObject() as ASN1Sequence;
-      
+      print('   Public key seq elements: ${publicKeySeq.elements?.length}');
+
       if (publicKeySeq.elements == null || publicKeySeq.elements!.length < 2) {
         throw FormatException('Invalid public key sequence structure');
       }
@@ -217,8 +232,12 @@ class EncryptionService {
       final modulus = (publicKeySeq.elements![0] as ASN1Integer).valueAsBigInteger!;
       final exponent = (publicKeySeq.elements![1] as ASN1Integer).valueAsBigInteger!;
 
+      print('   ✅ Decoded successfully');
+
       return RSAPublicKey(modulus, exponent);
-    } catch (e) {
+    } catch (e, stackTrace) {
+      print('   ❌ Decoding failed: $e');
+      print('   Stack trace: $stackTrace');
       throw FormatException('Failed to decode public key: $e');
     }
   }
