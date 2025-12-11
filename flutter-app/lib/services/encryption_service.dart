@@ -220,9 +220,17 @@ class EncryptionService {
       print('   Element 1 type: ${topLevelSeq.elements![1].runtimeType}');
 
       final publicKeyBitString = topLevelSeq.elements![1] as ASN1BitString;
-      print('   BitString value bytes length: ${publicKeyBitString.valueBytes().length}');
 
-      final publicKeySeq = ASN1Parser(publicKeyBitString.valueBytes()).nextObject() as ASN1Sequence;
+      // ASN1BitString.valueBytes() potrebbe includere il padding byte
+      // Usiamo contentBytes() che skippa automaticamente il padding
+      final bitStringBytes = publicKeyBitString.contentBytes();
+      print('   BitString content bytes length: ${bitStringBytes.length}');
+
+      // Il primo byte del contentBytes è il padding count, skippiamolo
+      final actualKeyBytes = bitStringBytes.sublist(1);
+      print('   Actual key bytes (after skipping padding): ${actualKeyBytes.length}');
+
+      final publicKeySeq = ASN1Parser(actualKeyBytes).nextObject() as ASN1Sequence;
       print('   Public key seq elements: ${publicKeySeq.elements?.length}');
 
       if (publicKeySeq.elements == null || publicKeySeq.elements!.length < 2) {
