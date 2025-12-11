@@ -17,14 +17,21 @@ class PairingService extends ChangeNotifier {
   String? get partnerPublicKey => _partnerPublicKey;
 
   /// Inizializza il servizio verificando se esiste già un pairing
+  /// Il pairing è considerato valido se esiste K_family
+  /// Il partner_public_key è opzionale (viene usato solo per identificazione)
   Future<void> initialize() async {
     final kFamily = await _storage.read(key: 'k_family');
     final partnerPubKey = await _storage.read(key: 'partner_public_key');
 
-    if (kFamily != null && partnerPubKey != null) {
+    if (kFamily != null) {
       _isPaired = true;
-      _partnerPublicKey = partnerPubKey;
+      _partnerPublicKey = partnerPubKey; // Può essere null
       notifyListeners();
+
+      if (kDebugMode) {
+        print('✅ Pairing initialized: K_family exists');
+        print('   Partner public key: ${partnerPubKey != null ? "present" : "not set"}');
+      }
     }
   }
 
