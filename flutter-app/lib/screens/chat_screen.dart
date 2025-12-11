@@ -19,11 +19,29 @@ class _ChatScreenState extends State<ChatScreen> {
   String? _familyChatId;
   String? _myDeviceId;
   String? _kFamily;
+  bool _lastPairingStatus = false;
 
   @override
   void initState() {
     super.initState();
-    _initialize();
+    // Non chiamiamo _initialize qui, aspettiamo didChangeDependencies
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+
+    // Controlla se lo stato del pairing è cambiato
+    final pairingService = Provider.of<PairingService>(context);
+    final currentPairingStatus = pairingService.isPaired;
+
+    // Inizializza o re-inizializza se il pairing è attivo e lo stato è cambiato
+    if (currentPairingStatus && !_lastPairingStatus) {
+      print('🔄 Pairing detected, initializing chat...');
+      _initialize();
+    }
+
+    _lastPairingStatus = currentPairingStatus;
   }
 
   Future<void> _initialize() async {
