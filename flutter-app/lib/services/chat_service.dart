@@ -249,6 +249,25 @@ class ChatService extends ChangeNotifier {
     }
   }
 
+  /// Elimina completamente la famiglia da Firestore (messaggi + documento)
+  /// Usato quando si vuole fare un reset completo (pairing + messaggi)
+  Future<void> deleteFamily(String familyChatId) async {
+    try {
+      if (kDebugMode) print('🗑️ Deleting family completely: $familyChatId');
+
+      // STEP 1: Elimina tutti i messaggi (subcollection)
+      await deleteAllMessages(familyChatId);
+
+      // STEP 2: Elimina il documento family stesso
+      await _firestore.collection('families').doc(familyChatId).delete();
+
+      if (kDebugMode) print('✅ Family document deleted from Firestore');
+    } catch (e) {
+      if (kDebugMode) print('❌ Error deleting family: $e');
+      rethrow;
+    }
+  }
+
   @override
   void dispose() {
     stopListening();
