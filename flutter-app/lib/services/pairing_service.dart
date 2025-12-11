@@ -32,6 +32,10 @@ class PairingService extends ChangeNotifier {
         print('✅ Pairing initialized');
         print('   Partner public key: ${partnerPubKey.substring(0, 20)}...');
       }
+
+      // UNPAIR SYNC: Avvia listener SEMPRE quando c'è un pairing
+      // Non aspettare che ChatScreen venga aperta
+      _startBackgroundUnpairListener();
     }
   }
 
@@ -81,6 +85,9 @@ class PairingService extends ChangeNotifier {
       if (kDebugMode) {
         print('✅ Partner public key imported: ${partnerPublicKey.substring(0, 20)}...');
       }
+
+      // UNPAIR SYNC: Avvia background listener per il nuovo pairing
+      _startBackgroundUnpairListener();
 
       return true;
     } catch (e) {
@@ -247,6 +254,56 @@ class PairingService extends ChangeNotifier {
     } catch (e) {
       if (kDebugMode) print('❌ Errore reset pairing status: $e');
     }
+  }
+
+  /// Background listener che ascolta SEMPRE unpair del partner
+  /// Non richiede UI context, funziona anche quando app è in background
+  void _startBackgroundUnpairListener() async {
+    final chatId = await getFamilyChatId();
+    if (chatId == null) {
+      if (kDebugMode) print('⚠️ No chatId, cannot listen to pairing status');
+      return;
+    }
+
+    final myUserId = await getMyUserId();
+    if (myUserId == null) {
+      if (kDebugMode) print('⚠️ No userId, cannot listen to pairing status');
+      return;
+    }
+
+    if (kDebugMode) print('🎧 Background unpair listener started for chat: ${chatId.substring(0, 10)}...');
+
+    _pairingStatusSubscription = _firestore
+        .collection('families')
+        .doc(chatId)
+        .snapshots()
+        .listen((snapshot) async {
+      if (!snapshot.exists) return;
+
+      final data = snapshot.data();
+      if (data == null) return;
+
+      final pairingStatus = data['pairing_status'] as String?;
+      final unpairedBy = data['unpaired_by'] as String?;
+
+      // Se il pairing è unpaired e non sono io che ho fatto unpair
+      if (pairingStatus == 'unpaired' && unpairedBy != null && unpairedBy != myUserId) {
+        if (kDebugMode) print('⚠️ Partner ha fatto unpair (background listener), facciamo unpair automatico');
+
+        // Fai unpair locale SENZA notificare (per evitare loop)
+        await _storage.delete(key: 'partner_public_key');
+        _isPaired = false;
+        _partnerPublicKey = null;
+
+        // Ferma il listener
+        stopListeningToPairingStatus();
+
+        // Notifica i listener (Provider)
+        notifyListeners();
+
+        if (kDebugMode) print('✅ Unpair automatico completato');
+      }
+    });
   }
 
   @override
