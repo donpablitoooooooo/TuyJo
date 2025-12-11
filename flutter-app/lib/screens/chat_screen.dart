@@ -49,23 +49,28 @@ class _ChatScreenState extends State<ChatScreen> {
     final chatService = Provider.of<ChatService>(context, listen: false);
     final notificationService = Provider.of<NotificationService>(context, listen: false);
 
-    // Ottieni K_family e calcola family chat ID
-    _kFamily = await pairingService.getKFamily();
-    _familyChatId = await pairingService.getFamilyChatId();
-    _myDeviceId = await pairingService.getMyUserId(); // Riuso per device ID
+    // Ottieni TUTTE le K_family (corrente + storiche)
+    final allKFamilies = await pairingService.getAllKFamilies();
+    final allChatIds = await pairingService.getAllFamilyChatIds();
+
+    // La K_family corrente e il chat ID corrente (primi nella lista)
+    _kFamily = allKFamilies.isNotEmpty ? allKFamilies.first : null;
+    _familyChatId = allChatIds.isNotEmpty ? allChatIds.first : null;
+    _myDeviceId = await pairingService.getMyUserId();
 
     print('🔍 Chat initialization:');
-    print('   Family Chat ID: $_familyChatId');
+    print('   Total K_families: ${allKFamilies.length}');
+    print('   Current Family Chat ID: $_familyChatId');
     print('   My Device ID: $_myDeviceId');
-    print('   K_family: ${_kFamily != null ? "${_kFamily!.substring(0, 10)}..." : "null"}');
+    print('   Current K_family: ${_kFamily != null ? "${_kFamily!.substring(0, 10)}..." : "null"}');
 
-    if (_familyChatId != null) {
-      // Avvia il listener Firestore sulla chat famiglia
-      chatService.startListening(_familyChatId!);
-      print('✅ Firestore listener started for family: $_familyChatId');
+    if (allChatIds.isNotEmpty && allKFamilies.isNotEmpty) {
+      // Avvia listener multipli per tutte le chat (corrente + storiche)
+      chatService.startListeningMultiple(allChatIds, allKFamilies);
+      print('✅ Firestore listeners started for ${allChatIds.length} chat(s)');
 
-      // Salva il token FCM in Firestore
-      if (_myDeviceId != null) {
+      // Salva il token FCM in Firestore (sulla chat corrente)
+      if (_familyChatId != null && _myDeviceId != null) {
         await notificationService.saveTokenToFirestore(_familyChatId!, _myDeviceId!);
 
         // Aggiorna il token anche quando cambia
@@ -75,7 +80,7 @@ class _ChatScreenState extends State<ChatScreen> {
         });
       }
     } else {
-      print('❌ Cannot start listener - familyChatId is null');
+      print('❌ Cannot start listeners - no chat IDs or K_families');
     }
 
     setState(() => _isLoading = false);
@@ -196,10 +201,8 @@ class _ChatScreenState extends State<ChatScreen> {
                       final message = chatService.messages[index];
                       final isMe = message.senderId == _myDeviceId;
 
-                      String decryptedContent = '[Errore decifratura]';
-                      if (_kFamily != null) {
-                        decryptedContent = chatService.decryptMessage(message, _kFamily!);
-                      }
+                      // Usa decifratura automatica (trova la K_family giusta automaticamente)
+                      final decryptedContent = chatService.decryptMessageAuto(message);
 
                       return _MessageBubble(
                         message: decryptedContent,

@@ -35,9 +35,43 @@ class PairingService extends ChangeNotifier {
     }
   }
 
+  /// Archivia la K_family corrente nello storico prima di generarne una nuova
+  /// Questo permette di mantenere l'accesso ai messaggi vecchi
+  Future<void> archiveCurrentKFamily() async {
+    final currentKFamily = await _storage.read(key: 'k_family');
+    if (currentKFamily == null) return;
+
+    // Leggi lo storico esistente
+    final historyJson = await _storage.read(key: 'k_family_history');
+    List<Map<String, dynamic>> history = [];
+
+    if (historyJson != null) {
+      try {
+        final decoded = json.decode(historyJson) as List;
+        history = decoded.map((e) => e as Map<String, dynamic>).toList();
+      } catch (e) {
+        if (kDebugMode) print('Error decoding k_family_history: $e');
+      }
+    }
+
+    // Aggiungi la K_family corrente allo storico
+    history.add({
+      'k_family': currentKFamily,
+      'archived_at': DateTime.now().toIso8601String(),
+    });
+
+    // Salva lo storico aggiornato
+    await _storage.write(key: 'k_family_history', value: json.encode(history));
+
+    if (kDebugMode) print('📦 K_family archived. Total in history: ${history.length}');
+  }
+
   /// Genera una nuova K_family (chiave AES-256)
   /// Questa funzione viene chiamata dall'utente che MOSTRA il QR code
   Future<String> generateFamilyKey() async {
+    // Archivia la K_family corrente se esiste
+    await archiveCurrentKFamily();
+
     // Genera 32 byte random per AES-256
     final random = Random.secure();
     final keyBytes = Uint8List.fromList(
@@ -54,7 +88,7 @@ class PairingService extends ChangeNotifier {
     _isPaired = true;
     notifyListeners();
 
-    if (kDebugMode) print('K_family generated: ${kFamilyBase64.substring(0, 10)}...');
+    if (kDebugMode) print('✨ New K_family generated: ${kFamilyBase64.substring(0, 10)}...');
 
     return kFamilyBase64;
   }
@@ -193,5 +227,59 @@ class PairingService extends ChangeNotifier {
     final bytes = utf8.encode(kFamily);
     final digest = sha256.convert(bytes);
     return digest.toString();
+  }
+
+  /// Ottiene tutte le K_family (corrente + storiche)
+  /// Ritorna una lista di K_family in ordine: [corrente, ...storiche]
+  Future<List<String>> getAllKFamilies() async {
+    final List<String> allKFamilies = [];
+
+    // Aggiungi la K_family corrente
+    final currentKFamily = await getFamilyKey();
+    if (currentKFamily != null) {
+      allKFamilies.add(currentKFamily);
+    }
+
+    // Aggiungi le K_family storiche
+    final historyJson = await _storage.read(key: 'k_family_history');
+    if (historyJson != null) {
+      try {
+        final decoded = json.decode(historyJson) as List;
+        for (var item in decoded) {
+          final kFamily = item['k_family'] as String?;
+          if (kFamily != null) {
+            allKFamilies.add(kFamily);
+          }
+        }
+      } catch (e) {
+        if (kDebugMode) print('Error reading k_family_history: $e');
+      }
+    }
+
+    if (kDebugMode) print('📚 Total K_families available: ${allKFamilies.length}');
+    return allKFamilies;
+  }
+
+  /// Ottiene tutti i family_chat_id (corrente + storici)
+  /// Questo serve per ascoltare messaggi da tutte le chat
+  Future<List<String>> getAllFamilyChatIds() async {
+    final allKFamilies = await getAllKFamilies();
+    final List<String> chatIds = [];
+
+    for (var kFamily in allKFamilies) {
+      // family_chat_id = SHA-256(K_family)
+      final bytes = utf8.encode(kFamily);
+      final digest = sha256.convert(bytes);
+      chatIds.add(digest.toString());
+    }
+
+    if (kDebugMode) {
+      print('💬 Total chat IDs: ${chatIds.length}');
+      for (var i = 0; i < chatIds.length; i++) {
+        print('   Chat $i: ${chatIds[i].substring(0, 10)}...');
+      }
+    }
+
+    return chatIds;
   }
 }

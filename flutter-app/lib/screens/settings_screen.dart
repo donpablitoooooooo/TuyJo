@@ -136,28 +136,37 @@ class _SettingsScreenState extends State<SettingsScreen> {
       final chatService = Provider.of<ChatService>(context, listen: false);
 
       if (deleteMessages) {
-        final familyChatId = await pairingService.getFamilyChatId();
-        if (familyChatId != null) {
-          await _deleteAllMessagesFromFirestore(familyChatId);
+        // Elimina TUTTI i messaggi da Firestore (tutte le chat)
+        final allChatIds = await pairingService.getAllFamilyChatIds();
+        for (var chatId in allChatIds) {
+          await _deleteAllMessagesFromFirestore(chatId);
         }
+
+        // Elimina completamente il pairing (K_family + storico)
+        await pairingService.clearPairing();
+
+        // Elimina anche lo storico delle K_family
+        await _storage.delete(key: 'k_family_history');
+      } else {
+        // NON eliminare la K_family: verrà archiviata automaticamente
+        // quando farai il prossimo pairing con generateFamilyKey()
+        // I messaggi vecchi restano su Firestore, accessibili con la vecchia K_family
+        print('⚠️ Pairing reset: K_family mantenuta per storico messaggi');
       }
 
-      // Ferma il listener e pulisci i messaggi locali
+      // Ferma i listener e pulisci i messaggi locali (in entrambi i casi)
       chatService.stopListening();
       chatService.clearMessages();
 
-      // Elimina il pairing
-      await pairingService.clearPairing();
-
       if (!mounted) return;
-      setState(() => _isPaired = false);
+      setState(() => _isPaired = !deleteMessages); // Paired se manteniamo K_family
 
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
             deleteMessages
-              ? 'Pairing e messaggi eliminati'
-              : 'Pairing eliminato'
+              ? 'Pairing e messaggi eliminati completamente'
+              : 'Pronto per nuovo pairing. I messaggi vecchi saranno ancora visibili.'
           ),
           backgroundColor: Colors.green,
         ),
@@ -191,16 +200,28 @@ class _SettingsScreenState extends State<SettingsScreen> {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Elimina Pairing'),
+        title: const Text('Reset Pairing'),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: const [
-            Text('Vuoi eliminare anche tutti i messaggi?'),
-            SizedBox(height: 8),
             Text(
-              'Questa azione non può essere annullata.',
+              'Scegli come resettare il pairing:',
+              style: TextStyle(fontWeight: FontWeight.bold),
+            ),
+            SizedBox(height: 16),
+            Text('📱 Solo Pairing'),
+            SizedBox(height: 4),
+            Text(
+              'Prepara per nuovo pairing. I messaggi vecchi saranno ancora visibili dopo il re-pairing.',
               style: TextStyle(fontSize: 12, color: Colors.grey),
+            ),
+            SizedBox(height: 16),
+            Text('🗑️ Pairing e Messaggi'),
+            SizedBox(height: 4),
+            Text(
+              'Elimina TUTTO: pairing, messaggi e storico. Nessun recupero possibile.',
+              style: TextStyle(fontSize: 12, color: Colors.red),
             ),
           ],
         ),
@@ -214,7 +235,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
               Navigator.pop(context);
               _deletePairing(false);
             },
-            child: const Text('Solo Pairing'),
+            child: const Text('📱 Solo Pairing'),
           ),
           TextButton(
             onPressed: () {
@@ -222,7 +243,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
               _deletePairing(true);
             },
             child: const Text(
-              'Pairing e Messaggi',
+              '🗑️ Pairing e Messaggi',
               style: TextStyle(color: Colors.red),
             ),
           ),
