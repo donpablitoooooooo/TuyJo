@@ -94,16 +94,35 @@ class PairingService extends ChangeNotifier {
   }
 
   /// Ottiene i dati da codificare nel QR code
-  /// Include K_family + chiave pubblica del creatore
+  /// Include K_family corrente + storico + chiave pubblica del creatore
   Future<String> getFamilyKeyQRData(String myPublicKey) async {
     String? kFamily = await _storage.read(key: 'k_family');
 
     // Se non esiste, generala
     kFamily ??= await generateFamilyKey();
 
-    // Crea payload JSON
+    // Leggi anche lo storico delle K_family per includerlo nel QR
+    final List<String> kFamilyHistory = [];
+    final historyJson = await _storage.read(key: 'k_family_history');
+    if (historyJson != null) {
+      try {
+        final decoded = json.decode(historyJson) as List;
+        for (var item in decoded) {
+          final historicKFamily = item['k_family'] as String?;
+          if (historicKFamily != null) {
+            kFamilyHistory.add(historicKFamily);
+          }
+        }
+        if (kDebugMode) print('📦 Including ${kFamilyHistory.length} historic K_families in QR');
+      } catch (e) {
+        if (kDebugMode) print('Error reading k_family_history for QR: $e');
+      }
+    }
+
+    // Crea payload JSON con storico completo
     final qrData = {
       'k_family': kFamily,
+      'k_family_history': kFamilyHistory, // Includi lo storico!
       'creator_public_key': myPublicKey,
     };
 
@@ -112,31 +131,55 @@ class PairingService extends ChangeNotifier {
 
   /// Importa K_family da QR code scansionato
   /// Questa funzione viene chiamata dall'utente che SCANSIONA il QR code
+  /// Importa anche lo storico se presente nel QR
   Future<bool> importFamilyKeyFromQR(String qrData) async {
     try {
       final data = json.decode(qrData) as Map<String, dynamic>;
 
       final kFamily = data['k_family'] as String?;
       final creatorPublicKey = data['creator_public_key'] as String?;
+      final kFamilyHistory = data['k_family_history'] as List<dynamic>?;
 
       if (kFamily == null || creatorPublicKey == null) {
         if (kDebugMode) print('Invalid QR data: missing fields');
         return false;
       }
 
-      // Salva K_family
+      // Salva K_family corrente
       await _storage.write(key: 'k_family', value: kFamily);
 
       // Salva chiave pubblica del partner (creatore)
       await _storage.write(key: 'partner_public_key', value: creatorPublicKey);
+
+      // Importa anche lo storico se presente nel QR
+      if (kFamilyHistory != null && kFamilyHistory.isNotEmpty) {
+        // Converti lo storico nel formato corretto
+        final List<Map<String, dynamic>> history = [];
+        for (var historicKFamily in kFamilyHistory) {
+          if (historicKFamily is String) {
+            history.add({
+              'k_family': historicKFamily,
+              'archived_at': DateTime.now().toIso8601String(),
+            });
+          }
+        }
+
+        // Salva lo storico
+        await _storage.write(key: 'k_family_history', value: json.encode(history));
+
+        if (kDebugMode) {
+          print('📚 Imported ${history.length} historic K_families from QR');
+        }
+      }
 
       _isPaired = true;
       _partnerPublicKey = creatorPublicKey;
       notifyListeners();
 
       if (kDebugMode) {
-        print('K_family imported: ${kFamily.substring(0, 10)}...');
-        print('Partner public key: ${creatorPublicKey.substring(0, 20)}...');
+        print('✅ K_family imported: ${kFamily.substring(0, 10)}...');
+        print('✅ Partner public key: ${creatorPublicKey.substring(0, 20)}...');
+        print('✅ Total K_families (current + history): ${1 + (kFamilyHistory?.length ?? 0)}');
       }
 
       return true;
