@@ -1,7 +1,7 @@
 name: private_messaging
 description: App di messaggistica privata con crittografia E2E
 publish_to: 'none'
-version: 1.0.0+1
+version: 1.1.0+2
 
 environment:
   sdk: '>=3.0.0 <4.0.0'
@@ -31,6 +31,7 @@ dependencies:
   firebase_auth: ^4.15.3
   cloud_firestore: ^4.13.6
   firebase_messaging: ^14.7.9
+  flutter_local_notifications: ^17.0.0
 
   # UI
   flutter_chat_ui: ^1.6.10

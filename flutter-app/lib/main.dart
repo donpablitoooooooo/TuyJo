@@ -17,13 +17,25 @@ void main() async {
   final pairingService = PairingService();
   await pairingService.initialize();
 
-  runApp(MyApp(pairingService: pairingService));
+  // Inizializza NotificationService
+  final notificationService = NotificationService();
+  await notificationService.initialize();
+
+  runApp(MyApp(
+    pairingService: pairingService,
+    notificationService: notificationService,
+  ));
 }
 
 class MyApp extends StatelessWidget {
   final PairingService pairingService;
+  final NotificationService notificationService;
 
-  const MyApp({super.key, required this.pairingService});
+  const MyApp({
+    super.key,
+    required this.pairingService,
+    required this.notificationService,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -33,7 +45,7 @@ class MyApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => ChatService()),
         ChangeNotifierProvider.value(value: pairingService),
         Provider(create: (_) => EncryptionService()),
-        Provider(create: (_) => NotificationService()),
+        Provider.value(value: notificationService),
       ],
       child: MaterialApp(
         title: 'Private Messaging',

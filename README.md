@@ -14,7 +14,8 @@ App di messaggistica privata per due persone con crittografia end-to-end e pairi
 - 📱 **Pairing tramite QR Code** - zero configurazione
 - 🔑 **Chiave famiglia condivisa (K_family)** - un solo QR per entrambi i dispositivi
 - ☁️ **Firestore real-time** - sincronizzazione istantanea
-- 🚫 **Zero backend** - nessun server, solo database cloud
+- 🔔 **Notifiche Push** - Firebase Cloud Messaging per nuovi messaggi
+- 🚫 **Zero backend** - solo Cloud Functions serverless
 - 🔒 **Storage sicuro** - chiavi memorizzate con flutter_secure_storage
 - 📲 **Cross-platform** - iOS e Android
 
@@ -27,6 +28,8 @@ App di messaggistica privata per due persone con crittografia end-to-end e pairi
 - **Database:** Google Cloud Firestore (real-time)
 - **Crittografia:** AES-256-GCM (PointyCastle)
 - **Storage Locale:** flutter_secure_storage
+- **Notifiche:** Firebase Cloud Messaging + flutter_local_notifications
+- **Cloud Functions:** Node.js 18 (serverless)
 - **QR Code:** qr_flutter + mobile_scanner
 - **State Management:** Provider
 
@@ -72,6 +75,44 @@ L'app utilizza un sistema semplificato basato su una **chiave famiglia condivisa
 
 ---
 
+## 🔔 Sistema di Notifiche Push
+
+L'app implementa un sistema completo di notifiche push per avvisare gli utenti di nuovi messaggi:
+
+### Architettura Notifiche
+
+1. **Client (Flutter App)**
+   - Richiede permessi per notifiche all'avvio
+   - Ottiene un token FCM (Firebase Cloud Messaging) univoco per il dispositivo
+   - Salva il token in Firestore: `/families/{familyChatId}/users/{userId}/fcm_token`
+   - Mostra notifiche locali quando l'app è in foreground
+
+2. **Server (Cloud Function)**
+   - Trigger: creazione nuovo messaggio in `/families/{familyChatId}/messages/{messageId}`
+   - Recupera il token FCM del destinatario (utente che NON ha inviato il messaggio)
+   - Invia notifica push tramite Firebase Cloud Messaging
+   - Gestisce token invalidi (li rimuove automaticamente dal database)
+
+3. **Notifiche Locali**
+   - Quando l'app è aperta (foreground), mostra notifiche locali
+   - Quando l'app è in background, riceve notifiche push da FCM
+   - Quando l'app è chiusa, riceve notifiche push che la possono riaprire
+
+### Privacy e Sicurezza
+
+- ✅ Le notifiche contengono solo metadati generici
+- ✅ Il contenuto del messaggio NON viene mai incluso nella notifica
+- ✅ Il messaggio rimane crittografato end-to-end
+- ✅ Solo il titolo generico "💬 Nuovo messaggio" viene mostrato
+
+### Gestione Token FCM
+
+- I token vengono salvati automaticamente quando l'utente entra nella chat
+- I token vengono aggiornati automaticamente quando cambiano
+- I token invalidi vengono rimossi dalla Cloud Function
+
+---
+
 ## 📁 Struttura del Progetto
 
 ```
@@ -91,7 +132,8 @@ youandme/
 │   │   └── services/
 │   │       ├── pairing_service.dart          # K_family + QR logic
 │   │       ├── chat_service.dart             # Firestore messaging
-│   │       └── encryption_service.dart       # AES-256-GCM
+│   │       ├── encryption_service.dart       # AES-256-GCM
+│   │       └── notification_service.dart     # FCM + notifiche locali
 │   ├── android/                 # Configurazione Android
 │   │   ├── app/
 │   │   │   ├── build.gradle
@@ -99,6 +141,11 @@ youandme/
 │   │   ├── gradle.properties                 # AndroidX enabled
 │   │   └── settings.gradle                   # AGP + Kotlin versions
 │   └── pubspec.yaml             # Flutter dependencies
+├── functions/                   # Cloud Functions per notifiche push
+│   ├── index.js                # Funzioni Firebase (sendMessageNotification)
+│   ├── package.json            # Dipendenze Node.js
+│   └── README.md               # Guida deploy Cloud Functions
+├── firebase.json                # Configurazione Firebase
 └── _archive/                    # Vecchi file (backend Node.js, docs obsolete)
 ```
 
@@ -110,6 +157,8 @@ youandme/
 - Flutter 3.x (stable channel)
 - Android Studio / Xcode
 - Progetto Firebase con Firestore abilitato
+- Firebase CLI (per deploy Cloud Functions): `npm install -g firebase-tools`
+- Node.js 18+ (per Cloud Functions)
 
 ### 1. Clone e Setup Flutter
 
@@ -145,7 +194,23 @@ service cloud.firestore {
 
 > **Nota:** Queste regole sono permissive per semplicità. Per produzione, aggiungi autenticazione Firebase.
 
-### 4. Build e Run
+### 4. Deploy Cloud Functions (per notifiche push)
+
+```bash
+# Installare dipendenze
+cd functions
+npm install
+
+# Login a Firebase
+firebase login
+
+# Deploy delle Cloud Functions
+firebase deploy --only functions
+```
+
+Per dettagli completi, consulta [functions/README.md](./functions/README.md).
+
+### 5. Build e Run
 
 ```bash
 # Android
@@ -234,14 +299,17 @@ Aggiorna le security rules come indicato nella sezione Setup.
 - [x] Navigazione post-pairing
 - [x] Storage sicuro chiavi
 - [x] Build Android funzionante
+- [x] **Notifiche push** (Firebase Cloud Messaging)
+- [x] **Notifiche locali** (foreground + background)
+- [x] **Cloud Functions** per invio notifiche automatico
 
 ### 🚧 Roadmap Future
 - [ ] Autenticazione Firebase (optional)
 - [ ] Supporto media (foto, video)
-- [ ] Notifiche push
 - [ ] Indicatori lettura/consegna
 - [ ] Multiple device support
 - [ ] iOS build completo
+- [ ] Notifiche programmate e reminder
 
 ---
 
