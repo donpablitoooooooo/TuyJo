@@ -1,8 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:firebase_core/firebase_core.dart';
-import 'screens/pairing_choice_screen.dart';
-import 'screens/chat_screen.dart';
+import 'screens/main_screen.dart';
 import 'services/auth_service.dart';
 import 'services/chat_service.dart';
 import 'services/encryption_service.dart';
@@ -65,12 +64,8 @@ class AuthWrapper extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final pairingService = Provider.of<PairingService>(context);
-
-    if (pairingService.isPaired) {
-      return const ChatScreen();
-    } else {
-      return const PairingChoiceScreen();
-    }
+    // Ora usiamo sempre MainScreen che gestisce internamente
+    // quale tab mostrare (Chat o Impostazioni) in base allo stato del pairing
+    return const MainScreen();
   }
 }

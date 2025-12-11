@@ -68,6 +68,21 @@ class EncryptionService {
     return await _storage.read(key: 'rsa_public_key');
   }
 
+  // Deriva la chiave pubblica dalla chiave privata caricata e la salva
+  Future<String?> deriveAndSavePublicKey() async {
+    if (_keyPair == null) {
+      return null;
+    }
+
+    final publicKey = _keyPair!.publicKey as RSAPublicKey;
+    final encodedPublicKey = _encodePublicKey(publicKey);
+
+    // Salva in secure storage
+    await _storage.write(key: 'rsa_public_key', value: encodedPublicKey);
+
+    return encodedPublicKey;
+  }
+
   // Cripta un messaggio usando la chiave pubblica del destinatario
   String encryptMessage(String message, String recipientPublicKey) {
     try {

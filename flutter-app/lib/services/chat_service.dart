@@ -179,6 +179,35 @@ class ChatService extends ChangeNotifier {
     notifyListeners();
   }
 
+  // Elimina tutti i messaggi da Firestore per una famiglia
+  Future<void> deleteAllMessages(String familyChatId) async {
+    try {
+      if (kDebugMode) print('🗑️ Deleting all messages for family: $familyChatId');
+
+      final messagesRef = _firestore
+          .collection('families')
+          .doc(familyChatId)
+          .collection('messages');
+
+      // Ottieni tutti i messaggi
+      final snapshot = await messagesRef.get();
+
+      if (kDebugMode) print('Found ${snapshot.docs.length} messages to delete');
+
+      // Elimina tutti i messaggi in batch
+      final batch = _firestore.batch();
+      for (var doc in snapshot.docs) {
+        batch.delete(doc.reference);
+      }
+      await batch.commit();
+
+      if (kDebugMode) print('✅ All messages deleted from Firestore');
+    } catch (e) {
+      if (kDebugMode) print('❌ Error deleting messages: $e');
+      rethrow;
+    }
+  }
+
   @override
   void dispose() {
     stopListening();
