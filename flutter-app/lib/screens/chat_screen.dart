@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
@@ -21,6 +22,7 @@ class _ChatScreenState extends State<ChatScreen> {
   String? _myDeviceId;
   String? _partnerPublicKey;
   bool _lastPairingStatus = false;
+  String? _lastFamilyChatId;
 
   @override
   void initState() {
@@ -29,20 +31,46 @@ class _ChatScreenState extends State<ChatScreen> {
   }
 
   @override
-  void didChangeDependencies() {
+  void didChangeDependencies() async {
     super.didChangeDependencies();
 
     // Controlla se lo stato del pairing è cambiato
     final pairingService = Provider.of<PairingService>(context);
     final currentPairingStatus = pairingService.isPaired;
 
-    // Inizializza o re-inizializza se il pairing è attivo e lo stato è cambiato
-    if (currentPairingStatus && !_lastPairingStatus) {
-      print('🔄 Pairing detected, initializing chat...');
+    // FIX BUG CHAT DIVERSE: Calcola il familyChatId corrente
+    final currentFamilyChatId = await pairingService.getFamilyChatId();
+
+    // Re-inizializza se:
+    // 1. Il pairing è diventato attivo (da false a true), OPPURE
+    // 2. Il familyChatId è cambiato (nuovo partner o nuove chiavi del partner)
+    final needsReinitialize =
+        (currentPairingStatus && !_lastPairingStatus) ||  // Nuovo pairing
+        (currentPairingStatus && currentFamilyChatId != null && currentFamilyChatId != _lastFamilyChatId);  // Chat ID cambiato
+
+    if (needsReinitialize) {
+      if (kDebugMode) {
+        if (currentFamilyChatId != _lastFamilyChatId) {
+          print('🔄 Family Chat ID changed! Old: ${_lastFamilyChatId?.substring(0, 10)}..., New: ${currentFamilyChatId?.substring(0, 10)}...');
+        } else {
+          print('🔄 Pairing detected, initializing chat...');
+        }
+      }
+
+      // Ferma i vecchi listener prima di reinizializzare
+      if (_lastFamilyChatId != null && currentFamilyChatId != _lastFamilyChatId) {
+        final chatService = Provider.of<ChatService>(context, listen: false);
+        chatService.stopListening();
+        chatService.clearMessages();
+        pairingService.stopListeningToPairingStatus();
+        if (kDebugMode) print('🔇 Stopped old listeners for chat: ${_lastFamilyChatId?.substring(0, 10)}...');
+      }
+
       _initialize();
     }
 
     _lastPairingStatus = currentPairingStatus;
+    _lastFamilyChatId = currentFamilyChatId;
   }
 
   Future<void> _initialize() async {
