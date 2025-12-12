@@ -86,9 +86,6 @@ class PairingService extends ChangeNotifier {
         print('✅ Partner public key imported: ${partnerPublicKey.substring(0, 20)}...');
       }
 
-      // UNPAIR SYNC: Avvia background listener per il nuovo pairing
-      _startBackgroundUnpairListener();
-
       return true;
     } catch (e) {
       if (kDebugMode) print('Error importing partner public key: $e');
@@ -186,6 +183,12 @@ class PairingService extends ChangeNotifier {
     }
   }
 
+
+  /// Avvia manualmente il background listener
+  /// Da chiamare DOPO che i token FCM sono stati salvati su Firestore
+  void startBackgroundUnpairListener() {
+    _startBackgroundUnpairListener();
+  }
 
   /// Ferma il listener del pairing status
   void stopListeningToPairingStatus() {

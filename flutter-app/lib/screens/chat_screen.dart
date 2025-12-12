@@ -96,6 +96,10 @@ class _ChatScreenState extends State<ChatScreen> {
       if (_myDeviceId != null) {
         await notificationService.saveTokenToFirestore(_familyChatId!, _myDeviceId!);
 
+        // UNPAIR SYNC: Avvia background listener DOPO aver salvato i token FCM
+        // Questo evita race condition (listener che parte prima del salvataggio)
+        pairingService.startBackgroundUnpairListener();
+
         // Aggiorna il token anche quando cambia
         notificationService.onTokenRefresh((newToken) async {
           print('🔄 FCM token refreshed: $newToken');
