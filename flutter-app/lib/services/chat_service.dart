@@ -258,10 +258,18 @@ class ChatService extends ChangeNotifier {
       // STEP 1: Elimina tutti i messaggi (subcollection)
       await deleteAllMessages(familyChatId);
 
-      // STEP 2: Elimina il documento family stesso
-      await _firestore.collection('families').doc(familyChatId).delete();
+      // STEP 2: Elimina tutti gli user tokens (subcollection /users/)
+      final usersSnapshot = await _firestore
+          .collection('families')
+          .doc(familyChatId)
+          .collection('users')
+          .get();
 
-      if (kDebugMode) print('✅ Family document deleted from Firestore');
+      for (var doc in usersSnapshot.docs) {
+        await doc.reference.delete();
+      }
+
+      if (kDebugMode) print('✅ Family subcollections deleted from Firestore (messages + users)');
     } catch (e) {
       if (kDebugMode) print('❌ Error deleting family: $e');
       rethrow;
