@@ -79,6 +79,11 @@ class PairingService extends ChangeNotifier {
       // Salva chiave pubblica del partner
       await _storage.write(key: 'partner_public_key', value: partnerPublicKey);
 
+      // IMPORTANTE: Ferma il vecchio listener prima di cambiare familyChatId
+      // Altrimenti rimane un listener attivo sulla vecchia famiglia che può causare unpair
+      stopListeningToPairingStatus();
+      _familyWasComplete = false; // Reset per il nuovo pairing
+
       _isPaired = true;
       _partnerPublicKey = partnerPublicKey;
       notifyListeners();
