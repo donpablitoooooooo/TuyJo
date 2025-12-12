@@ -62,7 +62,6 @@ class _ChatScreenState extends State<ChatScreen> {
         final chatService = Provider.of<ChatService>(context, listen: false);
         chatService.stopListening();
         chatService.clearMessages();
-        pairingService.stopListeningToPairingStatus();
         if (kDebugMode) print('🔇 Stopped old listeners for chat: ${_lastFamilyChatId?.substring(0, 10)}...');
       }
 
@@ -92,30 +91,6 @@ class _ChatScreenState extends State<ChatScreen> {
       // Avvia listener per la chat
       chatService.startListening(_familyChatId!);
       print('✅ Firestore listener started for chat');
-
-      // UNPAIR SYNC: Avvia listener per rilevare quando il partner fa unpair
-      pairingService.startListeningToPairingStatus(() {
-        // Callback quando il partner fa unpair
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text(
-                '⚠️ Il tuo partner ha fatto unpair.\n'
-                'Non puoi più inviare messaggi finché non rifate il pairing.',
-              ),
-              backgroundColor: Colors.orange,
-              duration: Duration(seconds: 6),
-            ),
-          );
-          // Ferma il listener della chat
-          chatService.stopListening();
-          chatService.clearMessages();
-          setState(() {
-            _familyChatId = null;
-            _partnerPublicKey = null;
-          });
-        }
-      });
 
       // Salva il token FCM in Firestore
       if (_myDeviceId != null) {

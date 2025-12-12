@@ -186,51 +186,6 @@ class PairingService extends ChangeNotifier {
     }
   }
 
-  /// Inizia ad ascoltare i cambiamenti di pairing status su Firestore
-  /// Se il partner fa unpair, facciamo unpair automaticamente
-  void startListeningToPairingStatus(Function() onPartnerUnpaired) async {
-    final chatId = await getFamilyChatId();
-    if (chatId == null) {
-      if (kDebugMode) print('⚠️ No chatId, cannot listen to pairing status');
-      return;
-    }
-
-    final myUserId = await getMyUserId();
-    if (myUserId == null) {
-      if (kDebugMode) print('⚠️ No userId, cannot listen to pairing status');
-      return;
-    }
-
-    if (kDebugMode) print('🎧 Listening to pairing status for chat: ${chatId.substring(0, 10)}...');
-
-    _pairingStatusSubscription = _firestore
-        .collection('families')
-        .doc(chatId)
-        .snapshots()
-        .listen((snapshot) async {
-      if (!snapshot.exists) return;
-
-      final data = snapshot.data();
-      if (data == null) return;
-
-      final pairingStatus = data['pairing_status'] as String?;
-      final unpairedBy = data['unpaired_by'] as String?;
-
-      // Se il pairing è unpaired e non sono io che ho fatto unpair
-      if (pairingStatus == 'unpaired' && unpairedBy != null && unpairedBy != myUserId) {
-        if (kDebugMode) print('⚠️ Partner ha fatto unpair, facciamo unpair automatico');
-
-        // Fai unpair locale SENZA notificare (per evitare loop)
-        await _storage.delete(key: 'partner_public_key');
-        _isPaired = false;
-        _partnerPublicKey = null;
-        notifyListeners();
-
-        // Callback per notificare l'UI
-        onPartnerUnpaired();
-      }
-    });
-  }
 
   /// Ferma il listener del pairing status
   void stopListeningToPairingStatus() {
