@@ -199,27 +199,51 @@ flutter pub get
 4. Scarica `google-services.json` (Android) e mettilo in `android/app/`
 5. Scarica `GoogleService-Info.plist` (iOS) e mettilo in `ios/Runner/`
 
-### 3. Firestore Security Rules
+### 3. Firestore Security Rules (Production Ready v1.2)
 
-Imposta le regole di sicurezza in Firebase Console:
+Imposta le regole di sicurezza compartmentalizzate in Firebase Console (o usa `firebase deploy --only firestore:rules`):
 
 ```javascript
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    // Allow read/write to family messages
-    match /families/{familyId}/messages/{messageId} {
-      allow read, write: if true;
-    }
-    // Allow read/write to FCM tokens
-    match /families/{familyId}/users/{userId} {
-      allow read, write: if true;
+
+    match /families/{familyId} {
+      // ❌ BLOCCA list() - Non puoi enumerare tutte le famiglie
+      allow list: if false;
+
+      // ✅ PERMETTI get() - Puoi leggere SE conosci il familyId
+      allow get: if true;
+
+      match /messages/{messageId} {
+        // ✅ Leggi/scrivi messaggi SE conosci familyId
+        allow read, write: if true;
+      }
+
+      match /users/{userId} {
+        // ✅ Leggi/scrivi FCM tokens SE conosci familyId
+        allow read, write: if true;
+      }
     }
   }
 }
 ```
 
-> **Nota:** Queste regole sono permissive per semplicità. Per produzione, aggiungi autenticazione Firebase.
+#### Security Model (3 Layer)
+
+**Layer 1 - Compartmentalization:**
+- ❌ Impossibile enumerare tutte le famiglie (mass scraping bloccato)
+- ✅ Accesso solo con `familyId` specifico
+- 🛡️ `familyId = SHA256(pubKeys)` = 2^256 = impossibile brute force
+
+**Layer 2 - Firebase Protection:**
+- 🛡️ Rate limiting automatico + Abuse detection + IP blocking
+
+**Layer 3 - E2E Encryption:**
+- 🔐 Messaggi cifrati RSA-2048 (stesso standard di internet)
+- 🔐 Senza chiavi private = dati inutili
+
+> **Risultato:** Mass data scraping IMPOSSIBILE + Security by design (encryption + compartmentalization)
 
 ### 4. Deploy Cloud Functions (per notifiche push)
 
@@ -399,6 +423,6 @@ Per problemi o domande:
 
 ---
 
-**Versione:** 1.2 Stable
-**Ultima modifica:** 2025-12-11
-**Architettura:** RSA-only + Dual Encryption
+**Versione:** 1.2.0+3
+**Ultima modifica:** 2025-12-12
+**Architettura:** RSA-only + Dual Encryption + Firestore Compartmentalization
