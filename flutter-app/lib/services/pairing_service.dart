@@ -10,7 +10,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 class PairingService extends ChangeNotifier {
   final _storage = const FlutterSecureStorage();
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
-  StreamSubscription<DocumentSnapshot>? _pairingStatusSubscription;
+  StreamSubscription<QuerySnapshot<Map<String, dynamic>>>? _pairingStatusSubscription;
 
   bool _isPaired = false;
   String? _partnerPublicKey;
