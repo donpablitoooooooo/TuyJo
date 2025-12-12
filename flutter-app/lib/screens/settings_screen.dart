@@ -181,11 +181,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
           if (kDebugMode) print('⚠️ Nessun chatId trovato, skip eliminazione Firestore');
         }
       } else {
-        // UNPAIR SYNC: Notifica al partner che abbiamo fatto unpair
-        // Solo quando NON eliminiamo i messaggi (unpair semplice)
-        await pairingService.notifyUnpair();
-
         // CLEANUP FCM: Elimina il proprio token FCM da Firestore
+        // Il partner rileverà l'unpair automaticamente (state-based listener)
         if (chatId != null && myUserId != null && mounted) {
           final notificationService = Provider.of<NotificationService>(context, listen: false);
           await notificationService.deleteTokenFromFirestore(chatId, myUserId);

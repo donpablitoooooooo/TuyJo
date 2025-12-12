@@ -14,6 +14,7 @@ class PairingService extends ChangeNotifier {
 
   bool _isPaired = false;
   String? _partnerPublicKey;
+  bool _familyWasComplete = false; // Traccia se abbiamo mai visto 2 users
 
   bool get isPaired => _isPaired;
   String? get partnerPublicKey => _partnerPublicKey;
@@ -154,36 +155,6 @@ class PairingService extends ChangeNotifier {
     return digest.toString();
   }
 
-  /// Notifica al partner che abbiamo fatto unpair
-  /// Scrive su Firestore che il pairing è stato interrotto
-  Future<void> notifyUnpair() async {
-    try {
-      final chatId = await getFamilyChatId();
-      if (chatId == null) {
-        if (kDebugMode) print('⚠️ No chatId, cannot notify unpair');
-        return;
-      }
-
-      final myUserId = await getMyUserId();
-      if (myUserId == null) {
-        if (kDebugMode) print('⚠️ No userId, cannot notify unpair');
-        return;
-      }
-
-      // Scrivi su Firestore che hai fatto unpair
-      await _firestore.collection('families').doc(chatId).set({
-        'pairing_status': 'unpaired',
-        'unpaired_by': myUserId,
-        'unpaired_at': FieldValue.serverTimestamp(),
-      }, SetOptions(merge: true));
-
-      if (kDebugMode) print('✅ Unpair notificato al partner su Firestore');
-    } catch (e) {
-      if (kDebugMode) print('❌ Errore notifica unpair: $e');
-    }
-  }
-
-
   /// Avvia manualmente il background listener
   /// Da chiamare DOPO che i token FCM sono stati salvati su Firestore
   void startBackgroundUnpairListener() {
@@ -195,23 +166,6 @@ class PairingService extends ChangeNotifier {
     _pairingStatusSubscription?.cancel();
     _pairingStatusSubscription = null;
     if (kDebugMode) print('🔇 Stopped listening to pairing status');
-  }
-
-  /// Ripristina il pairing status su Firestore quando si rifare pairing
-  Future<void> resetPairingStatus() async {
-    try {
-      final chatId = await getFamilyChatId();
-      if (chatId == null) return;
-
-      await _firestore.collection('families').doc(chatId).set({
-        'pairing_status': 'paired',
-        'paired_at': FieldValue.serverTimestamp(),
-      }, SetOptions(merge: true));
-
-      if (kDebugMode) print('✅ Pairing status ripristinato su Firestore');
-    } catch (e) {
-      if (kDebugMode) print('❌ Errore reset pairing status: $e');
-    }
   }
 
   /// Background listener che ascolta SEMPRE unpair del partner
@@ -242,8 +196,16 @@ class PairingService extends ChangeNotifier {
 
       if (kDebugMode) print('👥 Family users count: $userCount');
 
-      // Se ci sono meno di 2 utenti e io sono ancora in pairing → partner ha fatto unpair
-      if (userCount < 2 && _isPaired) {
+      // Traccia quando la famiglia diventa completa (2 users)
+      if (userCount == 2) {
+        if (!_familyWasComplete) {
+          _familyWasComplete = true;
+          if (kDebugMode) print('✅ Famiglia completa: 2 utenti presenti');
+        }
+      }
+
+      // Fai unpair SOLO se la famiglia era completa (2 users) e ora non lo è più
+      if (userCount < 2 && _isPaired && _familyWasComplete) {
         // Verifica che IO sia ancora presente (potrei essere l'unico rimasto)
         final iAmPresent = snapshot.docs.any((doc) => doc.id == myUserId);
 
@@ -255,6 +217,7 @@ class PairingService extends ChangeNotifier {
           await _storage.delete(key: 'partner_public_key');
           _isPaired = false;
           _partnerPublicKey = null;
+          _familyWasComplete = false; // Reset per il prossimo pairing
 
           // Ferma il listener
           stopListeningToPairingStatus();
@@ -270,12 +233,13 @@ class PairingService extends ChangeNotifier {
           await _storage.delete(key: 'partner_public_key');
           _isPaired = false;
           _partnerPublicKey = null;
+          _familyWasComplete = false; // Reset per il prossimo pairing
           stopListeningToPairingStatus();
           notifyListeners();
         }
-      } else if (userCount == 2 && kDebugMode) {
-        // Entrambi presenti → famiglia completa
-        print('✅ Famiglia completa: 2 utenti presenti');
+      } else if (userCount < 2 && !_familyWasComplete && kDebugMode) {
+        // Pairing iniziale in corso - aspettiamo il partner
+        print('⏳ Pairing in corso, aspettando il partner... ($userCount/2 users)');
       }
     });
   }
