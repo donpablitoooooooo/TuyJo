@@ -23,40 +23,73 @@ void main() async {
 
   final firestore = FirebaseFirestore.instance;
 
-  // Prova a leggere una famiglia specifica
-  // (sostituisci con un familyChatId reale dal tuo DB)
-  const familyChatId = 'INSERISCI_UN_FAMILY_CHAT_ID_REALE';
-
-  print('📡 Tentativo di lettura famiglia: ${familyChatId.substring(0, 10)}...\n');
+  print('📡 Scarico TUTTO il database (tutte le famiglie)...\n');
 
   try {
-    // Leggi messaggi - SENZA AUTENTICAZIONE!
-    final messagesSnapshot = await firestore
-        .collection('families')
-        .doc(familyChatId)
-        .collection('messages')
-        .limit(5)
-        .get();
+    // LEGGI TUTTE LE FAMIGLIE - SENZA AUTENTICAZIONE!
+    final familiesSnapshot = await firestore.collection('families').get();
 
-    print('✅ Riuscito a leggere ${messagesSnapshot.docs.length} messaggi!\n');
-    print('⚠️  Le regole "if true" permettono a CHIUNQUE di leggere!\n');
+    print('✅ Trovate ${familiesSnapshot.docs.length} famiglie nel DB!\n');
+    print('⚠️  Le regole "if true" permettono di scaricare TUTTO!\n');
 
-    for (var doc in messagesSnapshot.docs) {
-      final data = doc.data();
-      print('─────────────────────────────────────');
-      print('Messaggio ID: ${doc.id}');
-      print('Sender: ${data['senderId']?.substring(0, 20)}...');
-      print('Timestamp: ${data['timestamp']}');
-      print('encryptedForSender: ${data['encryptedForSender']?.substring(0, 30)}...');
-      print('encryptedForRecipient: ${data['encryptedForRecipient']?.substring(0, 30)}...');
+    int totalMessages = 0;
+    int familyCount = 0;
+
+    for (var familyDoc in familiesSnapshot.docs) {
+      familyCount++;
+      final familyChatId = familyDoc.id;
+
+      print('═══════════════════════════════════════════════════');
+      print('FAMIGLIA #$familyCount');
+      print('familyChatId: ${familyChatId.substring(0, 30)}...');
+
+      // Leggi i messaggi di questa famiglia
+      final messagesSnapshot = await firestore
+          .collection('families')
+          .doc(familyChatId)
+          .collection('messages')
+          .orderBy('timestamp', descending: true)
+          .limit(3)
+          .get();
+
+      print('Messaggi: ${messagesSnapshot.docs.length}');
+
+      for (var msgDoc in messagesSnapshot.docs) {
+        totalMessages++;
+        final data = msgDoc.data();
+        print('  ├─ Messaggio: ${msgDoc.id.substring(0, 10)}...');
+        print('  │  Sender: ${data['senderId']?.substring(0, 15)}...');
+        print('  │  Timestamp: ${data['timestamp']}');
+        print('  │  Encrypted: ${data['encryptedForSender']?.substring(0, 20)}...');
+      }
+
+      // Leggi gli users di questa famiglia
+      final usersSnapshot = await firestore
+          .collection('families')
+          .doc(familyChatId)
+          .collection('users')
+          .get();
+
+      print('Users: ${usersSnapshot.docs.length}');
+      for (var userDoc in usersSnapshot.docs) {
+        final data = userDoc.data();
+        print('  ├─ User: ${userDoc.id.substring(0, 15)}...');
+        print('  │  FCM Token: ${data['fcmToken']?.substring(0, 20)}...');
+      }
+
       print('');
     }
 
-    print('─────────────────────────────────────\n');
+    print('═══════════════════════════════════════════════════\n');
+    print('📊 STATISTICHE:');
+    print('   Famiglie scaricate: $familyCount');
+    print('   Messaggi visti: $totalMessages');
+    print('');
     print('🔐 CONCLUSIONE:');
-    print('   ✅ Posso leggere i messaggi cifrati');
-    print('   ❌ NON posso decifrarli (no chiavi private)');
-    print('   ⚠️  Vedo metadata: timestamp, relazioni, senderId');
+    print('   ✅ Posso scaricare TUTTO il database');
+    print('   ✅ Vedo tutte le famiglie, users, messaggi cifrati');
+    print('   ❌ NON posso decifrare nessun messaggio (no chiavi private)');
+    print('   ⚠️  Vedo metadata: timestamp, relazioni, FCM tokens');
     print('   🛡️  La sicurezza dipende SOLO da RSA-2048\n');
 
   } catch (e) {
