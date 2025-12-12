@@ -1,9 +1,11 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import '../services/pairing_service.dart';
 import '../services/encryption_service.dart';
 import '../services/chat_service.dart';
+import '../services/notification_service.dart';
 import 'pairing_wizard_screen.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
@@ -93,25 +95,57 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
     setState(() => _isLoading = true);
     try {
-      // Verifica che la chiave sia valida provando a caricarla
       final encryptionService = Provider.of<EncryptionService>(context, listen: false);
+      final pairingService = Provider.of<PairingService>(context, listen: false);
+
+      // STEP 1: Valida la chiave PRIMA di salvare (atomicità)
       encryptionService.loadPrivateKey(key);
 
-      // Salva la chiave privata
-      await _storage.write(key: 'rsa_private_key', value: key);
-
-      // Deriva e salva la chiave pubblica dalla chiave privata
+      // STEP 2: Deriva la chiave pubblica dalla chiave privata
       final publicKey = await encryptionService.deriveAndSavePublicKey();
-      if (publicKey != null) {
-        final pairingService = Provider.of<PairingService>(context, listen: false);
-        await pairingService.saveMyPublicKey(publicKey);
+      if (publicKey == null) {
+        throw Exception('Impossibile derivare la chiave pubblica dalla chiave privata');
+      }
+
+      // STEP 3: Verifica se la chiave pubblica è diversa da quella esistente
+      final existingPublicKey = await _storage.read(key: 'rsa_public_key');
+      final bool isDifferentKey = existingPublicKey != null && existingPublicKey != publicKey;
+
+      // STEP 4: Solo DOPO tutte le validazioni, salva la chiave privata
+      await _storage.write(key: 'rsa_private_key', value: key);
+      await pairingService.saveMyPublicKey(publicKey);
+
+      // STEP 5: Se la chiave è diversa, pulisci il pairing esistente (Fix 2)
+      if (isDifferentKey) {
+        if (kDebugMode) print('⚠️ Chiave pubblica diversa rilevata - pulizia pairing');
+
+        // Pulisci pairing perché la chiave è cambiata
+        await pairingService.clearPairing();
+
+        // Aggiorna stato UI
+        setState(() => _isPaired = false);
+
+        if (!mounted) return;
+        _keyController.clear();
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              '⚠️ Chiave ripristinata con successo.\n'
+              'Il pairing è stato resettato perché la chiave è diversa.\n'
+              'Devi rifare il pairing per chattare.',
+            ),
+            backgroundColor: Colors.orange,
+            duration: Duration(seconds: 5),
+          ),
+        );
+        return;
       }
 
       if (!mounted) return;
       _keyController.clear();
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Chiave privata ripristinata con successo'),
+          content: Text('✅ Chiave privata ripristinata con successo'),
           backgroundColor: Colors.green,
         ),
       );
@@ -119,7 +153,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Errore nel ripristino: $e'),
+          content: Text('❌ Errore nel ripristino: $e'),
           backgroundColor: Colors.red,
         ),
       );
@@ -134,40 +168,64 @@ class _SettingsScreenState extends State<SettingsScreen> {
       final pairingService = Provider.of<PairingService>(context, listen: false);
       final chatService = Provider.of<ChatService>(context, listen: false);
 
+      // STEP 0: Ottieni dati PRIMA di eliminare il pairing
+      final chatId = await pairingService.getFamilyChatId();
+      final myUserId = await pairingService.getMyUserId();
+
       if (deleteMessages) {
-        // Elimina TUTTI i messaggi da Firestore
-        final chatId = await pairingService.getFamilyChatId();
+        // Fix 3: Elimina TUTTO da Firestore (messaggi + documento family)
         if (chatId != null) {
-          await chatService.deleteAllMessages(chatId);
+          await chatService.deleteFamily(chatId);
+          if (kDebugMode) print('✅ Family completamente eliminata da Firestore');
+        } else {
+          if (kDebugMode) print('⚠️ Nessun chatId trovato, skip eliminazione Firestore');
+        }
+      } else {
+        // CLEANUP FCM: Elimina il proprio token FCM da Firestore
+        // Il partner rileverà l'unpair automaticamente (state-based listener)
+        if (chatId != null && myUserId != null && mounted) {
+          final notificationService = Provider.of<NotificationService>(context, listen: false);
+          await notificationService.deleteTokenFromFirestore(chatId, myUserId);
         }
       }
 
-      // Elimina il pairing
+      // STEP 2: Elimina il pairing locale
       await pairingService.clearPairing();
+      if (kDebugMode) print('✅ Pairing locale eliminato');
 
-      // Ferma i listener e pulisci i messaggi locali
+      // STEP 3: Ferma i listener e pulisci i messaggi locali
       chatService.stopListening();
       chatService.clearMessages();
+      if (kDebugMode) print('✅ Listener fermati e cache locale pulita');
 
+      // STEP 4: Aggiorna stato UI
       if (!mounted) return;
       setState(() => _isPaired = false);
 
+      // Fix 4: Conferma successo con feedback chiaro
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
             deleteMessages
-                ? 'Pairing e messaggi eliminati completamente'
-                : 'Pairing eliminato. Messaggi conservati su Firestore.'
+                ? '✅ Pairing e messaggi eliminati completamente.\n'
+                  'Firestore: pulito | Cache locale: pulita'
+                : '✅ Pairing eliminato.\n'
+                  'Messaggi conservati su Firestore (non più leggibili senza re-pairing).'
           ),
           backgroundColor: Colors.green,
+          duration: const Duration(seconds: 4),
         ),
       );
     } catch (e) {
+      // Fix 4: Gestione errore dettagliata
+      if (kDebugMode) print('❌ Errore eliminazione pairing: $e');
+
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Errore: $e'),
+          content: Text('❌ Errore durante l\'eliminazione: $e'),
           backgroundColor: Colors.red,
+          duration: const Duration(seconds: 5),
         ),
       );
     } finally {

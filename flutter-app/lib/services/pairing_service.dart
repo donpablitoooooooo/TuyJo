@@ -1,15 +1,20 @@
 import 'dart:convert';
+import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:crypto/crypto.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 
 /// Servizio per gestire il pairing tra dispositivi tramite RSA public keys
 /// Architettura RSA-only: ogni dispositivo condivide solo la propria chiave pubblica
 class PairingService extends ChangeNotifier {
   final _storage = const FlutterSecureStorage();
+  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  StreamSubscription<QuerySnapshot<Map<String, dynamic>>>? _pairingStatusSubscription;
 
   bool _isPaired = false;
   String? _partnerPublicKey;
+  bool _familyWasComplete = false; // Traccia se abbiamo mai visto 2 users
 
   bool get isPaired => _isPaired;
   String? get partnerPublicKey => _partnerPublicKey;
@@ -28,6 +33,10 @@ class PairingService extends ChangeNotifier {
         print('✅ Pairing initialized');
         print('   Partner public key: ${partnerPubKey.substring(0, 20)}...');
       }
+
+      // UNPAIR SYNC: Avvia listener SEMPRE quando c'è un pairing
+      // Non aspettare che ChatScreen venga aperta
+      _startBackgroundUnpairListener();
     }
   }
 
@@ -69,6 +78,11 @@ class PairingService extends ChangeNotifier {
 
       // Salva chiave pubblica del partner
       await _storage.write(key: 'partner_public_key', value: partnerPublicKey);
+
+      // IMPORTANTE: Ferma il vecchio listener prima di cambiare familyChatId
+      // Altrimenti rimane un listener attivo sulla vecchia famiglia che può causare unpair
+      stopListeningToPairingStatus();
+      _familyWasComplete = false; // Reset per il nuovo pairing
 
       _isPaired = true;
       _partnerPublicKey = partnerPublicKey;
@@ -144,5 +158,100 @@ class PairingService extends ChangeNotifier {
     final bytes = utf8.encode(combined);
     final digest = sha256.convert(bytes);
     return digest.toString();
+  }
+
+  /// Avvia manualmente il background listener
+  /// Da chiamare DOPO che i token FCM sono stati salvati su Firestore
+  void startBackgroundUnpairListener() {
+    _startBackgroundUnpairListener();
+  }
+
+  /// Ferma il listener del pairing status
+  void stopListeningToPairingStatus() {
+    _pairingStatusSubscription?.cancel();
+    _pairingStatusSubscription = null;
+    if (kDebugMode) print('🔇 Stopped listening to pairing status');
+  }
+
+  /// Background listener che ascolta SEMPRE unpair del partner
+  /// Basato sullo STATO della famiglia (collezione users) invece che su eventi
+  void _startBackgroundUnpairListener() async {
+    final chatId = await getFamilyChatId();
+    if (chatId == null) {
+      if (kDebugMode) print('⚠️ No chatId, cannot listen to pairing status');
+      return;
+    }
+
+    final myUserId = await getMyUserId();
+    if (myUserId == null) {
+      if (kDebugMode) print('⚠️ No userId, cannot listen to pairing status');
+      return;
+    }
+
+    if (kDebugMode) print('🎧 Background unpair listener (state-based) started for chat: ${chatId.substring(0, 10)}...');
+
+    // STATE-BASED: Ascolta la collezione /users invece di pairing_status
+    _pairingStatusSubscription = _firestore
+        .collection('families')
+        .doc(chatId)
+        .collection('users')
+        .snapshots()
+        .listen((snapshot) async {
+      final userCount = snapshot.docs.length;
+
+      if (kDebugMode) print('👥 Family users count: $userCount');
+
+      // Traccia quando la famiglia diventa completa (2 users)
+      if (userCount == 2) {
+        if (!_familyWasComplete) {
+          _familyWasComplete = true;
+          if (kDebugMode) print('✅ Famiglia completa: 2 utenti presenti');
+        }
+      }
+
+      // Fai unpair SOLO se la famiglia era completa (2 users) e ora non lo è più
+      if (userCount < 2 && _isPaired && _familyWasComplete) {
+        // Verifica che IO sia ancora presente (potrei essere l'unico rimasto)
+        final iAmPresent = snapshot.docs.any((doc) => doc.id == myUserId);
+
+        if (iAmPresent && userCount == 1) {
+          // Solo io presente → partner ha fatto unpair
+          if (kDebugMode) print('⚠️ Partner ha fatto unpair (stato: solo 1 user), facciamo unpair automatico');
+
+          // Fai unpair locale
+          await _storage.delete(key: 'partner_public_key');
+          _isPaired = false;
+          _partnerPublicKey = null;
+          _familyWasComplete = false; // Reset per il prossimo pairing
+
+          // Ferma il listener
+          stopListeningToPairingStatus();
+
+          // Notifica i listener (Provider)
+          notifyListeners();
+
+          if (kDebugMode) print('✅ Unpair automatico completato');
+        } else if (!iAmPresent && userCount == 0) {
+          // Nessuno presente → famiglia vuota
+          if (kDebugMode) print('⚠️ Famiglia vuota, facciamo unpair automatico');
+
+          await _storage.delete(key: 'partner_public_key');
+          _isPaired = false;
+          _partnerPublicKey = null;
+          _familyWasComplete = false; // Reset per il prossimo pairing
+          stopListeningToPairingStatus();
+          notifyListeners();
+        }
+      } else if (userCount < 2 && !_familyWasComplete && kDebugMode) {
+        // Pairing iniziale in corso - aspettiamo il partner
+        print('⏳ Pairing in corso, aspettando il partner... ($userCount/2 users)');
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    stopListeningToPairingStatus();
+    super.dispose();
   }
 }

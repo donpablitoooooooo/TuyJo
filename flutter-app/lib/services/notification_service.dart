@@ -193,4 +193,28 @@ class NotificationService {
       if (kDebugMode) print('❌ Error deleting token: $e');
     }
   }
+
+  /// Elimina il token FCM e l'utente da Firestore quando si fa unpair
+  Future<void> deleteTokenFromFirestore(
+    String familyChatId,
+    String userId,
+  ) async {
+    try {
+      // Elimina il documento dell'utente dalla subcollection users
+      await _firestore
+          .collection('families')
+          .doc(familyChatId)
+          .collection('users')
+          .doc(userId)
+          .delete();
+
+      if (kDebugMode) {
+        print('✅ User data deleted from Firestore: $userId');
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        print('❌ Error deleting user data from Firestore: $e');
+      }
+    }
+  }
 }
