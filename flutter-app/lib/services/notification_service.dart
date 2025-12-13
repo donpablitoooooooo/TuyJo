@@ -37,6 +37,14 @@ class NotificationService {
   Future<void> initialize() async {
     // 0. Inizializza timezone per scheduled notifications
     tz.initializeTimeZones();
+    // IMPORTANTE: Imposta la timezone locale
+    final String timeZoneName = 'Europe/Rome'; // Cambia se non sei in Italia
+    tz.setLocalLocation(tz.getLocation(timeZoneName));
+
+    if (kDebugMode) {
+      print('🌍 Timezone set to: $timeZoneName');
+      print('   Current local time: ${tz.TZDateTime.now(tz.local)}');
+    }
 
     // 1. Configura il background message handler
     FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
@@ -240,15 +248,32 @@ class NotificationService {
     required DateTime scheduledDate,
   }) async {
     try {
+      final tzScheduledDate = tz.TZDateTime.from(scheduledDate, tz.local);
+      final now = tz.TZDateTime.now(tz.local);
+      final difference = tzScheduledDate.difference(now);
+
       if (kDebugMode) {
-        print('📅 Scheduling notification #$id for ${scheduledDate.toIso8601String()}');
+        print('📅 Scheduling notification #$id');
+        print('   Title: $title');
+        print('   Body: $body');
+        print('   Scheduled for: ${scheduledDate.toIso8601String()}');
+        print('   TZ Scheduled: $tzScheduledDate');
+        print('   Now: $now');
+        print('   Difference: ${difference.inSeconds} seconds (${difference.inMinutes} minutes)');
+      }
+
+      if (difference.isNegative) {
+        if (kDebugMode) {
+          print('⚠️ WARNING: Scheduled time is in the past! Notification will not be delivered.');
+        }
+        return;
       }
 
       await _localNotifications.zonedSchedule(
         id,
         title,
         body,
-        tz.TZDateTime.from(scheduledDate, tz.local),
+        tzScheduledDate,
         NotificationDetails(
           android: AndroidNotificationDetails(
             _todoChannel.id,
@@ -270,7 +295,8 @@ class NotificationService {
       );
 
       if (kDebugMode) {
-        print('✅ Notification scheduled successfully');
+        print('✅ Notification #$id scheduled successfully!');
+        print('   Will arrive in ~${difference.inSeconds} seconds');
       }
     } catch (e) {
       if (kDebugMode) {
