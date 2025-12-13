@@ -640,6 +640,7 @@ class _CreateTodoDialogState extends State<_CreateTodoDialog> {
   DateTime _selectedDate = DateTime.now().add(const Duration(days: 1));
   TimeOfDay _selectedTime = const TimeOfDay(hour: 10, minute: 0);
   int _testReminderSeconds = 3600; // 1 ora in secondi per default
+  bool _useTestMode = false; // Modalità test disattivata di default
 
   @override
   void dispose() {
@@ -677,21 +678,26 @@ class _CreateTodoDialogState extends State<_CreateTodoDialog> {
       return;
     }
 
-    // Combina data e ora
-    final dueDate = DateTime(
-      _selectedDate.year,
-      _selectedDate.month,
-      _selectedDate.day,
-      _selectedTime.hour,
-      _selectedTime.minute,
-    );
+    DateTime actualDueDate;
 
-    // Per il testing, il reminder arriva dopo i secondi impostati
-    // Ma il dueDate deve essere 1 ora dopo il reminder (perché il sistema fa dueDate - 1h)
-    final actualDueDate = DateTime.now().add(Duration(
-      seconds: _testReminderSeconds, // Quando arriva il reminder
-      hours: 1, // + 1 ora per il dueDate effettivo
-    ));
+    if (_useTestMode) {
+      // MODALITÀ TEST: usa i secondi impostati
+      // Il reminder arriva dopo i secondi impostati
+      // Ma il dueDate deve essere 1 ora dopo il reminder (perché il sistema fa dueDate - 1h)
+      actualDueDate = DateTime.now().add(Duration(
+        seconds: _testReminderSeconds, // Quando arriva il reminder
+        hours: 1, // + 1 ora per il dueDate effettivo
+      ));
+    } else {
+      // MODALITÀ NORMALE: usa la data e ora selezionate dal calendario
+      actualDueDate = DateTime(
+        _selectedDate.year,
+        _selectedDate.month,
+        _selectedDate.day,
+        _selectedTime.hour,
+        _selectedTime.minute,
+      );
+    }
 
     widget.onCreateTodo(_controller.text.trim(), actualDueDate);
     Navigator.pop(context);
@@ -716,50 +722,73 @@ class _CreateTodoDialogState extends State<_CreateTodoDialog> {
               maxLines: 2,
             ),
             const SizedBox(height: 16),
-            const Text(
-              'Data e ora evento:',
-              style: TextStyle(fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 8),
             Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Expanded(
-                  child: OutlinedButton.icon(
-                    onPressed: _pickDate,
-                    icon: const Icon(Icons.calendar_today),
-                    label: Text(DateFormat('dd/MM/yyyy').format(_selectedDate)),
-                  ),
+                const Text(
+                  'Modalità Test (per debug)',
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
                 ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: OutlinedButton.icon(
-                    onPressed: _pickTime,
-                    icon: const Icon(Icons.access_time),
-                    label: Text(_selectedTime.format(context)),
-                  ),
+                Switch(
+                  value: _useTestMode,
+                  onChanged: (value) {
+                    setState(() => _useTestMode = value);
+                  },
                 ),
               ],
             ),
-            const SizedBox(height: 16),
-            const Text(
-              'Test: Reminder tra (secondi):',
-              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
-            ),
-            Slider(
-              value: _testReminderSeconds.toDouble(),
-              min: 10,
-              max: 3600,
-              divisions: 50,
-              label: '$_testReminderSeconds sec',
-              onChanged: (value) {
-                setState(() => _testReminderSeconds = value.toInt());
-              },
-            ),
-            Text(
-              'Il reminder arriverà tra $_testReminderSeconds secondi (${(_testReminderSeconds / 60).toStringAsFixed(1)} min)\n'
-              'L\'evento sarà schedulato 1 ora dopo il reminder',
-              style: TextStyle(fontSize: 11, color: Colors.grey[600]),
-            ),
+            const Divider(),
+            if (!_useTestMode) ...[
+              const Text(
+                'Data e ora evento:',
+                style: TextStyle(fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 8),
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      onPressed: _pickDate,
+                      icon: const Icon(Icons.calendar_today),
+                      label: Text(DateFormat('dd/MM/yyyy').format(_selectedDate)),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      onPressed: _pickTime,
+                      icon: const Icon(Icons.access_time),
+                      label: Text(_selectedTime.format(context)),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'Reminder: 1 ora prima dell\'evento',
+                style: TextStyle(fontSize: 12, color: Colors.grey[600], fontStyle: FontStyle.italic),
+              ),
+            ] else ...[
+              const Text(
+                'Reminder tra (secondi):',
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+              ),
+              Slider(
+                value: _testReminderSeconds.toDouble(),
+                min: 10,
+                max: 3600,
+                divisions: 50,
+                label: '$_testReminderSeconds sec',
+                onChanged: (value) {
+                  setState(() => _testReminderSeconds = value.toInt());
+                },
+              ),
+              Text(
+                'Il reminder arriverà tra $_testReminderSeconds secondi (${(_testReminderSeconds / 60).toStringAsFixed(1)} min)\n'
+                'L\'evento sarà schedulato 1 ora dopo il reminder',
+                style: TextStyle(fontSize: 11, color: Colors.grey[600]),
+              ),
+            ],
           ],
         ),
       ),
