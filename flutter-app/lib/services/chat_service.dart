@@ -151,6 +151,7 @@ class ChatService extends ChangeNotifier {
         'iv': encryptedPayload['iv'],
         'message': encryptedPayload['message'],
         'created_at': timestamp.toIso8601String(),
+        'message_type': 'todo', // Campo non criptato per la Cloud Function
       });
 
       if (kDebugMode) {
@@ -204,6 +205,7 @@ class ChatService extends ChangeNotifier {
         'iv': encryptedPayload['iv'],
         'message': encryptedPayload['message'],
         'created_at': timestamp.toIso8601String(),
+        'message_type': 'todo_completed', // Campo non criptato per la Cloud Function
       });
 
       if (kDebugMode) {
@@ -258,6 +260,7 @@ class ChatService extends ChangeNotifier {
         'iv': encryptedPayload['iv'], // IV
         'message': encryptedPayload['message'], // Messaggio cifrato con AES
         'created_at': timestamp.toIso8601String(),
+        'message_type': 'text', // Campo non criptato per la Cloud Function
       });
 
       if (kDebugMode) {

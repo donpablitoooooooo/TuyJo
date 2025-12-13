@@ -61,17 +61,36 @@ exports.sendMessageNotification = functions
 
       console.log(`📤 Sending notifications to ${recipients.length} recipients`);
 
-      // 3. Invia la notifica a ciascun destinatario
+      // 3. Determina il tipo di notifica in base al message_type
+      const messageType = messageData.message_type || 'text';
+      let notificationTitle, notificationBody;
+
+      switch (messageType) {
+        case 'todo':
+          notificationTitle = '📅 Nuovo To Do';
+          notificationBody = 'Il tuo partner ha creato un nuovo promemoria';
+          break;
+        case 'todo_completed':
+          // Non inviare notifiche per i completamenti
+          console.log('⏭️  Skipping notification for todo_completed message');
+          return null;
+        default:
+          notificationTitle = '💬 Nuovo messaggio';
+          notificationBody = 'Hai ricevuto un nuovo messaggio crittografato';
+      }
+
+      // 4. Invia la notifica a ciascun destinatario
       const notifications = recipients.map((recipient) => {
         const message = {
           notification: {
-            title: '💬 Nuovo messaggio',
-            body: 'Hai ricevuto un nuovo messaggio crittografato',
+            title: notificationTitle,
+            body: notificationBody,
           },
           data: {
             familyChatId: familyChatId,
             messageId: messageId,
             senderId: senderId,
+            messageType: messageType,
           },
           token: recipient.token,
           // Configurazioni Android
