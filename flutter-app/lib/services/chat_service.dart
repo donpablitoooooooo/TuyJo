@@ -361,7 +361,7 @@ class ChatService extends ChangeNotifier {
     if (reminderTime.isAfter(DateTime.now())) {
       _notificationService.scheduleNotification(
         id: todoMessage.id.hashCode,
-        title: '📅 Promemoria To Do',
+        title: '🔔 Nuovo To Do',
         body: todoMessage.decryptedContent ?? 'Evento imminente',
         scheduledDate: reminderTime,
       );
