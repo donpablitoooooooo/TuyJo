@@ -4,7 +4,6 @@ import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:timezone/data/latest_all.dart' as tz;
 import 'package:timezone/timezone.dart' as tz;
-import 'package:flutter_timezone/flutter_timezone.dart';
 
 // Handler per i messaggi in background (deve essere top-level function)
 @pragma('vm:entry-point')
@@ -39,13 +38,19 @@ class NotificationService {
     // 0. Inizializza timezone per scheduled notifications
     tz.initializeTimeZones();
 
-    // IMPORTANTE: Rileva e imposta la timezone del dispositivo
+    // IMPORTANTE: Rileva la timezone del dispositivo dall'offset
     try {
-      final String timeZoneName = await FlutterTimezone.getLocalTimezone();
+      final now = DateTime.now();
+      final offset = now.timeZoneOffset;
+
+      // Trova la timezone corrispondente all'offset
+      // Cerca tra le timezone europee comuni basandosi sull'offset
+      String timeZoneName = _guessTimezoneName(offset);
+
       tz.setLocalLocation(tz.getLocation(timeZoneName));
 
       if (kDebugMode) {
-        print('🌍 Timezone detected from device: $timeZoneName');
+        print('🌍 Timezone detected: $timeZoneName (offset: ${offset.inHours}h)');
         print('   Current local time: ${tz.TZDateTime.now(tz.local)}');
         print('   Current DateTime.now(): ${DateTime.now()}');
       }
@@ -340,6 +345,34 @@ class NotificationService {
       if (kDebugMode) {
         print('❌ Error cancelling all notifications: $e');
       }
+    }
+  }
+
+  /// Indovina la timezone dal offset UTC
+  String _guessTimezoneName(Duration offset) {
+    final hours = offset.inHours;
+
+    // Timezone europee comuni (include anche DST offset)
+    switch (hours) {
+      case 0:
+        return 'Europe/London'; // UTC+0 (GMT/WET)
+      case 1:
+        return 'Europe/Madrid'; // UTC+1 (CET) - Barcellona, Madrid, Roma, Parigi, Berlino
+      case 2:
+        return 'Europe/Athens'; // UTC+2 (EET)
+      case 3:
+        return 'Europe/Moscow'; // UTC+3
+      case -5:
+        return 'America/New_York'; // UTC-5 (EST)
+      case -6:
+        return 'America/Chicago'; // UTC-6 (CST)
+      case -7:
+        return 'America/Denver'; // UTC-7 (MST)
+      case -8:
+        return 'America/Los_Angeles'; // UTC-8 (PST)
+      default:
+        // Fallback: usa UTC
+        return 'UTC';
     }
   }
 }
