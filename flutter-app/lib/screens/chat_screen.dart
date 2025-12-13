@@ -686,8 +686,12 @@ class _CreateTodoDialogState extends State<_CreateTodoDialog> {
       _selectedTime.minute,
     );
 
-    // Per il testing, usa i secondi invece di 1 ora
-    final actualDueDate = DateTime.now().add(Duration(seconds: _testReminderSeconds));
+    // Per il testing, il reminder arriva dopo i secondi impostati
+    // Ma il dueDate deve essere 1 ora dopo il reminder (perché il sistema fa dueDate - 1h)
+    final actualDueDate = DateTime.now().add(Duration(
+      seconds: _testReminderSeconds, // Quando arriva il reminder
+      hours: 1, // + 1 ora per il dueDate effettivo
+    ));
 
     widget.onCreateTodo(_controller.text.trim(), actualDueDate);
     Navigator.pop(context);
@@ -752,7 +756,8 @@ class _CreateTodoDialogState extends State<_CreateTodoDialog> {
               },
             ),
             Text(
-              'Il reminder arriverà tra $_testReminderSeconds secondi (${(_testReminderSeconds / 60).toStringAsFixed(1)} min)',
+              'Il reminder arriverà tra $_testReminderSeconds secondi (${(_testReminderSeconds / 60).toStringAsFixed(1)} min)\n'
+              'L\'evento sarà schedulato 1 ora dopo il reminder',
               style: TextStyle(fontSize: 11, color: Colors.grey[600]),
             ),
           ],
