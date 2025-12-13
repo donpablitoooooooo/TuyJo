@@ -13,6 +13,15 @@ class Message {
   final String? tag;
   final DateTime timestamp;
 
+  // Campi dopo decryption (popolati da ChatService)
+  String? decryptedContent;
+  String? messageType; // 'text', 'todo', 'todo_completed'
+
+  // Campi specifici per todo
+  DateTime? dueDate;
+  bool? completed;
+  String? originalTodoId; // Per messaggi di tipo 'todo_completed'
+
   Message({
     required this.id,
     required this.senderId,
@@ -25,6 +34,11 @@ class Message {
     this.nonce,
     this.tag,
     required this.timestamp,
+    this.decryptedContent,
+    this.messageType,
+    this.dueDate,
+    this.completed,
+    this.originalTodoId,
   });
 
   factory Message.fromJson(Map<String, dynamic> json) {

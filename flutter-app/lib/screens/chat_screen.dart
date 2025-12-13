@@ -88,6 +88,11 @@ class _ChatScreenState extends State<ChatScreen> {
     print('   Partner Public Key: ${_partnerPublicKey != null ? "${_partnerPublicKey!.substring(0, 20)}..." : "null"}');
 
     if (_familyChatId != null && _partnerPublicKey != null) {
+      // Imposta il device ID nel ChatService (per decryption)
+      if (_myDeviceId != null) {
+        chatService.setMyDeviceId(_myDeviceId!);
+      }
+
       // Avvia listener per la chat
       chatService.startListening(_familyChatId!);
       print('✅ Firestore listener started for chat');
@@ -117,6 +122,77 @@ class _ChatScreenState extends State<ChatScreen> {
   void dispose() {
     _messageController.dispose();
     super.dispose();
+  }
+
+  void _completeTodo(String todoId) async {
+    if (_familyChatId == null || _myDeviceId == null || _partnerPublicKey == null) {
+      return;
+    }
+
+    final chatService = Provider.of<ChatService>(context, listen: false);
+    final encryptionService = Provider.of<EncryptionService>(context, listen: false);
+    final myPublicKey = await encryptionService.getPublicKey();
+
+    if (myPublicKey == null) return;
+
+    await chatService.sendTodoCompletion(
+      todoId,
+      _familyChatId!,
+      _myDeviceId!,
+      myPublicKey,
+      _partnerPublicKey!,
+    );
+
+    if (kDebugMode) print('✅ Todo marked as completed: $todoId');
+  }
+
+  void _showCreateTodoDialog() {
+    showDialog(
+      context: context,
+      builder: (context) => _CreateTodoDialog(
+        onCreateTodo: _sendTodo,
+      ),
+    );
+  }
+
+  void _sendTodo(String content, DateTime dueDate) async {
+    if (_familyChatId == null || _myDeviceId == null || _partnerPublicKey == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Errore: dati pairing mancanti'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
+    final chatService = Provider.of<ChatService>(context, listen: false);
+    final encryptionService = Provider.of<EncryptionService>(context, listen: false);
+    final myPublicKey = await encryptionService.getPublicKey();
+
+    if (myPublicKey == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Errore: chiave pubblica non trovata'), backgroundColor: Colors.red),
+      );
+      return;
+    }
+
+    final success = await chatService.sendTodo(
+      content,
+      dueDate,
+      _familyChatId!,
+      _myDeviceId!,
+      myPublicKey,
+      _partnerPublicKey!,
+    );
+
+    if (success) {
+      if (kDebugMode) print('✅ Todo sent successfully');
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Errore invio todo'), backgroundColor: Colors.red),
+      );
+    }
   }
 
   void _sendMessage() async {
@@ -259,15 +335,38 @@ class _ChatScreenState extends State<ChatScreen> {
                       final message = chatService.messages[index];
                       final isMe = message.senderId == _myDeviceId;
 
-                      // Decifra il messaggio con la propria chiave privata RSA
-                      // Con dual encryption, usa la chiave corretta (sender o recipient)
-                      final decryptedContent = chatService.decryptMessage(message, _myDeviceId!);
+                      // Verifica se è un messaggio di completamento todo
+                      if (message.messageType == 'todo_completed') {
+                        // Non mostrare i messaggi di completamento
+                        return const SizedBox.shrink();
+                      }
 
-                      return _MessageBubble(
-                        message: decryptedContent,
-                        timestamp: message.timestamp,
-                        isMe: isMe,
-                      );
+                      // Verifica se il todo è stato completato
+                      bool isTodoCompleted = false;
+                      if (message.messageType == 'todo') {
+                        isTodoCompleted = chatService.messages.any((m) =>
+                            m.messageType == 'todo_completed' &&
+                            m.originalTodoId == message.id);
+                      }
+
+                      // Renderizza il tipo di messaggio appropriato
+                      if (message.messageType == 'todo') {
+                        return _TodoMessageBubble(
+                          message: message,
+                          isMe: isMe,
+                          isCompleted: isTodoCompleted,
+                          onComplete: () => _completeTodo(message.id),
+                        );
+                      } else {
+                        // Messaggio normale
+                        final decryptedContent = message.decryptedContent ?? '[Messaggio non decifrabile]';
+
+                        return _MessageBubble(
+                          message: decryptedContent,
+                          timestamp: message.timestamp,
+                          isMe: isMe,
+                        );
+                      }
                     },
                   ),
           ),
@@ -285,6 +384,12 @@ class _ChatScreenState extends State<ChatScreen> {
             ),
             child: Row(
               children: [
+                IconButton(
+                  onPressed: _showCreateTodoDialog,
+                  icon: const Icon(Icons.calendar_today),
+                  color: Colors.orange,
+                  tooltip: 'Crea To Do',
+                ),
                 Expanded(
                   child: TextField(
                     controller: _messageController,
@@ -367,6 +472,302 @@ class _MessageBubble extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+class _TodoMessageBubble extends StatelessWidget {
+  final Message message;
+  final bool isMe;
+  final bool isCompleted;
+  final VoidCallback onComplete;
+
+  const _TodoMessageBubble({
+    required this.message,
+    required this.isMe,
+    required this.isCompleted,
+    required this.onComplete,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final bool isPastDue = message.dueDate != null && message.dueDate!.isBefore(DateTime.now());
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Row(
+        mainAxisAlignment: isMe ? MainAxisAlignment.end : MainAxisAlignment.start,
+        children: [
+          Container(
+            constraints: BoxConstraints(
+              maxWidth: MediaQuery.of(context).size.width * 0.85,
+            ),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              border: Border.all(
+                color: isCompleted
+                    ? Colors.green
+                    : (isPastDue ? Colors.red : Colors.orange),
+                width: 2,
+              ),
+              borderRadius: BorderRadius.circular(12),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.grey.withOpacity(0.3),
+                  spreadRadius: 1,
+                  blurRadius: 3,
+                ),
+              ],
+            ),
+            padding: const EdgeInsets.all(12),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Icon(
+                      Icons.event,
+                      color: isCompleted
+                          ? Colors.green
+                          : (isPastDue ? Colors.red : Colors.orange),
+                      size: 20,
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        isCompleted ? 'To Do - Completato' : 'To Do',
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          color: isCompleted
+                              ? Colors.green
+                              : (isPastDue ? Colors.red : Colors.orange),
+                          fontSize: 14,
+                        ),
+                      ),
+                    ),
+                    if (!isCompleted)
+                      Text(
+                        isMe ? 'Da te' : 'Dal partner',
+                        style: TextStyle(
+                          fontSize: 10,
+                          color: Colors.grey[600],
+                        ),
+                      ),
+                  ],
+                ),
+                const Divider(),
+                Text(
+                  message.decryptedContent ?? '',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w500,
+                    decoration: isCompleted ? TextDecoration.lineThrough : null,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                if (message.dueDate != null) ...[
+                  Row(
+                    children: [
+                      Icon(Icons.calendar_today, size: 16, color: Colors.grey[600]),
+                      const SizedBox(width: 4),
+                      Text(
+                        DateFormat('dd/MM/yyyy HH:mm').format(message.dueDate!),
+                        style: TextStyle(
+                          fontSize: 14,
+                          color: Colors.grey[700],
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 4),
+                  Row(
+                    children: [
+                      Icon(Icons.notifications, size: 16, color: Colors.grey[600]),
+                      const SizedBox(width: 4),
+                      Text(
+                        'Reminder: ${DateFormat('dd/MM/yyyy HH:mm').format(message.dueDate!.subtract(const Duration(hours: 1)))}',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Colors.grey[600],
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+                if (!isCompleted) ...[
+                  const SizedBox(height: 12),
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton.icon(
+                      onPressed: onComplete,
+                      icon: const Icon(Icons.check_circle, size: 18),
+                      label: const Text('Segna come completato'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.green,
+                        foregroundColor: Colors.white,
+                      ),
+                    ),
+                  ),
+                ],
+                const SizedBox(height: 4),
+                Text(
+                  DateFormat('HH:mm').format(message.timestamp),
+                  style: TextStyle(
+                    fontSize: 10,
+                    color: Colors.grey[500],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _CreateTodoDialog extends StatefulWidget {
+  final Function(String content, DateTime dueDate) onCreateTodo;
+
+  const _CreateTodoDialog({required this.onCreateTodo});
+
+  @override
+  State<_CreateTodoDialog> createState() => _CreateTodoDialogState();
+}
+
+class _CreateTodoDialogState extends State<_CreateTodoDialog> {
+  final _controller = TextEditingController();
+  DateTime _selectedDate = DateTime.now().add(const Duration(days: 1));
+  TimeOfDay _selectedTime = const TimeOfDay(hour: 10, minute: 0);
+  int _testReminderSeconds = 3600; // 1 ora in secondi per default
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  Future<void> _pickDate() async {
+    final date = await showDatePicker(
+      context: context,
+      initialDate: _selectedDate,
+      firstDate: DateTime.now(),
+      lastDate: DateTime.now().add(const Duration(days: 365)),
+    );
+    if (date != null) {
+      setState(() => _selectedDate = date);
+    }
+  }
+
+  Future<void> _pickTime() async {
+    final time = await showTimePicker(
+      context: context,
+      initialTime: _selectedTime,
+    );
+    if (time != null) {
+      setState(() => _selectedTime = time);
+    }
+  }
+
+  void _create() {
+    if (_controller.text.trim().isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Inserisci un nome per il To Do')),
+      );
+      return;
+    }
+
+    // Combina data e ora
+    final dueDate = DateTime(
+      _selectedDate.year,
+      _selectedDate.month,
+      _selectedDate.day,
+      _selectedTime.hour,
+      _selectedTime.minute,
+    );
+
+    // Per il testing, usa i secondi invece di 1 ora
+    final actualDueDate = DateTime.now().add(Duration(seconds: _testReminderSeconds));
+
+    widget.onCreateTodo(_controller.text.trim(), actualDueDate);
+    Navigator.pop(context);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('Nuovo To Do'),
+      content: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            TextField(
+              controller: _controller,
+              decoration: const InputDecoration(
+                labelText: 'Cosa devo ricordare?',
+                hintText: 'Es. Compleanno Helena',
+                border: OutlineInputBorder(),
+              ),
+              maxLines: 2,
+            ),
+            const SizedBox(height: 16),
+            const Text(
+              'Data e ora evento:',
+              style: TextStyle(fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: _pickDate,
+                    icon: const Icon(Icons.calendar_today),
+                    label: Text(DateFormat('dd/MM/yyyy').format(_selectedDate)),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: _pickTime,
+                    icon: const Icon(Icons.access_time),
+                    label: Text(_selectedTime.format(context)),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            const Text(
+              'Test: Reminder tra (secondi):',
+              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+            ),
+            Slider(
+              value: _testReminderSeconds.toDouble(),
+              min: 10,
+              max: 3600,
+              divisions: 50,
+              label: '$_testReminderSeconds sec',
+              onChanged: (value) {
+                setState(() => _testReminderSeconds = value.toInt());
+              },
+            ),
+            Text(
+              'Il reminder arriverà tra $_testReminderSeconds secondi (${(_testReminderSeconds / 60).toStringAsFixed(1)} min)',
+              style: TextStyle(fontSize: 11, color: Colors.grey[600]),
+            ),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Annulla'),
+        ),
+        ElevatedButton(
+          onPressed: _create,
+          child: const Text('Crea'),
+        ),
+      ],
     );
   }
 }

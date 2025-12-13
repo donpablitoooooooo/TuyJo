@@ -5,15 +5,23 @@ import 'package:http/http.dart' as http;
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../models/message.dart';
 import 'encryption_service.dart';
+import 'notification_service.dart';
 
 class ChatService extends ChangeNotifier {
   static const String baseUrl = 'https://private-messaging-backend-668509120760.europe-west1.run.app';
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final List<Message> _messages = [];
   late final EncryptionService _encryptionService;
+  late final NotificationService _notificationService;
   StreamSubscription<QuerySnapshot>? _subscription;
+  String? _myDeviceId; // Per sapere se sono il sender
 
-  ChatService(this._encryptionService);
+  ChatService(this._encryptionService, this._notificationService);
+
+  // Setter per il device ID
+  void setMyDeviceId(String deviceId) {
+    _myDeviceId = deviceId;
+  }
 
   List<Message> get messages => _messages;
   bool get isConnected => _subscription != null;
@@ -44,11 +52,16 @@ class ChatService extends ChangeNotifier {
 
             // Aggiungi solo se non esiste già
             if (!_messages.any((m) => m.id == message.id)) {
+              // Decrypt e popola i campi
+              if (_myDeviceId != null) {
+                _decryptAndPopulateMessage(message, _myDeviceId!);
+              }
+
               _messages.add(message);
               _messages.sort((a, b) => a.timestamp.compareTo(b.timestamp));
 
               if (kDebugMode) {
-                print('📨 New message: ${message.id}');
+                print('📨 New message: ${message.id} (type: ${message.messageType})');
               }
             }
           }
@@ -93,6 +106,113 @@ class ChatService extends ChangeNotifier {
       }
     } catch (e) {
       if (kDebugMode) print('Load messages error: $e');
+    }
+  }
+
+  /// Invia un To Do cifrato con RSA hybrid encryption e dual encryption
+  Future<bool> sendTodo(
+    String content,
+    DateTime dueDate,
+    String familyChatId,
+    String senderId,
+    String senderPublicKey,
+    String recipientPublicKey,
+  ) async {
+    try {
+      final timestamp = DateTime.now();
+
+      // Costruisci il plaintext con type='todo' e due_date
+      final plaintext = json.encode({
+        'sender': senderId,
+        'timestamp': timestamp.millisecondsSinceEpoch ~/ 1000,
+        'type': 'todo',
+        'body': content,
+        'due_date': dueDate.toIso8601String(),
+      });
+
+      // Cifra con dual encryption
+      final encryptedPayload = _encryptionService.encryptMessageDual(
+        plaintext,
+        senderPublicKey,
+        recipientPublicKey,
+      );
+
+      // Scrivi nella chat condivisa
+      final messageRef = _firestore
+          .collection('families')
+          .doc(familyChatId)
+          .collection('messages')
+          .doc();
+
+      await messageRef.set({
+        'sender_id': senderId,
+        'encrypted_key_recipient': encryptedPayload['encryptedKeyRecipient'],
+        'encrypted_key_sender': encryptedPayload['encryptedKeySender'],
+        'iv': encryptedPayload['iv'],
+        'message': encryptedPayload['message'],
+        'created_at': timestamp.toIso8601String(),
+      });
+
+      if (kDebugMode) {
+        print('✅ Todo sent to chat: ${messageRef.id}');
+        print('   Due date: ${dueDate.toIso8601String()}');
+      }
+      return true;
+    } catch (e) {
+      if (kDebugMode) print('❌ Send todo error: $e');
+      return false;
+    }
+  }
+
+  /// Invia un messaggio di completamento todo
+  Future<bool> sendTodoCompletion(
+    String originalTodoId,
+    String familyChatId,
+    String senderId,
+    String senderPublicKey,
+    String recipientPublicKey,
+  ) async {
+    try {
+      final timestamp = DateTime.now();
+
+      // Costruisci il plaintext con type='todo_completed'
+      final plaintext = json.encode({
+        'sender': senderId,
+        'timestamp': timestamp.millisecondsSinceEpoch ~/ 1000,
+        'type': 'todo_completed',
+        'body': originalTodoId,
+      });
+
+      // Cifra con dual encryption
+      final encryptedPayload = _encryptionService.encryptMessageDual(
+        plaintext,
+        senderPublicKey,
+        recipientPublicKey,
+      );
+
+      // Scrivi nella chat condivisa
+      final messageRef = _firestore
+          .collection('families')
+          .doc(familyChatId)
+          .collection('messages')
+          .doc();
+
+      await messageRef.set({
+        'sender_id': senderId,
+        'encrypted_key_recipient': encryptedPayload['encryptedKeyRecipient'],
+        'encrypted_key_sender': encryptedPayload['encryptedKeySender'],
+        'iv': encryptedPayload['iv'],
+        'message': encryptedPayload['message'],
+        'created_at': timestamp.toIso8601String(),
+      });
+
+      if (kDebugMode) {
+        print('✅ Todo completion sent: $originalTodoId');
+      }
+      return true;
+    } catch (e) {
+      if (kDebugMode) print('❌ Send todo completion error: $e');
+      return false;
     }
   }
 
@@ -148,6 +268,120 @@ class ChatService extends ChangeNotifier {
     } catch (e) {
       if (kDebugMode) print('❌ Send message error: $e');
       return false;
+    }
+  }
+
+  /// Decripta un messaggio e popola i campi aggiuntivi (messageType, dueDate, ecc.)
+  /// Schedula notifiche per i todo
+  void _decryptAndPopulateMessage(Message message, String myDeviceId) {
+    try {
+      final decryptedContent = decryptMessage(message, myDeviceId);
+      message.decryptedContent = decryptedContent;
+
+      // Prova a parsare come JSON per ottenere il tipo e altri campi
+      try {
+        final plaintext = _getFullPlaintext(message, myDeviceId);
+        final data = json.decode(plaintext);
+
+        message.messageType = data['type'] ?? 'text';
+
+        if (message.messageType == 'todo') {
+          // Popola i campi del todo
+          message.dueDate = DateTime.parse(data['due_date']);
+          message.completed = false;
+
+          // Schedula la notifica (1 ora prima)
+          _scheduleReminderNotification(message);
+
+          if (kDebugMode) {
+            print('📅 Todo message detected: ${message.decryptedContent}');
+            print('   Due date: ${message.dueDate}');
+          }
+        } else if (message.messageType == 'todo_completed') {
+          // Messaggio di completamento
+          message.originalTodoId = data['body'];
+
+          // Cancella la notifica del todo originale
+          _cancelReminderNotification(message.originalTodoId!);
+
+          if (kDebugMode) {
+            print('✅ Todo completed: ${message.originalTodoId}');
+          }
+        }
+      } catch (e) {
+        // Se non è JSON o non ha il formato atteso, è un messaggio normale
+        message.messageType = 'text';
+      }
+    } catch (e) {
+      if (kDebugMode) print('❌ Error decrypting/populating message: $e');
+      message.decryptedContent = '[Messaggio non decifrabile]';
+      message.messageType = 'text';
+    }
+  }
+
+  /// Ottiene il plaintext completo (non solo il body)
+  String _getFullPlaintext(Message message, String myDeviceId) {
+    try {
+      final bool iAmSender = message.senderId == myDeviceId;
+      final String? encryptedKeyToUse = iAmSender
+          ? message.encryptedKeySender
+          : message.encryptedKeyRecipient;
+
+      String? finalEncryptedKey = encryptedKeyToUse;
+
+      if (!iAmSender && finalEncryptedKey == null) {
+        finalEncryptedKey = message.encryptedKey;
+      }
+
+      if (finalEncryptedKey == null) {
+        throw Exception('No encrypted key available');
+      }
+
+      final payload = {
+        'encryptedKey': finalEncryptedKey,
+        'iv': message.iv,
+        'message': message.encryptedMessage,
+      };
+
+      final encryptedPayload = base64Encode(utf8.encode(json.encode(payload)));
+      return _encryptionService.decryptMessage(encryptedPayload);
+    } catch (e) {
+      throw Exception('Failed to decrypt: $e');
+    }
+  }
+
+  /// Schedula una notifica per un todo
+  void _scheduleReminderNotification(Message todoMessage) {
+    if (todoMessage.dueDate == null) return;
+
+    // Calcola reminder time (1 ora prima)
+    final reminderTime = todoMessage.dueDate!.subtract(const Duration(hours: 1));
+
+    // Verifica che sia nel futuro
+    if (reminderTime.isAfter(DateTime.now())) {
+      _notificationService.scheduleNotification(
+        id: todoMessage.id.hashCode,
+        title: '📅 Promemoria To Do',
+        body: todoMessage.decryptedContent ?? 'Evento imminente',
+        scheduledDate: reminderTime,
+      );
+
+      if (kDebugMode) {
+        print('🔔 Reminder scheduled for: ${reminderTime.toIso8601String()}');
+      }
+    } else {
+      if (kDebugMode) {
+        print('⚠️ Todo is in the past, not scheduling reminder');
+      }
+    }
+  }
+
+  /// Cancella la notifica di un todo
+  void _cancelReminderNotification(String todoId) {
+    _notificationService.cancelNotification(todoId.hashCode);
+
+    if (kDebugMode) {
+      print('🗑️ Reminder cancelled for todo: $todoId');
     }
   }
 

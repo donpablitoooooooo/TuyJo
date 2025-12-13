@@ -2,6 +2,8 @@ import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:timezone/data/latest_all.dart' as tz;
+import 'package:timezone/timezone.dart' as tz;
 
 // Handler per i messaggi in background (deve essere top-level function)
 @pragma('vm:entry-point')
@@ -24,8 +26,18 @@ class NotificationService {
     importance: Importance.defaultImportance,
   );
 
+  static const AndroidNotificationChannel _todoChannel = AndroidNotificationChannel(
+    'todo_reminders', // id
+    'Promemoria To Do', // nome
+    description: 'Notifiche per i promemoria degli eventi',
+    importance: Importance.high,
+  );
+
   // Inizializza le notifiche
   Future<void> initialize() async {
+    // 0. Inizializza timezone per scheduled notifications
+    tz.initializeTimeZones();
+
     // 1. Configura il background message handler
     FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
 
@@ -108,11 +120,13 @@ class NotificationService {
       },
     );
 
-    // Crea il canale Android per notifiche ad alta priorità
-    await _localNotifications
+    // Crea i canali Android
+    final androidImplementation = _localNotifications
         .resolvePlatformSpecificImplementation<
-            AndroidFlutterLocalNotificationsPlugin>()
-        ?.createNotificationChannel(_channel);
+            AndroidFlutterLocalNotificationsPlugin>();
+
+    await androidImplementation?.createNotificationChannel(_channel);
+    await androidImplementation?.createNotificationChannel(_todoChannel);
   }
 
   // Mostra una notifica locale
@@ -214,6 +228,81 @@ class NotificationService {
     } catch (e) {
       if (kDebugMode) {
         print('❌ Error deleting user data from Firestore: $e');
+      }
+    }
+  }
+
+  /// Schedula una notifica per un momento futuro
+  Future<void> scheduleNotification({
+    required int id,
+    required String title,
+    required String body,
+    required DateTime scheduledDate,
+  }) async {
+    try {
+      if (kDebugMode) {
+        print('📅 Scheduling notification #$id for ${scheduledDate.toIso8601String()}');
+      }
+
+      await _localNotifications.zonedSchedule(
+        id,
+        title,
+        body,
+        tz.TZDateTime.from(scheduledDate, tz.local),
+        NotificationDetails(
+          android: AndroidNotificationDetails(
+            _todoChannel.id,
+            _todoChannel.name,
+            channelDescription: _todoChannel.description,
+            importance: Importance.high,
+            priority: Priority.high,
+            icon: '@mipmap/ic_launcher',
+          ),
+          iOS: const DarwinNotificationDetails(
+            presentAlert: true,
+            presentBadge: true,
+            presentSound: true,
+          ),
+        ),
+        androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
+        uiLocalNotificationDateInterpretation:
+            UILocalNotificationDateInterpretation.absoluteTime,
+      );
+
+      if (kDebugMode) {
+        print('✅ Notification scheduled successfully');
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        print('❌ Error scheduling notification: $e');
+      }
+    }
+  }
+
+  /// Cancella una notifica schedulata
+  Future<void> cancelNotification(int id) async {
+    try {
+      await _localNotifications.cancel(id);
+      if (kDebugMode) {
+        print('🗑️ Notification #$id cancelled');
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        print('❌ Error cancelling notification: $e');
+      }
+    }
+  }
+
+  /// Cancella tutte le notifiche schedulate
+  Future<void> cancelAllNotifications() async {
+    try {
+      await _localNotifications.cancelAll();
+      if (kDebugMode) {
+        print('🗑️ All notifications cancelled');
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        print('❌ Error cancelling all notifications: $e');
       }
     }
   }
