@@ -4,6 +4,7 @@ import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:timezone/data/latest_all.dart' as tz;
 import 'package:timezone/timezone.dart' as tz;
+import 'package:flutter_native_timezone/flutter_native_timezone.dart';
 
 // Handler per i messaggi in background (deve essere top-level function)
 @pragma('vm:entry-point')
@@ -37,13 +38,22 @@ class NotificationService {
   Future<void> initialize() async {
     // 0. Inizializza timezone per scheduled notifications
     tz.initializeTimeZones();
-    // IMPORTANTE: Imposta la timezone locale
-    final String timeZoneName = 'Europe/Rome'; // Cambia se non sei in Italia
-    tz.setLocalLocation(tz.getLocation(timeZoneName));
 
-    if (kDebugMode) {
-      print('🌍 Timezone set to: $timeZoneName');
-      print('   Current local time: ${tz.TZDateTime.now(tz.local)}');
+    // IMPORTANTE: Rileva e imposta la timezone del dispositivo
+    try {
+      final String timeZoneName = await FlutterNativeTimezone.getLocalTimezone();
+      tz.setLocalLocation(tz.getLocation(timeZoneName));
+
+      if (kDebugMode) {
+        print('🌍 Timezone detected from device: $timeZoneName');
+        print('   Current local time: ${tz.TZDateTime.now(tz.local)}');
+        print('   Current DateTime.now(): ${DateTime.now()}');
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        print('⚠️ Error detecting timezone, falling back to UTC: $e');
+      }
+      tz.setLocalLocation(tz.getLocation('UTC'));
     }
 
     // 1. Configura il background message handler
