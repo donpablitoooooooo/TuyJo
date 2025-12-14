@@ -1,8 +1,9 @@
-import 'package:awesome_notifications/awesome_notifications.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
-import 'package:flutter/material.dart';
+import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:timezone/data/latest_all.dart' as tz;
+import 'package:timezone/timezone.dart' as tz;
 
 // Handler per i messaggi in background (deve essere top-level function)
 @pragma('vm:entry-point')
@@ -14,130 +15,143 @@ Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
 
 class NotificationService {
   final FirebaseMessaging _firebaseMessaging = FirebaseMessaging.instance;
+  final FlutterLocalNotificationsPlugin _localNotifications =
+      FlutterLocalNotificationsPlugin();
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+
+  static const AndroidNotificationChannel _channel = AndroidNotificationChannel(
+    'messages_channel',
+    'Messaggi',
+    description: 'Notifiche per i nuovi messaggi',
+    importance: Importance.defaultImportance,
+  );
+
+  static const AndroidNotificationChannel _todoChannel = AndroidNotificationChannel(
+    'todo_reminders',
+    'Promemoria To Do',
+    description: 'Notifiche per i promemoria degli eventi',
+    importance: Importance.max,
+    playSound: true,
+    enableVibration: true,
+  );
 
   // Inizializza le notifiche
   Future<void> initialize() async {
-    // 1. Inizializza Awesome Notifications
-    await AwesomeNotifications().initialize(
-      null, // icona default dell'app
-      [
-        // Canale per messaggi normali
-        NotificationChannel(
-          channelKey: 'messages_channel',
-          channelName: 'Messaggi',
-          channelDescription: 'Notifiche per i nuovi messaggi',
-          defaultColor: const Color(0xFF9D50DD),
-          ledColor: Colors.white,
-          importance: NotificationImportance.Default,
-        ),
-        // Canale per todo reminders (alta priorità)
-        NotificationChannel(
-          channelKey: 'todo_reminders',
-          channelName: 'Promemoria To Do',
-          channelDescription: 'Notifiche per i promemoria dei To Do',
-          defaultColor: const Color(0xFFFF5722),
-          ledColor: Colors.orange,
-          importance: NotificationImportance.High,
-          playSound: true,
-          enableVibration: true,
-          criticalAlerts: true,
-        ),
-      ],
-      debug: kDebugMode,
-    );
-
-    // 2. Richiedi permessi per le notifiche
-    bool isAllowed = await AwesomeNotifications().isNotificationAllowed();
-    if (!isAllowed) {
-      await AwesomeNotifications().requestPermissionToSendNotifications();
+    // 0. Inizializza timezone
+    tz.initializeTimeZones();
+    try {
+      final now = DateTime.now();
+      final offset = now.timeZoneOffset;
+      String timeZoneName = _guessTimezoneName(offset);
+      tz.setLocalLocation(tz.getLocation(timeZoneName));
+      if (kDebugMode) {
+        print('🌍 Timezone: $timeZoneName (offset: ${offset.inHours}h)');
+      }
+    } catch (e) {
+      tz.setLocalLocation(tz.getLocation('UTC'));
     }
 
-    // 3. Richiedi permessi per exact alarms (Android 12+)
-    if (kDebugMode) {
-      print('📅 Requesting exact alarm permissions...');
-    }
-
-    // Awesome Notifications gestisce automaticamente i permessi exact alarm
-    // quando scheduli una notifica, quindi non serve richiederli esplicitamente
-
-    if (kDebugMode) {
-      print('✅ Awesome Notifications initialized');
-    }
-
-    // 4. Configura Firebase Messaging
+    // 1. Configura background handler
     FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
 
-    // 5. Richiedi permessi FCM
+    // 2. Inizializza notifiche locali
+    await _initializeLocalNotifications();
+
+    // 3. Richiedi permessi FCM
     NotificationSettings settings = await _firebaseMessaging.requestPermission(
       alert: true,
-      announcement: false,
       badge: true,
-      carPlay: false,
-      criticalAlert: false,
-      provisional: false,
       sound: true,
     );
 
     if (settings.authorizationStatus == AuthorizationStatus.authorized) {
-      if (kDebugMode) print('✅ User granted FCM permission');
+      if (kDebugMode) print('✅ FCM permission granted');
 
-      // 6. Ottieni il token FCM
       String? token = await _firebaseMessaging.getToken();
       if (kDebugMode) print('🔑 FCM Token: $token');
 
-      // 7. Gestisci messaggi in foreground
+      // Gestisci messaggi in foreground
       FirebaseMessaging.onMessage.listen((RemoteMessage message) {
         if (kDebugMode) {
-          print('📨 Foreground message received: ${message.notification?.title}');
+          print('📨 Foreground message: ${message.notification?.title}');
         }
-        _showFCMNotification(message);
+        _showLocalNotification(message);
       });
 
-      // 8. Gestisci tap su notifiche quando l'app è in background
       FirebaseMessaging.onMessageOpenedApp.listen((RemoteMessage message) {
         if (kDebugMode) {
-          print('🔔 App opened from notification: ${message.notification?.title}');
+          print('🔔 App opened from notification');
         }
       });
 
-      // 9. Gestisci messaggi ricevuti mentre l'app era chiusa
       RemoteMessage? initialMessage = await _firebaseMessaging.getInitialMessage();
-      if (initialMessage != null) {
-        if (kDebugMode) {
-          print('🚀 App opened from terminated state: ${initialMessage.notification?.title}');
-        }
+      if (initialMessage != null && kDebugMode) {
+        print('🚀 App opened from terminated state');
       }
-    } else {
-      if (kDebugMode) print('❌ User declined FCM permission');
     }
   }
 
-  /// Mostra notifica FCM locale quando arriva un messaggio
-  void _showFCMNotification(RemoteMessage message) {
-    AwesomeNotifications().createNotification(
-      content: NotificationContent(
-        id: message.hashCode,
-        channelKey: 'messages_channel',
-        title: message.notification?.title ?? '💬 Nuovo messaggio',
-        body: message.notification?.body ?? 'Hai ricevuto un nuovo messaggio',
-        notificationLayout: NotificationLayout.Default,
-        payload: {
-          'familyChatId': message.data['familyChatId'] ?? '',
-          'messageId': message.data['messageId'] ?? '',
-          'senderId': message.data['senderId'] ?? '',
-        },
-      ),
+  Future<void> _initializeLocalNotifications() async {
+    const AndroidInitializationSettings androidSettings =
+        AndroidInitializationSettings('@mipmap/ic_launcher');
+
+    const DarwinInitializationSettings iosSettings =
+        DarwinInitializationSettings(
+      requestAlertPermission: true,
+      requestBadgePermission: true,
+      requestSoundPermission: true,
     );
+
+    const InitializationSettings settings = InitializationSettings(
+      android: androidSettings,
+      iOS: iosSettings,
+    );
+
+    await _localNotifications.initialize(settings);
+
+    final androidImplementation = _localNotifications
+        .resolvePlatformSpecificImplementation<
+            AndroidFlutterLocalNotificationsPlugin>();
+
+    await androidImplementation?.createNotificationChannel(_channel);
+    await androidImplementation?.createNotificationChannel(_todoChannel);
+
+    // Richiedi permessi Android 13+ per notifiche
+    await androidImplementation?.requestNotificationsPermission();
+
+    // Richiedi permessi per exact alarms Android 12+
+    await androidImplementation?.requestExactAlarmsPermission();
   }
 
-  /// Salva il token FCM in Firestore
+  Future<void> _showLocalNotification(RemoteMessage message) async {
+    RemoteNotification? notification = message.notification;
+    if (notification != null) {
+      await _localNotifications.show(
+        notification.hashCode,
+        notification.title,
+        notification.body,
+        NotificationDetails(
+          android: AndroidNotificationDetails(
+            _channel.id,
+            _channel.name,
+            channelDescription: _channel.description,
+            icon: 'ic_notification',
+          ),
+        ),
+      );
+    }
+  }
+
+  Future<String?> getToken() async {
+    return await _firebaseMessaging.getToken();
+  }
+
   Future<void> saveTokenToFirestore(
     String familyChatId,
     String userId,
   ) async {
     try {
-      final token = await _firebaseMessaging.getToken();
+      String? token = await getToken();
       if (token != null) {
         await _firestore
             .collection('families')
@@ -147,25 +161,14 @@ class NotificationService {
             .set({
           'fcm_token': token,
           'updated_at': FieldValue.serverTimestamp(),
-        });
-
-        if (kDebugMode) {
-          print('✅ FCM token saved to Firestore for user: $userId');
-        }
+        }, SetOptions(merge: true));
+        if (kDebugMode) print('✅ FCM token saved');
       }
     } catch (e) {
-      if (kDebugMode) {
-        print('❌ Error saving FCM token to Firestore: $e');
-      }
+      if (kDebugMode) print('❌ Error saving FCM token: $e');
     }
   }
 
-  /// Ottiene il token FCM corrente
-  Future<String?> getToken() async {
-    return await _firebaseMessaging.getToken();
-  }
-
-  /// Elimina il token FCM
   Future<void> deleteToken() async {
     try {
       await _firebaseMessaging.deleteToken();
@@ -175,7 +178,6 @@ class NotificationService {
     }
   }
 
-  /// Elimina il token FCM e l'utente da Firestore quando si fa unpair
   Future<void> deleteTokenFromFirestore(
     String familyChatId,
     String userId,
@@ -187,18 +189,13 @@ class NotificationService {
           .collection('users')
           .doc(userId)
           .delete();
-
-      if (kDebugMode) {
-        print('✅ User data deleted from Firestore: $userId');
-      }
+      if (kDebugMode) print('✅ User data deleted from Firestore');
     } catch (e) {
-      if (kDebugMode) {
-        print('❌ Error deleting user data from Firestore: $e');
-      }
+      if (kDebugMode) print('❌ Error deleting user data: $e');
     }
   }
 
-  /// Schedula una notifica per un momento futuro
+  /// Schedula una notifica con androidAllowWhileIdle per bypassare Doze mode
   Future<void> scheduleNotification({
     required int id,
     required String title,
@@ -206,65 +203,83 @@ class NotificationService {
     required DateTime scheduledDate,
   }) async {
     try {
-      final now = DateTime.now();
-      final difference = scheduledDate.difference(now);
+      final tzScheduledDate = tz.TZDateTime.from(scheduledDate, tz.local);
+      final now = tz.TZDateTime.now(tz.local);
+      final difference = tzScheduledDate.difference(now);
 
       if (kDebugMode) {
         print('📅 Scheduling notification #$id');
         print('   Title: $title');
-        print('   Body: $body');
-        print('   Scheduled for: ${scheduledDate.toIso8601String()}');
-        print('   Now: ${now.toIso8601String()}');
-        print('   Difference: ${difference.inSeconds} seconds (${difference.inMinutes} minutes)');
+        print('   Scheduled for: $scheduledDate');
+        print('   Difference: ${difference.inSeconds}s');
       }
 
       if (difference.isNegative) {
-        if (kDebugMode) {
-          print('⚠️ WARNING: Scheduled time is in the past! Notification will not be delivered.');
-        }
+        if (kDebugMode) print('⚠️ Scheduled time is in the past!');
         return;
       }
 
-      await AwesomeNotifications().createNotification(
-        content: NotificationContent(
-          id: id,
-          channelKey: 'todo_reminders',
-          title: title,
-          body: body,
-          notificationLayout: NotificationLayout.Default,
-          criticalAlert: true,
-          wakeUpScreen: true,
-          category: NotificationCategory.Reminder,
+      await _localNotifications.zonedSchedule(
+        id,
+        title,
+        body,
+        tzScheduledDate,
+        NotificationDetails(
+          android: AndroidNotificationDetails(
+            _todoChannel.id,
+            _todoChannel.name,
+            channelDescription: _todoChannel.description,
+            importance: Importance.max,
+            priority: Priority.max,
+            icon: '@mipmap/ic_launcher',
+            playSound: true,
+            enableVibration: true,
+            visibility: NotificationVisibility.public,
+          ),
         ),
-        schedule: NotificationCalendar.fromDate(
-          date: scheduledDate,
-          preciseAlarm: false, // Usa inexact alarm (no permessi speciali richiesti)
-          allowWhileIdle: true, // Permetti anche in idle mode
-        ),
+        androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
+        uiLocalNotificationDateInterpretation:
+            UILocalNotificationDateInterpretation.absoluteTime,
       );
 
       if (kDebugMode) {
-        print('✅ Notification #$id scheduled successfully!');
-        print('   Will arrive in ~${difference.inSeconds} seconds (inexact: ±15 min)');
+        print('✅ Notification #$id scheduled (exact + allowWhileIdle)!');
       }
     } catch (e) {
-      if (kDebugMode) {
-        print('❌ Error scheduling notification: $e');
-      }
+      if (kDebugMode) print('❌ Error scheduling: $e');
     }
   }
 
-  /// Cancella una notifica schedulata
   Future<void> cancelNotification(int id) async {
     try {
-      await AwesomeNotifications().cancel(id);
-      if (kDebugMode) {
-        print('🗑️ Notification #$id cancelled');
-      }
+      await _localNotifications.cancel(id);
+      if (kDebugMode) print('🗑️ Notification #$id cancelled');
     } catch (e) {
-      if (kDebugMode) {
-        print('❌ Error cancelling notification: $e');
-      }
+      if (kDebugMode) print('❌ Error cancelling: $e');
+    }
+  }
+
+  String _guessTimezoneName(Duration offset) {
+    final hours = offset.inHours;
+    switch (hours) {
+      case 0:
+        return 'Europe/London';
+      case 1:
+        return 'Europe/Madrid';
+      case 2:
+        return 'Europe/Athens';
+      case 3:
+        return 'Europe/Moscow';
+      case -5:
+        return 'America/New_York';
+      case -6:
+        return 'America/Chicago';
+      case -7:
+        return 'America/Denver';
+      case -8:
+        return 'America/Los_Angeles';
+      default:
+        return 'UTC';
     }
   }
 }
