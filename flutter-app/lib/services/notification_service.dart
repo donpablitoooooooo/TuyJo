@@ -118,9 +118,6 @@ class NotificationService {
 
     // Richiedi permessi Android 13+ per notifiche
     await androidImplementation?.requestNotificationsPermission();
-
-    // Richiedi permessi per exact alarms Android 12+
-    await androidImplementation?.requestExactAlarmsPermission();
   }
 
   Future<void> _showLocalNotification(RemoteMessage message) async {
@@ -237,13 +234,13 @@ class NotificationService {
             visibility: NotificationVisibility.public,
           ),
         ),
-        androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
+        androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
         uiLocalNotificationDateInterpretation:
             UILocalNotificationDateInterpretation.absoluteTime,
       );
 
       if (kDebugMode) {
-        print('✅ Notification #$id scheduled (exact + allowWhileIdle)!');
+        print('✅ Notification #$id scheduled (inexact, ±15min delay possible)');
       }
     } catch (e) {
       if (kDebugMode) print('❌ Error scheduling: $e');
