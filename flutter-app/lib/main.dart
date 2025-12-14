@@ -48,7 +48,7 @@ class MyApp extends StatelessWidget {
     return MultiProvider(
       providers: [
         ChangeNotifierProvider(create: (_) => AuthService()),
-        ChangeNotifierProvider(create: (_) => ChatService(encryptionService)),
+        ChangeNotifierProvider(create: (_) => ChatService(encryptionService, notificationService)),
         ChangeNotifierProvider.value(value: pairingService),
         Provider.value(value: encryptionService),
         Provider.value(value: notificationService),
