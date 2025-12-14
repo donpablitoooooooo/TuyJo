@@ -79,19 +79,7 @@ exports.sendMessageNotification = functions
           notificationBody = 'Hai ricevuto un nuovo messaggio crittografato';
       }
 
-      // 4. Determina configurazioni Android in base al tipo
-      const androidConfig = messageType === 'todo' ? {
-        channelId: 'todo_reminders',
-        priority: 'high',
-        sound: 'default',
-        visibility: 'public',
-      } : {
-        channelId: 'messages_channel',
-        priority: 'default',
-        sound: 'default',
-      };
-
-      // 5. Invia la notifica a ciascun destinatario
+      // 4. Invia la notifica a ciascun destinatario
       const notifications = recipients.map((recipient) => {
         const message = {
           notification: {
@@ -105,9 +93,13 @@ exports.sendMessageNotification = functions
             messageType: messageType,
           },
           token: recipient.token,
-          // Configurazioni Android
+          // Configurazioni Android (stesse per tutti - FCM funziona con default)
           android: {
-            notification: androidConfig,
+            notification: {
+              channelId: 'messages_channel',
+              priority: 'default',
+              sound: 'default',
+            },
           },
           // Configurazioni iOS
           apns: {

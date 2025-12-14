@@ -30,7 +30,7 @@ class NotificationService {
     'todo_reminders',
     'Promemoria To Do',
     description: 'Notifiche per i promemoria degli eventi',
-    importance: Importance.max,
+    importance: Importance.defaultImportance,
     playSound: true,
     enableVibration: true,
   );
@@ -223,15 +223,14 @@ class NotificationService {
         tzScheduledDate,
         NotificationDetails(
           android: AndroidNotificationDetails(
-            _todoChannel.id,
-            _todoChannel.name,
-            channelDescription: _todoChannel.description,
-            importance: Importance.max,
-            priority: Priority.max,
+            _channel.id,  // Usa lo stesso canale di FCM (messages_channel)
+            _channel.name,
+            channelDescription: _channel.description,
+            importance: Importance.defaultImportance,
+            priority: Priority.defaultPriority,
             icon: '@mipmap/ic_launcher',
             playSound: true,
             enableVibration: true,
-            visibility: NotificationVisibility.public,
           ),
         ),
         androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
