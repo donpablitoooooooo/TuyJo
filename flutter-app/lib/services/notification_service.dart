@@ -240,6 +240,18 @@ class NotificationService {
 
       if (kDebugMode) {
         print('✅ Notification #$id scheduled (inexact, ±15min delay possible)');
+
+        // Verifica che la notifica sia effettivamente pending
+        final pendingNotifications = await _localNotifications.pendingNotificationRequests();
+        final pendingIds = pendingNotifications.map((n) => n.id).toList();
+        print('📋 Total pending notifications: ${pendingNotifications.length}');
+        print('📋 Pending IDs: $pendingIds');
+
+        if (pendingIds.contains(id)) {
+          print('✅ Notification #$id confirmed in pending list!');
+        } else {
+          print('⚠️ WARNING: Notification #$id NOT found in pending list!');
+        }
       }
     } catch (e) {
       if (kDebugMode) print('❌ Error scheduling: $e');
