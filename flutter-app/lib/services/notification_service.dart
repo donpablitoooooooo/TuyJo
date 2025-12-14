@@ -238,14 +238,14 @@ class NotificationService {
         ),
         schedule: NotificationCalendar.fromDate(
           date: scheduledDate,
-          preciseAlarm: true, // Abilita exact alarm
+          preciseAlarm: false, // Usa inexact alarm (no permessi speciali richiesti)
           allowWhileIdle: true, // Permetti anche in idle mode
         ),
       );
 
       if (kDebugMode) {
-        print('✅ Notification #$id scheduled successfully with EXACT ALARM!');
-        print('   Will arrive in ~${difference.inSeconds} seconds');
+        print('✅ Notification #$id scheduled successfully!');
+        print('   Will arrive in ~${difference.inSeconds} seconds (inexact: ±15 min)');
       }
     } catch (e) {
       if (kDebugMode) {
