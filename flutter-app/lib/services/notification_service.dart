@@ -228,7 +228,7 @@ class NotificationService {
             channelDescription: _todoChannel.description,
             importance: Importance.defaultImportance,
             priority: Priority.defaultPriority,
-            icon: '@mipmap/ic_launcher',
+            icon: 'ic_notification',  // Stessa icona di FCM che funziona
             playSound: true,
             enableVibration: true,
           ),
