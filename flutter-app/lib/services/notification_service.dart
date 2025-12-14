@@ -223,9 +223,9 @@ class NotificationService {
         tzScheduledDate,
         NotificationDetails(
           android: AndroidNotificationDetails(
-            _channel.id,  // Usa lo stesso canale di FCM (messages_channel)
-            _channel.name,
-            channelDescription: _channel.description,
+            _todoChannel.id,  // Usa il canale todo_reminders
+            _todoChannel.name,
+            channelDescription: _todoChannel.description,
             importance: Importance.defaultImportance,
             priority: Priority.defaultPriority,
             icon: '@mipmap/ic_launcher',
