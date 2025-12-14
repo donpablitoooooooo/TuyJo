@@ -79,7 +79,19 @@ exports.sendMessageNotification = functions
           notificationBody = 'Hai ricevuto un nuovo messaggio crittografato';
       }
 
-      // 4. Invia la notifica a ciascun destinatario
+      // 4. Determina configurazioni Android in base al tipo
+      const androidConfig = messageType === 'todo' ? {
+        channelId: 'todo_reminders',
+        priority: 'high',
+        sound: 'default',
+        visibility: 'public',
+      } : {
+        channelId: 'messages_channel',
+        priority: 'default',
+        sound: 'default',
+      };
+
+      // 5. Invia la notifica a ciascun destinatario
       const notifications = recipients.map((recipient) => {
         const message = {
           notification: {
@@ -95,11 +107,7 @@ exports.sendMessageNotification = functions
           token: recipient.token,
           // Configurazioni Android
           android: {
-            notification: {
-              channelId: 'messages_channel',
-              priority: 'default',
-              sound: 'default',
-            },
+            notification: androidConfig,
           },
           // Configurazioni iOS
           apns: {
