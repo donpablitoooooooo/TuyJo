@@ -55,8 +55,15 @@ class ChatService extends ChangeNotifier {
 
         if (kDebugMode) {
           print('💾 [CACHE] Loaded ${cachedMessages.length} messages from SQLite cache');
-          print('   First message: ${cachedMessages.first.decryptedContent?.substring(0, 20) ?? "null"}...');
-          print('   Last message: ${cachedMessages.last.decryptedContent?.substring(0, 20) ?? "null"}...');
+
+          // Safe substring per evitare RangeError
+          final firstMsg = cachedMessages.first.decryptedContent ?? '';
+          final lastMsg = cachedMessages.last.decryptedContent ?? '';
+          final firstPreview = firstMsg.length > 20 ? firstMsg.substring(0, 20) : firstMsg;
+          final lastPreview = lastMsg.length > 20 ? lastMsg.substring(0, 20) : lastMsg;
+
+          print('   First message: $firstPreview...');
+          print('   Last message: $lastPreview...');
           print('   Calling notifyListeners() to update UI...');
         }
 
