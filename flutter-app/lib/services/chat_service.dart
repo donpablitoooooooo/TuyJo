@@ -86,13 +86,17 @@ class ChatService extends ChangeNotifier {
         print('   DB exists: ${dbStatus['database_exists']}');
         print('   Total messages in DB: ${dbStatus['total_messages']}');
         print('   Messages for this family: ${dbStatus['family_messages']}');
-        print('   FTS entries: ${dbStatus['fts_entries']}');
         print('   Sample messages:');
-        for (var msg in (dbStatus['sample_messages'] as List)) {
-          print('     - ID: ${msg['id'].toString().substring(0, 8)}...');
-          print('       Type: ${msg['message_type']}');
-          print('       Has content: ${msg['has_decrypted_content']}');
-          print('       Preview: ${msg['decrypted_preview']}');
+        final sampleMessages = dbStatus['sample_messages'];
+        if (sampleMessages != null && sampleMessages is List && sampleMessages.isNotEmpty) {
+          for (var msg in sampleMessages) {
+            print('     - ID: ${msg['id'].toString().substring(0, 8)}...');
+            print('       Type: ${msg['message_type']}');
+            print('       Has content: ${msg['has_decrypted_content']}');
+            print('       Preview: ${msg['decrypted_preview']}');
+          }
+        } else {
+          print('     (no sample messages)');
         }
         print('🐛 ========================');
       }

@@ -3,13 +3,12 @@ import 'package:sqflite/sqflite.dart';
 import 'package:path/path.dart';
 import '../models/message.dart';
 
-/// Service per il caching locale dei messaggi usando SQLite + FTS5
-/// Permette caricamento istantaneo, ricerca full-text, e lazy loading
+/// Service per il caching locale dei messaggi usando SQLite
+/// Permette caricamento istantaneo, ricerca con LIKE, e lazy loading
 class MessageCacheService {
   static const String _dbName = 'messages_cache.db';
   static const int _dbVersion = 1;
   static const String _messagesTable = 'messages';
-  static const String _ftsTable = 'messages_fts';
 
   Database? _database;
 
@@ -40,7 +39,7 @@ class MessageCacheService {
     return _database!;
   }
 
-  /// Crea lo schema del database con FTS5 per ricerca full-text
+  /// Crea lo schema del database
   Future<void> _createDatabase(Database db, int version) async {
     // Tabella principale messaggi
     await db.execute('''
@@ -76,14 +75,8 @@ class MessageCacheService {
       ON $_messagesTable(message_type)
     ''');
 
-    // Tabella FTS5 per ricerca full-text sul contenuto decriptato
-    await db.execute('''
-      CREATE VIRTUAL TABLE $_ftsTable USING fts5(
-        message_id UNINDEXED,
-        decrypted_content,
-        tokenize='porter unicode61'
-      )
-    ''');
+    // ⚠️ FTS5 RIMOSSO: non disponibile su tutte le build Android SQLite
+    // Usiamo ricerca LIKE invece (vedi metodo searchMessages)
   }
 
   /// Salva un messaggio nella cache
@@ -116,18 +109,6 @@ class MessageCacheService {
       data,
       conflictAlgorithm: ConflictAlgorithm.replace,
     );
-
-    // Aggiorna la tabella FTS per la ricerca
-    if (message.decryptedContent != null && message.decryptedContent!.isNotEmpty) {
-      await db.insert(
-        _ftsTable,
-        {
-          'message_id': message.id,
-          'decrypted_content': message.decryptedContent,
-        },
-        conflictAlgorithm: ConflictAlgorithm.replace,
-      );
-    }
   }
 
   /// Salva una lista di messaggi in batch (molto più efficiente)
@@ -157,18 +138,6 @@ class MessageCacheService {
       };
 
       batch.insert(_messagesTable, data, conflictAlgorithm: ConflictAlgorithm.replace);
-
-      // FTS
-      if (message.decryptedContent != null && message.decryptedContent!.isNotEmpty) {
-        batch.insert(
-          _ftsTable,
-          {
-            'message_id': message.id,
-            'decrypted_content': message.decryptedContent,
-          },
-          conflictAlgorithm: ConflictAlgorithm.replace,
-        );
-      }
     }
 
     await batch.commit(noResult: true);
@@ -226,20 +195,18 @@ class MessageCacheService {
     return maps.reversed.map((map) => _messageFromMap(map)).toList();
   }
 
-  /// Cerca messaggi usando FTS5 (Full-Text Search)
-  /// query: testo da cercare (supporta operatori FTS come "hello AND world")
+  /// Cerca messaggi usando LIKE (case-insensitive)
+  /// query: testo da cercare (simple text search)
   Future<List<Message>> searchMessages(String familyChatId, String query) async {
     final db = await _getDatabase();
 
-    // Query FTS con join alla tabella principale
-    final List<Map<String, dynamic>> maps = await db.rawQuery('''
-      SELECT m.*
-      FROM $_messagesTable m
-      INNER JOIN $_ftsTable fts ON m.id = fts.message_id
-      WHERE fts.decrypted_content MATCH ?
-        AND m.family_chat_id = ?
-      ORDER BY m.timestamp DESC
-    ''', [query, familyChatId]);
+    // Usa LIKE per ricerca semplice (funziona senza FTS5)
+    final List<Map<String, dynamic>> maps = await db.query(
+      _messagesTable,
+      where: 'family_chat_id = ? AND decrypted_content LIKE ?',
+      whereArgs: [familyChatId, '%$query%'],
+      orderBy: 'timestamp DESC',
+    );
 
     return maps.map((map) => _messageFromMap(map)).toList();
   }
@@ -264,45 +231,18 @@ class MessageCacheService {
       where: 'id = ?',
       whereArgs: [messageId],
     );
-
-    // Rimuovi anche dall'FTS
-    await db.delete(
-      _ftsTable,
-      where: 'message_id = ?',
-      whereArgs: [messageId],
-    );
   }
 
   /// Pulisce tutti i messaggi per una specifica famiglia
   Future<void> clearCache(String familyChatId) async {
     final db = await _getDatabase();
 
-    // Ottieni gli ID dei messaggi da eliminare
-    final List<Map<String, dynamic>> messages = await db.query(
-      _messagesTable,
-      columns: ['id'],
-      where: 'family_chat_id = ?',
-      whereArgs: [familyChatId],
-    );
-
-    final messageIds = messages.map((m) => m['id'] as String).toList();
-
-    // Elimina dalla tabella principale
+    // Elimina tutti i messaggi per questa famiglia
     await db.delete(
       _messagesTable,
       where: 'family_chat_id = ?',
       whereArgs: [familyChatId],
     );
-
-    // Elimina dall'FTS
-    if (messageIds.isNotEmpty) {
-      final placeholders = messageIds.map((_) => '?').join(',');
-      await db.delete(
-        _ftsTable,
-        where: 'message_id IN ($placeholders)',
-        whereArgs: messageIds,
-      );
-    }
   }
 
   /// Elimina completamente tutti i dati (per tutte le famiglie)
@@ -310,7 +250,6 @@ class MessageCacheService {
     final db = await _getDatabase();
 
     await db.delete(_messagesTable);
-    await db.delete(_ftsTable);
   }
 
   /// Ritorna il numero di messaggi in cache per una famiglia
@@ -398,17 +337,11 @@ class MessageCacheService {
         limit: 3,
       );
 
-      // Verifica FTS
-      final ftsCount = Sqflite.firstIntValue(
-        await db.rawQuery('SELECT COUNT(*) FROM $_ftsTable'),
-      );
-
       return {
         'database_path': join(dbPath, _dbName),
         'database_exists': _database != null && _database!.isOpen,
         'total_messages': totalCount ?? 0,
         'family_messages': familyCount ?? 0,
-        'fts_entries': ftsCount ?? 0,
         'sample_messages': sampleMessages.map((m) => {
           'id': m['id'],
           'timestamp': DateTime.fromMillisecondsSinceEpoch(m['timestamp'] as int).toString(),
