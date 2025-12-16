@@ -370,6 +370,60 @@ class MessageCacheService {
     );
   }
 
+  /// 🐛 DEBUG: Ispeziona lo stato del database
+  Future<Map<String, dynamic>> debugDatabaseStatus(String familyChatId) async {
+    try {
+      final db = await _getDatabase();
+      final dbPath = await getDatabasesPath();
+
+      // Conta messaggi totali
+      final totalCount = Sqflite.firstIntValue(
+        await db.rawQuery('SELECT COUNT(*) FROM $_messagesTable'),
+      );
+
+      // Conta messaggi per questa famiglia
+      final familyCount = Sqflite.firstIntValue(
+        await db.rawQuery(
+          'SELECT COUNT(*) FROM $_messagesTable WHERE family_chat_id = ?',
+          [familyChatId],
+        ),
+      );
+
+      // Prendi i primi 3 messaggi per questa famiglia
+      final sampleMessages = await db.query(
+        _messagesTable,
+        where: 'family_chat_id = ?',
+        whereArgs: [familyChatId],
+        orderBy: 'timestamp DESC',
+        limit: 3,
+      );
+
+      // Verifica FTS
+      final ftsCount = Sqflite.firstIntValue(
+        await db.rawQuery('SELECT COUNT(*) FROM $_ftsTable'),
+      );
+
+      return {
+        'database_path': join(dbPath, _dbName),
+        'database_exists': _database != null && _database!.isOpen,
+        'total_messages': totalCount ?? 0,
+        'family_messages': familyCount ?? 0,
+        'fts_entries': ftsCount ?? 0,
+        'sample_messages': sampleMessages.map((m) => {
+          'id': m['id'],
+          'timestamp': DateTime.fromMillisecondsSinceEpoch(m['timestamp'] as int).toString(),
+          'message_type': m['message_type'],
+          'has_decrypted_content': (m['decrypted_content'] as String?)?.isNotEmpty ?? false,
+          'decrypted_preview': (m['decrypted_content'] as String?)?.substring(0, 30) ?? 'null',
+        }).toList(),
+      };
+    } catch (e) {
+      return {
+        'error': e.toString(),
+      };
+    }
+  }
+
   /// Chiude il database
   Future<void> dispose() async {
     if (_database != null && _database!.isOpen) {

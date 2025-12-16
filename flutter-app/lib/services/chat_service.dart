@@ -44,18 +44,20 @@ class ChatService extends ChangeNotifier {
         _messages.clear();
         _messages.addAll(cachedMessages);
 
-        // Decripta i messaggi
-        if (_myDeviceId != null) {
-          for (final message in _messages) {
-            _decryptAndPopulateMessage(message, _myDeviceId!);
-          }
-        }
+        // ✅ NON ri-decriptare! I messaggi in cache sono GIÀ decriptati
+        // Il database contiene già: decryptedContent, messageType, dueDate, ecc.
 
         if (kDebugMode) {
           print('💾 Loaded ${cachedMessages.length} messages from SQLite cache');
+          print('   First message: ${cachedMessages.first.decryptedContent?.substring(0, 20)}...');
+          print('   Last message: ${cachedMessages.last.decryptedContent?.substring(0, 20)}...');
         }
 
         notifyListeners();
+      } else {
+        if (kDebugMode) {
+          print('💾 Cache is empty for family: ${familyChatId.substring(0, 10)}...');
+        }
       }
     } catch (e) {
       if (kDebugMode) print('❌ Error loading from cache: $e');
@@ -75,6 +77,25 @@ class ChatService extends ChangeNotifier {
     // Se cambia la famiglia, chiudi la vecchia cache e carica la nuova
     if (_currentFamilyChatId != familyChatId) {
       _currentFamilyChatId = familyChatId;
+
+      // 🐛 DEBUG: Ispeziona database prima di caricare
+      if (kDebugMode) {
+        final dbStatus = await _cacheService.debugDatabaseStatus(familyChatId);
+        print('🐛 === DATABASE DEBUG INFO ===');
+        print('   Path: ${dbStatus['database_path']}');
+        print('   DB exists: ${dbStatus['database_exists']}');
+        print('   Total messages in DB: ${dbStatus['total_messages']}');
+        print('   Messages for this family: ${dbStatus['family_messages']}');
+        print('   FTS entries: ${dbStatus['fts_entries']}');
+        print('   Sample messages:');
+        for (var msg in (dbStatus['sample_messages'] as List)) {
+          print('     - ID: ${msg['id'].toString().substring(0, 8)}...');
+          print('       Type: ${msg['message_type']}');
+          print('       Has content: ${msg['has_decrypted_content']}');
+          print('       Preview: ${msg['decrypted_preview']}');
+        }
+        print('🐛 ========================');
+      }
 
       // Carica prima dalla cache (instant load)
       await loadFromCache(familyChatId);
