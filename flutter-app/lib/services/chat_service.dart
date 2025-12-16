@@ -33,12 +33,18 @@ class ChatService extends ChangeNotifier {
 
   /// Carica i messaggi dalla cache locale (instant load)
   Future<void> loadFromCache(String familyChatId) async {
+    if (kDebugMode) print('🔍 [CACHE] loadFromCache called for family: ${familyChatId.substring(0, 10)}...');
+
     try {
       _isLoadingFromCache = true;
       notifyListeners();
 
+      if (kDebugMode) print('🔍 [CACHE] Loading messages from SQLite...');
+
       // Carica i messaggi dalla cache SQLite
       final cachedMessages = await _cacheService.loadMessages(familyChatId);
+
+      if (kDebugMode) print('🔍 [CACHE] Loaded ${cachedMessages.length} messages from DB');
 
       if (cachedMessages.isNotEmpty) {
         _messages.clear();
@@ -48,22 +54,29 @@ class ChatService extends ChangeNotifier {
         // Il database contiene già: decryptedContent, messageType, dueDate, ecc.
 
         if (kDebugMode) {
-          print('💾 Loaded ${cachedMessages.length} messages from SQLite cache');
-          print('   First message: ${cachedMessages.first.decryptedContent?.substring(0, 20)}...');
-          print('   Last message: ${cachedMessages.last.decryptedContent?.substring(0, 20)}...');
+          print('💾 [CACHE] Loaded ${cachedMessages.length} messages from SQLite cache');
+          print('   First message: ${cachedMessages.first.decryptedContent?.substring(0, 20) ?? "null"}...');
+          print('   Last message: ${cachedMessages.last.decryptedContent?.substring(0, 20) ?? "null"}...');
+          print('   Calling notifyListeners() to update UI...');
         }
 
         notifyListeners();
+
+        if (kDebugMode) print('✅ [CACHE] UI should be updated now with ${_messages.length} messages');
       } else {
         if (kDebugMode) {
-          print('💾 Cache is empty for family: ${familyChatId.substring(0, 10)}...');
+          print('⚠️ [CACHE] Cache is empty for family: ${familyChatId.substring(0, 10)}...');
         }
       }
-    } catch (e) {
-      if (kDebugMode) print('❌ Error loading from cache: $e');
+    } catch (e, stackTrace) {
+      if (kDebugMode) {
+        print('❌ [CACHE] Error loading from cache: $e');
+        print('   Stack trace: $stackTrace');
+      }
     } finally {
       _isLoadingFromCache = false;
       notifyListeners();
+      if (kDebugMode) print('🔍 [CACHE] loadFromCache completed');
     }
   }
 
