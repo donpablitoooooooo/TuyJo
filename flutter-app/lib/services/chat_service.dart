@@ -6,6 +6,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import '../models/message.dart';
 import 'encryption_service.dart';
 import 'notification_service.dart';
+import 'message_cache_service.dart';
 
 class ChatService extends ChangeNotifier {
   static const String baseUrl = 'https://private-messaging-backend-668509120760.europe-west1.run.app';
@@ -13,8 +14,11 @@ class ChatService extends ChangeNotifier {
   final List<Message> _messages = [];
   late final EncryptionService _encryptionService;
   late final NotificationService _notificationService;
+  final MessageCacheService _cacheService = MessageCacheService();
   StreamSubscription<QuerySnapshot>? _subscription;
   String? _myDeviceId; // Per sapere se sono il sender
+  String? _currentFamilyChatId; // Per gestire la cache
+  bool _isLoadingFromCache = false;
 
   ChatService(this._encryptionService, this._notificationService);
 
@@ -25,12 +29,55 @@ class ChatService extends ChangeNotifier {
 
   List<Message> get messages => _messages;
   bool get isConnected => _subscription != null;
+  bool get isLoadingFromCache => _isLoadingFromCache;
+
+  /// Carica i messaggi dalla cache locale (instant load)
+  Future<void> loadFromCache(String familyChatId) async {
+    try {
+      _isLoadingFromCache = true;
+      notifyListeners();
+
+      // Carica i messaggi dalla cache SQLite
+      final cachedMessages = await _cacheService.loadMessages(familyChatId);
+
+      if (cachedMessages.isNotEmpty) {
+        _messages.clear();
+        _messages.addAll(cachedMessages);
+
+        // Decripta i messaggi
+        if (_myDeviceId != null) {
+          for (final message in _messages) {
+            _decryptAndPopulateMessage(message, _myDeviceId!);
+          }
+        }
+
+        if (kDebugMode) {
+          print('💾 Loaded ${cachedMessages.length} messages from SQLite cache');
+        }
+
+        notifyListeners();
+      }
+    } catch (e) {
+      if (kDebugMode) print('❌ Error loading from cache: $e');
+    } finally {
+      _isLoadingFromCache = false;
+      notifyListeners();
+    }
+  }
 
   // Connetti al Firestore listener per la chat
-  void startListening(String familyChatId) {
+  Future<void> startListening(String familyChatId) async {
     if (_subscription != null) {
       if (kDebugMode) print('Already listening to chat');
       return;
+    }
+
+    // Se cambia la famiglia, chiudi la vecchia cache e carica la nuova
+    if (_currentFamilyChatId != familyChatId) {
+      _currentFamilyChatId = familyChatId;
+
+      // Carica prima dalla cache (instant load)
+      await loadFromCache(familyChatId);
     }
 
     if (kDebugMode) print('🎧 Starting listener for chat: ${familyChatId.substring(0, 10)}...');
@@ -42,7 +89,7 @@ class ChatService extends ChangeNotifier {
         .orderBy('created_at', descending: false)
         .snapshots()
         .listen(
-      (snapshot) {
+      (snapshot) async {
         for (var change in snapshot.docChanges) {
           if (change.type == DocumentChangeType.added) {
             final message = Message.fromFirestore(
@@ -60,8 +107,14 @@ class ChatService extends ChangeNotifier {
               _messages.add(message);
               _messages.sort((a, b) => a.timestamp.compareTo(b.timestamp));
 
-              if (kDebugMode) {
-                print('📨 New message: ${message.id} (type: ${message.messageType})');
+              // 💾 SALVA NELLA CACHE SQLITE
+              try {
+                await _cacheService.saveMessage(message, familyChatId);
+                if (kDebugMode) {
+                  print('📨 New message cached: ${message.id} (type: ${message.messageType})');
+                }
+              } catch (e) {
+                if (kDebugMode) print('❌ Error caching message: $e');
               }
             }
           }
@@ -452,8 +505,19 @@ class ChatService extends ChangeNotifier {
   }
 
   // Pulisci i messaggi
-  void clearMessages() {
+  Future<void> clearMessages() async {
     _messages.clear();
+
+    // 💾 Pulisci anche la cache SQLite
+    if (_currentFamilyChatId != null) {
+      try {
+        await _cacheService.clearCache(_currentFamilyChatId!);
+        if (kDebugMode) print('💾 SQLite cache cleared');
+      } catch (e) {
+        if (kDebugMode) print('❌ Error clearing cache: $e');
+      }
+    }
+
     notifyListeners();
   }
 
@@ -479,7 +543,10 @@ class ChatService extends ChangeNotifier {
       }
       await batch.commit();
 
-      if (kDebugMode) print('✅ All messages deleted from Firestore');
+      // 💾 Elimina anche la cache SQLite
+      await _cacheService.clearCache(familyChatId);
+
+      if (kDebugMode) print('✅ All messages deleted from Firestore and SQLite cache');
     } catch (e) {
       if (kDebugMode) print('❌ Error deleting messages: $e');
       rethrow;
@@ -492,7 +559,7 @@ class ChatService extends ChangeNotifier {
     try {
       if (kDebugMode) print('🗑️ Deleting family completely: $familyChatId');
 
-      // STEP 1: Elimina tutti i messaggi (subcollection)
+      // STEP 1: Elimina tutti i messaggi (subcollection) + cache
       await deleteAllMessages(familyChatId);
 
       // STEP 2: Elimina tutti gli user tokens (subcollection /users/)
@@ -506,7 +573,7 @@ class ChatService extends ChangeNotifier {
         await doc.reference.delete();
       }
 
-      if (kDebugMode) print('✅ Family subcollections deleted from Firestore (messages + users)');
+      if (kDebugMode) print('✅ Family subcollections deleted from Firestore (messages + users + cache)');
     } catch (e) {
       if (kDebugMode) print('❌ Error deleting family: $e');
       rethrow;
@@ -516,6 +583,7 @@ class ChatService extends ChangeNotifier {
   @override
   void dispose() {
     stopListening();
+    _cacheService.dispose();
     super.dispose();
   }
 }

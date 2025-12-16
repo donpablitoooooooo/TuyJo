@@ -7,10 +7,14 @@ import 'services/chat_service.dart';
 import 'services/encryption_service.dart';
 import 'services/notification_service.dart';
 import 'services/pairing_service.dart';
+import 'services/message_cache_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp();
+
+  // 💾 Inizializza SQLite per il caching dei messaggi (con FTS5 per ricerca)
+  await MessageCacheService.initialize();
 
   // Inizializza EncryptionService (carica chiavi RSA se esistono)
   final encryptionService = EncryptionService();
