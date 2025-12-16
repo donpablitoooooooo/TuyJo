@@ -2,7 +2,7 @@
 
 App di messaggistica privata per due persone con crittografia end-to-end e pairing tramite QR code.
 
-[![Status](https://img.shields.io/badge/status-v1.2--stable-success)](./MILESTONE.md)
+[![Status](https://img.shields.io/badge/status-v1.3--stable-success)](./TODO_FEATURE.md)
 [![Flutter](https://img.shields.io/badge/Flutter-3.x-blue)](https://flutter.dev)
 [![Firebase](https://img.shields.io/badge/Firebase-Firestore-orange)](https://firebase.google.com)
 
@@ -16,6 +16,7 @@ App di messaggistica privata per due persone con crittografia end-to-end e pairi
 - 📱 **Pairing tramite QR Code** - wizard guidato con checklist
 - ☁️ **Firestore real-time** - sincronizzazione istantanea
 - 🔔 **Notifiche Push** - Firebase Cloud Messaging per nuovi messaggi
+- 📅 **To Do & Reminders** - promemoria cifrati con notifiche schedulate 1h prima
 - 🚫 **Zero backend** - solo Cloud Functions serverless
 - 🔒 **Storage sicuro** - chiavi memorizzate con flutter_secure_storage
 - 📲 **Cross-platform** - iOS e Android
@@ -135,37 +136,78 @@ L'app implementa un sistema completo di notifiche push per avvisare gli utenti d
 
 ---
 
+## 📅 To Do & Reminders Feature
+
+L'app include un sistema di promemoria per eventi importanti (compleanni, anniversari, appuntamenti) completamente integrato con la crittografia end-to-end.
+
+### Caratteristiche
+
+- 📝 **To Do cifrati**: i promemoria sono messaggi speciali con crittografia E2E
+- 🔔 **Notifiche duali**:
+  - **Instant**: FCM push quando il partner crea un todo (`📅 Nuovo To Do`)
+  - **Scheduled**: notifica locale 1 ora prima dell'evento (`🔔 Nuovo To Do`)
+- 🎨 **UI distintiva**: bordo arancione (attivo), rosso (scaduto), verde (completato)
+- ✅ **Completamento bidirezionale**: entrambi i partner possono marcare come completato
+- 🧪 **Modalità test**: slider 10-3600 secondi per testing rapido
+- 🌍 **Timezone auto-detection**: rileva automaticamente timezone del dispositivo
+
+### Come usare
+
+1. Nella chat, tap sull'icona **calendario** 📅
+2. Inserisci il nome del todo (es. "Compleanno di Elena")
+3. Seleziona data e ora dell'evento
+4. Crea → il partner riceve una notifica instant
+5. **1 ora prima** → entrambi ricevono il reminder schedulato
+
+### Architettura
+
+I todo sono **messaggi speciali** con:
+- `messageType: 'todo'` (non cifrato, per filtrare le notifiche)
+- `dueDate`: data/ora dell'evento
+- `body`: contenuto cifrato E2E (RSA-2048 + AES-256)
+
+Le notifiche scheduled usano `flutter_local_notifications` con:
+- **Inexact alarms** (nessun permesso extra richiesto)
+- **allowWhileIdle** (funzionano anche con schermo spento)
+- Precisione: ±15 minuti (accettabile per reminder 1h prima)
+
+Per la documentazione completa: **[TODO_FEATURE.md](./TODO_FEATURE.md)**
+
+---
+
 ## 📁 Struttura del Progetto
 
 ```
 youandme/
 ├── README.md                    # Questo file
 ├── MILESTONE.md                 # Documentazione v1.2 stable
+├── TODO_FEATURE.md              # Documentazione To Do & Reminders feature
 ├── flutter-app/                 # App Flutter
 │   ├── lib/
 │   │   ├── main.dart           # Entry point + bottom navigation
 │   │   ├── models/
-│   │   │   └── message.dart    # Message model (dual encryption)
+│   │   │   └── message.dart    # Message model (dual encryption + todo fields)
 │   │   ├── screens/
-│   │   │   ├── chat_screen.dart              # Main chat UI
+│   │   │   ├── chat_screen.dart              # Main chat UI + TodoMessageBubble + CreateTodoDialog
 │   │   │   ├── settings_screen.dart          # Settings tab
 │   │   │   ├── pairing_wizard_screen.dart    # Wizard pairing con checklist
 │   │   │   ├── qr_display_screen.dart        # Mostra QR (public key)
 │   │   │   └── qr_scanner_screen.dart        # Scansiona QR (public key)
 │   │   └── services/
 │   │       ├── pairing_service.dart          # RSA pairing logic
-│   │       ├── chat_service.dart             # Firestore messaging + dual encryption
+│   │       ├── chat_service.dart             # Firestore messaging + dual encryption + todo scheduling
 │   │       ├── encryption_service.dart       # RSA-2048 + AES-256
-│   │       └── notification_service.dart     # FCM + notifiche locali
+│   │       └── notification_service.dart     # FCM + notifiche locali + scheduled reminders
 │   ├── android/                 # Configurazione Android
 │   │   ├── app/
 │   │   │   ├── build.gradle
-│   │   │   └── google-services.json         # Firebase config
+│   │   │   ├── google-services.json         # Firebase config
+│   │   │   └── src/main/AndroidManifest.xml # Permessi + receivers per scheduled notifications
 │   │   ├── gradle.properties                 # AndroidX enabled
 │   │   └── settings.gradle                   # AGP + Kotlin versions
-│   └── pubspec.yaml             # Flutter dependencies
+│   └── pubspec.yaml             # Flutter dependencies (+ timezone, flutter_local_notifications)
 ├── functions/                   # Cloud Functions per notifiche push
-│   ├── index.js                # Funzioni Firebase (sendMessageNotification)
+│   ├── index.js                # Funzioni Firebase (sendMessageNotification + todo filtering)
 │   ├── package.json            # Dipendenze Node.js
 │   └── README.md               # Guida deploy Cloud Functions
 ├── firebase.json                # Configurazione Firebase
@@ -359,7 +401,7 @@ Aggiorna le security rules come indicato nella sezione Setup.
 
 ## 📊 Features Status
 
-### ✅ Implementato (v1.2)
+### ✅ Implementato (v1.3)
 - [x] Architettura RSA-only (no chiavi simmetriche nel QR)
 - [x] Dual encryption (sender + recipient access)
 - [x] RSA-2048 key generation
@@ -374,6 +416,8 @@ Aggiorna le security rules come indicato nella sezione Setup.
 - [x] **Notifiche push** (Firebase Cloud Messaging)
 - [x] **Notifiche locali** (foreground + background)
 - [x] **Cloud Functions** per invio notifiche automatico
+- [x] **To Do & Reminders** (notifiche schedulate 1h prima)
+- [x] **Modalità test** per developer testing
 
 ### 🚧 Roadmap Future
 - [ ] Autenticazione Firebase (optional)
@@ -381,9 +425,10 @@ Aggiorna le security rules come indicato nella sezione Setup.
 - [ ] Indicatori lettura/consegna
 - [ ] Multiple device support
 - [ ] iOS build completo
-- [ ] Notifiche programmate e reminder
 - [ ] Message deletion / editing
 - [ ] Key rotation
+- [ ] Recurring reminders
+- [ ] AI todo extraction da messaggi
 
 ---
 
@@ -423,6 +468,6 @@ Per problemi o domande:
 
 ---
 
-**Versione:** 1.2.0+3
-**Ultima modifica:** 2025-12-12
-**Architettura:** RSA-only + Dual Encryption + Firestore Compartmentalization
+**Versione:** 1.3.0+4
+**Ultima modifica:** 2025-12-16
+**Architettura:** RSA-only + Dual Encryption + Firestore Compartmentalization + Scheduled Reminders
