@@ -29,18 +29,74 @@ App di messaggistica privata per due persone con crittografia end-to-end e pairi
 ### Stack Tecnologico
 - **Frontend:** Flutter 3.x
 - **Database:** Google Cloud Firestore (real-time)
-- **Crittografia:** RSA-2048 + AES-256 (PointyCastle)
-- **Storage Locale:** flutter_secure_storage
-- **Notifiche:** Firebase Cloud Messaging + flutter_local_notifications
+- **Crittografia:** RSA-2048 + AES-256 (PointyCastle 3.9.1)
+- **Storage Locale:** flutter_secure_storage 10.0.0
+- **Notifiche:** Firebase Cloud Messaging + flutter_local_notifications 19.5.0
 - **Cloud Functions:** Node.js 18 (serverless)
-- **QR Code:** qr_flutter + mobile_scanner
-- **State Management:** Provider
+- **QR Code:** qr_flutter + mobile_scanner 7.1.4
+- **State Management:** Provider 6.1.5
 
-### Build System
+### Build System & SDK
 - **Gradle:** 8.11.1
 - **Android Gradle Plugin:** 8.9.1
 - **Kotlin:** 2.1.0
+- **Java:** 17 (LTS)
 - **AndroidX:** abilitato
+- **Firebase BOM:** 34.6.0
+- **Firebase Core:** 4.3.0
+- **Firebase Auth:** 6.1.3
+- **Cloud Firestore:** 6.1.1
+- **Firebase Messaging:** 16.1.0
+
+---
+
+## 📦 Aggiornamenti Recenti (Dicembre 2025)
+
+### 🚀 Major Dependencies Update
+
+Tutte le dipendenze sono state aggiornate alle ultime versioni stabili:
+
+**Android/Gradle:**
+- Firebase BOM: 32.7.0 → **34.6.0** (latest stable)
+- Google Services: 4.4.0 → **4.4.4**
+- Java: 8 → **17 (LTS)**
+- Kotlin JVM Target: 1.8 → **17**
+- desugar_jdk_libs: 2.0.4 → **2.1.4**
+
+**Flutter - Firebase:**
+- firebase_core: 2.24.2 → **4.3.0** (+2 major versions)
+- firebase_auth: 4.15.3 → **6.1.3** (+2 major versions)
+- cloud_firestore: 4.13.6 → **6.1.1** (+2 major versions)
+- firebase_messaging: 14.7.9 → **16.1.0** (+2 major versions)
+
+**Flutter - Core Packages:**
+- provider: 6.1.1 → **6.1.5**
+- http: 1.1.0 → **1.6.0**
+- shared_preferences: 2.2.2 → **2.5.4**
+- flutter_secure_storage: 9.0.0 → **10.0.0**
+- intl: 0.18.1 → **0.20.2**
+- timezone: 0.9.2 → **0.10.1**
+- flutter_local_notifications: 17.0.0 → **19.5.0**
+- mobile_scanner: 3.5.2 → **7.1.4**
+- flutter_chat_ui: 1.6.10 → **2.11.1**
+- flutter_lints: 3.0.0 → **6.0.0**
+
+**Totale:** 17 pacchetti aggiornati
+
+### ✅ Deprecation & API Updates
+
+**Rimossi:**
+- ❌ `android.enableJetifier` (deprecato con AndroidX moderno)
+- ❌ `package=` attribute in AndroidManifest (usa `namespace` da build.gradle)
+- ❌ `uiLocalNotificationDateInterpretation` (deprecato in flutter_local_notifications 19.x)
+
+**Aggiornati:**
+- ✅ Storage permissions modernizzati per Android 13+
+  - `READ/WRITE_EXTERNAL_STORAGE` limitati ad Android ≤12
+  - Aggiunti `READ_MEDIA_IMAGES` e `READ_MEDIA_VIDEO` per Android 13+
+- ✅ mobile_scanner API aggiornata (controller.value.torchState)
+
+**Risultato:** ✨ Zero warnings, zero API deprecate, build pulito!
 
 ---
 
@@ -468,6 +524,7 @@ Per problemi o domande:
 
 ---
 
-**Versione:** 1.3.0+4
+**Versione:** 1.2.0+3
 **Ultima modifica:** 2025-12-16
 **Architettura:** RSA-only + Dual Encryption + Firestore Compartmentalization + Scheduled Reminders
+**Dependencies:** ✅ Updated to latest stable versions (Dec 2025)
