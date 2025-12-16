@@ -196,7 +196,8 @@ class PairingService extends ChangeNotifier {
         .doc(chatId)
         .collection('users')
         .snapshots()
-        .listen((snapshot) async {
+        .listen(
+      (snapshot) async {
       final userCount = snapshot.docs.length;
 
       if (kDebugMode) print('👥 Family users count: $userCount');
@@ -246,7 +247,17 @@ class PairingService extends ChangeNotifier {
         // Pairing iniziale in corso - aspettiamo il partner
         print('⏳ Pairing in corso, aspettando il partner... ($userCount/2 users)');
       }
-    });
+    },
+    onError: (error) {
+      // 🔧 FIX: NON fare unpair in caso di errori di connessione!
+      // Gli errori sono normali quando l'app è offline
+      if (kDebugMode) {
+        print('⚠️ Pairing listener error (probably offline): $error');
+        print('   Keeping paired status unchanged (offline resilience)');
+      }
+      // Mantieni _isPaired e _partnerPublicKey invariati
+    },
+  );
   }
 
   @override
