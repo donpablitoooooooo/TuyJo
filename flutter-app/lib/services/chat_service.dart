@@ -82,6 +82,8 @@ class ChatService extends ChangeNotifier {
 
     if (kDebugMode) print('🎧 Starting listener for chat: ${familyChatId.substring(0, 10)}...');
 
+    bool isFirstSnapshot = true; // Flag per il primo snapshot
+
     _subscription = _firestore
         .collection('families')
         .doc(familyChatId)
@@ -90,36 +92,84 @@ class ChatService extends ChangeNotifier {
         .snapshots()
         .listen(
       (snapshot) async {
-        for (var change in snapshot.docChanges) {
-          if (change.type == DocumentChangeType.added) {
-            final message = Message.fromFirestore(
-              change.doc.id,
-              change.doc.data()!,
-            );
+        if (kDebugMode) {
+          print('📡 Firestore snapshot received: ${snapshot.docChanges.length} changes, isFirstSnapshot: $isFirstSnapshot');
+        }
 
-            // Aggiungi solo se non esiste già
-            if (!_messages.any((m) => m.id == message.id)) {
-              // Decrypt e popola i campi
-              if (_myDeviceId != null) {
-                _decryptAndPopulateMessage(message, _myDeviceId!);
-              }
+        // PRIMO SNAPSHOT: Fai batch sync di tutti i messaggi esistenti
+        if (isFirstSnapshot) {
+          isFirstSnapshot = false;
 
-              _messages.add(message);
-              _messages.sort((a, b) => a.timestamp.compareTo(b.timestamp));
+          final List<Message> newMessages = [];
 
-              // 💾 SALVA NELLA CACHE SQLITE
-              try {
-                await _cacheService.saveMessage(message, familyChatId);
-                if (kDebugMode) {
-                  print('📨 New message cached: ${message.id} (type: ${message.messageType})');
+          for (var change in snapshot.docChanges) {
+            if (change.type == DocumentChangeType.added) {
+              final message = Message.fromFirestore(
+                change.doc.id,
+                change.doc.data()!,
+              );
+
+              // Aggiungi solo se non esiste già in memoria
+              if (!_messages.any((m) => m.id == message.id)) {
+                // Decrypt e popola i campi
+                if (_myDeviceId != null) {
+                  _decryptAndPopulateMessage(message, _myDeviceId!);
                 }
-              } catch (e) {
-                if (kDebugMode) print('❌ Error caching message: $e');
+
+                _messages.add(message);
+                newMessages.add(message);
               }
             }
           }
+
+          if (newMessages.isNotEmpty) {
+            _messages.sort((a, b) => a.timestamp.compareTo(b.timestamp));
+
+            // 💾 BATCH SAVE nella cache SQLite (molto più efficiente)
+            try {
+              await _cacheService.saveMessages(newMessages, familyChatId);
+              if (kDebugMode) {
+                print('💾 Initial sync: ${newMessages.length} messages saved to SQLite cache');
+              }
+            } catch (e) {
+              if (kDebugMode) print('❌ Error batch caching messages: $e');
+            }
+          }
+
+          notifyListeners();
+        } else {
+          // SNAPSHOTS SUCCESSIVI: Gestisci i nuovi messaggi normalmente
+          for (var change in snapshot.docChanges) {
+            if (change.type == DocumentChangeType.added) {
+              final message = Message.fromFirestore(
+                change.doc.id,
+                change.doc.data()!,
+              );
+
+              // Aggiungi solo se non esiste già
+              if (!_messages.any((m) => m.id == message.id)) {
+                // Decrypt e popola i campi
+                if (_myDeviceId != null) {
+                  _decryptAndPopulateMessage(message, _myDeviceId!);
+                }
+
+                _messages.add(message);
+                _messages.sort((a, b) => a.timestamp.compareTo(b.timestamp));
+
+                // 💾 SALVA NELLA CACHE SQLITE
+                try {
+                  await _cacheService.saveMessage(message, familyChatId);
+                  if (kDebugMode) {
+                    print('📨 New message cached: ${message.id} (type: ${message.messageType})');
+                  }
+                } catch (e) {
+                  if (kDebugMode) print('❌ Error caching message: $e');
+                }
+              }
+            }
+          }
+          notifyListeners();
         }
-        notifyListeners();
       },
       onError: (error) {
         if (kDebugMode) print('Firestore listener error: $error');
