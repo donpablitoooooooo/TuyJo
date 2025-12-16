@@ -37,7 +37,7 @@ dependencies:
   flutter_chat_ui: ^1.6.10
   intl: ^0.20.2
   uuid: ^4.2.2
-  timezone: ^0.9.2
+  timezone: ^0.10.1
 
   # QR Code
   qr_flutter: ^4.1.0
