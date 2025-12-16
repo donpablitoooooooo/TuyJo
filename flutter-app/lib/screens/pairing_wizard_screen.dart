@@ -385,14 +385,18 @@ class _PairingWizardScreenState extends State<PairingWizardScreen> {
         ),
         actions: [
           IconButton(
-            icon: ValueListenableBuilder(
-              valueListenable: controller.torchState,
-              builder: (context, state, child) {
-                switch (state) {
+            icon: ListenableBuilder(
+              listenable: controller,
+              builder: (context, child) {
+                final torchState = controller.value.torchState;
+                switch (torchState) {
                   case TorchState.off:
                     return const Icon(Icons.flash_off);
                   case TorchState.on:
                     return const Icon(Icons.flash_on, color: Colors.yellow);
+                  case TorchState.unavailable:
+                  case TorchState.auto:
+                    return const Icon(Icons.flash_off);
                 }
               },
             ),
