@@ -99,14 +99,18 @@ class _QRScannerScreenState extends State<QRScannerScreen> {
         centerTitle: true,
         actions: [
           IconButton(
-            icon: ValueListenableBuilder(
-              valueListenable: _controller.torchState,
-              builder: (context, state, child) {
-                switch (state) {
+            icon: ListenableBuilder(
+              listenable: _controller,
+              builder: (context, child) {
+                final torchState = _controller.value.torchState;
+                switch (torchState) {
                   case TorchState.off:
                     return const Icon(Icons.flash_off);
                   case TorchState.on:
                     return const Icon(Icons.flash_on, color: Colors.yellow);
+                  case TorchState.unavailable:
+                  case TorchState.auto:
+                    return const Icon(Icons.flash_off);
                 }
               },
             ),
