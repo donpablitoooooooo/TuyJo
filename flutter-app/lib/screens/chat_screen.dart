@@ -93,23 +93,28 @@ class _ChatScreenState extends State<ChatScreen> {
         chatService.setMyDeviceId(_myDeviceId!);
       }
 
-      // Avvia listener per la chat
+      // Avvia listener per la chat (carica cache e connette Firestore in background)
       chatService.startListening(_familyChatId!);
       print('✅ Firestore listener started for chat');
 
-      // Salva il token FCM in Firestore
-      if (_myDeviceId != null) {
-        await notificationService.saveTokenToFirestore(_familyChatId!, _myDeviceId!);
+      // 🔧 FIX: Nascondi loader SUBITO dopo aver avviato il listener
+      // La cache si carica istantaneamente, Firestore si connette in background
+      setState(() => _isLoading = false);
 
-        // UNPAIR SYNC: Avvia background listener DOPO aver salvato i token FCM
-        // Questo evita race condition (listener che parte prima del salvataggio)
+      // Salva il token FCM in Firestore (in background, non blocca la UI)
+      if (_myDeviceId != null) {
+        // Non await - lascia che succeda in background
+        notificationService.saveTokenToFirestore(_familyChatId!, _myDeviceId!).catchError((e) {
+          if (kDebugMode) print('⚠️ Error saving FCM token (probably offline): $e');
+        });
+
+        // UNPAIR SYNC: Avvia background listener
         pairingService.startBackgroundUnpairListener();
       }
     } else {
       print('❌ Cannot start listener - missing chat ID or partner public key');
+      setState(() => _isLoading = false);
     }
-
-    setState(() => _isLoading = false);
   }
 
   @override
