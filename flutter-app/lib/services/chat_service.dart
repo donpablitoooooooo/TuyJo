@@ -216,7 +216,10 @@ class ChatService extends ChangeNotifier {
             }
           }
 
+          // 🔧 FIX: Riordina SOLO se abbiamo aggiunto nuovi messaggi
+          // Questo evita il "salto" visivo quando la cache ha già i messaggi ordinati
           if (newMessages.isNotEmpty) {
+            if (kDebugMode) print('📜 Sorting ${newMessages.length} new messages from Firestore initial sync');
             _messages.sort((a, b) => a.timestamp.compareTo(b.timestamp));
 
             // 💾 BATCH SAVE nella cache SQLite (molto più efficiente)
@@ -228,9 +231,12 @@ class ChatService extends ChangeNotifier {
             } catch (e) {
               if (kDebugMode) print('❌ Error batch caching messages: $e');
             }
-          }
 
-          notifyListeners();
+            notifyListeners();
+          } else {
+            // Nessun nuovo messaggio - la cache era già aggiornata
+            if (kDebugMode) print('✅ Initial sync: no new messages (cache was up-to-date)');
+          }
         } else {
           // SNAPSHOTS SUCCESSIVI: Gestisci i nuovi messaggi normalmente
           for (var change in snapshot.docChanges) {

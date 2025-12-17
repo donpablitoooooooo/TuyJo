@@ -30,6 +30,7 @@ class _ChatScreenState extends State<ChatScreen> {
   int _lastMessageCount = 0;
   bool _isInitializing = true; // Track se siamo nella fase di caricamento iniziale
   bool _hasScrolledToBottomOnce = false; // Track se abbiamo fatto lo scroll iniziale
+  bool _isLoadingOlderMessages = false; // Track se stiamo caricando messaggi vecchi
 
   @override
   void initState() {
@@ -50,6 +51,30 @@ class _ChatScreenState extends State<ChatScreen> {
         _onUserTyping();
       }
     });
+
+    // 📜 INFINITE SCROLL: Listen per scroll verso l'alto (messaggi vecchi)
+    _scrollController.addListener(_onScroll);
+  }
+
+  void _onScroll() {
+    // Se stiamo scrollando vicino all'inizio (top), carica messaggi più vecchi
+    if (_scrollController.position.pixels <= 100 && !_isLoadingOlderMessages) {
+      if (kDebugMode) print('📜 User scrolled to top - loading older messages...');
+      _loadOlderMessages();
+    }
+  }
+
+  Future<void> _loadOlderMessages() async {
+    if (_isLoadingOlderMessages) return;
+
+    setState(() => _isLoadingOlderMessages = true);
+
+    final chatService = Provider.of<ChatService>(context, listen: false);
+    await chatService.loadOlderMessages(limit: 50);
+
+    if (mounted) {
+      setState(() => _isLoadingOlderMessages = false);
+    }
   }
 
   void _onUserTyping() {
@@ -466,50 +491,76 @@ class _ChatScreenState extends State<ChatScreen> {
                       style: TextStyle(color: Colors.grey),
                     ),
                   )
-                : ListView.builder(
-                    controller: _scrollController,
-                    padding: const EdgeInsets.all(16),
-                    itemCount: chatService.messages.length,
-                    reverse: false,
-                    itemBuilder: (context, index) {
-                      final message = chatService.messages[index];
-                      final isMe = message.senderId == _myDeviceId;
+                : Column(
+                    children: [
+                      // 📜 Indicatore caricamento messaggi vecchi
+                      if (_isLoadingOlderMessages)
+                        Container(
+                          padding: const EdgeInsets.all(8),
+                          child: const Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              SizedBox(
+                                width: 16,
+                                height: 16,
+                                child: CircularProgressIndicator(strokeWidth: 2),
+                              ),
+                              SizedBox(width: 8),
+                              Text(
+                                'Caricamento messaggi...',
+                                style: TextStyle(color: Colors.grey, fontSize: 12),
+                              ),
+                            ],
+                          ),
+                        ),
+                      Expanded(
+                        child: ListView.builder(
+                          controller: _scrollController,
+                          padding: const EdgeInsets.all(16),
+                          itemCount: chatService.messages.length,
+                          reverse: false,
+                          itemBuilder: (context, index) {
+                            final message = chatService.messages[index];
+                            final isMe = message.senderId == _myDeviceId;
 
-                      // Verifica se è un messaggio di completamento todo
-                      if (message.messageType == 'todo_completed') {
-                        // Non mostrare i messaggi di completamento
-                        return const SizedBox.shrink();
-                      }
+                            // Verifica se è un messaggio di completamento todo
+                            if (message.messageType == 'todo_completed') {
+                              // Non mostrare i messaggi di completamento
+                              return const SizedBox.shrink();
+                            }
 
-                      // Verifica se il todo è stato completato
-                      bool isTodoCompleted = false;
-                      if (message.messageType == 'todo') {
-                        isTodoCompleted = chatService.messages.any((m) =>
-                            m.messageType == 'todo_completed' &&
-                            m.originalTodoId == message.id);
-                      }
+                            // Verifica se il todo è stato completato
+                            bool isTodoCompleted = false;
+                            if (message.messageType == 'todo') {
+                              isTodoCompleted = chatService.messages.any((m) =>
+                                  m.messageType == 'todo_completed' &&
+                                  m.originalTodoId == message.id);
+                            }
 
-                      // Renderizza il tipo di messaggio appropriato
-                      if (message.messageType == 'todo') {
-                        return _TodoMessageBubble(
-                          key: ValueKey(message.id),
-                          message: message,
-                          isMe: isMe,
-                          isCompleted: isTodoCompleted,
-                          onComplete: () => _completeTodo(message.id),
-                        );
-                      } else {
-                        // Messaggio normale
-                        final decryptedContent = message.decryptedContent ?? '[Messaggio non decifrabile]';
+                            // Renderizza il tipo di messaggio appropriato
+                            if (message.messageType == 'todo') {
+                              return _TodoMessageBubble(
+                                key: ValueKey(message.id),
+                                message: message,
+                                isMe: isMe,
+                                isCompleted: isTodoCompleted,
+                                onComplete: () => _completeTodo(message.id),
+                              );
+                            } else {
+                              // Messaggio normale
+                              final decryptedContent = message.decryptedContent ?? '[Messaggio non decifrabile]';
 
-                        return _MessageBubble(
-                          key: ValueKey(message.id),
-                          message: decryptedContent,
-                          timestamp: message.timestamp,
-                          isMe: isMe,
-                        );
-                      }
-                    },
+                              return _MessageBubble(
+                                key: ValueKey(message.id),
+                                message: decryptedContent,
+                                timestamp: message.timestamp,
+                                isMe: isMe,
+                              );
+                            }
+                          },
+                        ),
+                      ),
+                    ],
                   ),
           ),
           Container(
