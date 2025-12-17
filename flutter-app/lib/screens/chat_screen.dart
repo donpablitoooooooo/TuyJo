@@ -392,17 +392,26 @@ class _ChatScreenState extends State<ChatScreen> {
     final hasNewMessages = currentCount != _lastMessageCount;
 
     // Scroll SOLO per nuovi messaggi singoli (quando qualcuno invia un messaggio)
+    // MA non scrollare per messaggi di completamento todo (per evitare scroll indesiderato dopo long press)
     if (isSingleNewMessage && chatService.messages.isNotEmpty) {
       _lastMessageCount = currentCount;
 
-      if (kDebugMode) print('📜 [SCROLL] New message - smooth scroll to bottom');
+      // Controlla se l'ultimo messaggio è un todo_completed (primo perché reverse: true)
+      final lastMessage = chatService.messages.first;
+      final shouldScroll = lastMessage.messageType != 'todo_completed';
 
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted && _scrollController.hasClients) {
-          _scrollToBottom(animated: true);
-          if (kDebugMode) print('✅ [SCROLL] Scrolled to bottom (new message)');
-        }
-      });
+      if (shouldScroll) {
+        if (kDebugMode) print('📜 [SCROLL] New message - smooth scroll to bottom');
+
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted && _scrollController.hasClients) {
+            _scrollToBottom(animated: true);
+            if (kDebugMode) print('✅ [SCROLL] Scrolled to bottom (new message)');
+          }
+        });
+      } else {
+        if (kDebugMode) print('📜 [SCROLL] Todo completed - no auto-scroll');
+      }
     }
     // Aggiorna count senza scrollare (caricamento iniziale o bulk updates)
     else if (hasNewMessages) {
