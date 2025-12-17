@@ -125,6 +125,28 @@ class ChatService extends ChangeNotifier {
     }
   }
 
+  /// Aggiorna il timestamp di un messaggio reminder quando diventa visibile
+  /// Questo fa sì che il reminder appaia sempre "fresco" in cima alla chat
+  Future<void> _updateReminderTimestamp(String messageId, String familyChatId) async {
+    try {
+      final now = DateTime.now();
+      await _firestore
+          .collection('families')
+          .doc(familyChatId)
+          .collection('messages')
+          .doc(messageId)
+          .update({
+        'created_at': now.toIso8601String(),
+      });
+
+      if (kDebugMode) {
+        print('🔔 Updated reminder timestamp to now: $messageId');
+      }
+    } catch (e) {
+      if (kDebugMode) print('❌ Error updating reminder timestamp: $e');
+    }
+  }
+
   // Connetti al Firestore listener per la chat
   Future<void> startListening(String familyChatId) async {
     if (kDebugMode) print('⏱️ [CHAT_SERVICE] startListening called');
@@ -254,6 +276,22 @@ class ChatService extends ChangeNotifier {
                 // Decrypt e popola i campi
                 if (_myDeviceId != null) {
                   _decryptAndPopulateMessage(message, _myDeviceId!);
+                }
+
+                // 🔔 REMINDER TIMESTAMP UPDATE
+                // Se questo è un reminder appena diventato visibile, aggiorna il timestamp
+                if (message.messageType == 'todo' &&
+                    message.isReminder == true &&
+                    message.senderId == _myDeviceId) { // Solo il mittente aggiorna
+                  final now = DateTime.now();
+                  // Se il reminder è appena scattato (entro 5 minuti)
+                  if (message.timestamp.isBefore(now) &&
+                      message.timestamp.isAfter(now.subtract(const Duration(minutes: 5)))) {
+                    // Aggiorna il timestamp a now() per farlo apparire fresco
+                    _updateReminderTimestamp(message.id, familyChatId);
+                    // Aggiorna anche localmente per evitare delay
+                    message.timestamp = now;
+                  }
                 }
 
                 _messages.add(message);
