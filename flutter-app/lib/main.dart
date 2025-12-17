@@ -11,22 +11,19 @@ import 'services/message_cache_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // Solo Firebase è bloccante - tutto il resto in background
   await Firebase.initializeApp();
 
-  // 💾 Inizializza SQLite per il caching dei messaggi (con FTS5 per ricerca)
-  await MessageCacheService.initialize();
-
-  // Inizializza EncryptionService (carica chiavi RSA se esistono)
+  // Inizializza servizi (non bloccante - lazy init quando servono)
   final encryptionService = EncryptionService();
-  await encryptionService.generateAndStoreKeyPair();
-
-  // Inizializza PairingService
   final pairingService = PairingService();
-  await pairingService.initialize();
-
-  // Inizializza NotificationService
   final notificationService = NotificationService();
-  await notificationService.initialize();
+
+  // Inizializza in background (non blocca lo startup)
+  encryptionService.generateAndStoreKeyPair(); // No await
+  pairingService.initialize(); // No await
+  notificationService.initialize(); // No await
 
   runApp(MyApp(
     encryptionService: encryptionService,
