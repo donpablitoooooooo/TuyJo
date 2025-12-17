@@ -17,6 +17,7 @@ class ChatScreen extends StatefulWidget {
 
 class _ChatScreenState extends State<ChatScreen> {
   final _messageController = TextEditingController();
+  final _scrollController = ScrollController();
   bool _isLoading = true;
   bool _hasText = false;
   String? _familyChatId;
@@ -151,7 +152,24 @@ class _ChatScreenState extends State<ChatScreen> {
   @override
   void dispose() {
     _messageController.dispose();
+    _scrollController.dispose();
+    _typingTimer?.cancel();
     super.dispose();
+  }
+
+  /// Scrolla automaticamente in fondo alla lista (messaggi più recenti)
+  void _scrollToBottom({bool animated = true}) {
+    if (!_scrollController.hasClients) return;
+
+    if (animated) {
+      _scrollController.animateTo(
+        _scrollController.position.maxScrollExtent,
+        duration: const Duration(milliseconds: 300),
+        curve: Curves.easeOut,
+      );
+    } else {
+      _scrollController.jumpTo(_scrollController.position.maxScrollExtent);
+    }
   }
 
   void _completeTodo(String todoId) async {
@@ -231,6 +249,9 @@ class _ChatScreenState extends State<ChatScreen> {
       return;
     }
 
+    final messageText = _messageController.text.trim();
+    _messageController.clear(); // Clear subito per UX migliore
+
     // BLOCCO INVIO: Verifica che siamo in pairing
     final pairingService = Provider.of<PairingService>(context, listen: false);
     if (!pairingService.isPaired) {
@@ -261,7 +282,7 @@ class _ChatScreenState extends State<ChatScreen> {
     print('📤 Sending message...');
     print('   To family chat: $_familyChatId');
     print('   From device: $_myDeviceId');
-    print('   Content: ${_messageController.text.trim()}');
+    print('   Content: $messageText');
 
     final chatService = Provider.of<ChatService>(context, listen: false);
     final encryptionService = Provider.of<EncryptionService>(context, listen: false);
@@ -277,7 +298,7 @@ class _ChatScreenState extends State<ChatScreen> {
     }
 
     final success = await chatService.sendMessage(
-      _messageController.text.trim(),
+      messageText,
       _familyChatId!,
       _myDeviceId!,
       myPublicKey, // Chiave pubblica del mittente (per dual encryption)
@@ -286,7 +307,8 @@ class _ChatScreenState extends State<ChatScreen> {
 
     if (success) {
       print('✅ Message sent successfully with dual encryption');
-      _messageController.clear();
+      // Scrolla in fondo dopo l'invio
+      WidgetsBinding.instance.addPostFrameCallback((_) => _scrollToBottom());
     } else {
       print('❌ Message send failed');
       ScaffoldMessenger.of(context).showSnackBar(
@@ -299,6 +321,13 @@ class _ChatScreenState extends State<ChatScreen> {
   Widget build(BuildContext context) {
     final chatService = Provider.of<ChatService>(context);
     final pairingService = Provider.of<PairingService>(context);
+
+    // Scrolla in fondo quando cambiano i messaggi
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (chatService.messages.isNotEmpty) {
+        _scrollToBottom(animated: false);
+      }
+    });
 
     if (_isLoading) {
       return const Scaffold(
@@ -359,6 +388,7 @@ class _ChatScreenState extends State<ChatScreen> {
                     ),
                   )
                 : ListView.builder(
+                    controller: _scrollController,
                     padding: const EdgeInsets.all(16),
                     itemCount: chatService.messages.length,
                     reverse: false,
