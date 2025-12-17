@@ -808,130 +808,160 @@ class _TodoMessageBubble extends StatelessWidget {
     final bool isPastDue = message.dueDate != null && message.dueDate!.isBefore(DateTime.now());
 
     return Padding(
-      padding: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.only(bottom: 12, left: 8, right: 8),
       child: Row(
         mainAxisAlignment: isMe ? MainAxisAlignment.end : MainAxisAlignment.start,
         children: [
           Container(
             constraints: BoxConstraints(
-              maxWidth: MediaQuery.of(context).size.width * 0.85,
+              maxWidth: MediaQuery.of(context).size.width * 0.75,
             ),
             decoration: BoxDecoration(
-              color: Colors.white,
-              border: Border.all(
-                color: isCompleted
-                    ? Colors.green
-                    : (isPastDue ? Colors.red : Colors.orange),
-                width: 2,
+              gradient: isMe
+                  ? const LinearGradient(
+                      colors: [
+                        Color(0xFF667eea), // Purple
+                        Color(0xFF764ba2), // Deep purple
+                      ],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    )
+                  : LinearGradient(
+                      colors: [
+                        Colors.grey[200]!,
+                        Colors.grey[100]!,
+                      ],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    ),
+              borderRadius: BorderRadius.only(
+                topLeft: const Radius.circular(20),
+                topRight: const Radius.circular(20),
+                bottomLeft: isMe
+                    ? const Radius.circular(20)
+                    : const Radius.circular(4),
+                bottomRight: isMe
+                    ? const Radius.circular(4)
+                    : const Radius.circular(20),
               ),
-              borderRadius: BorderRadius.circular(12),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.grey.withOpacity(0.3),
-                  spreadRadius: 1,
-                  blurRadius: 3,
+                  color: isMe
+                      ? const Color(0xFF667eea).withOpacity(0.3)
+                      : Colors.black.withOpacity(0.08),
+                  blurRadius: 8,
+                  offset: const Offset(0, 2),
                 ),
               ],
             ),
-            padding: const EdgeInsets.all(12),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Icon(
-                      Icons.event,
-                      color: isCompleted
-                          ? Colors.green
-                          : (isPastDue ? Colors.red : Colors.orange),
-                      size: 20,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(
+                horizontal: 16,
+                vertical: 10,
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Testo del todo
+                  Text(
+                    message.decryptedContent ?? '',
+                    style: TextStyle(
+                      color: isMe ? Colors.white : Colors.black87,
+                      fontSize: 15,
+                      height: 1.4,
+                      decoration: isCompleted ? TextDecoration.lineThrough : null,
                     ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        isCompleted ? 'To Do - Completato' : 'To Do',
-                        style: TextStyle(
-                          fontWeight: FontWeight.bold,
-                          color: isCompleted
-                              ? Colors.green
-                              : (isPastDue ? Colors.red : Colors.orange),
-                          fontSize: 14,
+                  ),
+
+                  // Data e ora (icona campanello per notifica)
+                  if (message.dueDate != null) ...[
+                    const SizedBox(height: 8),
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          Icons.notifications_outlined,
+                          size: 14,
+                          color: isMe
+                              ? Colors.white.withOpacity(0.9)
+                              : Colors.black54,
                         ),
-                      ),
+                        const SizedBox(width: 4),
+                        Text(
+                          DateFormat('dd/MM/yyyy HH:mm').format(message.dueDate!.subtract(const Duration(hours: 1))),
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: isMe
+                                ? Colors.white.withOpacity(0.9)
+                                : Colors.black54,
+                          ),
+                        ),
+                      ],
                     ),
-                    if (!isCompleted)
-                      Text(
-                        isMe ? 'Da te' : 'Dal partner',
-                        style: TextStyle(
-                          fontSize: 10,
-                          color: Colors.grey[600],
-                        ),
-                      ),
                   ],
-                ),
-                const Divider(),
-                Text(
-                  message.decryptedContent ?? '',
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w500,
-                    decoration: isCompleted ? TextDecoration.lineThrough : null,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                if (message.dueDate != null) ...[
-                  Row(
-                    children: [
-                      Icon(Icons.calendar_today, size: 16, color: Colors.grey[600]),
-                      const SizedBox(width: 4),
-                      Text(
-                        DateFormat('dd/MM/yyyy HH:mm').format(message.dueDate!),
-                        style: TextStyle(
-                          fontSize: 14,
-                          color: Colors.grey[700],
-                        ),
-                      ),
-                    ],
-                  ),
+
+                  // Timestamp del messaggio
                   const SizedBox(height: 4),
                   Row(
+                    mainAxisSize: MainAxisSize.min,
                     children: [
-                      Icon(Icons.notifications, size: 16, color: Colors.grey[600]),
-                      const SizedBox(width: 4),
                       Text(
-                        'Reminder: ${DateFormat('dd/MM/yyyy HH:mm').format(message.dueDate!.subtract(const Duration(hours: 1)))}',
+                        DateFormat('HH:mm').format(message.timestamp),
                         style: TextStyle(
-                          fontSize: 12,
-                          color: Colors.grey[600],
+                          fontSize: 11,
+                          color: isMe
+                              ? Colors.white.withOpacity(0.8)
+                              : Colors.black54,
                         ),
                       ),
+                      if (isCompleted) ...[
+                        const SizedBox(width: 6),
+                        Icon(
+                          Icons.check_circle,
+                          size: 12,
+                          color: isMe
+                              ? Colors.white.withOpacity(0.8)
+                              : Colors.green,
+                        ),
+                      ],
                     ],
                   ),
-                ],
-                if (!isCompleted) ...[
-                  const SizedBox(height: 12),
-                  SizedBox(
-                    width: double.infinity,
-                    child: ElevatedButton.icon(
-                      onPressed: onComplete,
-                      icon: const Icon(Icons.check_circle, size: 18),
-                      label: const Text('Segna come completato'),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.green,
-                        foregroundColor: Colors.white,
+
+                  // Pulsante per completare (solo se non completato)
+                  if (!isCompleted) ...[
+                    const SizedBox(height: 8),
+                    InkWell(
+                      onTap: onComplete,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withOpacity(isMe ? 0.2 : 0.3),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              Icons.check_circle_outline,
+                              size: 14,
+                              color: isMe ? Colors.white : Colors.black54,
+                            ),
+                            const SizedBox(width: 4),
+                            Text(
+                              'Completa',
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: isMe ? Colors.white : Colors.black87,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
                     ),
-                  ),
+                  ],
                 ],
-                const SizedBox(height: 4),
-                Text(
-                  DateFormat('HH:mm').format(message.timestamp),
-                  style: TextStyle(
-                    fontSize: 10,
-                    color: Colors.grey[500],
-                  ),
-                ),
-              ],
+              ),
             ),
           ),
         ],
