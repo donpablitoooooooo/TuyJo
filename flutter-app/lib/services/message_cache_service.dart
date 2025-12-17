@@ -195,6 +195,26 @@ class MessageCacheService {
     return maps.reversed.map((map) => _messageFromMap(map)).toList();
   }
 
+  /// Carica messaggi più vecchi di un certo timestamp (per infinite scroll)
+  Future<List<Message>> loadMessagesBeforeTimestamp(
+    String familyChatId,
+    DateTime timestamp,
+    {int limit = 50}
+  ) async {
+    final db = await _getDatabase();
+
+    final List<Map<String, dynamic>> maps = await db.query(
+      _messagesTable,
+      where: 'family_chat_id = ? AND timestamp < ?',
+      whereArgs: [familyChatId, timestamp.millisecondsSinceEpoch],
+      orderBy: 'timestamp DESC',
+      limit: limit,
+    );
+
+    // Inverti l'ordine per avere dal più vecchio al più recente
+    return maps.reversed.map((map) => _messageFromMap(map)).toList();
+  }
+
   /// Cerca messaggi usando LIKE (case-insensitive)
   /// query: testo da cercare (simple text search)
   Future<List<Message>> searchMessages(String familyChatId, String query) async {

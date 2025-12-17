@@ -24,6 +24,7 @@ class _ChatScreenState extends State<ChatScreen> {
   String? _partnerPublicKey;
   bool _lastPairingStatus = false;
   String? _lastFamilyChatId;
+  Timer? _typingTimer;
 
   @override
   void initState() {
@@ -38,7 +39,26 @@ class _ChatScreenState extends State<ChatScreen> {
           _hasText = hasText;
         });
       }
+
+      // Typing indicator logic
+      if (hasText) {
+        _onUserTyping();
+      }
     });
+  }
+
+  void _onUserTyping() {
+    // Invia typing status
+    if (_familyChatId != null && _myDeviceId != null) {
+      final chatService = Provider.of<ChatService>(context, listen: false);
+      chatService.setTypingStatus(_familyChatId!, _myDeviceId!, true);
+
+      // Reset timer - dopo 2 secondi di inattività, imposta typing = false
+      _typingTimer?.cancel();
+      _typingTimer = Timer(const Duration(seconds: 2), () {
+        chatService.setTypingStatus(_familyChatId!, _myDeviceId!, false);
+      });
+    }
   }
 
   @override
@@ -341,6 +361,7 @@ class _ChatScreenState extends State<ChatScreen> {
                 : ListView.builder(
                     padding: const EdgeInsets.all(16),
                     itemCount: chatService.messages.length,
+                    reverse: false,
                     itemBuilder: (context, index) {
                       final message = chatService.messages[index];
                       final isMe = message.senderId == _myDeviceId;
@@ -362,6 +383,7 @@ class _ChatScreenState extends State<ChatScreen> {
                       // Renderizza il tipo di messaggio appropriato
                       if (message.messageType == 'todo') {
                         return _TodoMessageBubble(
+                          key: ValueKey(message.id),
                           message: message,
                           isMe: isMe,
                           isCompleted: isTodoCompleted,
@@ -372,6 +394,7 @@ class _ChatScreenState extends State<ChatScreen> {
                         final decryptedContent = message.decryptedContent ?? '[Messaggio non decifrabile]';
 
                         return _MessageBubble(
+                          key: ValueKey(message.id),
                           message: decryptedContent,
                           timestamp: message.timestamp,
                           isMe: isMe,

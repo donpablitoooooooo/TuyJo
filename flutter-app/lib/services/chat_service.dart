@@ -16,9 +16,12 @@ class ChatService extends ChangeNotifier {
   late final NotificationService _notificationService;
   final MessageCacheService _cacheService = MessageCacheService();
   StreamSubscription<QuerySnapshot>? _subscription;
+  StreamSubscription<DocumentSnapshot>? _typingSubscription;
   String? _myDeviceId; // Per sapere se sono il sender
   String? _currentFamilyChatId; // Per gestire la cache
   bool _isLoadingFromCache = false;
+  bool _partnerIsTyping = false;
+  Timer? _typingTimer;
 
   ChatService(this._encryptionService, this._notificationService);
 
@@ -30,24 +33,57 @@ class ChatService extends ChangeNotifier {
   List<Message> get messages => _messages;
   bool get isConnected => _subscription != null;
   bool get isLoadingFromCache => _isLoadingFromCache;
+  bool get partnerIsTyping => _partnerIsTyping;
+
+  /// Carica messaggi più vecchi (per infinite scroll)
+  Future<void> loadOlderMessages({int limit = 50}) async {
+    if (_currentFamilyChatId == null) return;
+    if (_messages.isEmpty) return;
+
+    try {
+      // Ottieni il timestamp del messaggio più vecchio
+      final oldestTimestamp = _messages.first.timestamp;
+
+      if (kDebugMode) print('📜 Loading $limit older messages before ${oldestTimestamp.toIso8601String()}...');
+
+      // Carica messaggi più vecchi di quello più vecchio attuale
+      final olderMessages = await _cacheService.loadMessagesBeforeTimestamp(
+        _currentFamilyChatId!,
+        oldestTimestamp,
+        limit: limit,
+      );
+
+      if (olderMessages.isNotEmpty) {
+        _messages.insertAll(0, olderMessages);
+        notifyListeners();
+        if (kDebugMode) print('✅ Loaded ${olderMessages.length} older messages');
+      } else {
+        if (kDebugMode) print('ℹ️ No more older messages to load');
+      }
+    } catch (e) {
+      if (kDebugMode) print('❌ Error loading older messages: $e');
+    }
+  }
 
   /// Carica i messaggi dalla cache locale (instant load)
-  Future<void> loadFromCache(String familyChatId) async {
+  /// Carica solo gli ultimi N messaggi per performance (lazy loading)
+  Future<void> loadFromCache(String familyChatId, {int limit = 100}) async {
     if (kDebugMode) print('🔍 [CACHE] loadFromCache called for family: ${familyChatId.substring(0, 10)}...');
 
     try {
       _isLoadingFromCache = true;
       notifyListeners();
 
-      if (kDebugMode) print('🔍 [CACHE] Loading messages from SQLite...');
+      if (kDebugMode) print('🔍 [CACHE] Loading last $limit messages from SQLite...');
 
-      // Carica i messaggi dalla cache SQLite
-      final cachedMessages = await _cacheService.loadMessages(familyChatId);
+      // Carica solo gli ultimi N messaggi (ordinati DESC, poi reversati)
+      final cachedMessages = await _cacheService.loadRecentMessages(familyChatId, limit: limit);
 
       if (kDebugMode) print('🔍 [CACHE] Loaded ${cachedMessages.length} messages from DB');
 
       if (cachedMessages.isNotEmpty) {
         _messages.clear();
+        // loadRecentMessages già restituisce in ordine ASC (vecchi->nuovi)
         _messages.addAll(cachedMessages);
 
         // ✅ NON ri-decriptare! I messaggi in cache sono GIÀ decriptati
@@ -127,6 +163,11 @@ class ChatService extends ChangeNotifier {
 
     if (kDebugMode) print('🎧 Starting listener for chat: ${familyChatId.substring(0, 10)}...');
 
+    // Avvia listener per typing indicator
+    if (_myDeviceId != null) {
+      _listenToPartnerTyping(familyChatId, _myDeviceId!);
+    }
+
     bool isFirstSnapshot = true; // Flag per il primo snapshot
 
     _subscription = _firestore
@@ -134,6 +175,7 @@ class ChatService extends ChangeNotifier {
         .doc(familyChatId)
         .collection('messages')
         .orderBy('created_at', descending: false)
+        .limitToLast(100) // Carica solo ultimi 100 messaggi per performance
         .snapshots()
         .listen(
       (snapshot) async {
@@ -228,8 +270,69 @@ class ChatService extends ChangeNotifier {
   void stopListening() {
     _subscription?.cancel();
     _subscription = null;
+    _typingSubscription?.cancel();
+    _typingSubscription = null;
+    _typingTimer?.cancel();
+    _typingTimer = null;
     if (kDebugMode) print('🔇 Stopped listening to chat');
     notifyListeners();
+  }
+
+  /// Imposta lo stato di digitazione per l'utente corrente
+  Future<void> setTypingStatus(String familyChatId, String myDeviceId, bool isTyping) async {
+    try {
+      await _firestore
+          .collection('families')
+          .doc(familyChatId)
+          .collection('users')
+          .doc(myDeviceId)
+          .update({'isTyping': isTyping, 'lastTypingUpdate': FieldValue.serverTimestamp()});
+
+      if (kDebugMode) print('⌨️ Set typing status: $isTyping');
+    } catch (e) {
+      if (kDebugMode) print('❌ Error setting typing status: $e');
+    }
+  }
+
+  /// Avvia listener per lo stato di digitazione del partner
+  void _listenToPartnerTyping(String familyChatId, String myDeviceId) {
+    _typingSubscription?.cancel();
+
+    _typingSubscription = _firestore
+        .collection('families')
+        .doc(familyChatId)
+        .collection('users')
+        .snapshots()
+        .listen((snapshot) {
+      bool partnerTyping = false;
+
+      for (var doc in snapshot.docs) {
+        // Ignora il mio documento
+        if (doc.id == myDeviceId) continue;
+
+        final data = doc.data();
+        final isTyping = data['isTyping'] as bool? ?? false;
+        final lastUpdate = data['lastTypingUpdate'] as Timestamp?;
+
+        // Considera "typing" solo se l'update è recente (< 5 secondi fa)
+        if (isTyping && lastUpdate != null) {
+          final updateTime = lastUpdate.toDate();
+          final now = DateTime.now();
+          final diff = now.difference(updateTime).inSeconds;
+
+          if (diff < 5) {
+            partnerTyping = true;
+            break;
+          }
+        }
+      }
+
+      if (_partnerIsTyping != partnerTyping) {
+        _partnerIsTyping = partnerTyping;
+        notifyListeners();
+        if (kDebugMode) print('⌨️ Partner typing status changed: $partnerTyping');
+      }
+    });
   }
 
   // Carica la cronologia dei messaggi dall'API (per retrocompatibilità)
