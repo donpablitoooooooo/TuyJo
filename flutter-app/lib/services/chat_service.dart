@@ -448,12 +448,11 @@ class ChatService extends ChangeNotifier {
     String recipientPublicKey,
   ) async {
     try {
-      final timestamp = DateTime.now();
-
-      // Costruisci il plaintext con type='todo', is_reminder=true
+      // IMPORTANTE: usa reminderDate come timestamp per cronologia corretta
+      // Il messaggio apparirà cronologicamente quando scatta il reminder
       final plaintext = json.encode({
         'sender': senderId,
-        'timestamp': timestamp.millisecondsSinceEpoch ~/ 1000,
+        'timestamp': reminderDate.millisecondsSinceEpoch ~/ 1000,
         'type': 'todo',
         'body': content,
         'due_date': reminderDate.toIso8601String(),
@@ -480,13 +479,13 @@ class ChatService extends ChangeNotifier {
         'encrypted_key_sender': encryptedPayload['encryptedKeySender'],
         'iv': encryptedPayload['iv'],
         'message': encryptedPayload['message'],
-        'created_at': timestamp.toIso8601String(),
+        'created_at': reminderDate.toIso8601String(), // Usa reminderDate per cronologia
         'message_type': 'todo', // Campo non criptato per la Cloud Function
       });
 
       if (kDebugMode) {
         print('🔔 Todo reminder sent to chat: ${messageRef.id}');
-        print('   Reminder date: ${reminderDate.toIso8601String()}');
+        print('   Reminder date (created_at): ${reminderDate.toIso8601String()}');
       }
       return true;
     } catch (e) {
