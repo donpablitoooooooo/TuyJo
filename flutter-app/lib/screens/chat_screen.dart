@@ -140,12 +140,12 @@ class _ChatScreenState extends State<ChatScreen> {
       // Avvia listener per la chat (carica cache e connette Firestore in background)
       if (kDebugMode) print('⏱️ [CHAT_SCREEN] Starting Firestore listener...');
       final listenerStart = DateTime.now();
-      chatService.startListening(_familyChatId!);
+      await chatService.startListening(_familyChatId!); // AWAIT per garantire che cache sia caricata
       final listenerDuration = DateTime.now().difference(listenerStart);
       if (kDebugMode) print('⏱️ [CHAT_SCREEN] Listener started in ${listenerDuration.inMilliseconds}ms');
 
-      // 🔧 FIX: Nascondi loader SUBITO dopo aver avviato il listener
-      // La cache si carica istantaneamente, Firestore si connette in background
+      // 🔧 FIX: Nascondi loader DOPO che la cache è stata caricata
+      // Questo garantisce che il prossimo build avrà già i messaggi pronti per lo scroll
       setState(() => _isLoading = false);
 
       final totalDuration = DateTime.now().difference(startTime);

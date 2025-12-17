@@ -28,14 +28,11 @@ class _MainScreenState extends State<MainScreen> {
     // Aspetta che pairingService sia inizializzato
     final pairingService = Provider.of<PairingService>(context, listen: false);
 
-    print('⏱️ [MAIN_SCREEN] Waiting for pairing service (max 1s)...');
+    print('⏱️ [MAIN_SCREEN] Waiting for pairing service...');
     final pairingStart = DateTime.now();
 
-    // Aspetta l'inizializzazione (max 1 secondo)
-    await Future.any([
-      pairingService.initialize(),
-      Future.delayed(const Duration(seconds: 1)),
-    ]);
+    // Aspetta l'inizializzazione completa (no timeout - deve completare)
+    await pairingService.initialize();
 
     final pairingDuration = DateTime.now().difference(pairingStart);
     print('⏱️ [MAIN_SCREEN] Pairing service ready in ${pairingDuration.inMilliseconds}ms');
