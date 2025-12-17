@@ -16,7 +16,7 @@ class ChatService extends ChangeNotifier {
   late final NotificationService _notificationService;
   final MessageCacheService _cacheService = MessageCacheService();
   StreamSubscription<QuerySnapshot>? _subscription;
-  StreamSubscription<DocumentSnapshot>? _typingSubscription;
+  StreamSubscription<QuerySnapshot>? _typingSubscription;
   String? _myDeviceId; // Per sapere se sono il sender
   String? _currentFamilyChatId; // Per gestire la cache
   bool _isLoadingFromCache = false;

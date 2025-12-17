@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -536,6 +537,7 @@ class _MessageBubble extends StatefulWidget {
   final bool isMe;
 
   const _MessageBubble({
+    super.key,
     required this.message,
     required this.timestamp,
     required this.isMe,
@@ -705,6 +707,7 @@ class _TodoMessageBubble extends StatelessWidget {
   final VoidCallback onComplete;
 
   const _TodoMessageBubble({
+    super.key,
     required this.message,
     required this.isMe,
     required this.isCompleted,
