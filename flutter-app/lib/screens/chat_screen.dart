@@ -27,6 +27,7 @@ class _ChatScreenState extends State<ChatScreen> {
   bool _lastPairingStatus = false;
   String? _lastFamilyChatId;
   Timer? _typingTimer;
+  int _lastMessageCount = 0;
 
   @override
   void initState() {
@@ -323,12 +324,15 @@ class _ChatScreenState extends State<ChatScreen> {
     final chatService = Provider.of<ChatService>(context);
     final pairingService = Provider.of<PairingService>(context);
 
-    // Scrolla in fondo quando cambiano i messaggi
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (chatService.messages.isNotEmpty) {
-        _scrollToBottom(animated: false);
-      }
-    });
+    // Scrolla in fondo SOLO se il numero di messaggi è cambiato
+    if (chatService.messages.length != _lastMessageCount && chatService.messages.isNotEmpty) {
+      _lastMessageCount = chatService.messages.length;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted && _scrollController.hasClients) {
+          _scrollToBottom(animated: _lastMessageCount > 1); // Animato solo se non è il primo caricamento
+        }
+      });
+    }
 
     if (_isLoading) {
       return const Scaffold(
