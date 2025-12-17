@@ -22,7 +22,13 @@ class PairingService extends ChangeNotifier {
   /// Inizializza il servizio verificando se esiste già un pairing
   /// Il pairing è considerato valido se esiste partner_public_key
   Future<void> initialize() async {
+    if (kDebugMode) print('🔍 [PAIRING] initialize() called');
+
     final partnerPubKey = await _storage.read(key: 'partner_public_key');
+
+    if (kDebugMode) {
+      print('🔍 [PAIRING] partner_public_key from storage: ${partnerPubKey != null ? "${partnerPubKey.substring(0, 20)}..." : "NULL (not paired)"}');
+    }
 
     if (partnerPubKey != null) {
       _isPaired = true;
@@ -30,13 +36,20 @@ class PairingService extends ChangeNotifier {
       notifyListeners();
 
       if (kDebugMode) {
-        print('✅ Pairing initialized');
+        print('✅ [PAIRING] Pairing initialized successfully');
         print('   Partner public key: ${partnerPubKey.substring(0, 20)}...');
+        print('   _isPaired = true');
       }
 
       // UNPAIR SYNC: Avvia listener SEMPRE quando c'è un pairing
       // Non aspettare che ChatScreen venga aperta
       _startBackgroundUnpairListener();
+    } else {
+      if (kDebugMode) {
+        print('❌ [PAIRING] No pairing found in storage');
+        print('   _isPaired = false');
+        print('   Show QR code screen to pair');
+      }
     }
   }
 
@@ -77,7 +90,17 @@ class PairingService extends ChangeNotifier {
       }
 
       // Salva chiave pubblica del partner
+      if (kDebugMode) print('💾 [PAIRING] Saving partner_public_key to secure storage...');
       await _storage.write(key: 'partner_public_key', value: partnerPublicKey);
+
+      // Verifica che sia stata salvata correttamente
+      final savedKey = await _storage.read(key: 'partner_public_key');
+      if (kDebugMode) {
+        print('✅ [PAIRING] Verification: key saved = ${savedKey != null}');
+        if (savedKey != null) {
+          print('   Saved key matches: ${savedKey == partnerPublicKey}');
+        }
+      }
 
       // IMPORTANTE: Ferma il vecchio listener prima di cambiare familyChatId
       // Altrimenti rimane un listener attivo sulla vecchia famiglia che può causare unpair
@@ -89,7 +112,10 @@ class PairingService extends ChangeNotifier {
       notifyListeners();
 
       if (kDebugMode) {
-        print('✅ Partner public key imported: ${partnerPublicKey.substring(0, 20)}...');
+        print('✅ [PAIRING] Partner public key imported successfully');
+        print('   Partner key: ${partnerPublicKey.substring(0, 20)}...');
+        print('   _isPaired = true');
+        print('   UI should now show chat screen');
       }
 
       return true;
@@ -196,7 +222,8 @@ class PairingService extends ChangeNotifier {
         .doc(chatId)
         .collection('users')
         .snapshots()
-        .listen((snapshot) async {
+        .listen(
+      (snapshot) async {
       final userCount = snapshot.docs.length;
 
       if (kDebugMode) print('👥 Family users count: $userCount');
@@ -216,7 +243,12 @@ class PairingService extends ChangeNotifier {
 
         if (iAmPresent && userCount == 1) {
           // Solo io presente → partner ha fatto unpair
-          if (kDebugMode) print('⚠️ Partner ha fatto unpair (stato: solo 1 user), facciamo unpair automatico');
+          if (kDebugMode) {
+            print('⚠️ [PAIRING] Partner unpaired detected!');
+            print('   User count: $userCount (only me)');
+            print('   Family was complete: $_familyWasComplete');
+            print('   Triggering auto-unpair...');
+          }
 
           // Fai unpair locale
           await _storage.delete(key: 'partner_public_key');
@@ -230,10 +262,14 @@ class PairingService extends ChangeNotifier {
           // Notifica i listener (Provider)
           notifyListeners();
 
-          if (kDebugMode) print('✅ Unpair automatico completato');
+          if (kDebugMode) print('✅ [PAIRING] Auto-unpair completed (partner left)');
         } else if (!iAmPresent && userCount == 0) {
           // Nessuno presente → famiglia vuota
-          if (kDebugMode) print('⚠️ Famiglia vuota, facciamo unpair automatico');
+          if (kDebugMode) {
+            print('⚠️ [PAIRING] Family empty detected!');
+            print('   User count: 0');
+            print('   Triggering auto-unpair...');
+          }
 
           await _storage.delete(key: 'partner_public_key');
           _isPaired = false;
@@ -241,12 +277,25 @@ class PairingService extends ChangeNotifier {
           _familyWasComplete = false; // Reset per il prossimo pairing
           stopListeningToPairingStatus();
           notifyListeners();
+
+          if (kDebugMode) print('✅ [PAIRING] Auto-unpair completed (family empty)');
         }
       } else if (userCount < 2 && !_familyWasComplete && kDebugMode) {
         // Pairing iniziale in corso - aspettiamo il partner
         print('⏳ Pairing in corso, aspettando il partner... ($userCount/2 users)');
       }
-    });
+    },
+    onError: (error) {
+      // 🔧 FIX: NON fare unpair in caso di errori di connessione!
+      // Gli errori sono normali quando l'app è offline
+      if (kDebugMode) {
+        print('⚠️ [PAIRING] Listener error (probably offline): $error');
+        print('   Keeping paired status unchanged (offline resilience)');
+        print('   _isPaired still = $_isPaired');
+      }
+      // Mantieni _isPaired e _partnerPublicKey invariati
+    },
+  );
   }
 
   @override

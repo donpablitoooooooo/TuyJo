@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -17,17 +18,52 @@ class ChatScreen extends StatefulWidget {
 
 class _ChatScreenState extends State<ChatScreen> {
   final _messageController = TextEditingController();
+  final _scrollController = ScrollController();
   bool _isLoading = true;
+  bool _hasText = false;
   String? _familyChatId;
   String? _myDeviceId;
   String? _partnerPublicKey;
   bool _lastPairingStatus = false;
   String? _lastFamilyChatId;
+  Timer? _typingTimer;
+  int _lastMessageCount = 0;
+  bool _isInitializing = true; // Track se siamo nella fase di caricamento iniziale
+  bool _hasScrolledToBottomOnce = false; // Track se abbiamo fatto lo scroll iniziale
 
   @override
   void initState() {
     super.initState();
     // Non chiamiamo _initialize qui, aspettiamo didChangeDependencies
+
+    // Listen per cambiamenti nel text field
+    _messageController.addListener(() {
+      final hasText = _messageController.text.trim().isNotEmpty;
+      if (hasText != _hasText) {
+        setState(() {
+          _hasText = hasText;
+        });
+      }
+
+      // Typing indicator logic
+      if (hasText) {
+        _onUserTyping();
+      }
+    });
+  }
+
+  void _onUserTyping() {
+    // Invia typing status
+    if (_familyChatId != null && _myDeviceId != null) {
+      final chatService = Provider.of<ChatService>(context, listen: false);
+      chatService.setTypingStatus(_familyChatId!, _myDeviceId!, true);
+
+      // Reset timer - dopo 2 secondi di inattività, imposta typing = false
+      _typingTimer?.cancel();
+      _typingTimer = Timer(const Duration(seconds: 2), () {
+        chatService.setTypingStatus(_familyChatId!, _myDeviceId!, false);
+      });
+    }
   }
 
   @override
@@ -65,6 +101,11 @@ class _ChatScreenState extends State<ChatScreen> {
         if (kDebugMode) print('🔇 Stopped old listeners for chat: ${_lastFamilyChatId?.substring(0, 10)}...');
       }
 
+      // Reset scroll state per nuovo caricamento
+      _isInitializing = true;
+      _hasScrolledToBottomOnce = false;
+      _lastMessageCount = 0;
+
       _initialize();
     }
 
@@ -73,6 +114,9 @@ class _ChatScreenState extends State<ChatScreen> {
   }
 
   Future<void> _initialize() async {
+    if (kDebugMode) print('⏱️ [CHAT_SCREEN] Starting chat initialization...');
+    final startTime = DateTime.now();
+
     final pairingService = Provider.of<PairingService>(context, listen: false);
     final chatService = Provider.of<ChatService>(context, listen: false);
     final notificationService = Provider.of<NotificationService>(context, listen: false);
@@ -93,29 +137,60 @@ class _ChatScreenState extends State<ChatScreen> {
         chatService.setMyDeviceId(_myDeviceId!);
       }
 
-      // Avvia listener per la chat
-      chatService.startListening(_familyChatId!);
-      print('✅ Firestore listener started for chat');
+      // Avvia listener per la chat (carica cache e connette Firestore in background)
+      if (kDebugMode) print('⏱️ [CHAT_SCREEN] Starting Firestore listener...');
+      final listenerStart = DateTime.now();
+      await chatService.startListening(_familyChatId!); // AWAIT per garantire che cache sia caricata
+      final listenerDuration = DateTime.now().difference(listenerStart);
+      if (kDebugMode) print('⏱️ [CHAT_SCREEN] Listener started in ${listenerDuration.inMilliseconds}ms');
 
-      // Salva il token FCM in Firestore
+      // 🔧 FIX: Nascondi loader DOPO che la cache è stata caricata
+      // Questo garantisce che il prossimo build avrà già i messaggi pronti per lo scroll
+      setState(() => _isLoading = false);
+
+      final totalDuration = DateTime.now().difference(startTime);
+      if (kDebugMode) print('⏱️ [CHAT_SCREEN] Chat initialization complete in ${totalDuration.inMilliseconds}ms');
+
+      // Salva il token FCM in Firestore (in background, non blocca la UI)
       if (_myDeviceId != null) {
-        await notificationService.saveTokenToFirestore(_familyChatId!, _myDeviceId!);
+        // Non await - lascia che succeda in background
+        notificationService.saveTokenToFirestore(_familyChatId!, _myDeviceId!).catchError((e) {
+          if (kDebugMode) print('⚠️ Error saving FCM token (probably offline): $e');
+        });
 
-        // UNPAIR SYNC: Avvia background listener DOPO aver salvato i token FCM
-        // Questo evita race condition (listener che parte prima del salvataggio)
+        // UNPAIR SYNC: Avvia background listener
         pairingService.startBackgroundUnpairListener();
       }
     } else {
       print('❌ Cannot start listener - missing chat ID or partner public key');
-    }
+      setState(() => _isLoading = false);
 
-    setState(() => _isLoading = false);
+      final totalDuration = DateTime.now().difference(startTime);
+      if (kDebugMode) print('⏱️ [CHAT_SCREEN] Chat initialization failed in ${totalDuration.inMilliseconds}ms');
+    }
   }
 
   @override
   void dispose() {
     _messageController.dispose();
+    _scrollController.dispose();
+    _typingTimer?.cancel();
     super.dispose();
+  }
+
+  /// Scrolla automaticamente in fondo alla lista (messaggi più recenti)
+  void _scrollToBottom({bool animated = true}) {
+    if (!_scrollController.hasClients) return;
+
+    if (animated) {
+      _scrollController.animateTo(
+        _scrollController.position.maxScrollExtent,
+        duration: const Duration(milliseconds: 300),
+        curve: Curves.easeOut,
+      );
+    } else {
+      _scrollController.jumpTo(_scrollController.position.maxScrollExtent);
+    }
   }
 
   void _completeTodo(String todoId) async {
@@ -195,6 +270,9 @@ class _ChatScreenState extends State<ChatScreen> {
       return;
     }
 
+    final messageText = _messageController.text.trim();
+    _messageController.clear(); // Clear subito per UX migliore
+
     // BLOCCO INVIO: Verifica che siamo in pairing
     final pairingService = Provider.of<PairingService>(context, listen: false);
     if (!pairingService.isPaired) {
@@ -225,7 +303,7 @@ class _ChatScreenState extends State<ChatScreen> {
     print('📤 Sending message...');
     print('   To family chat: $_familyChatId');
     print('   From device: $_myDeviceId');
-    print('   Content: ${_messageController.text.trim()}');
+    print('   Content: $messageText');
 
     final chatService = Provider.of<ChatService>(context, listen: false);
     final encryptionService = Provider.of<EncryptionService>(context, listen: false);
@@ -241,7 +319,7 @@ class _ChatScreenState extends State<ChatScreen> {
     }
 
     final success = await chatService.sendMessage(
-      _messageController.text.trim(),
+      messageText,
       _familyChatId!,
       _myDeviceId!,
       myPublicKey, // Chiave pubblica del mittente (per dual encryption)
@@ -250,7 +328,8 @@ class _ChatScreenState extends State<ChatScreen> {
 
     if (success) {
       print('✅ Message sent successfully with dual encryption');
-      _messageController.clear();
+      // Scrolla in fondo dopo l'invio
+      WidgetsBinding.instance.addPostFrameCallback((_) => _scrollToBottom());
     } else {
       print('❌ Message send failed');
       ScaffoldMessenger.of(context).showSnackBar(
@@ -263,6 +342,71 @@ class _ChatScreenState extends State<ChatScreen> {
   Widget build(BuildContext context) {
     final chatService = Provider.of<ChatService>(context);
     final pairingService = Provider.of<PairingService>(context);
+
+    // Auto-scroll logic migliorato per gestire il caricamento iniziale
+    final currentCount = chatService.messages.length;
+    final isFirstLoad = _lastMessageCount == 0 && currentCount > 0;
+    final isSingleNewMessage = currentCount == _lastMessageCount + 1;
+    final hasNewMessages = currentCount != _lastMessageCount;
+
+    if (kDebugMode && hasNewMessages) {
+      print('📜 [SCROLL] Messages changed: $_lastMessageCount → $currentCount');
+      print('   isInitializing: $_isInitializing');
+      print('   isFirstLoad: $isFirstLoad');
+      print('   isSingleNewMessage: $isSingleNewMessage');
+      print('   isLoadingFromCache: ${chatService.isLoadingFromCache}');
+    }
+
+    // FASE 1: Durante inizializzazione, scrolla SEMPRE in fondo quando i messaggi cambiano
+    if (_isInitializing && currentCount > 0 && hasNewMessages) {
+      _lastMessageCount = currentCount;
+
+      if (kDebugMode) print('📜 [SCROLL] Initializing - scrolling to bottom');
+
+      // Usa doppio scheduling per garantire che il ListView sia pronto
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted && _scrollController.hasClients) {
+          // Jump immediato (no animation durante init)
+          _scrollToBottom(animated: false);
+
+          if (kDebugMode) print('✅ [SCROLL] Scrolled to bottom (initialization)');
+
+          // Dopo il primo scroll, aspetta un po' prima di marcare come "initialized"
+          // Questo permette al Firestore sync di completare
+          if (!_hasScrolledToBottomOnce) {
+            _hasScrolledToBottomOnce = true;
+
+            // Aspetta 500ms dopo il primo scroll, poi marca come initialized
+            Future.delayed(const Duration(milliseconds: 500), () {
+              if (mounted) {
+                setState(() {
+                  _isInitializing = false;
+                  if (kDebugMode) print('✅ [SCROLL] Initialization complete');
+                });
+              }
+            });
+          }
+        }
+      });
+    }
+    // FASE 2: Dopo inizializzazione, scrolla SOLO per nuovi messaggi singoli
+    else if (!_isInitializing && isSingleNewMessage && chatService.messages.isNotEmpty) {
+      _lastMessageCount = currentCount;
+
+      if (kDebugMode) print('📜 [SCROLL] New message - smooth scroll to bottom');
+
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted && _scrollController.hasClients) {
+          _scrollToBottom(animated: true);
+          if (kDebugMode) print('✅ [SCROLL] Scrolled to bottom (new message)');
+        }
+      });
+    }
+    // FASE 3: Aggiorna count senza scrollare (es. bulk updates)
+    else if (hasNewMessages) {
+      _lastMessageCount = currentCount;
+      if (kDebugMode) print('📜 [SCROLL] Count updated without scroll (bulk update)');
+    }
 
     if (_isLoading) {
       return const Scaffold(
@@ -323,8 +467,10 @@ class _ChatScreenState extends State<ChatScreen> {
                     ),
                   )
                 : ListView.builder(
+                    controller: _scrollController,
                     padding: const EdgeInsets.all(16),
                     itemCount: chatService.messages.length,
+                    reverse: false,
                     itemBuilder: (context, index) {
                       final message = chatService.messages[index];
                       final isMe = message.senderId == _myDeviceId;
@@ -346,6 +492,7 @@ class _ChatScreenState extends State<ChatScreen> {
                       // Renderizza il tipo di messaggio appropriato
                       if (message.messageType == 'todo') {
                         return _TodoMessageBubble(
+                          key: ValueKey(message.id),
                           message: message,
                           isMe: isMe,
                           isCompleted: isTodoCompleted,
@@ -356,6 +503,7 @@ class _ChatScreenState extends State<ChatScreen> {
                         final decryptedContent = message.decryptedContent ?? '[Messaggio non decifrabile]';
 
                         return _MessageBubble(
+                          key: ValueKey(message.id),
                           message: decryptedContent,
                           timestamp: message.timestamp,
                           isMe: isMe,
@@ -365,47 +513,94 @@ class _ChatScreenState extends State<ChatScreen> {
                   ),
           ),
           Container(
-            padding: const EdgeInsets.all(8),
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
             decoration: BoxDecoration(
               color: Colors.white,
               boxShadow: [
                 BoxShadow(
-                  color: Colors.grey.withOpacity(0.2),
+                  color: Colors.black.withOpacity(0.05),
                   spreadRadius: 1,
-                  blurRadius: 5,
+                  blurRadius: 10,
+                  offset: const Offset(0, -2),
                 ),
               ],
             ),
-            child: Row(
-              children: [
-                IconButton(
-                  onPressed: _showCreateTodoDialog,
-                  icon: const Icon(Icons.calendar_today),
-                  color: Colors.orange,
-                  tooltip: 'Crea To Do',
-                ),
-                Expanded(
-                  child: TextField(
-                    controller: _messageController,
-                    decoration: const InputDecoration(
-                      hintText: 'Scrivi un messaggio...',
-                      border: OutlineInputBorder(),
-                      contentPadding: EdgeInsets.symmetric(
-                        horizontal: 16,
-                        vertical: 8,
+            child: SafeArea(
+              child: Row(
+                children: [
+                  IconButton(
+                    onPressed: _showCreateTodoDialog,
+                    icon: const Icon(Icons.add_circle_outline),
+                    color: const Color(0xFF667eea),
+                    tooltip: 'Crea To Do',
+                    iconSize: 28,
+                  ),
+                  const SizedBox(width: 4),
+                  Expanded(
+                    child: Container(
+                      decoration: BoxDecoration(
+                        color: Colors.grey[100],
+                        borderRadius: BorderRadius.circular(24),
+                      ),
+                      child: TextField(
+                        controller: _messageController,
+                        decoration: InputDecoration(
+                          hintText: 'Scrivi un messaggio...',
+                          hintStyle: TextStyle(color: Colors.grey[500]),
+                          border: InputBorder.none,
+                          contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 20,
+                            vertical: 12,
+                          ),
+                        ),
+                        maxLines: null,
+                        textCapitalization: TextCapitalization.sentences,
+                        onSubmitted: (_) => _sendMessage(),
                       ),
                     ),
-                    maxLines: null,
-                    onSubmitted: (_) => _sendMessage(),
                   ),
-                ),
-                const SizedBox(width: 8),
-                IconButton(
-                  onPressed: _sendMessage,
-                  icon: const Icon(Icons.send),
-                  color: Theme.of(context).colorScheme.primary,
-                ),
-              ],
+                  const SizedBox(width: 8),
+                  AnimatedScale(
+                    scale: _hasText ? 1.0 : 0.8,
+                    duration: const Duration(milliseconds: 200),
+                    curve: Curves.easeOutBack,
+                    child: AnimatedContainer(
+                      duration: const Duration(milliseconds: 200),
+                      decoration: BoxDecoration(
+                        gradient: _hasText
+                            ? const LinearGradient(
+                                colors: [
+                                  Color(0xFF667eea),
+                                  Color(0xFF764ba2),
+                                ],
+                              )
+                            : LinearGradient(
+                                colors: [
+                                  Colors.grey[300]!,
+                                  Colors.grey[400]!,
+                                ],
+                              ),
+                        shape: BoxShape.circle,
+                        boxShadow: _hasText
+                            ? [
+                                BoxShadow(
+                                  color: const Color(0xFF667eea).withOpacity(0.4),
+                                  blurRadius: 8,
+                                  offset: const Offset(0, 2),
+                                ),
+                              ]
+                            : [],
+                      ),
+                      child: IconButton(
+                        onPressed: _hasText ? _sendMessage : null,
+                        icon: const Icon(Icons.send_rounded),
+                        color: Colors.white,
+                        iconSize: 22,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
         ],
@@ -414,57 +609,170 @@ class _ChatScreenState extends State<ChatScreen> {
   }
 }
 
-class _MessageBubble extends StatelessWidget {
+class _MessageBubble extends StatefulWidget {
   final String message;
   final DateTime timestamp;
   final bool isMe;
 
   const _MessageBubble({
+    super.key,
     required this.message,
     required this.timestamp,
     required this.isMe,
   });
 
   @override
+  State<_MessageBubble> createState() => _MessageBubbleState();
+}
+
+class _MessageBubbleState extends State<_MessageBubble>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _controller;
+  late Animation<double> _fadeAnimation;
+  late Animation<Offset> _slideAnimation;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      duration: const Duration(milliseconds: 300),
+      vsync: this,
+    );
+
+    _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(parent: _controller, curve: Curves.easeOut),
+    );
+
+    _slideAnimation = Tween<Offset>(
+      begin: widget.isMe ? const Offset(0.3, 0) : const Offset(-0.3, 0),
+      end: Offset.zero,
+    ).animate(
+      CurvedAnimation(parent: _controller, curve: Curves.easeOutCubic),
+    );
+
+    _controller.forward();
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
-      child: Row(
-        mainAxisAlignment:
-            isMe ? MainAxisAlignment.end : MainAxisAlignment.start,
-        children: [
-          Container(
-            constraints: BoxConstraints(
-              maxWidth: MediaQuery.of(context).size.width * 0.7,
-            ),
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: isMe
-                  ? Theme.of(context).colorScheme.primary
-                  : Colors.grey[300],
-              borderRadius: BorderRadius.circular(16),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  message,
-                  style: TextStyle(
-                    color: isMe ? Colors.white : Colors.black87,
+    return SlideTransition(
+      position: _slideAnimation,
+      child: FadeTransition(
+        opacity: _fadeAnimation,
+        child: Padding(
+          padding: const EdgeInsets.only(bottom: 12, left: 8, right: 8),
+          child: Row(
+            mainAxisAlignment:
+                widget.isMe ? MainAxisAlignment.end : MainAxisAlignment.start,
+            children: [
+              Container(
+                constraints: BoxConstraints(
+                  maxWidth: MediaQuery.of(context).size.width * 0.75,
+                ),
+                decoration: BoxDecoration(
+                  gradient: widget.isMe
+                      ? const LinearGradient(
+                          colors: [
+                            Color(0xFF667eea), // Purple
+                            Color(0xFF764ba2), // Deep purple
+                          ],
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                        )
+                      : LinearGradient(
+                          colors: [
+                            Colors.grey[200]!,
+                            Colors.grey[100]!,
+                          ],
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                        ),
+                  borderRadius: BorderRadius.only(
+                    topLeft: const Radius.circular(20),
+                    topRight: const Radius.circular(20),
+                    bottomLeft: widget.isMe
+                        ? const Radius.circular(20)
+                        : const Radius.circular(4),
+                    bottomRight: widget.isMe
+                        ? const Radius.circular(4)
+                        : const Radius.circular(20),
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: widget.isMe
+                          ? const Color(0xFF667eea).withOpacity(0.3)
+                          : Colors.black.withOpacity(0.08),
+                      blurRadius: 8,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
+                ),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.only(
+                    topLeft: const Radius.circular(20),
+                    topRight: const Radius.circular(20),
+                    bottomLeft: widget.isMe
+                        ? const Radius.circular(20)
+                        : const Radius.circular(4),
+                    bottomRight: widget.isMe
+                        ? const Radius.circular(4)
+                        : const Radius.circular(20),
+                  ),
+                  child: Material(
+                    color: Colors.transparent,
+                    child: InkWell(
+                      onTap: () {
+                        // Future: show message details or reactions
+                      },
+                      splashColor: Colors.white.withOpacity(0.2),
+                      highlightColor: Colors.white.withOpacity(0.1),
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 10,
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              widget.message,
+                              style: TextStyle(
+                                color: widget.isMe ? Colors.white : Colors.black87,
+                                fontSize: 15,
+                                height: 1.4,
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Text(
+                                  DateFormat('HH:mm').format(widget.timestamp),
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    color: widget.isMe
+                                        ? Colors.white.withOpacity(0.8)
+                                        : Colors.black54,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
                   ),
                 ),
-                const SizedBox(height: 4),
-                Text(
-                  DateFormat('HH:mm').format(timestamp),
-                  style: TextStyle(
-                    fontSize: 10,
-                    color: isMe ? Colors.white70 : Colors.black54,
-                  ),
-                ),
-              ],
-            ),
+              ),
+            ],
           ),
-        ],
+        ),
       ),
     );
   }
@@ -477,6 +785,7 @@ class _TodoMessageBubble extends StatelessWidget {
   final VoidCallback onComplete;
 
   const _TodoMessageBubble({
+    super.key,
     required this.message,
     required this.isMe,
     required this.isCompleted,

@@ -13,21 +13,42 @@ class MainScreen extends StatefulWidget {
 
 class _MainScreenState extends State<MainScreen> {
   int _selectedIndex = 0;
+  bool _isInitialized = false;
 
   @override
   void initState() {
     super.initState();
-    _setInitialTab();
+    _initializeTab();
   }
 
-  void _setInitialTab() {
-    final pairingService = Provider.of<PairingService>(context, listen: false);
-    final isPaired = pairingService.isPaired;
+  Future<void> _initializeTab() async {
+    print('⏱️ [MAIN_SCREEN] Starting tab initialization...');
+    final startTime = DateTime.now();
 
-    setState(() {
-      // Se paired, mostra Chat (index 0), altrimenti Impostazioni (index 1)
-      _selectedIndex = isPaired ? 0 : 1;
-    });
+    // Aspetta che pairingService sia inizializzato
+    final pairingService = Provider.of<PairingService>(context, listen: false);
+
+    print('⏱️ [MAIN_SCREEN] Waiting for pairing service...');
+    final pairingStart = DateTime.now();
+
+    // Aspetta l'inizializzazione completa (no timeout - deve completare)
+    await pairingService.initialize();
+
+    final pairingDuration = DateTime.now().difference(pairingStart);
+    print('⏱️ [MAIN_SCREEN] Pairing service ready in ${pairingDuration.inMilliseconds}ms');
+    print('   isPaired: ${pairingService.isPaired}');
+
+    if (mounted) {
+      setState(() {
+        // Se paired, mostra Chat (index 0), altrimenti Impostazioni (index 1)
+        _selectedIndex = pairingService.isPaired ? 0 : 1;
+        _isInitialized = true;
+      });
+    }
+
+    final totalDuration = DateTime.now().difference(startTime);
+    print('⏱️ [MAIN_SCREEN] Tab initialization complete in ${totalDuration.inMilliseconds}ms');
+    print('   Selected tab: ${_selectedIndex == 0 ? "Chat" : "Settings"}');
   }
 
   void _onItemTapped(int index) {
@@ -38,6 +59,15 @@ class _MainScreenState extends State<MainScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // Mostra loader mentre si inizializza
+    if (!_isInitialized) {
+      return const Scaffold(
+        body: Center(
+          child: CircularProgressIndicator(),
+        ),
+      );
+    }
+
     final List<Widget> screens = [
       const ChatScreen(),
       const SettingsScreen(),
