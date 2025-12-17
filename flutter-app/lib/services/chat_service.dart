@@ -289,8 +289,6 @@ class ChatService extends ChangeNotifier {
                       message.timestamp.isAfter(now.subtract(const Duration(minutes: 5)))) {
                     // Aggiorna il timestamp a now() per farlo apparire fresco
                     _updateReminderTimestamp(message.id, familyChatId);
-                    // Aggiorna anche localmente per evitare delay
-                    message.timestamp = now;
                   }
                 }
 
@@ -306,6 +304,31 @@ class ChatService extends ChangeNotifier {
                   }
                 } catch (e) {
                   if (kDebugMode) print('❌ Error caching message: $e');
+                }
+              }
+            } else if (change.type == DocumentChangeType.modified) {
+              // Gestisci modifiche ai messaggi esistenti (es. timestamp update per reminder)
+              final updatedMessage = Message.fromFirestore(
+                change.doc.id,
+                change.doc.data()!,
+              );
+
+              // Trova e aggiorna il messaggio esistente
+              final index = _messages.indexWhere((m) => m.id == updatedMessage.id);
+              if (index != -1) {
+                // Decrypt e popola i campi
+                if (_myDeviceId != null) {
+                  _decryptAndPopulateMessage(updatedMessage, _myDeviceId!);
+                }
+
+                // Sostituisci il messaggio vecchio con quello aggiornato
+                _messages[index] = updatedMessage;
+
+                // Riordina perché il timestamp potrebbe essere cambiato
+                _messages.sort((a, b) => b.timestamp.compareTo(a.timestamp));
+
+                if (kDebugMode) {
+                  print('📝 Message updated: ${updatedMessage.id}');
                 }
               }
             }
