@@ -399,6 +399,7 @@ class ChatService extends ChangeNotifier {
         'type': 'todo',
         'body': content,
         'due_date': dueDate.toIso8601String(),
+        'is_reminder': false,
       });
 
       // Cifra con dual encryption
@@ -432,6 +433,64 @@ class ChatService extends ChangeNotifier {
       return true;
     } catch (e) {
       if (kDebugMode) print('❌ Send todo error: $e');
+      return false;
+    }
+  }
+
+  /// Invia un messaggio di reminder per un todo (con icona campanello)
+  /// Questo messaggio viene inviato insieme al todo originale, ma nascosto fino al reminder time
+  Future<bool> sendTodoReminder(
+    String content,
+    DateTime reminderDate,
+    String familyChatId,
+    String senderId,
+    String senderPublicKey,
+    String recipientPublicKey,
+  ) async {
+    try {
+      final timestamp = DateTime.now();
+
+      // Costruisci il plaintext con type='todo', is_reminder=true
+      final plaintext = json.encode({
+        'sender': senderId,
+        'timestamp': timestamp.millisecondsSinceEpoch ~/ 1000,
+        'type': 'todo',
+        'body': content,
+        'due_date': reminderDate.toIso8601String(),
+        'is_reminder': true,
+      });
+
+      // Cifra con dual encryption
+      final encryptedPayload = _encryptionService.encryptMessageDual(
+        plaintext,
+        senderPublicKey,
+        recipientPublicKey,
+      );
+
+      // Scrivi nella chat condivisa
+      final messageRef = _firestore
+          .collection('families')
+          .doc(familyChatId)
+          .collection('messages')
+          .doc();
+
+      await messageRef.set({
+        'sender_id': senderId,
+        'encrypted_key_recipient': encryptedPayload['encryptedKeyRecipient'],
+        'encrypted_key_sender': encryptedPayload['encryptedKeySender'],
+        'iv': encryptedPayload['iv'],
+        'message': encryptedPayload['message'],
+        'created_at': timestamp.toIso8601String(),
+        'message_type': 'todo', // Campo non criptato per la Cloud Function
+      });
+
+      if (kDebugMode) {
+        print('🔔 Todo reminder sent to chat: ${messageRef.id}');
+        print('   Reminder date: ${reminderDate.toIso8601String()}');
+      }
+      return true;
+    } catch (e) {
+      if (kDebugMode) print('❌ Send todo reminder error: $e');
       return false;
     }
   }
@@ -563,13 +622,17 @@ class ChatService extends ChangeNotifier {
           // Popola i campi del todo
           message.dueDate = DateTime.parse(data['due_date']);
           message.completed = false;
+          message.isReminder = data['is_reminder'] ?? false;
 
-          // Schedula la notifica (1 ora prima)
-          _scheduleReminderNotification(message);
+          // Schedula la notifica solo per i todo normali (non per i reminder)
+          if (!message.isReminder!) {
+            _scheduleReminderNotification(message);
+          }
 
           if (kDebugMode) {
             print('📅 Todo message detected: ${message.decryptedContent}');
             print('   Due date: ${message.dueDate}');
+            print('   Is reminder: ${message.isReminder}');
           }
         } else if (message.messageType == 'todo_completed') {
           // Messaggio di completamento

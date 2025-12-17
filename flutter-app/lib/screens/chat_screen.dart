@@ -270,6 +270,7 @@ class _ChatScreenState extends State<ChatScreen> {
       return;
     }
 
+    // Invia il todo principale (icona calendario)
     final success = await chatService.sendTodo(
       content,
       dueDate,
@@ -281,6 +282,22 @@ class _ChatScreenState extends State<ChatScreen> {
 
     if (success) {
       if (kDebugMode) print('✅ Todo sent successfully');
+
+      // Invia anche il messaggio reminder (icona campanello)
+      // Questo messaggio apparirà quando scatta il reminder (1 ora prima)
+      final reminderDate = dueDate.subtract(const Duration(hours: 1));
+      final reminderSuccess = await chatService.sendTodoReminder(
+        content,
+        reminderDate,
+        _familyChatId!,
+        _myDeviceId!,
+        myPublicKey,
+        _partnerPublicKey!,
+      );
+
+      if (reminderSuccess && kDebugMode) {
+        print('🔔 Todo reminder sent successfully');
+      }
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Errore invio todo'), backgroundColor: Colors.red),
@@ -487,6 +504,14 @@ class _ChatScreenState extends State<ChatScreen> {
                             if (message.messageType == 'todo_completed') {
                               // Non mostrare i messaggi di completamento
                               return const SizedBox.shrink();
+                            }
+
+                            // Nascondi reminder futuri (non ancora scattati)
+                            if (message.messageType == 'todo' && message.isReminder == true) {
+                              if (message.dueDate != null && message.dueDate!.isAfter(DateTime.now())) {
+                                // Reminder non ancora scattato, nascondilo
+                                return const SizedBox.shrink();
+                              }
                             }
 
                             // Verifica se il todo è stato completato
@@ -873,14 +898,16 @@ class _TodoMessageBubble extends StatelessWidget {
                     ),
                   ),
 
-                  // Data e ora (icona campanello per notifica)
+                  // Data e ora (icona campanello per reminder, calendario per evento)
                   if (message.dueDate != null) ...[
                     const SizedBox(height: 8),
                     Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         Icon(
-                          Icons.notifications_outlined,
+                          message.isReminder == true
+                              ? Icons.notifications_outlined  // Campanello per reminder
+                              : Icons.calendar_today_outlined, // Calendario per evento
                           size: 14,
                           color: isMe
                               ? Colors.white.withOpacity(0.9)
@@ -888,7 +915,7 @@ class _TodoMessageBubble extends StatelessWidget {
                         ),
                         const SizedBox(width: 4),
                         Text(
-                          DateFormat('dd/MM/yyyy HH:mm').format(message.dueDate!.subtract(const Duration(hours: 1))),
+                          DateFormat('dd/MM/yyyy HH:mm').format(message.dueDate!),
                           style: TextStyle(
                             fontSize: 12,
                             color: isMe

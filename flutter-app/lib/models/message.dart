@@ -21,6 +21,7 @@ class Message {
   DateTime? dueDate;
   bool? completed;
   String? originalTodoId; // Per messaggi di tipo 'todo_completed'
+  bool? isReminder; // true se questo è un messaggio di reminder (icona campanello)
 
   Message({
     required this.id,
@@ -39,6 +40,7 @@ class Message {
     this.dueDate,
     this.completed,
     this.originalTodoId,
+    this.isReminder,
   });
 
   factory Message.fromJson(Map<String, dynamic> json) {
