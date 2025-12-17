@@ -125,6 +125,28 @@ class ChatService extends ChangeNotifier {
     }
   }
 
+  /// Aggiorna il timestamp di un messaggio reminder quando diventa visibile
+  /// Questo fa sì che il reminder appaia sempre "fresco" in cima alla chat
+  Future<void> _updateReminderTimestamp(String messageId, String familyChatId) async {
+    try {
+      final now = DateTime.now();
+      await _firestore
+          .collection('families')
+          .doc(familyChatId)
+          .collection('messages')
+          .doc(messageId)
+          .update({
+        'created_at': now.toIso8601String(),
+      });
+
+      if (kDebugMode) {
+        print('🔔 Updated reminder timestamp to now: $messageId');
+      }
+    } catch (e) {
+      if (kDebugMode) print('❌ Error updating reminder timestamp: $e');
+    }
+  }
+
   // Connetti al Firestore listener per la chat
   Future<void> startListening(String familyChatId) async {
     if (kDebugMode) print('⏱️ [CHAT_SERVICE] startListening called');
@@ -256,6 +278,20 @@ class ChatService extends ChangeNotifier {
                   _decryptAndPopulateMessage(message, _myDeviceId!);
                 }
 
+                // 🔔 REMINDER TIMESTAMP UPDATE
+                // Se questo è un reminder appena diventato visibile, aggiorna il timestamp
+                if (message.messageType == 'todo' &&
+                    message.isReminder == true &&
+                    message.senderId == _myDeviceId) { // Solo il mittente aggiorna
+                  final now = DateTime.now();
+                  // Se il reminder è appena scattato (entro 5 minuti)
+                  if (message.timestamp.isBefore(now) &&
+                      message.timestamp.isAfter(now.subtract(const Duration(minutes: 5)))) {
+                    // Aggiorna il timestamp a now() per farlo apparire fresco
+                    _updateReminderTimestamp(message.id, familyChatId);
+                  }
+                }
+
                 _messages.add(message);
                 // Ordina DESC (nuovi->vecchi) per ListView.reverse: true
                 _messages.sort((a, b) => b.timestamp.compareTo(a.timestamp));
@@ -268,6 +304,31 @@ class ChatService extends ChangeNotifier {
                   }
                 } catch (e) {
                   if (kDebugMode) print('❌ Error caching message: $e');
+                }
+              }
+            } else if (change.type == DocumentChangeType.modified) {
+              // Gestisci modifiche ai messaggi esistenti (es. timestamp update per reminder)
+              final updatedMessage = Message.fromFirestore(
+                change.doc.id,
+                change.doc.data()!,
+              );
+
+              // Trova e aggiorna il messaggio esistente
+              final index = _messages.indexWhere((m) => m.id == updatedMessage.id);
+              if (index != -1) {
+                // Decrypt e popola i campi
+                if (_myDeviceId != null) {
+                  _decryptAndPopulateMessage(updatedMessage, _myDeviceId!);
+                }
+
+                // Sostituisci il messaggio vecchio con quello aggiornato
+                _messages[index] = updatedMessage;
+
+                // Riordina perché il timestamp potrebbe essere cambiato
+                _messages.sort((a, b) => b.timestamp.compareTo(a.timestamp));
+
+                if (kDebugMode) {
+                  print('📝 Message updated: ${updatedMessage.id}');
                 }
               }
             }
@@ -399,6 +460,7 @@ class ChatService extends ChangeNotifier {
         'type': 'todo',
         'body': content,
         'due_date': dueDate.toIso8601String(),
+        'is_reminder': false,
       });
 
       // Cifra con dual encryption
@@ -432,6 +494,63 @@ class ChatService extends ChangeNotifier {
       return true;
     } catch (e) {
       if (kDebugMode) print('❌ Send todo error: $e');
+      return false;
+    }
+  }
+
+  /// Invia un messaggio di reminder per un todo (con icona campanello)
+  /// Questo messaggio viene inviato insieme al todo originale, ma nascosto fino al reminder time
+  Future<bool> sendTodoReminder(
+    String content,
+    DateTime reminderDate,
+    String familyChatId,
+    String senderId,
+    String senderPublicKey,
+    String recipientPublicKey,
+  ) async {
+    try {
+      // IMPORTANTE: usa reminderDate come timestamp per cronologia corretta
+      // Il messaggio apparirà cronologicamente quando scatta il reminder
+      final plaintext = json.encode({
+        'sender': senderId,
+        'timestamp': reminderDate.millisecondsSinceEpoch ~/ 1000,
+        'type': 'todo',
+        'body': content,
+        'due_date': reminderDate.toIso8601String(),
+        'is_reminder': true,
+      });
+
+      // Cifra con dual encryption
+      final encryptedPayload = _encryptionService.encryptMessageDual(
+        plaintext,
+        senderPublicKey,
+        recipientPublicKey,
+      );
+
+      // Scrivi nella chat condivisa
+      final messageRef = _firestore
+          .collection('families')
+          .doc(familyChatId)
+          .collection('messages')
+          .doc();
+
+      await messageRef.set({
+        'sender_id': senderId,
+        'encrypted_key_recipient': encryptedPayload['encryptedKeyRecipient'],
+        'encrypted_key_sender': encryptedPayload['encryptedKeySender'],
+        'iv': encryptedPayload['iv'],
+        'message': encryptedPayload['message'],
+        'created_at': reminderDate.toIso8601String(), // Usa reminderDate per cronologia
+        'message_type': 'todo', // Campo non criptato per la Cloud Function
+      });
+
+      if (kDebugMode) {
+        print('🔔 Todo reminder sent to chat: ${messageRef.id}');
+        print('   Reminder date (created_at): ${reminderDate.toIso8601String()}');
+      }
+      return true;
+    } catch (e) {
+      if (kDebugMode) print('❌ Send todo reminder error: $e');
       return false;
     }
   }
@@ -564,12 +683,20 @@ class ChatService extends ChangeNotifier {
           message.dueDate = DateTime.parse(data['due_date']);
           message.completed = false;
 
-          // Schedula la notifica (1 ora prima)
-          _scheduleReminderNotification(message);
+          // Parse is_reminder con logging per debug
+          final isReminderRaw = data['is_reminder'];
+          message.isReminder = isReminderRaw == true;
 
           if (kDebugMode) {
             print('📅 Todo message detected: ${message.decryptedContent}');
             print('   Due date: ${message.dueDate}');
+            print('   is_reminder (raw): $isReminderRaw (type: ${isReminderRaw.runtimeType})');
+            print('   isReminder (parsed): ${message.isReminder}');
+          }
+
+          // Schedula la notifica solo per i todo normali (non per i reminder)
+          if (!message.isReminder!) {
+            _scheduleReminderNotification(message);
           }
         } else if (message.messageType == 'todo_completed') {
           // Messaggio di completamento

@@ -270,6 +270,7 @@ class _ChatScreenState extends State<ChatScreen> {
       return;
     }
 
+    // Invia il todo principale (icona calendario)
     final success = await chatService.sendTodo(
       content,
       dueDate,
@@ -281,6 +282,22 @@ class _ChatScreenState extends State<ChatScreen> {
 
     if (success) {
       if (kDebugMode) print('✅ Todo sent successfully');
+
+      // Invia anche il messaggio reminder (icona campanello)
+      // Questo messaggio apparirà quando scatta il reminder (1 ora prima)
+      final reminderDate = dueDate.subtract(const Duration(hours: 1));
+      final reminderSuccess = await chatService.sendTodoReminder(
+        content,
+        reminderDate,
+        _familyChatId!,
+        _myDeviceId!,
+        myPublicKey,
+        _partnerPublicKey!,
+      );
+
+      if (reminderSuccess && kDebugMode) {
+        print('🔔 Todo reminder sent successfully');
+      }
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Errore invio todo'), backgroundColor: Colors.red),
@@ -375,17 +392,26 @@ class _ChatScreenState extends State<ChatScreen> {
     final hasNewMessages = currentCount != _lastMessageCount;
 
     // Scroll SOLO per nuovi messaggi singoli (quando qualcuno invia un messaggio)
+    // MA non scrollare per messaggi di completamento todo (per evitare scroll indesiderato dopo long press)
     if (isSingleNewMessage && chatService.messages.isNotEmpty) {
       _lastMessageCount = currentCount;
 
-      if (kDebugMode) print('📜 [SCROLL] New message - smooth scroll to bottom');
+      // Controlla se l'ultimo messaggio è un todo_completed (primo perché reverse: true)
+      final lastMessage = chatService.messages.first;
+      final shouldScroll = lastMessage.messageType != 'todo_completed';
 
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted && _scrollController.hasClients) {
-          _scrollToBottom(animated: true);
-          if (kDebugMode) print('✅ [SCROLL] Scrolled to bottom (new message)');
-        }
-      });
+      if (shouldScroll) {
+        if (kDebugMode) print('📜 [SCROLL] New message - smooth scroll to bottom');
+
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted && _scrollController.hasClients) {
+            _scrollToBottom(animated: true);
+            if (kDebugMode) print('✅ [SCROLL] Scrolled to bottom (new message)');
+          }
+        });
+      } else {
+        if (kDebugMode) print('📜 [SCROLL] Todo completed - no auto-scroll');
+      }
     }
     // Aggiorna count senza scrollare (caricamento iniziale o bulk updates)
     else if (hasNewMessages) {
@@ -487,6 +513,15 @@ class _ChatScreenState extends State<ChatScreen> {
                             if (message.messageType == 'todo_completed') {
                               // Non mostrare i messaggi di completamento
                               return const SizedBox.shrink();
+                            }
+
+                            // Nascondi reminder futuri (non ancora scattati)
+                            // Controlliamo il timestamp perché created_at = reminderDate per i reminder
+                            if (message.messageType == 'todo' && message.isReminder == true) {
+                              if (message.timestamp.isAfter(DateTime.now())) {
+                                // Reminder non ancora scattato, nascondilo
+                                return const SizedBox.shrink();
+                              }
                             }
 
                             // Verifica se il todo è stato completato
@@ -808,130 +843,146 @@ class _TodoMessageBubble extends StatelessWidget {
     final bool isPastDue = message.dueDate != null && message.dueDate!.isBefore(DateTime.now());
 
     return Padding(
-      padding: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.only(bottom: 12, left: 8, right: 8),
       child: Row(
         mainAxisAlignment: isMe ? MainAxisAlignment.end : MainAxisAlignment.start,
         children: [
-          Container(
-            constraints: BoxConstraints(
-              maxWidth: MediaQuery.of(context).size.width * 0.85,
-            ),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              border: Border.all(
-                color: isCompleted
-                    ? Colors.green
-                    : (isPastDue ? Colors.red : Colors.orange),
-                width: 2,
+          GestureDetector(
+            onLongPress: isCompleted ? null : onComplete, // Long press per completare
+            child: Container(
+              constraints: BoxConstraints(
+                maxWidth: MediaQuery.of(context).size.width * 0.75,
               ),
-              borderRadius: BorderRadius.circular(12),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.grey.withOpacity(0.3),
-                  spreadRadius: 1,
-                  blurRadius: 3,
+              decoration: BoxDecoration(
+                gradient: isMe
+                    ? const LinearGradient(
+                        colors: [
+                          Color(0xFF667eea), // Purple
+                          Color(0xFF764ba2), // Deep purple
+                        ],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                      )
+                    : LinearGradient(
+                        colors: [
+                          Colors.grey[200]!,
+                          Colors.grey[100]!,
+                        ],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                      ),
+                borderRadius: BorderRadius.only(
+                  topLeft: const Radius.circular(20),
+                  topRight: const Radius.circular(20),
+                  bottomLeft: isMe
+                      ? const Radius.circular(20)
+                      : const Radius.circular(4),
+                  bottomRight: isMe
+                      ? const Radius.circular(4)
+                      : const Radius.circular(20),
                 ),
-              ],
-            ),
-            padding: const EdgeInsets.all(12),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
+                boxShadow: [
+                  BoxShadow(
+                    color: isMe
+                        ? const Color(0xFF667eea).withOpacity(0.3)
+                        : Colors.black.withOpacity(0.08),
+                    blurRadius: 8,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
+              ),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 10,
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Icon(
-                      Icons.event,
-                      color: isCompleted
-                          ? Colors.green
-                          : (isPastDue ? Colors.red : Colors.orange),
-                      size: 20,
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        isCompleted ? 'To Do - Completato' : 'To Do',
-                        style: TextStyle(
-                          fontWeight: FontWeight.bold,
-                          color: isCompleted
-                              ? Colors.green
-                              : (isPastDue ? Colors.red : Colors.orange),
-                          fontSize: 14,
-                        ),
+                    // Testo del todo
+                    Text(
+                      message.decryptedContent ?? '',
+                      style: TextStyle(
+                        color: isMe ? Colors.white : Colors.black87,
+                        fontSize: 15,
+                        height: 1.4,
+                        decoration: isCompleted ? TextDecoration.lineThrough : null,
                       ),
                     ),
-                    if (!isCompleted)
+
+                    // Data e ora (icona campanello per reminder, calendario per evento)
+                    if (message.dueDate != null) ...[
+                      const SizedBox(height: 8),
+                      Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            message.isReminder == true
+                                ? Icons.notifications_outlined  // Campanello per reminder
+                                : Icons.calendar_today_outlined, // Calendario per evento
+                            size: 14,
+                            color: isMe
+                                ? Colors.white.withOpacity(0.9)
+                                : Colors.black54,
+                          ),
+                          const SizedBox(width: 4),
+                          Text(
+                            DateFormat('dd/MM/yyyy HH:mm').format(message.dueDate!),
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: isMe
+                                  ? Colors.white.withOpacity(0.9)
+                                  : Colors.black54,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+
+                    // Timestamp del messaggio
+                    const SizedBox(height: 4),
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          DateFormat('HH:mm').format(message.timestamp),
+                          style: TextStyle(
+                            fontSize: 11,
+                            color: isMe
+                                ? Colors.white.withOpacity(0.8)
+                                : Colors.black54,
+                          ),
+                        ),
+                        if (isCompleted) ...[
+                          const SizedBox(width: 6),
+                          Icon(
+                            Icons.check_circle,
+                            size: 12,
+                            color: isMe
+                                ? Colors.white.withOpacity(0.8)
+                                : Colors.green,
+                          ),
+                        ],
+                      ],
+                    ),
+
+                    // Hint per long press (solo se non completato)
+                    if (!isCompleted) ...[
+                      const SizedBox(height: 6),
                       Text(
-                        isMe ? 'Da te' : 'Dal partner',
+                        'Tieni premuto per completare',
                         style: TextStyle(
                           fontSize: 10,
-                          color: Colors.grey[600],
+                          color: isMe
+                              ? Colors.white.withOpacity(0.6)
+                              : Colors.black38,
+                          fontStyle: FontStyle.italic,
                         ),
                       ),
+                    ],
                   ],
                 ),
-                const Divider(),
-                Text(
-                  message.decryptedContent ?? '',
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w500,
-                    decoration: isCompleted ? TextDecoration.lineThrough : null,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                if (message.dueDate != null) ...[
-                  Row(
-                    children: [
-                      Icon(Icons.calendar_today, size: 16, color: Colors.grey[600]),
-                      const SizedBox(width: 4),
-                      Text(
-                        DateFormat('dd/MM/yyyy HH:mm').format(message.dueDate!),
-                        style: TextStyle(
-                          fontSize: 14,
-                          color: Colors.grey[700],
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 4),
-                  Row(
-                    children: [
-                      Icon(Icons.notifications, size: 16, color: Colors.grey[600]),
-                      const SizedBox(width: 4),
-                      Text(
-                        'Reminder: ${DateFormat('dd/MM/yyyy HH:mm').format(message.dueDate!.subtract(const Duration(hours: 1)))}',
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: Colors.grey[600],
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-                if (!isCompleted) ...[
-                  const SizedBox(height: 12),
-                  SizedBox(
-                    width: double.infinity,
-                    child: ElevatedButton.icon(
-                      onPressed: onComplete,
-                      icon: const Icon(Icons.check_circle, size: 18),
-                      label: const Text('Segna come completato'),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.green,
-                        foregroundColor: Colors.white,
-                      ),
-                    ),
-                  ),
-                ],
-                const SizedBox(height: 4),
-                Text(
-                  DateFormat('HH:mm').format(message.timestamp),
-                  style: TextStyle(
-                    fontSize: 10,
-                    color: Colors.grey[500],
-                  ),
-                ),
-              ],
+              ),
             ),
           ),
         ],
