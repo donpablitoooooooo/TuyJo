@@ -2,6 +2,43 @@
 
 All notable changes to YouAndMe app will be documented in this file.
 
+## [1.4.0] - 2025-12-17
+
+### 🎨 Added - UX Redesign
+- **Todo Message Redesign**: Todo con aspetto identico ai messaggi normali (stesso gradiente, bordi arrotondati, padding)
+- **Dynamic Icons**: Icone adattive - 📅 calendario per evento, 🔔 campanello per reminder
+- **Smart Reminder Messages**: Sistema dual-message - messaggio principale + messaggio reminder che appare automaticamente quando scatta
+- **Long Press to Complete**: Gesture intuitivo per completare todo (sostituisce bottone ingombrante)
+- **Hint Text**: Indicazione discreta "Tieni premuto per completare" (scompare quando completato)
+
+### ⚡ Performance & UX
+- **Dynamic Timestamps**: Reminder si auto-aggiorna all'ora corrente quando diventa visibile (resta sempre "fresco" in cima)
+- **Smart Auto-Scroll**: Chat rimane ferma dopo completamento todo (no scroll indesiderato)
+- **Automatic Reminder Cancellation**: Completi todo → notifica locale cancellata automaticamente
+
+### 🔧 Technical Changes
+- Aggiunto campo `isReminder` al modello `Message` per distinguere evento da reminder
+- Nuovo metodo `sendTodoReminder()` in `ChatService` per inviare messaggio campanello
+- Metodo `_updateReminderTimestamp()` per aggiornare timestamp reminder su Firestore
+- Handler eventi `DocumentChangeType.modified` nel listener per gestire update timestamp
+- Filtro reminder futuri basato su `message.timestamp` (nasconde fino al momento giusto)
+- Smart scroll: controlla `messageType != 'todo_completed'` prima di scrollare
+
+### 📝 Files Modified
+- `flutter-app/lib/models/message.dart` (+ campo `isReminder`)
+- `flutter-app/lib/services/chat_service.dart` (+ `sendTodoReminder()`, + `_updateReminderTimestamp()`, + handler modified)
+- `flutter-app/lib/screens/chat_screen.dart` (redesign `_TodoMessageBubble`, + long press, + smart scroll)
+- `flutter-app/pubspec.yaml` (version 1.3.0+4 → 1.4.0+5)
+- `README.md` (documentation v1.4.0)
+- `CHANGELOG.md` (this file)
+
+### 🐛 Fixed
+- Recipient icon bug: icona calendario anche per reminder (ora mostra campanello correttamente)
+- Timestamp final field error: rimosso assegnazione diretta (ora usa Firestore update + listener)
+- Auto-scroll after completion: disabilitato per messaggi `todo_completed`
+
+---
+
 ## [1.3.0] - 2025-12-17
 
 ### 🚀 Added

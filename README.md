@@ -2,7 +2,7 @@
 
 App di messaggistica privata per due persone con crittografia end-to-end e pairing tramite QR code.
 
-[![Status](https://img.shields.io/badge/status-v1.3.0--stable-success)](./README.md)
+[![Status](https://img.shields.io/badge/status-v1.4.0--stable-success)](./README.md)
 [![Flutter](https://img.shields.io/badge/Flutter-3.x-blue)](https://flutter.dev)
 [![Firebase](https://img.shields.io/badge/Firebase-Firestore-orange)](https://firebase.google.com)
 
@@ -55,6 +55,60 @@ App di messaggistica privata per due persone con crittografia end-to-end e pairi
 ---
 
 ## 📦 Aggiornamenti Recenti (Dicembre 2025)
+
+### 🎨 v1.4.0 - Todo UX Redesign & Smart Reminders (17 Dicembre 2025)
+
+**Nuove Feature:**
+
+1. **📅 Todo Redesign - Stile Messaggi**
+   - Todo con aspetto identico ai messaggi normali (stesso gradiente, bordi, padding)
+   - Rimossa intestazione "To Do" per UI più pulita
+   - Icone dinamiche: 📅 calendario (evento) o 🔔 campanello (reminder)
+   - Integrazione perfetta nel flusso di chat
+
+2. **🔔 Smart Reminder System**
+   - **Due messaggi automatici** quando crei un todo:
+     - Messaggio principale (📅) - visibile subito con data evento
+     - Messaggio reminder (🔔) - nascosto fino al momento del reminder
+   - Reminder appare automaticamente in chat quando scatta (1h prima evento)
+   - Timestamp dinamico: reminder si aggiorna all'ora corrente quando diventa visibile
+   - Resta sempre "fresco" in cima alla chat, non bloccato nel passato
+
+3. **👆 Long Press per Completare**
+   - Rimosso bottone ingombrante "Completa"
+   - Tieni premuto il messaggio todo → completato ✅
+   - Hint discreto "Tieni premuto per completare"
+   - UI più intuitiva e minimalista
+
+4. **🎯 Smart Auto-Scroll**
+   - Chat rimane ferma dopo long press (no scroll indesiderato)
+   - Auto-scroll solo per messaggi veri, non per completamenti
+   - Migliore UX quando si completa un todo
+
+5. **🛡️ Cancellazione Automatica Reminder**
+   - Completi todo → notifica locale cancellata automaticamente
+   - Il reminder non partirà se hai già completato l'attività
+
+**Miglioramenti UX:**
+- ✅ Todo visivamente indistinguibili dai messaggi normali
+- ✅ Reminder appare "magicamente" quando scatta
+- ✅ Long press naturale e intuitivo
+- ✅ Chat stabile (no scroll involontario)
+- ✅ Icone corrette per mittente E destinatario
+
+**File Modificati:**
+- `message.dart`: Aggiunto campo `isReminder` per distinguere i due tipi
+- `chat_service.dart`:
+  - Nuovo metodo `sendTodoReminder()` per messaggio campanello
+  - Auto-update timestamp reminder quando diventa visibile
+  - Handler eventi `modified` per aggiornamenti Firestore
+- `chat_screen.dart`:
+  - Redesign completo `_TodoMessageBubble` (long press + icone dinamiche)
+  - Filtro reminder futuri (nasconde fino al momento giusto)
+  - Smart auto-scroll (skip per `todo_completed`)
+- `pubspec.yaml`: Versione 1.3.0+4 → 1.4.0+5
+
+---
 
 ### 🚀 v1.3.0 - Lazy Loading & Performance (17 Dicembre 2025)
 
@@ -497,7 +551,7 @@ Aggiorna le security rules come indicato nella sezione Setup.
 
 ## 📊 Features Status
 
-### ✅ Implementato (v1.3)
+### ✅ Implementato (v1.4)
 - [x] Architettura RSA-only (no chiavi simmetriche nel QR)
 - [x] Dual encryption (sender + recipient access)
 - [x] RSA-2048 key generation
@@ -513,6 +567,11 @@ Aggiorna le security rules come indicato nella sezione Setup.
 - [x] **Notifiche locali** (foreground + background)
 - [x] **Cloud Functions** per invio notifiche automatico
 - [x] **To Do & Reminders** (notifiche schedulate 1h prima)
+- [x] **Smart Reminder Messages** (appaiono automaticamente in chat quando scattano)
+- [x] **Todo UX Redesign** (stile messaggi + icone dinamiche)
+- [x] **Long Press to Complete** (gesture intuitivo)
+- [x] **Dynamic Timestamps** (reminder sempre freschi)
+- [x] **Smart Auto-Scroll** (no scroll dopo completamento)
 - [x] **Modalità test** per developer testing
 - [x] **SQLite Message Cache** (caricamento istantaneo)
 - [x] **Lazy Loading** (100 messaggi iniziali)
@@ -568,8 +627,9 @@ Per problemi o domande:
 
 ---
 
-**Versione:** 1.3.0+4
+**Versione:** 1.4.0+5
 **Ultima modifica:** 2025-12-17
-**Architettura:** RSA-only + Dual Encryption + SQLite Cache + Lazy Loading + Infinite Scroll
+**Architettura:** RSA-only + Dual Encryption + SQLite Cache + Smart Reminders + Long Press UX
 **Performance:** ⚡ Instant load (< 100ms) + Zero visual glitches + Scalable to 1000+ messages
+**UX:** 🎨 Todo Redesign + Smart Auto-Scroll + Dynamic Timestamps
 **Dependencies:** ✅ Updated to latest stable versions (Dec 2025)
