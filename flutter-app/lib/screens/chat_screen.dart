@@ -202,17 +202,18 @@ class _ChatScreenState extends State<ChatScreen> {
   }
 
   /// Scrolla automaticamente in fondo alla lista (messaggi più recenti)
+  /// Con reverse: true, pixels = 0 è in BASSO (messaggi nuovi)
   void _scrollToBottom({bool animated = true}) {
     if (!_scrollController.hasClients) return;
 
     if (animated) {
       _scrollController.animateTo(
-        _scrollController.position.maxScrollExtent,
+        0, // Con reverse: true, 0 è in basso (messaggi nuovi)
         duration: const Duration(milliseconds: 300),
         curve: Curves.easeOut,
       );
     } else {
-      _scrollController.jumpTo(_scrollController.position.maxScrollExtent);
+      _scrollController.jumpTo(0);
     }
   }
 
