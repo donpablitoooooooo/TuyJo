@@ -28,8 +28,6 @@ class _ChatScreenState extends State<ChatScreen> {
   String? _lastFamilyChatId;
   Timer? _typingTimer;
   int _lastMessageCount = 0;
-  bool _isInitializing = true; // Track se siamo nella fase di caricamento iniziale
-  bool _hasScrolledToBottomOnce = false; // Track se abbiamo fatto lo scroll iniziale
   bool _isLoadingOlderMessages = false; // Track se stiamo caricando messaggi vecchi
 
   @override
@@ -57,8 +55,10 @@ class _ChatScreenState extends State<ChatScreen> {
   }
 
   void _onScroll() {
-    // Se stiamo scrollando vicino all'inizio (top), carica messaggi più vecchi
-    if (_scrollController.position.pixels <= 100 && !_isLoadingOlderMessages) {
+    // Con reverse: true, i messaggi vecchi sono in ALTO (maxScrollExtent)
+    // Carica quando scrolliamo vicino alla fine (verso l'alto = messaggi vecchi)
+    if (_scrollController.position.pixels >= _scrollController.position.maxScrollExtent - 100 &&
+        !_isLoadingOlderMessages) {
       if (kDebugMode) print('📜 User scrolled to top - loading older messages...');
       _loadOlderMessages();
     }
@@ -126,9 +126,7 @@ class _ChatScreenState extends State<ChatScreen> {
         if (kDebugMode) print('🔇 Stopped old listeners for chat: ${_lastFamilyChatId?.substring(0, 10)}...');
       }
 
-      // Reset scroll state per nuovo caricamento
-      _isInitializing = true;
-      _hasScrolledToBottomOnce = false;
+      // Reset message count per nuovo caricamento
       _lastMessageCount = 0;
 
       _initialize();
@@ -368,54 +366,15 @@ class _ChatScreenState extends State<ChatScreen> {
     final chatService = Provider.of<ChatService>(context);
     final pairingService = Provider.of<PairingService>(context);
 
-    // Auto-scroll logic migliorato per gestire il caricamento iniziale
+    // 🔧 FIX: Con reverse: true, il ListView inizia automaticamente in basso (messaggi nuovi)
+    // Non serve più auto-scroll al caricamento iniziale!
+    // Scrolliamo SOLO quando arriva un singolo nuovo messaggio (chat attiva)
     final currentCount = chatService.messages.length;
-    final isFirstLoad = _lastMessageCount == 0 && currentCount > 0;
     final isSingleNewMessage = currentCount == _lastMessageCount + 1;
     final hasNewMessages = currentCount != _lastMessageCount;
 
-    if (kDebugMode && hasNewMessages) {
-      print('📜 [SCROLL] Messages changed: $_lastMessageCount → $currentCount');
-      print('   isInitializing: $_isInitializing');
-      print('   isFirstLoad: $isFirstLoad');
-      print('   isSingleNewMessage: $isSingleNewMessage');
-      print('   isLoadingFromCache: ${chatService.isLoadingFromCache}');
-    }
-
-    // FASE 1: Durante inizializzazione, scrolla SEMPRE in fondo quando i messaggi cambiano
-    if (_isInitializing && currentCount > 0 && hasNewMessages) {
-      _lastMessageCount = currentCount;
-
-      if (kDebugMode) print('📜 [SCROLL] Initializing - scrolling to bottom');
-
-      // Usa doppio scheduling per garantire che il ListView sia pronto
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted && _scrollController.hasClients) {
-          // Jump immediato (no animation durante init)
-          _scrollToBottom(animated: false);
-
-          if (kDebugMode) print('✅ [SCROLL] Scrolled to bottom (initialization)');
-
-          // Dopo il primo scroll, aspetta un po' prima di marcare come "initialized"
-          // Questo permette al Firestore sync di completare
-          if (!_hasScrolledToBottomOnce) {
-            _hasScrolledToBottomOnce = true;
-
-            // Aspetta 500ms dopo il primo scroll, poi marca come initialized
-            Future.delayed(const Duration(milliseconds: 500), () {
-              if (mounted) {
-                setState(() {
-                  _isInitializing = false;
-                  if (kDebugMode) print('✅ [SCROLL] Initialization complete');
-                });
-              }
-            });
-          }
-        }
-      });
-    }
-    // FASE 2: Dopo inizializzazione, scrolla SOLO per nuovi messaggi singoli
-    else if (!_isInitializing && isSingleNewMessage && chatService.messages.isNotEmpty) {
+    // Scroll SOLO per nuovi messaggi singoli (quando qualcuno invia un messaggio)
+    if (isSingleNewMessage && chatService.messages.isNotEmpty) {
       _lastMessageCount = currentCount;
 
       if (kDebugMode) print('📜 [SCROLL] New message - smooth scroll to bottom');
@@ -427,10 +386,10 @@ class _ChatScreenState extends State<ChatScreen> {
         }
       });
     }
-    // FASE 3: Aggiorna count senza scrollare (es. bulk updates)
+    // Aggiorna count senza scrollare (caricamento iniziale o bulk updates)
     else if (hasNewMessages) {
       _lastMessageCount = currentCount;
-      if (kDebugMode) print('📜 [SCROLL] Count updated without scroll (bulk update)');
+      if (kDebugMode) print('📜 [SCROLL] Count updated: $_lastMessageCount → $currentCount (no auto-scroll needed)');
     }
 
     if (_isLoading) {
@@ -518,7 +477,7 @@ class _ChatScreenState extends State<ChatScreen> {
                           controller: _scrollController,
                           padding: const EdgeInsets.all(16),
                           itemCount: chatService.messages.length,
-                          reverse: false,
+                          reverse: true, // 🔧 FIX: reverse per mostrare nuovi messaggi in basso
                           itemBuilder: (context, index) {
                             final message = chatService.messages[index];
                             final isMe = message.senderId == _myDeviceId;

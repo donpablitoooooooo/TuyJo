@@ -41,8 +41,8 @@ class ChatService extends ChangeNotifier {
     if (_messages.isEmpty) return;
 
     try {
-      // Ottieni il timestamp del messaggio più vecchio
-      final oldestTimestamp = _messages.first.timestamp;
+      // Con ordine DESC (nuovi->vecchi), il messaggio più vecchio è l'ULTIMO
+      final oldestTimestamp = _messages.last.timestamp;
 
       if (kDebugMode) print('📜 Loading $limit older messages before ${oldestTimestamp.toIso8601String()}...');
 
@@ -54,7 +54,9 @@ class ChatService extends ChangeNotifier {
       );
 
       if (olderMessages.isNotEmpty) {
-        _messages.insertAll(0, olderMessages);
+        // Inserisci alla FINE (perché ordine DESC)
+        // Ma prima invertiamo per mantenere ordine DESC
+        _messages.addAll(olderMessages.reversed);
         notifyListeners();
         if (kDebugMode) print('✅ Loaded ${olderMessages.length} older messages');
       } else {
@@ -76,15 +78,15 @@ class ChatService extends ChangeNotifier {
 
       if (kDebugMode) print('🔍 [CACHE] Loading last $limit messages from SQLite...');
 
-      // Carica solo gli ultimi N messaggi (ordinati DESC, poi reversati)
+      // Carica solo gli ultimi N messaggi (ordinati DESC, poi reversati per ASC)
       final cachedMessages = await _cacheService.loadRecentMessages(familyChatId, limit: limit);
 
       if (kDebugMode) print('🔍 [CACHE] Loaded ${cachedMessages.length} messages from DB');
 
       if (cachedMessages.isNotEmpty) {
         _messages.clear();
-        // loadRecentMessages già restituisce in ordine ASC (vecchi->nuovi)
-        _messages.addAll(cachedMessages);
+        // 🔧 FIX: Invertiamo l'ordine per DESC (nuovi->vecchi) per ListView.reverse: true
+        _messages.addAll(cachedMessages.reversed);
 
         // ✅ NON ri-decriptare! I messaggi in cache sono GIÀ decriptati
         // Il database contiene già: decryptedContent, messageType, dueDate, ecc.
@@ -220,7 +222,8 @@ class ChatService extends ChangeNotifier {
           // Questo evita il "salto" visivo quando la cache ha già i messaggi ordinati
           if (newMessages.isNotEmpty) {
             if (kDebugMode) print('📜 Sorting ${newMessages.length} new messages from Firestore initial sync');
-            _messages.sort((a, b) => a.timestamp.compareTo(b.timestamp));
+            // Ordina DESC (nuovi->vecchi) per ListView.reverse: true
+            _messages.sort((a, b) => b.timestamp.compareTo(a.timestamp));
 
             // 💾 BATCH SAVE nella cache SQLite (molto più efficiente)
             try {
@@ -254,7 +257,8 @@ class ChatService extends ChangeNotifier {
                 }
 
                 _messages.add(message);
-                _messages.sort((a, b) => a.timestamp.compareTo(b.timestamp));
+                // Ordina DESC (nuovi->vecchi) per ListView.reverse: true
+                _messages.sort((a, b) => b.timestamp.compareTo(a.timestamp));
 
                 // 💾 SALVA NELLA CACHE SQLITE
                 try {
