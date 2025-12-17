@@ -682,17 +682,21 @@ class ChatService extends ChangeNotifier {
           // Popola i campi del todo
           message.dueDate = DateTime.parse(data['due_date']);
           message.completed = false;
-          message.isReminder = data['is_reminder'] ?? false;
 
-          // Schedula la notifica solo per i todo normali (non per i reminder)
-          if (!message.isReminder!) {
-            _scheduleReminderNotification(message);
-          }
+          // Parse is_reminder con logging per debug
+          final isReminderRaw = data['is_reminder'];
+          message.isReminder = isReminderRaw == true;
 
           if (kDebugMode) {
             print('📅 Todo message detected: ${message.decryptedContent}');
             print('   Due date: ${message.dueDate}');
-            print('   Is reminder: ${message.isReminder}');
+            print('   is_reminder (raw): $isReminderRaw (type: ${isReminderRaw.runtimeType})');
+            print('   isReminder (parsed): ${message.isReminder}');
+          }
+
+          // Schedula la notifica solo per i todo normali (non per i reminder)
+          if (!message.isReminder!) {
+            _scheduleReminderNotification(message);
           }
         } else if (message.messageType == 'todo_completed') {
           // Messaggio di completamento
