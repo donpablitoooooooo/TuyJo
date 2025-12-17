@@ -13,21 +13,31 @@ class MainScreen extends StatefulWidget {
 
 class _MainScreenState extends State<MainScreen> {
   int _selectedIndex = 0;
+  bool _isInitialized = false;
 
   @override
   void initState() {
     super.initState();
-    _setInitialTab();
+    _initializeTab();
   }
 
-  void _setInitialTab() {
+  Future<void> _initializeTab() async {
+    // Aspetta che pairingService sia inizializzato
     final pairingService = Provider.of<PairingService>(context, listen: false);
-    final isPaired = pairingService.isPaired;
 
-    setState(() {
-      // Se paired, mostra Chat (index 0), altrimenti Impostazioni (index 1)
-      _selectedIndex = isPaired ? 0 : 1;
-    });
+    // Aspetta l'inizializzazione (max 1 secondo)
+    await Future.any([
+      pairingService.initialize(),
+      Future.delayed(const Duration(seconds: 1)),
+    ]);
+
+    if (mounted) {
+      setState(() {
+        // Se paired, mostra Chat (index 0), altrimenti Impostazioni (index 1)
+        _selectedIndex = pairingService.isPaired ? 0 : 1;
+        _isInitialized = true;
+      });
+    }
   }
 
   void _onItemTapped(int index) {
@@ -38,6 +48,15 @@ class _MainScreenState extends State<MainScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // Mostra loader mentre si inizializza
+    if (!_isInitialized) {
+      return const Scaffold(
+        body: Center(
+          child: CircularProgressIndicator(),
+        ),
+      );
+    }
+
     final List<Widget> screens = [
       const ChatScreen(),
       const SettingsScreen(),
