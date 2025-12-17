@@ -22,14 +22,24 @@ class _MainScreenState extends State<MainScreen> {
   }
 
   Future<void> _initializeTab() async {
+    print('⏱️ [MAIN_SCREEN] Starting tab initialization...');
+    final startTime = DateTime.now();
+
     // Aspetta che pairingService sia inizializzato
     final pairingService = Provider.of<PairingService>(context, listen: false);
+
+    print('⏱️ [MAIN_SCREEN] Waiting for pairing service (max 1s)...');
+    final pairingStart = DateTime.now();
 
     // Aspetta l'inizializzazione (max 1 secondo)
     await Future.any([
       pairingService.initialize(),
       Future.delayed(const Duration(seconds: 1)),
     ]);
+
+    final pairingDuration = DateTime.now().difference(pairingStart);
+    print('⏱️ [MAIN_SCREEN] Pairing service ready in ${pairingDuration.inMilliseconds}ms');
+    print('   isPaired: ${pairingService.isPaired}');
 
     if (mounted) {
       setState(() {
@@ -38,6 +48,10 @@ class _MainScreenState extends State<MainScreen> {
         _isInitialized = true;
       });
     }
+
+    final totalDuration = DateTime.now().difference(startTime);
+    print('⏱️ [MAIN_SCREEN] Tab initialization complete in ${totalDuration.inMilliseconds}ms');
+    print('   Selected tab: ${_selectedIndex == 0 ? "Chat" : "Settings"}');
   }
 
   void _onItemTapped(int index) {

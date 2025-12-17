@@ -28,6 +28,8 @@ class _ChatScreenState extends State<ChatScreen> {
   String? _lastFamilyChatId;
   Timer? _typingTimer;
   int _lastMessageCount = 0;
+  bool _isInitializing = true; // Track se siamo nella fase di caricamento iniziale
+  bool _hasScrolledToBottomOnce = false; // Track se abbiamo fatto lo scroll iniziale
 
   @override
   void initState() {
@@ -99,6 +101,11 @@ class _ChatScreenState extends State<ChatScreen> {
         if (kDebugMode) print('🔇 Stopped old listeners for chat: ${_lastFamilyChatId?.substring(0, 10)}...');
       }
 
+      // Reset scroll state per nuovo caricamento
+      _isInitializing = true;
+      _hasScrolledToBottomOnce = false;
+      _lastMessageCount = 0;
+
       _initialize();
     }
 
@@ -107,6 +114,9 @@ class _ChatScreenState extends State<ChatScreen> {
   }
 
   Future<void> _initialize() async {
+    if (kDebugMode) print('⏱️ [CHAT_SCREEN] Starting chat initialization...');
+    final startTime = DateTime.now();
+
     final pairingService = Provider.of<PairingService>(context, listen: false);
     final chatService = Provider.of<ChatService>(context, listen: false);
     final notificationService = Provider.of<NotificationService>(context, listen: false);
@@ -128,12 +138,18 @@ class _ChatScreenState extends State<ChatScreen> {
       }
 
       // Avvia listener per la chat (carica cache e connette Firestore in background)
+      if (kDebugMode) print('⏱️ [CHAT_SCREEN] Starting Firestore listener...');
+      final listenerStart = DateTime.now();
       chatService.startListening(_familyChatId!);
-      print('✅ Firestore listener started for chat');
+      final listenerDuration = DateTime.now().difference(listenerStart);
+      if (kDebugMode) print('⏱️ [CHAT_SCREEN] Listener started in ${listenerDuration.inMilliseconds}ms');
 
       // 🔧 FIX: Nascondi loader SUBITO dopo aver avviato il listener
       // La cache si carica istantaneamente, Firestore si connette in background
       setState(() => _isLoading = false);
+
+      final totalDuration = DateTime.now().difference(startTime);
+      if (kDebugMode) print('⏱️ [CHAT_SCREEN] Chat initialization complete in ${totalDuration.inMilliseconds}ms');
 
       // Salva il token FCM in Firestore (in background, non blocca la UI)
       if (_myDeviceId != null) {
@@ -148,6 +164,9 @@ class _ChatScreenState extends State<ChatScreen> {
     } else {
       print('❌ Cannot start listener - missing chat ID or partner public key');
       setState(() => _isLoading = false);
+
+      final totalDuration = DateTime.now().difference(startTime);
+      if (kDebugMode) print('⏱️ [CHAT_SCREEN] Chat initialization failed in ${totalDuration.inMilliseconds}ms');
     }
   }
 
@@ -324,27 +343,69 @@ class _ChatScreenState extends State<ChatScreen> {
     final chatService = Provider.of<ChatService>(context);
     final pairingService = Provider.of<PairingService>(context);
 
-    // Scrolla in fondo SOLO:
-    // 1. Al primo caricamento (lastMessageCount era 0)
-    // 2. Quando arriva UN nuovo messaggio singolo (+1)
+    // Auto-scroll logic migliorato per gestire il caricamento iniziale
     final currentCount = chatService.messages.length;
     final isFirstLoad = _lastMessageCount == 0 && currentCount > 0;
     final isSingleNewMessage = currentCount == _lastMessageCount + 1;
+    final hasNewMessages = currentCount != _lastMessageCount;
 
-    if ((isFirstLoad || isSingleNewMessage) && chatService.messages.isNotEmpty) {
-      final wasFirstLoad = _lastMessageCount == 0;
+    if (kDebugMode && hasNewMessages) {
+      print('📜 [SCROLL] Messages changed: $_lastMessageCount → $currentCount');
+      print('   isInitializing: $_isInitializing');
+      print('   isFirstLoad: $isFirstLoad');
+      print('   isSingleNewMessage: $isSingleNewMessage');
+      print('   isLoadingFromCache: ${chatService.isLoadingFromCache}');
+    }
+
+    // FASE 1: Durante inizializzazione, scrolla SEMPRE in fondo quando i messaggi cambiano
+    if (_isInitializing && currentCount > 0 && hasNewMessages) {
       _lastMessageCount = currentCount;
+
+      if (kDebugMode) print('📜 [SCROLL] Initializing - scrolling to bottom');
+
+      // Usa doppio scheduling per garantire che il ListView sia pronto
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted && _scrollController.hasClients) {
+          // Jump immediato (no animation durante init)
+          _scrollToBottom(animated: false);
+
+          if (kDebugMode) print('✅ [SCROLL] Scrolled to bottom (initialization)');
+
+          // Dopo il primo scroll, aspetta un po' prima di marcare come "initialized"
+          // Questo permette al Firestore sync di completare
+          if (!_hasScrolledToBottomOnce) {
+            _hasScrolledToBottomOnce = true;
+
+            // Aspetta 500ms dopo il primo scroll, poi marca come initialized
+            Future.delayed(const Duration(milliseconds: 500), () {
+              if (mounted) {
+                setState(() {
+                  _isInitializing = false;
+                  if (kDebugMode) print('✅ [SCROLL] Initialization complete');
+                });
+              }
+            });
+          }
+        }
+      });
+    }
+    // FASE 2: Dopo inizializzazione, scrolla SOLO per nuovi messaggi singoli
+    else if (!_isInitializing && isSingleNewMessage && chatService.messages.isNotEmpty) {
+      _lastMessageCount = currentCount;
+
+      if (kDebugMode) print('📜 [SCROLL] New message - smooth scroll to bottom');
 
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted && _scrollController.hasClients) {
-          // Primo caricamento: jump immediato (no animation)
-          // Nuovo messaggio: smooth scroll
-          _scrollToBottom(animated: !wasFirstLoad && isSingleNewMessage);
+          _scrollToBottom(animated: true);
+          if (kDebugMode) print('✅ [SCROLL] Scrolled to bottom (new message)');
         }
       });
-    } else if (currentCount != _lastMessageCount) {
-      // Aggiorna il count ma NON scrollare (es. reload da Firestore)
+    }
+    // FASE 3: Aggiorna count senza scrollare (es. bulk updates)
+    else if (hasNewMessages) {
       _lastMessageCount = currentCount;
+      if (kDebugMode) print('📜 [SCROLL] Count updated without scroll (bulk update)');
     }
 
     if (_isLoading) {

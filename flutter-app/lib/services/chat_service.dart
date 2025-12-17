@@ -125,6 +125,9 @@ class ChatService extends ChangeNotifier {
 
   // Connetti al Firestore listener per la chat
   Future<void> startListening(String familyChatId) async {
+    if (kDebugMode) print('⏱️ [CHAT_SERVICE] startListening called');
+    final startTime = DateTime.now();
+
     if (_subscription != null) {
       if (kDebugMode) print('Already listening to chat');
       return;
@@ -158,7 +161,11 @@ class ChatService extends ChangeNotifier {
       }
 
       // Carica prima dalla cache (instant load)
+      if (kDebugMode) print('⏱️ [CHAT_SERVICE] Loading from cache...');
+      final cacheStart = DateTime.now();
       await loadFromCache(familyChatId);
+      final cacheDuration = DateTime.now().difference(cacheStart);
+      if (kDebugMode) print('⏱️ [CHAT_SERVICE] Cache loaded in ${cacheDuration.inMilliseconds}ms');
     }
 
     if (kDebugMode) print('🎧 Starting listener for chat: ${familyChatId.substring(0, 10)}...');
@@ -262,6 +269,9 @@ class ChatService extends ChangeNotifier {
         if (kDebugMode) print('Firestore listener error: $error');
       },
     );
+
+    final totalDuration = DateTime.now().difference(startTime);
+    if (kDebugMode) print('⏱️ [CHAT_SERVICE] startListening completed in ${totalDuration.inMilliseconds}ms');
 
     notifyListeners();
   }

@@ -12,8 +12,15 @@ import 'services/message_cache_service.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
+  print('⏱️ [STARTUP] Starting app initialization...');
+  final startTime = DateTime.now();
+
   // Solo Firebase è bloccante - tutto il resto in background
+  print('⏱️ [STARTUP] Initializing Firebase...');
+  final firebaseStart = DateTime.now();
   await Firebase.initializeApp();
+  final firebaseDuration = DateTime.now().difference(firebaseStart);
+  print('⏱️ [STARTUP] Firebase initialized in ${firebaseDuration.inMilliseconds}ms');
 
   // Inizializza servizi (non bloccante - lazy init quando servono)
   final encryptionService = EncryptionService();
@@ -24,6 +31,9 @@ void main() async {
   encryptionService.generateAndStoreKeyPair(); // No await
   pairingService.initialize(); // No await
   notificationService.initialize(); // No await
+
+  final totalDuration = DateTime.now().difference(startTime);
+  print('⏱️ [STARTUP] App ready to launch in ${totalDuration.inMilliseconds}ms');
 
   runApp(MyApp(
     encryptionService: encryptionService,
