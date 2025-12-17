@@ -838,157 +838,141 @@ class _TodoMessageBubble extends StatelessWidget {
       child: Row(
         mainAxisAlignment: isMe ? MainAxisAlignment.end : MainAxisAlignment.start,
         children: [
-          Container(
-            constraints: BoxConstraints(
-              maxWidth: MediaQuery.of(context).size.width * 0.75,
-            ),
-            decoration: BoxDecoration(
-              gradient: isMe
-                  ? const LinearGradient(
-                      colors: [
-                        Color(0xFF667eea), // Purple
-                        Color(0xFF764ba2), // Deep purple
-                      ],
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                    )
-                  : LinearGradient(
-                      colors: [
-                        Colors.grey[200]!,
-                        Colors.grey[100]!,
-                      ],
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                    ),
-              borderRadius: BorderRadius.only(
-                topLeft: const Radius.circular(20),
-                topRight: const Radius.circular(20),
-                bottomLeft: isMe
-                    ? const Radius.circular(20)
-                    : const Radius.circular(4),
-                bottomRight: isMe
-                    ? const Radius.circular(4)
-                    : const Radius.circular(20),
+          GestureDetector(
+            onLongPress: isCompleted ? null : onComplete, // Long press per completare
+            child: Container(
+              constraints: BoxConstraints(
+                maxWidth: MediaQuery.of(context).size.width * 0.75,
               ),
-              boxShadow: [
-                BoxShadow(
-                  color: isMe
-                      ? const Color(0xFF667eea).withOpacity(0.3)
-                      : Colors.black.withOpacity(0.08),
-                  blurRadius: 8,
-                  offset: const Offset(0, 2),
+              decoration: BoxDecoration(
+                gradient: isMe
+                    ? const LinearGradient(
+                        colors: [
+                          Color(0xFF667eea), // Purple
+                          Color(0xFF764ba2), // Deep purple
+                        ],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                      )
+                    : LinearGradient(
+                        colors: [
+                          Colors.grey[200]!,
+                          Colors.grey[100]!,
+                        ],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                      ),
+                borderRadius: BorderRadius.only(
+                  topLeft: const Radius.circular(20),
+                  topRight: const Radius.circular(20),
+                  bottomLeft: isMe
+                      ? const Radius.circular(20)
+                      : const Radius.circular(4),
+                  bottomRight: isMe
+                      ? const Radius.circular(4)
+                      : const Radius.circular(20),
                 ),
-              ],
-            ),
-            child: Padding(
-              padding: const EdgeInsets.symmetric(
-                horizontal: 16,
-                vertical: 10,
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // Testo del todo
-                  Text(
-                    message.decryptedContent ?? '',
-                    style: TextStyle(
-                      color: isMe ? Colors.white : Colors.black87,
-                      fontSize: 15,
-                      height: 1.4,
-                      decoration: isCompleted ? TextDecoration.lineThrough : null,
-                    ),
+                boxShadow: [
+                  BoxShadow(
+                    color: isMe
+                        ? const Color(0xFF667eea).withOpacity(0.3)
+                        : Colors.black.withOpacity(0.08),
+                    blurRadius: 8,
+                    offset: const Offset(0, 2),
                   ),
+                ],
+              ),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 10,
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Testo del todo
+                    Text(
+                      message.decryptedContent ?? '',
+                      style: TextStyle(
+                        color: isMe ? Colors.white : Colors.black87,
+                        fontSize: 15,
+                        height: 1.4,
+                        decoration: isCompleted ? TextDecoration.lineThrough : null,
+                      ),
+                    ),
 
-                  // Data e ora (icona campanello per reminder, calendario per evento)
-                  if (message.dueDate != null) ...[
-                    const SizedBox(height: 8),
-                    Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(
-                          message.isReminder == true
-                              ? Icons.notifications_outlined  // Campanello per reminder
-                              : Icons.calendar_today_outlined, // Calendario per evento
-                          size: 14,
-                          color: isMe
-                              ? Colors.white.withOpacity(0.9)
-                              : Colors.black54,
-                        ),
-                        const SizedBox(width: 4),
-                        Text(
-                          DateFormat('dd/MM/yyyy HH:mm').format(message.dueDate!),
-                          style: TextStyle(
-                            fontSize: 12,
+                    // Data e ora (icona campanello per reminder, calendario per evento)
+                    if (message.dueDate != null) ...[
+                      const SizedBox(height: 8),
+                      Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            message.isReminder == true
+                                ? Icons.notifications_outlined  // Campanello per reminder
+                                : Icons.calendar_today_outlined, // Calendario per evento
+                            size: 14,
                             color: isMe
                                 ? Colors.white.withOpacity(0.9)
                                 : Colors.black54,
                           ),
-                        ),
-                      ],
-                    ),
-                  ],
-
-                  // Timestamp del messaggio
-                  const SizedBox(height: 4),
-                  Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        DateFormat('HH:mm').format(message.timestamp),
-                        style: TextStyle(
-                          fontSize: 11,
-                          color: isMe
-                              ? Colors.white.withOpacity(0.8)
-                              : Colors.black54,
-                        ),
+                          const SizedBox(width: 4),
+                          Text(
+                            DateFormat('dd/MM/yyyy HH:mm').format(message.dueDate!),
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: isMe
+                                  ? Colors.white.withOpacity(0.9)
+                                  : Colors.black54,
+                            ),
+                          ),
+                        ],
                       ),
-                      if (isCompleted) ...[
-                        const SizedBox(width: 6),
-                        Icon(
-                          Icons.check_circle,
-                          size: 12,
-                          color: isMe
-                              ? Colors.white.withOpacity(0.8)
-                              : Colors.green,
-                        ),
-                      ],
                     ],
-                  ),
 
-                  // Pulsante per completare (solo se non completato)
-                  if (!isCompleted) ...[
-                    const SizedBox(height: 8),
-                    InkWell(
-                      onTap: onComplete,
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                        decoration: BoxDecoration(
-                          color: Colors.white.withOpacity(isMe ? 0.2 : 0.3),
-                          borderRadius: BorderRadius.circular(12),
+                    // Timestamp del messaggio
+                    const SizedBox(height: 4),
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          DateFormat('HH:mm').format(message.timestamp),
+                          style: TextStyle(
+                            fontSize: 11,
+                            color: isMe
+                                ? Colors.white.withOpacity(0.8)
+                                : Colors.black54,
+                          ),
                         ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(
-                              Icons.check_circle_outline,
-                              size: 14,
-                              color: isMe ? Colors.white : Colors.black54,
-                            ),
-                            const SizedBox(width: 4),
-                            Text(
-                              'Completa',
-                              style: TextStyle(
-                                fontSize: 12,
-                                color: isMe ? Colors.white : Colors.black87,
-                                fontWeight: FontWeight.w500,
-                              ),
-                            ),
-                          ],
+                        if (isCompleted) ...[
+                          const SizedBox(width: 6),
+                          Icon(
+                            Icons.check_circle,
+                            size: 12,
+                            color: isMe
+                                ? Colors.white.withOpacity(0.8)
+                                : Colors.green,
+                          ),
+                        ],
+                      ],
+                    ),
+
+                    // Hint per long press (solo se non completato)
+                    if (!isCompleted) ...[
+                      const SizedBox(height: 6),
+                      Text(
+                        'Tieni premuto per completare',
+                        style: TextStyle(
+                          fontSize: 10,
+                          color: isMe
+                              ? Colors.white.withOpacity(0.6)
+                              : Colors.black38,
+                          fontStyle: FontStyle.italic,
                         ),
                       ),
-                    ),
+                    ],
                   ],
-                ],
+                ),
               ),
             ),
           ),
