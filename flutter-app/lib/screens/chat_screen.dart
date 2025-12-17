@@ -507,8 +507,9 @@ class _ChatScreenState extends State<ChatScreen> {
                             }
 
                             // Nascondi reminder futuri (non ancora scattati)
+                            // Controlliamo il timestamp perché created_at = reminderDate per i reminder
                             if (message.messageType == 'todo' && message.isReminder == true) {
-                              if (message.dueDate != null && message.dueDate!.isAfter(DateTime.now())) {
+                              if (message.timestamp.isAfter(DateTime.now())) {
                                 // Reminder non ancora scattato, nascondilo
                                 return const SizedBox.shrink();
                               }
