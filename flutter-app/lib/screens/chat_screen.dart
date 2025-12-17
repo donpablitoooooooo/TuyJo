@@ -324,14 +324,27 @@ class _ChatScreenState extends State<ChatScreen> {
     final chatService = Provider.of<ChatService>(context);
     final pairingService = Provider.of<PairingService>(context);
 
-    // Scrolla in fondo SOLO se il numero di messaggi è cambiato
-    if (chatService.messages.length != _lastMessageCount && chatService.messages.isNotEmpty) {
-      _lastMessageCount = chatService.messages.length;
+    // Scrolla in fondo SOLO:
+    // 1. Al primo caricamento (lastMessageCount era 0)
+    // 2. Quando arriva UN nuovo messaggio singolo (+1)
+    final currentCount = chatService.messages.length;
+    final isFirstLoad = _lastMessageCount == 0 && currentCount > 0;
+    final isSingleNewMessage = currentCount == _lastMessageCount + 1;
+
+    if ((isFirstLoad || isSingleNewMessage) && chatService.messages.isNotEmpty) {
+      final wasFirstLoad = _lastMessageCount == 0;
+      _lastMessageCount = currentCount;
+
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted && _scrollController.hasClients) {
-          _scrollToBottom(animated: _lastMessageCount > 1); // Animato solo se non è il primo caricamento
+          // Primo caricamento: jump immediato (no animation)
+          // Nuovo messaggio: smooth scroll
+          _scrollToBottom(animated: !wasFirstLoad && isSingleNewMessage);
         }
       });
+    } else if (currentCount != _lastMessageCount) {
+      // Aggiorna il count ma NON scrollare (es. reload da Firestore)
+      _lastMessageCount = currentCount;
     }
 
     if (_isLoading) {
