@@ -201,12 +201,14 @@ class ChatService extends ChangeNotifier {
 
     bool isFirstSnapshot = true; // Flag per il primo snapshot
 
+    // 🔧 FIX: Usa orderBy DESC + limit() invece di limitToLast()
+    // limitToLast() ha problemi con eventi modified in tempo reale
     _subscription = _firestore
         .collection('families')
         .doc(familyChatId)
         .collection('messages')
-        .orderBy('created_at', descending: false)
-        .limitToLast(100) // Carica solo ultimi 100 messaggi per performance
+        .orderBy('created_at', descending: true) // DESC per avere i più recenti
+        .limit(100) // Limita a 100 messaggi più recenti
         .snapshots()
         .listen(
       (snapshot) async {
