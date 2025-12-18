@@ -29,6 +29,7 @@ class _ChatScreenState extends State<ChatScreen> {
   Timer? _typingTimer;
   int _lastMessageCount = 0;
   bool _isLoadingOlderMessages = false; // Track se stiamo caricando messaggi vecchi
+  Set<String> _hiddenReminderIds = {}; // Track reminder nascosti per rilevare quando diventano visibili
 
   @override
   void initState() {
@@ -418,6 +419,36 @@ class _ChatScreenState extends State<ChatScreen> {
       _lastMessageCount = currentCount;
       if (kDebugMode) print('📜 [SCROLL] Count updated: $_lastMessageCount → $currentCount (no auto-scroll needed)');
     }
+
+    // 🔔 REMINDER AUTO-SCROLL: Rileva quando un reminder diventa visibile
+    final now = DateTime.now();
+    final currentlyHiddenReminders = chatService.messages
+        .where((m) =>
+            m.messageType == 'todo' &&
+            m.isReminder == true &&
+            m.timestamp.isAfter(now))
+        .map((m) => m.id)
+        .toSet();
+
+    // Trova reminder che erano nascosti ma ora sono visibili
+    final newlyVisibleReminders = _hiddenReminderIds.difference(currentlyHiddenReminders);
+
+    if (newlyVisibleReminders.isNotEmpty) {
+      if (kDebugMode) {
+        print('🔔 [REMINDER] ${newlyVisibleReminders.length} reminder(s) became visible');
+      }
+
+      // Scroll verso il basso per mostrare il reminder
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted && _scrollController.hasClients) {
+          _scrollToBottom(animated: true);
+          if (kDebugMode) print('✅ [SCROLL] Scrolled to show new reminder');
+        }
+      });
+    }
+
+    // Aggiorna il tracking dei reminder nascosti
+    _hiddenReminderIds = currentlyHiddenReminders;
 
     if (_isLoading) {
       return const Scaffold(
