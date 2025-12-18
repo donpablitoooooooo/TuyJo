@@ -308,6 +308,10 @@ class ChatService extends ChangeNotifier {
               }
             } else if (change.type == DocumentChangeType.modified) {
               // Gestisci modifiche ai messaggi esistenti (es. timestamp update per reminder o read status)
+              if (kDebugMode) {
+                print('📝 [MODIFIED EVENT] Received for message: ${change.doc.id.substring(0, 8)}');
+              }
+
               final updatedMessage = Message.fromFirestore(
                 change.doc.id,
                 change.doc.data()!,
@@ -316,6 +320,11 @@ class ChatService extends ChangeNotifier {
               // Trova e aggiorna il messaggio esistente
               final index = _messages.indexWhere((m) => m.id == updatedMessage.id);
               if (index != -1) {
+                if (kDebugMode) {
+                  print('   Old status: delivered=${_messages[index].delivered}, read=${_messages[index].read}');
+                  print('   New status: delivered=${updatedMessage.delivered}, read=${updatedMessage.read}');
+                }
+
                 // Decrypt e popola i campi
                 if (_myDeviceId != null) {
                   _decryptAndPopulateMessage(updatedMessage, _myDeviceId!);
@@ -331,12 +340,13 @@ class ChatService extends ChangeNotifier {
                 try {
                   await _cacheService.saveMessage(updatedMessage, familyChatId);
                   if (kDebugMode) {
-                    print('📝 Message updated: ${updatedMessage.id}');
-                    print('   Delivered: ${updatedMessage.delivered}, Read: ${updatedMessage.read}');
+                    print('   ✅ Message status updated successfully');
                   }
                 } catch (e) {
-                  if (kDebugMode) print('❌ Error updating message in cache: $e');
+                  if (kDebugMode) print('   ❌ Error updating message in cache: $e');
                 }
+              } else {
+                if (kDebugMode) print('   ⚠️ Message not found in local list!');
               }
             }
           }
