@@ -305,9 +305,16 @@ class ChatService extends ChangeNotifier {
                 } catch (e) {
                   if (kDebugMode) print('❌ Error caching message: $e');
                 }
+
+                // ✅ MARCA COME LETTO se il messaggio è stato ricevuto dall'altro utente
+                // (non i miei messaggi inviati)
+                if (message.senderId != _myDeviceId && message.read != true) {
+                  // Marca come letto immediatamente perché l'utente sta vedendo la chat
+                  markMessageAsRead(message.id, familyChatId);
+                }
               }
             } else if (change.type == DocumentChangeType.modified) {
-              // Gestisci modifiche ai messaggi esistenti (es. timestamp update per reminder)
+              // Gestisci modifiche ai messaggi esistenti (es. timestamp update per reminder o read status)
               final updatedMessage = Message.fromFirestore(
                 change.doc.id,
                 change.doc.data()!,
@@ -327,8 +334,15 @@ class ChatService extends ChangeNotifier {
                 // Riordina perché il timestamp potrebbe essere cambiato
                 _messages.sort((a, b) => b.timestamp.compareTo(a.timestamp));
 
-                if (kDebugMode) {
-                  print('📝 Message updated: ${updatedMessage.id}');
+                // 💾 AGGIORNA NELLA CACHE SQLITE
+                try {
+                  await _cacheService.saveMessage(updatedMessage, familyChatId);
+                  if (kDebugMode) {
+                    print('📝 Message updated: ${updatedMessage.id}');
+                    print('   Delivered: ${updatedMessage.delivered}, Read: ${updatedMessage.read}');
+                  }
+                } catch (e) {
+                  if (kDebugMode) print('❌ Error updating message in cache: $e');
                 }
               }
             }
