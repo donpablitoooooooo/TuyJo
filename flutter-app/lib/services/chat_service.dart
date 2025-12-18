@@ -201,12 +201,14 @@ class ChatService extends ChangeNotifier {
 
     bool isFirstSnapshot = true; // Flag per il primo snapshot
 
+    // 🔧 FIX: Rimosso limitToLast() temporaneamente per testare eventi modified
+    // limitToLast() potrebbe non ricevere eventi modified in tempo reale
     _subscription = _firestore
         .collection('families')
         .doc(familyChatId)
         .collection('messages')
         .orderBy('created_at', descending: false)
-        .limitToLast(100) // Carica solo ultimi 100 messaggi per performance
+        // .limitToLast(100) // TEMPORANEAMENTE RIMOSSO per debug
         .snapshots()
         .listen(
       (snapshot) async {
