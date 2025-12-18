@@ -27,6 +27,7 @@ class _ChatScreenState extends State<ChatScreen> {
   bool _lastPairingStatus = false;
   String? _lastFamilyChatId;
   Timer? _typingTimer;
+  Timer? _reminderCheckTimer; // Timer per controllare reminder visibili
   int _lastMessageCount = 0;
   bool _isLoadingOlderMessages = false; // Track se stiamo caricando messaggi vecchi
   Set<String> _hiddenReminderIds = {}; // Track reminder nascosti per rilevare quando diventano visibili
@@ -172,6 +173,9 @@ class _ChatScreenState extends State<ChatScreen> {
       // Questo garantisce che il prossimo build avrà già i messaggi pronti per lo scroll
       setState(() => _isLoading = false);
 
+      // 🔔 REMINDER CHECK TIMER: Controlla ogni 30 secondi se ci sono reminder da mostrare
+      _startReminderCheckTimer();
+
       final totalDuration = DateTime.now().difference(startTime);
       if (kDebugMode) print('⏱️ [CHAT_SCREEN] Chat initialization complete in ${totalDuration.inMilliseconds}ms');
 
@@ -199,7 +203,38 @@ class _ChatScreenState extends State<ChatScreen> {
     _messageController.dispose();
     _scrollController.dispose();
     _typingTimer?.cancel();
+    _reminderCheckTimer?.cancel();
     super.dispose();
+  }
+
+  /// Avvia timer periodico per controllare reminder visibili
+  void _startReminderCheckTimer() {
+    _reminderCheckTimer?.cancel(); // Cancella timer esistente se presente
+
+    _reminderCheckTimer = Timer.periodic(const Duration(seconds: 30), (timer) {
+      if (!mounted) {
+        timer.cancel();
+        return;
+      }
+
+      final chatService = Provider.of<ChatService>(context, listen: false);
+      final now = DateTime.now();
+
+      // Trova reminder che sono diventati visibili (timestamp passato)
+      final hasVisibleReminders = chatService.messages.any((m) =>
+          m.messageType == 'todo' &&
+          m.isReminder == true &&
+          m.timestamp.isBefore(now) &&
+          _hiddenReminderIds.contains(m.id));
+
+      if (hasVisibleReminders) {
+        if (kDebugMode) print('🔔 [REMINDER_TIMER] Found newly visible reminder(s), triggering rebuild');
+        // Trigga rebuild che attiverà la logica di auto-scroll
+        setState(() {});
+      }
+    });
+
+    if (kDebugMode) print('🔔 [REMINDER_TIMER] Started periodic check (every 30s)');
   }
 
   /// Scrolla automaticamente in fondo alla lista (messaggi più recenti)
