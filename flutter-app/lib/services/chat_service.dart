@@ -305,13 +305,6 @@ class ChatService extends ChangeNotifier {
                 } catch (e) {
                   if (kDebugMode) print('❌ Error caching message: $e');
                 }
-
-                // ✅ MARCA COME LETTO se il messaggio è stato ricevuto dall'altro utente
-                // (non i miei messaggi inviati)
-                if (message.senderId != _myDeviceId && message.read != true) {
-                  // Marca come letto immediatamente perché l'utente sta vedendo la chat
-                  markMessageAsRead(message.id, familyChatId);
-                }
               }
             } else if (change.type == DocumentChangeType.modified) {
               // Gestisci modifiche ai messaggi esistenti (es. timestamp update per reminder o read status)

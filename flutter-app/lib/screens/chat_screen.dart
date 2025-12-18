@@ -16,7 +16,7 @@ class ChatScreen extends StatefulWidget {
   State<ChatScreen> createState() => _ChatScreenState();
 }
 
-class _ChatScreenState extends State<ChatScreen> {
+class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   final _messageController = TextEditingController();
   final _scrollController = ScrollController();
   bool _isLoading = true;
@@ -37,6 +37,9 @@ class _ChatScreenState extends State<ChatScreen> {
     super.initState();
     // Non chiamiamo _initialize qui, aspettiamo didChangeDependencies
 
+    // 🔔 Aggiungi observer per lifecycle events (foreground/background)
+    WidgetsBinding.instance.addObserver(this);
+
     // Listen per cambiamenti nel text field
     _messageController.addListener(() {
       final hasText = _messageController.text.trim().isNotEmpty;
@@ -54,6 +57,20 @@ class _ChatScreenState extends State<ChatScreen> {
 
     // 📜 INFINITE SCROLL: Listen per scroll verso l'alto (messaggi vecchi)
     _scrollController.addListener(_onScroll);
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    super.didChangeAppLifecycleState(state);
+
+    // Quando l'app torna in foreground, marca i messaggi come letti
+    if (state == AppLifecycleState.resumed) {
+      if (_familyChatId != null && _myDeviceId != null) {
+        final chatService = Provider.of<ChatService>(context, listen: false);
+        chatService.markAllMessagesAsRead(_familyChatId!, _myDeviceId!);
+        if (kDebugMode) print('📱 App resumed - marking messages as read');
+      }
+    }
   }
 
   void _onScroll() {
@@ -205,6 +222,7 @@ class _ChatScreenState extends State<ChatScreen> {
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _messageController.dispose();
     _scrollController.dispose();
     _typingTimer?.cancel();
