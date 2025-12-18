@@ -485,11 +485,14 @@ class ChatService extends ChangeNotifier {
         'message': encryptedPayload['message'],
         'created_at': timestamp.toIso8601String(),
         'message_type': 'todo', // Campo non criptato per la Cloud Function
+        'delivered': true, // Messaggio consegnato al server
+        'read': false, // Non ancora letto dal destinatario
       });
 
       if (kDebugMode) {
         print('✅ Todo sent to chat: ${messageRef.id}');
         print('   Due date: ${dueDate.toIso8601String()}');
+        print('   Status: delivered=true, read=false');
       }
       return true;
     } catch (e) {
@@ -542,11 +545,14 @@ class ChatService extends ChangeNotifier {
         'message': encryptedPayload['message'],
         'created_at': reminderDate.toIso8601String(), // Usa reminderDate per cronologia
         'message_type': 'todo', // Campo non criptato per la Cloud Function
+        'delivered': true, // Messaggio consegnato al server
+        'read': false, // Non ancora letto dal destinatario
       });
 
       if (kDebugMode) {
         print('🔔 Todo reminder sent to chat: ${messageRef.id}');
         print('   Reminder date (created_at): ${reminderDate.toIso8601String()}');
+        print('   Status: delivered=true, read=false');
       }
       return true;
     } catch (e) {
@@ -596,10 +602,13 @@ class ChatService extends ChangeNotifier {
         'message': encryptedPayload['message'],
         'created_at': timestamp.toIso8601String(),
         'message_type': 'todo_completed', // Campo non criptato per la Cloud Function
+        'delivered': true, // Messaggio consegnato al server
+        'read': false, // Non ancora letto dal destinatario
       });
 
       if (kDebugMode) {
         print('✅ Todo completion sent: $originalTodoId');
+        print('   Status: delivered=true, read=false');
       }
       return true;
     } catch (e) {
@@ -651,11 +660,14 @@ class ChatService extends ChangeNotifier {
         'message': encryptedPayload['message'], // Messaggio cifrato con AES
         'created_at': timestamp.toIso8601String(),
         'message_type': 'text', // Campo non criptato per la Cloud Function
+        'delivered': true, // Messaggio consegnato al server
+        'read': false, // Non ancora letto dal destinatario
       });
 
       if (kDebugMode) {
         print('✅ Message sent to chat: ${messageRef.id}');
         print('   Dual encryption: encrypted_key_recipient + encrypted_key_sender');
+        print('   Status: delivered=true, read=false');
       }
       return true;
     } catch (e) {
@@ -922,6 +934,91 @@ class ChatService extends ChangeNotifier {
     } catch (e) {
       if (kDebugMode) print('❌ Error deleting family: $e');
       rethrow;
+    }
+  }
+
+  /// Marca un messaggio come letto dal destinatario
+  /// Aggiorna sia Firestore che la cache SQLite locale
+  Future<void> markMessageAsRead(String messageId, String familyChatId) async {
+    try {
+      final now = DateTime.now();
+
+      // Aggiorna in Firestore
+      await _firestore
+          .collection('families')
+          .doc(familyChatId)
+          .collection('messages')
+          .doc(messageId)
+          .update({
+        'read': true,
+        'read_at': now.toIso8601String(),
+      });
+
+      // Aggiorna anche nella lista locale in memoria
+      final index = _messages.indexWhere((m) => m.id == messageId);
+      if (index != -1) {
+        _messages[index].read = true;
+        _messages[index].readAt = now;
+
+        // Aggiorna nella cache SQLite
+        await _cacheService.saveMessage(_messages[index], familyChatId);
+
+        notifyListeners();
+      }
+
+      if (kDebugMode) {
+        print('✅ Message marked as read: $messageId');
+        print('   Read at: ${now.toIso8601String()}');
+      }
+    } catch (e) {
+      if (kDebugMode) print('❌ Error marking message as read: $e');
+    }
+  }
+
+  /// Marca tutti i messaggi non letti del mittente come letti
+  /// Utile quando l'utente visualizza la chat
+  Future<void> markAllMessagesAsRead(String familyChatId, String recipientDeviceId) async {
+    try {
+      final now = DateTime.now();
+      final batch = _firestore.batch();
+
+      // Trova tutti i messaggi non letti ricevuti (non inviati da me)
+      int updatedCount = 0;
+      for (final message in _messages) {
+        if (message.senderId != recipientDeviceId &&
+            message.read != true) {
+          final messageRef = _firestore
+              .collection('families')
+              .doc(familyChatId)
+              .collection('messages')
+              .doc(message.id);
+
+          batch.update(messageRef, {
+            'read': true,
+            'read_at': now.toIso8601String(),
+          });
+
+          // Aggiorna anche in memoria
+          message.read = true;
+          message.readAt = now;
+          updatedCount++;
+        }
+      }
+
+      if (updatedCount > 0) {
+        await batch.commit();
+
+        // Aggiorna la cache SQLite
+        await _cacheService.saveMessages(_messages, familyChatId);
+
+        notifyListeners();
+
+        if (kDebugMode) {
+          print('✅ Marked $updatedCount messages as read');
+        }
+      }
+    } catch (e) {
+      if (kDebugMode) print('❌ Error marking all messages as read: $e');
     }
   }
 

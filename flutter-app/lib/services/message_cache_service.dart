@@ -7,7 +7,7 @@ import '../models/message.dart';
 /// Permette caricamento istantaneo, ricerca con LIKE, e lazy loading
 class MessageCacheService {
   static const String _dbName = 'messages_cache.db';
-  static const int _dbVersion = 1;
+  static const int _dbVersion = 2;
   static const String _messagesTable = 'messages';
 
   Database? _database;
@@ -30,6 +30,7 @@ class MessageCacheService {
       path,
       version: _dbVersion,
       onCreate: _createDatabase,
+      onUpgrade: _upgradeDatabase,
       onConfigure: (db) async {
         // Abilita foreign keys
         await db.execute('PRAGMA foreign_keys = ON');
@@ -60,7 +61,10 @@ class MessageCacheService {
         decrypted_content TEXT,
         due_date INTEGER,
         completed INTEGER DEFAULT 0,
-        original_todo_id TEXT
+        original_todo_id TEXT,
+        delivered INTEGER DEFAULT 0,
+        read INTEGER DEFAULT 0,
+        read_at INTEGER
       )
     ''');
 
@@ -77,6 +81,16 @@ class MessageCacheService {
 
     // ⚠️ FTS5 RIMOSSO: non disponibile su tutte le build Android SQLite
     // Usiamo ricerca LIKE invece (vedi metodo searchMessages)
+  }
+
+  /// Migra il database da una versione precedente
+  Future<void> _upgradeDatabase(Database db, int oldVersion, int newVersion) async {
+    if (oldVersion < 2) {
+      // Aggiungi colonne per stato messaggio (delivered, read, read_at)
+      await db.execute('ALTER TABLE $_messagesTable ADD COLUMN delivered INTEGER DEFAULT 0');
+      await db.execute('ALTER TABLE $_messagesTable ADD COLUMN read INTEGER DEFAULT 0');
+      await db.execute('ALTER TABLE $_messagesTable ADD COLUMN read_at INTEGER');
+    }
   }
 
   /// Salva un messaggio nella cache
@@ -101,6 +115,9 @@ class MessageCacheService {
       'due_date': message.dueDate?.millisecondsSinceEpoch,
       'completed': message.completed == true ? 1 : 0,
       'original_todo_id': message.originalTodoId,
+      'delivered': message.delivered == true ? 1 : 0,
+      'read': message.read == true ? 1 : 0,
+      'read_at': message.readAt?.millisecondsSinceEpoch,
     };
 
     // Inserisci o aggiorna il messaggio
@@ -135,6 +152,9 @@ class MessageCacheService {
         'due_date': message.dueDate?.millisecondsSinceEpoch,
         'completed': message.completed == true ? 1 : 0,
         'original_todo_id': message.originalTodoId,
+        'delivered': message.delivered == true ? 1 : 0,
+        'read': message.read == true ? 1 : 0,
+        'read_at': message.readAt?.millisecondsSinceEpoch,
       };
 
       batch.insert(_messagesTable, data, conflictAlgorithm: ConflictAlgorithm.replace);
@@ -326,6 +346,11 @@ class MessageCacheService {
           : null,
       completed: map['completed'] == 1,
       originalTodoId: map['original_todo_id'] as String?,
+      delivered: map['delivered'] == 1,
+      read: map['read'] == 1,
+      readAt: map['read_at'] != null
+          ? DateTime.fromMillisecondsSinceEpoch(map['read_at'] as int)
+          : null,
     );
   }
 

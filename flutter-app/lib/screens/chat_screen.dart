@@ -176,6 +176,11 @@ class _ChatScreenState extends State<ChatScreen> {
       // 🔔 REMINDER CHECK TIMER: Controlla ogni 30 secondi se ci sono reminder da mostrare
       _startReminderCheckTimer();
 
+      // ✅ Marca tutti i messaggi ricevuti come letti quando l'utente apre la chat
+      if (_myDeviceId != null) {
+        chatService.markAllMessagesAsRead(_familyChatId!, _myDeviceId!);
+      }
+
       final totalDuration = DateTime.now().difference(startTime);
       if (kDebugMode) print('⏱️ [CHAT_SCREEN] Chat initialization complete in ${totalDuration.inMilliseconds}ms');
 
@@ -616,6 +621,8 @@ class _ChatScreenState extends State<ChatScreen> {
                                 message: decryptedContent,
                                 timestamp: message.timestamp,
                                 isMe: isMe,
+                                delivered: message.delivered ?? false,
+                                read: message.read ?? false,
                               );
                             }
                           },
@@ -725,12 +732,16 @@ class _MessageBubble extends StatefulWidget {
   final String message;
   final DateTime timestamp;
   final bool isMe;
+  final bool delivered;
+  final bool read;
 
   const _MessageBubble({
     super.key,
     required this.message,
     required this.timestamp,
     required this.isMe,
+    this.delivered = false,
+    this.read = false,
   });
 
   @override
@@ -873,6 +884,17 @@ class _MessageBubbleState extends State<_MessageBubble>
                                         : Colors.black54,
                                   ),
                                 ),
+                                // Mostra le spunte solo per i messaggi inviati da me
+                                if (widget.isMe) ...[
+                                  const SizedBox(width: 4),
+                                  Icon(
+                                    widget.read ? Icons.done_all : Icons.done,
+                                    size: 14,
+                                    color: widget.read
+                                        ? Colors.blue[300]
+                                        : Colors.white.withOpacity(0.8),
+                                  ),
+                                ],
                               ],
                             ),
                           ],
@@ -1019,6 +1041,17 @@ class _TodoMessageBubble extends StatelessWidget {
                                 : Colors.black54,
                           ),
                         ),
+                        // Mostra le spunte solo per i messaggi inviati da me
+                        if (isMe && !isCompleted) ...[
+                          const SizedBox(width: 4),
+                          Icon(
+                            (message.read ?? false) ? Icons.done_all : Icons.done,
+                            size: 14,
+                            color: (message.read ?? false)
+                                ? Colors.blue[300]
+                                : Colors.white.withOpacity(0.8),
+                          ),
+                        ],
                         if (isCompleted) ...[
                           const SizedBox(width: 6),
                           Icon(
