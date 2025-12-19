@@ -459,6 +459,18 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       final lastMessage = chatService.messages.first;
       final shouldScroll = lastMessage.messageType != 'todo_completed';
 
+      // ✅ REAL-TIME READ RECEIPTS: Marca come letti i messaggi ricevuti quando la chat è aperta
+      // Questo fa sì che il mittente veda immediatamente le doppie spunte blu
+      if (_myDeviceId != null && _familyChatId != null) {
+        // Marca solo se il nuovo messaggio NON è stato inviato da me
+        if (lastMessage.senderId != _myDeviceId) {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            chatService.markAllMessagesAsRead(_familyChatId!, _myDeviceId!);
+            if (kDebugMode) print('✅ [READ_RECEIPTS] Auto-marked messages as read (new message received)');
+          });
+        }
+      }
+
       if (shouldScroll) {
         if (kDebugMode) print('📜 [SCROLL] New message - smooth scroll to bottom');
 
