@@ -32,6 +32,16 @@ service cloud.firestore {
         // userId = SHA256(publicKey)
         allow read, write: if true;
       }
+
+      // ───────────────────────────────────────────────────────────
+      // READ_RECEIPTS SUBCOLLECTION (Message read status)
+      // ───────────────────────────────────────────────────────────
+      match /read_receipts/{userId} {
+        // ✅ Leggi/scrivi read receipts SE conosci familyId
+        // userId = SHA256(publicKey)
+        // Usato per tracciare quali messaggi sono stati letti
+        allow read, write: if true;
+      }
     }
   }
 }
