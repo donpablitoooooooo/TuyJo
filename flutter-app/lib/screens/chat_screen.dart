@@ -825,7 +825,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                             // Renderizza il tipo di messaggio appropriato
                             if (message.messageType == 'todo') {
                               return _TodoMessageBubble(
-                                key: ValueKey(message.id),
+                                key: ValueKey('${message.id}_${message.read}'),
                                 message: message,
                                 isMe: isMe,
                                 isCompleted: isTodoCompleted,
@@ -836,7 +836,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                               final decryptedContent = message.decryptedContent ?? '[Messaggio non decifrabile]';
 
                               return _MessageBubble(
-                                key: ValueKey(message.id),
+                                key: ValueKey('${message.id}_${message.read}'),
                                 message: decryptedContent,
                                 timestamp: message.timestamp,
                                 isMe: isMe,
@@ -910,8 +910,8 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                         controller: _messageController,
                         decoration: InputDecoration(
                           hintText: _selectedTodoDate != null
-                              ? 'Nuovo todo'
-                              : 'Scrivi un messaggio...',
+                              ? 'Todo...'
+                              : 'Scrivi...',
                           hintStyle: TextStyle(color: Colors.grey[500]),
                           border: InputBorder.none,
                           contentPadding: const EdgeInsets.symmetric(

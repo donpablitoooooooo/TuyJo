@@ -200,6 +200,11 @@ class ChatService extends ChangeNotifier {
       _listenToPartnerTyping(familyChatId, _myDeviceId!);
     }
 
+    // ⚡ LISTENER READ RECEIPTS: Avvia SUBITO per non perdere update iniziali
+    if (_myDeviceId != null) {
+      _startReadReceiptsListener(familyChatId, _myDeviceId!);
+    }
+
     bool isFirstSnapshot = true; // Flag per il primo snapshot
 
     _subscription = _firestore
@@ -306,6 +311,15 @@ class ChatService extends ChangeNotifier {
                 } catch (e) {
                   if (kDebugMode) print('❌ Error caching message: $e');
                 }
+
+                // ✅ AUTO-MARK AS READ: Se ricevo un messaggio, marcalo subito come letto
+                if (_myDeviceId != null && message.senderId != _myDeviceId) {
+                  // Messaggio ricevuto da qualcun altro, marcalo come letto
+                  markAllMessagesAsRead(familyChatId, _myDeviceId!);
+                  if (kDebugMode) {
+                    print('✅ [AUTO-READ] Marked message as read: ${message.id.substring(0, 8)}...');
+                  }
+                }
               }
             } else if (change.type == DocumentChangeType.modified) {
               // Gestisci modifiche ai messaggi esistenti (es. timestamp update per reminder o read status)
@@ -359,12 +373,6 @@ class ChatService extends ChangeNotifier {
       },
     );
 
-    // ⚡ LISTENER DOCUMENTO READ RECEIPTS (come typing indicator)
-    // Approccio "razzo": ascolta un documento dedicato invece di query messaggi
-    if (_myDeviceId != null) {
-      _startReadReceiptsListener(familyChatId, _myDeviceId!);
-    }
-
     final totalDuration = DateTime.now().difference(startTime);
     if (kDebugMode) print('⏱️ [CHAT_SERVICE] startListening completed in ${totalDuration.inMilliseconds}ms');
 
@@ -386,9 +394,9 @@ class ChatService extends ChangeNotifier {
         .collection('families')
         .doc(familyChatId)
         .collection('read_receipts')
-        .snapshots()
+        .snapshots(includeMetadataChanges: false)
         .listen(
-      (snapshot) async {
+      (snapshot) {
         if (kDebugMode) {
           print('⚡ [READ_RECEIPTS] Snapshot received!');
           print('   Docs count: ${snapshot.docs.length}');
@@ -428,17 +436,17 @@ class ChatService extends ChangeNotifier {
           }
 
           if (updatedCount > 0) {
-            // Aggiorna cache
-            try {
-              await _cacheService.saveMessages(_messages, familyChatId);
-              if (kDebugMode) {
-                print('✅ Updated $updatedCount messages to read=true');
-              }
-            } catch (e) {
-              if (kDebugMode) print('❌ Error updating cache: $e');
+            if (kDebugMode) {
+              print('✅ Updated $updatedCount messages to read=true');
             }
 
+            // Notifica UI immediatamente (non aspettare il salvataggio cache)
             notifyListeners();
+
+            // Aggiorna cache in background
+            _cacheService.saveMessages(_messages, familyChatId).catchError((e) {
+              if (kDebugMode) print('❌ Error updating cache: $e');
+            });
           }
         }
       },
@@ -486,7 +494,7 @@ class ChatService extends ChangeNotifier {
         .collection('families')
         .doc(familyChatId)
         .collection('users')
-        .snapshots()
+        .snapshots(includeMetadataChanges: false)
         .listen((snapshot) {
       bool partnerTyping = false;
 
