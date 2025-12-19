@@ -17,6 +17,7 @@ class ChatService extends ChangeNotifier {
   final MessageCacheService _cacheService = MessageCacheService();
   StreamSubscription<QuerySnapshot>? _subscription;
   StreamSubscription<QuerySnapshot>? _typingSubscription;
+  StreamSubscription<QuerySnapshot>? _readReceiptsSubscription; // Listener per status updates
   String? _myDeviceId; // Per sapere se sono il sender
   String? _currentFamilyChatId; // Per gestire la cache
   bool _isLoadingFromCache = false;
@@ -206,7 +207,7 @@ class ChatService extends ChangeNotifier {
         .doc(familyChatId)
         .collection('messages')
         .orderBy('created_at', descending: false)
-        .limitToLast(100) // Carica solo ultimi 100 messaggi per performance
+        .limitToLast(100) // Ripristinato per evitare sovraccarico
         .snapshots()
         .listen(
       (snapshot) async {
@@ -307,7 +308,11 @@ class ChatService extends ChangeNotifier {
                 }
               }
             } else if (change.type == DocumentChangeType.modified) {
-              // Gestisci modifiche ai messaggi esistenti (es. timestamp update per reminder)
+              // Gestisci modifiche ai messaggi esistenti (es. timestamp update per reminder o read status)
+              if (kDebugMode) {
+                print('📝 [MODIFIED EVENT] Received for message: ${change.doc.id.substring(0, 8)}');
+              }
+
               final updatedMessage = Message.fromFirestore(
                 change.doc.id,
                 change.doc.data()!,
@@ -316,6 +321,11 @@ class ChatService extends ChangeNotifier {
               // Trova e aggiorna il messaggio esistente
               final index = _messages.indexWhere((m) => m.id == updatedMessage.id);
               if (index != -1) {
+                if (kDebugMode) {
+                  print('   Old status: delivered=${_messages[index].delivered}, read=${_messages[index].read}');
+                  print('   New status: delivered=${updatedMessage.delivered}, read=${updatedMessage.read}');
+                }
+
                 // Decrypt e popola i campi
                 if (_myDeviceId != null) {
                   _decryptAndPopulateMessage(updatedMessage, _myDeviceId!);
@@ -327,9 +337,17 @@ class ChatService extends ChangeNotifier {
                 // Riordina perché il timestamp potrebbe essere cambiato
                 _messages.sort((a, b) => b.timestamp.compareTo(a.timestamp));
 
-                if (kDebugMode) {
-                  print('📝 Message updated: ${updatedMessage.id}');
+                // 💾 AGGIORNA NELLA CACHE SQLITE
+                try {
+                  await _cacheService.saveMessage(updatedMessage, familyChatId);
+                  if (kDebugMode) {
+                    print('   ✅ Message status updated successfully');
+                  }
+                } catch (e) {
+                  if (kDebugMode) print('   ❌ Error updating message in cache: $e');
                 }
+              } else {
+                if (kDebugMode) print('   ⚠️ Message not found in local list!');
               }
             }
           }
@@ -341,10 +359,93 @@ class ChatService extends ChangeNotifier {
       },
     );
 
+    // ⚡ LISTENER DOCUMENTO READ RECEIPTS (come typing indicator)
+    // Approccio "razzo": ascolta un documento dedicato invece di query messaggi
+    if (_myDeviceId != null) {
+      _startReadReceiptsListener(familyChatId, _myDeviceId!);
+    }
+
     final totalDuration = DateTime.now().difference(startTime);
     if (kDebugMode) print('⏱️ [CHAT_SERVICE] startListening completed in ${totalDuration.inMilliseconds}ms');
 
     notifyListeners();
+  }
+
+  /// ⚡ Listener DOCUMENTO read_receipts (come typing indicator)
+  /// Ascolta /families/{id}/read_receipts per aggiornamenti istantanei
+  void _startReadReceiptsListener(String familyChatId, String myDeviceId) {
+    _readReceiptsSubscription?.cancel();
+
+    if (kDebugMode) {
+      print('⚡ [READ_RECEIPTS] Starting listener');
+      print('   Family: ${familyChatId.substring(0, 10)}...');
+      print('   My ID: ${myDeviceId.substring(0, 10)}...');
+    }
+
+    _readReceiptsSubscription = _firestore
+        .collection('families')
+        .doc(familyChatId)
+        .collection('read_receipts')
+        .snapshots()
+        .listen(
+      (snapshot) async {
+        if (kDebugMode) {
+          print('⚡ [READ_RECEIPTS] Snapshot received!');
+          print('   Docs count: ${snapshot.docs.length}');
+          print('   Changes: ${snapshot.docChanges.length}');
+        }
+
+        for (var doc in snapshot.docs) {
+          final userId = doc.id;
+          final data = doc.data();
+
+          if (kDebugMode) {
+            print('   Doc ID: ${userId.substring(0, 10)}...');
+          }
+
+          // Ignora i miei read receipts, interessano solo quelli del partner
+          if (userId == myDeviceId) {
+            if (kDebugMode) print('   -> Skipping (my own receipts)');
+            continue;
+          }
+
+          final readMessageIds = List<String>.from(data['messageIds'] ?? []);
+          final lastReadAt = data['lastReadAt'] as Timestamp?;
+
+          if (kDebugMode) {
+            print('✓✓ Partner read ${readMessageIds.length} messages');
+          }
+
+          // Aggiorna i messaggi nella lista locale
+          int updatedCount = 0;
+          for (final messageId in readMessageIds) {
+            final index = _messages.indexWhere((m) => m.id == messageId);
+            if (index != -1 && _messages[index].read != true) {
+              _messages[index].read = true;
+              _messages[index].readAt = lastReadAt?.toDate();
+              updatedCount++;
+            }
+          }
+
+          if (updatedCount > 0) {
+            // Aggiorna cache
+            try {
+              await _cacheService.saveMessages(_messages, familyChatId);
+              if (kDebugMode) {
+                print('✅ Updated $updatedCount messages to read=true');
+              }
+            } catch (e) {
+              if (kDebugMode) print('❌ Error updating cache: $e');
+            }
+
+            notifyListeners();
+          }
+        }
+      },
+      onError: (error) {
+        if (kDebugMode) print('❌ Read receipts listener error: $error');
+      },
+    );
   }
 
   // Disconnetti dal listener
@@ -353,6 +454,8 @@ class ChatService extends ChangeNotifier {
     _subscription = null;
     _typingSubscription?.cancel();
     _typingSubscription = null;
+    _readReceiptsSubscription?.cancel();
+    _readReceiptsSubscription = null;
     _typingTimer?.cancel();
     _typingTimer = null;
     if (kDebugMode) print('🔇 Stopped listening to chat');
@@ -485,11 +588,14 @@ class ChatService extends ChangeNotifier {
         'message': encryptedPayload['message'],
         'created_at': timestamp.toIso8601String(),
         'message_type': 'todo', // Campo non criptato per la Cloud Function
+        'delivered': true, // Messaggio consegnato al server
+        'read': false, // Non ancora letto dal destinatario
       });
 
       if (kDebugMode) {
         print('✅ Todo sent to chat: ${messageRef.id}');
         print('   Due date: ${dueDate.toIso8601String()}');
+        print('   Status: delivered=true, read=false');
       }
       return true;
     } catch (e) {
@@ -542,11 +648,14 @@ class ChatService extends ChangeNotifier {
         'message': encryptedPayload['message'],
         'created_at': reminderDate.toIso8601String(), // Usa reminderDate per cronologia
         'message_type': 'todo', // Campo non criptato per la Cloud Function
+        'delivered': true, // Messaggio consegnato al server
+        'read': false, // Non ancora letto dal destinatario
       });
 
       if (kDebugMode) {
         print('🔔 Todo reminder sent to chat: ${messageRef.id}');
         print('   Reminder date (created_at): ${reminderDate.toIso8601String()}');
+        print('   Status: delivered=true, read=false');
       }
       return true;
     } catch (e) {
@@ -596,10 +705,13 @@ class ChatService extends ChangeNotifier {
         'message': encryptedPayload['message'],
         'created_at': timestamp.toIso8601String(),
         'message_type': 'todo_completed', // Campo non criptato per la Cloud Function
+        'delivered': true, // Messaggio consegnato al server
+        'read': false, // Non ancora letto dal destinatario
       });
 
       if (kDebugMode) {
         print('✅ Todo completion sent: $originalTodoId');
+        print('   Status: delivered=true, read=false');
       }
       return true;
     } catch (e) {
@@ -651,11 +763,14 @@ class ChatService extends ChangeNotifier {
         'message': encryptedPayload['message'], // Messaggio cifrato con AES
         'created_at': timestamp.toIso8601String(),
         'message_type': 'text', // Campo non criptato per la Cloud Function
+        'delivered': true, // Messaggio consegnato al server
+        'read': false, // Non ancora letto dal destinatario
       });
 
       if (kDebugMode) {
         print('✅ Message sent to chat: ${messageRef.id}');
         print('   Dual encryption: encrypted_key_recipient + encrypted_key_sender');
+        print('   Status: delivered=true, read=false');
       }
       return true;
     } catch (e) {
@@ -922,6 +1037,94 @@ class ChatService extends ChangeNotifier {
     } catch (e) {
       if (kDebugMode) print('❌ Error deleting family: $e');
       rethrow;
+    }
+  }
+
+  /// Marca un messaggio come letto dal destinatario
+  /// Aggiorna sia Firestore che la cache SQLite locale
+  Future<void> markMessageAsRead(String messageId, String familyChatId) async {
+    try {
+      final now = DateTime.now();
+
+      // Aggiorna in Firestore
+      await _firestore
+          .collection('families')
+          .doc(familyChatId)
+          .collection('messages')
+          .doc(messageId)
+          .update({
+        'read': true,
+        'read_at': now.toIso8601String(),
+      });
+
+      // Aggiorna anche nella lista locale in memoria
+      final index = _messages.indexWhere((m) => m.id == messageId);
+      if (index != -1) {
+        _messages[index].read = true;
+        _messages[index].readAt = now;
+
+        // Aggiorna nella cache SQLite
+        await _cacheService.saveMessage(_messages[index], familyChatId);
+
+        notifyListeners();
+      }
+
+      if (kDebugMode) {
+        print('✅ Message marked as read: $messageId');
+        print('   Read at: ${now.toIso8601String()}');
+      }
+    } catch (e) {
+      if (kDebugMode) print('❌ Error marking message as read: $e');
+    }
+  }
+
+  /// Marca tutti i messaggi non letti del mittente come letti
+  /// Utile quando l'utente visualizza la chat
+  /// ⚡ Marca messaggi come letti scrivendo nel documento read_receipts
+  /// Approccio "razzo": 1 scrittura invece di N update
+  Future<void> markAllMessagesAsRead(String familyChatId, String recipientDeviceId) async {
+    try {
+      final now = DateTime.now();
+
+      // Trova tutti i messaggi ricevuti (non inviati da me)
+      final receivedMessageIds = _messages
+          .where((m) => m.senderId != recipientDeviceId)
+          .map((m) => m.id)
+          .toList();
+
+      if (receivedMessageIds.isEmpty) {
+        if (kDebugMode) print('⚠️ No messages to mark as read');
+        return;
+      }
+
+      // ⚡ Scrivi nel documento read_receipts (come typing indicator)
+      await _firestore
+          .collection('families')
+          .doc(familyChatId)
+          .collection('read_receipts')
+          .doc(recipientDeviceId)
+          .set({
+        'messageIds': receivedMessageIds,
+        'lastReadAt': FieldValue.serverTimestamp(),
+      }, SetOptions(merge: true));
+
+      // Aggiorna anche localmente
+      for (final message in _messages) {
+        if (message.senderId != recipientDeviceId) {
+          message.read = true;
+          message.readAt = now;
+        }
+      }
+
+      // Aggiorna cache
+      await _cacheService.saveMessages(_messages, familyChatId);
+      notifyListeners();
+
+      if (kDebugMode) {
+        print('⚡ Marked ${receivedMessageIds.length} messages as read in read_receipts document');
+      }
+    } catch (e) {
+      if (kDebugMode) print('❌ Error marking all messages as read: $e');
     }
   }
 

@@ -2,7 +2,7 @@
 
 App di messaggistica privata per due persone con crittografia end-to-end e pairing tramite QR code.
 
-[![Status](https://img.shields.io/badge/status-v1.4.0--stable-success)](./README.md)
+[![Status](https://img.shields.io/badge/status-v1.5.0--stable-success)](./README.md)
 [![Flutter](https://img.shields.io/badge/Flutter-3.x-blue)](https://flutter.dev)
 [![Firebase](https://img.shields.io/badge/Firebase-Firestore-orange)](https://firebase.google.com)
 
@@ -16,6 +16,8 @@ App di messaggistica privata per due persone con crittografia end-to-end e pairi
 - 📱 **Pairing tramite QR Code** - wizard guidato con checklist
 - ☁️ **Firestore real-time** - sincronizzazione istantanea
 - 🔔 **Notifiche Push** - Firebase Cloud Messaging per nuovi messaggi
+- ✓✓ **Read Receipts** - spunte singole/doppie (consegnato/letto) in tempo reale
+- ⌨️ **Typing Indicator** - "Sta scrivendo..." quando il partner digita
 - 📅 **To Do & Reminders** - promemoria cifrati con notifiche schedulate 1h prima
 - 💾 **SQLite Cache** - caricamento istantaneo con lazy loading (100 messaggi iniziali)
 - 📜 **Infinite Scroll** - carica automaticamente 50 messaggi vecchi scrollando in alto
@@ -55,6 +57,61 @@ App di messaggistica privata per due persone con crittografia end-to-end e pairi
 ---
 
 ## 📦 Aggiornamenti Recenti (Dicembre 2025)
+
+### 💬 v1.5.0 - WhatsApp-Style Message Indicators (19 Dicembre 2025)
+
+**Nuove Feature:**
+
+1. **✓✓ Read Receipts (Spunte Letto/Consegnato)**
+   - **Spunta singola (✓)** grigia: messaggio consegnato al server
+   - **Doppie spunte (✓✓)** blu: messaggio letto dal destinatario
+   - Aggiornamento **in tempo reale** (no refresh necessario)
+   - Funziona anche con app aperta su entrambi i dispositivi
+   - Approccio document-based per performance ottimali
+
+2. **⌨️ Typing Indicator**
+   - Indicatore "Sta scrivendo..." quando il partner digita
+   - Scompare automaticamente dopo 2 secondi di inattività
+   - Animazione circolare discreta
+   - Aggiornamento real-time tramite Firestore
+   - Controllo stale updates (ignora status > 5 secondi fa)
+
+3. **🔧 Architettura Real-Time**
+   - Collezione `/read_receipts` dedicata (come typing indicator)
+   - Listener Firestore per aggiornamenti istantanei
+   - 1 scrittura batch invece di N update individuali
+   - Pattern "a razzo" 🚀 per performance eccellenti
+
+**Miglioramenti Tecnici:**
+
+- ✅ SQLite schema v2: aggiunti campi `delivered`, `read`, `read_at`
+- ✅ Firestore security rules aggiornate per `/read_receipts`
+- ✅ Auto-mark messaggi come letti quando arrivano (chat aperta)
+- ✅ Lifecycle observer per marcare messaggi quando app ritorna in foreground
+- ✅ Enhanced logging per debugging real-time updates
+
+**File Modificati:**
+- `message.dart`: Aggiunti campi read receipts al modello
+- `message_cache_service.dart`: Schema SQLite v2 con migration
+- `chat_service.dart`:
+  - `_startReadReceiptsListener()` per real-time updates
+  - `markAllMessagesAsRead()` con approccio document-based
+  - `setTypingStatus()` e `_listenToPartnerTyping()` per typing indicator
+- `chat_screen.dart`:
+  - Checkmarks visivi in `_MessageBubble`
+  - Typing indicator UI con CircularProgressIndicator
+  - WidgetsBindingObserver per lifecycle events
+  - Auto-mark on new message arrival (real-time)
+- `firestore.rules`: Aggiunte regole per `/read_receipts` collection
+
+**UX WhatsApp-Style:**
+- ✅ Spunte solo sui messaggi inviati (non su quelli ricevuti)
+- ✅ Colore blu per messaggi letti
+- ✅ Dimensione 14px per icone discrete
+- ✅ Indicatore typing posizionato sopra la text field
+- ✅ Performance "a razzo" come il typing indicator
+
+---
 
 ### 🎨 v1.4.0 - Todo UX Redesign & Smart Reminders (17 Dicembre 2025)
 
@@ -391,7 +448,7 @@ flutter pub get
 4. Scarica `google-services.json` (Android) e mettilo in `android/app/`
 5. Scarica `GoogleService-Info.plist` (iOS) e mettilo in `ios/Runner/`
 
-### 3. Firestore Security Rules (Production Ready v1.2)
+### 3. Firestore Security Rules (Production Ready v1.5)
 
 Imposta le regole di sicurezza compartmentalizzate in Firebase Console (o usa `firebase deploy --only firestore:rules`):
 
@@ -414,6 +471,12 @@ service cloud.firestore {
 
       match /users/{userId} {
         // ✅ Leggi/scrivi FCM tokens SE conosci familyId
+        allow read, write: if true;
+      }
+
+      match /read_receipts/{userId} {
+        // ✅ Leggi/scrivi read receipts SE conosci familyId
+        // Usato per tracciare quali messaggi sono stati letti
         allow read, write: if true;
       }
     }
@@ -551,7 +614,7 @@ Aggiorna le security rules come indicato nella sezione Setup.
 
 ## 📊 Features Status
 
-### ✅ Implementato (v1.4)
+### ✅ Implementato (v1.5)
 - [x] Architettura RSA-only (no chiavi simmetriche nel QR)
 - [x] Dual encryption (sender + recipient access)
 - [x] RSA-2048 key generation
@@ -577,17 +640,21 @@ Aggiorna le security rules come indicato nella sezione Setup.
 - [x] **Lazy Loading** (100 messaggi iniziali)
 - [x] **Infinite Scroll** (auto-carica 50 messaggi vecchi)
 - [x] **Reverse ListView** (zero visual glitches)
+- [x] **Read Receipts** (spunte letto/consegnato WhatsApp-style)
+- [x] **Typing Indicator** ("Sta scrivendo..." real-time)
+- [x] **Real-time Updates** (aggiornamenti istantanei senza refresh)
 
 ### 🚧 Roadmap Future
 - [ ] Autenticazione Firebase (optional)
 - [ ] Supporto media (foto, video)
-- [ ] Indicatori lettura/consegna
 - [ ] Multiple device support
 - [ ] iOS build completo
 - [ ] Message deletion / editing
 - [ ] Key rotation
 - [ ] Recurring reminders
 - [ ] AI todo extraction da messaggi
+- [ ] Voice messages
+- [ ] Group chats (3+ people)
 
 ---
 
@@ -627,9 +694,9 @@ Per problemi o domande:
 
 ---
 
-**Versione:** 1.4.0+5
-**Ultima modifica:** 2025-12-17
-**Architettura:** RSA-only + Dual Encryption + SQLite Cache + Smart Reminders + Long Press UX
-**Performance:** ⚡ Instant load (< 100ms) + Zero visual glitches + Scalable to 1000+ messages
-**UX:** 🎨 Todo Redesign + Smart Auto-Scroll + Dynamic Timestamps
+**Versione:** 1.5.0+6
+**Ultima modifica:** 2025-12-19
+**Architettura:** RSA-only + Dual Encryption + SQLite Cache + Smart Reminders + Real-time Indicators
+**Performance:** ⚡ Instant load (< 100ms) + Zero visual glitches + Scalable to 1000+ messages + Real-time updates "a razzo" 🚀
+**UX:** 🎨 WhatsApp-style indicators + Todo Redesign + Smart Auto-Scroll + Dynamic Timestamps + Typing awareness
 **Dependencies:** ✅ Updated to latest stable versions (Dec 2025)

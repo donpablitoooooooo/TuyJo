@@ -149,17 +149,25 @@ class NotificationService {
   ) async {
     try {
       String? token = await getToken();
-      if (token != null) {
-        await _firestore
-            .collection('families')
-            .doc(familyChatId)
-            .collection('users')
-            .doc(userId)
-            .set({
-          'fcm_token': token,
-          'updated_at': FieldValue.serverTimestamp(),
-        }, SetOptions(merge: true));
-        if (kDebugMode) print('✅ FCM token saved');
+
+      // 🔧 FIX: Crea sempre il documento user, anche senza token
+      // Questo è necessario per typing indicator e altri features
+      await _firestore
+          .collection('families')
+          .doc(familyChatId)
+          .collection('users')
+          .doc(userId)
+          .set({
+        if (token != null) 'fcm_token': token,
+        'updated_at': FieldValue.serverTimestamp(),
+      }, SetOptions(merge: true));
+
+      if (kDebugMode) {
+        if (token != null) {
+          print('✅ FCM token saved');
+        } else {
+          print('⚠️ User document created without FCM token (token not available)');
+        }
       }
     } catch (e) {
       if (kDebugMode) print('❌ Error saving FCM token: $e');

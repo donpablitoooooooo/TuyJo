@@ -23,6 +23,11 @@ class Message {
   String? originalTodoId; // Per messaggi di tipo 'todo_completed'
   bool? isReminder; // true se questo è un messaggio di reminder (icona campanello)
 
+  // Campi per stato del messaggio (read receipts)
+  bool? delivered; // true quando il messaggio è stato salvato in Firestore
+  bool? read; // true quando il destinatario ha visualizzato il messaggio
+  DateTime? readAt; // timestamp di quando è stato letto
+
   Message({
     required this.id,
     required this.senderId,
@@ -41,6 +46,9 @@ class Message {
     this.completed,
     this.originalTodoId,
     this.isReminder,
+    this.delivered,
+    this.read,
+    this.readAt,
   });
 
   factory Message.fromJson(Map<String, dynamic> json) {
@@ -72,6 +80,9 @@ class Message {
       nonce: data['nonce'],
       tag: data['tag'],
       timestamp: DateTime.parse(data['created_at'] ?? DateTime.now().toIso8601String()),
+      delivered: data['delivered'],
+      read: data['read'],
+      readAt: data['read_at'] != null ? DateTime.parse(data['read_at']) : null,
     );
   }
 
@@ -88,6 +99,9 @@ class Message {
       if (nonce != null) 'nonce': nonce,
       if (tag != null) 'tag': tag,
       'created_at': timestamp.toIso8601String(),
+      if (delivered != null) 'delivered': delivered,
+      if (read != null) 'read': read,
+      if (readAt != null) 'read_at': readAt!.toIso8601String(),
     };
   }
 }
