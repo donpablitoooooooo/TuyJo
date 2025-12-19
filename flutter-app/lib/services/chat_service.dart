@@ -359,8 +359,8 @@ class ChatService extends ChangeNotifier {
       },
     );
 
-    // 🔔 LISTENER SEPARATO per read receipts dei miei messaggi
-    // Questo listener riceve gli eventi modified in tempo reale
+    // ⚡ LISTENER DOCUMENTO READ RECEIPTS (come typing indicator)
+    // Approccio "razzo": ascolta un documento dedicato invece di query messaggi
     if (_myDeviceId != null) {
       _startReadReceiptsListener(familyChatId, _myDeviceId!);
     }
@@ -371,56 +371,61 @@ class ChatService extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// Listener dedicato per status updates dei messaggi inviati da me
+  /// ⚡ Listener DOCUMENTO read_receipts (come typing indicator)
+  /// Ascolta /families/{id}/read_receipts per aggiornamenti istantanei
   void _startReadReceiptsListener(String familyChatId, String myDeviceId) {
     _readReceiptsSubscription?.cancel();
 
-    if (kDebugMode) print('👁️ Starting read receipts listener for my messages');
+    if (kDebugMode) print('⚡ Starting read receipts document listener');
 
     _readReceiptsSubscription = _firestore
         .collection('families')
         .doc(familyChatId)
-        .collection('messages')
-        .where('sender_id', isEqualTo: myDeviceId) // Solo i miei messaggi
-        .orderBy('created_at', descending: true)
-        .limit(50) // Monitora solo ultimi 50 miei messaggi per performance
+        .collection('read_receipts')
         .snapshots()
         .listen(
       (snapshot) async {
         if (kDebugMode) {
-          print('👁️ Read receipts snapshot: ${snapshot.docChanges.length} changes');
+          print('⚡ Read receipts document updated: ${snapshot.docs.length} users');
         }
 
-        for (var change in snapshot.docChanges) {
-          if (change.type == DocumentChangeType.modified) {
-            final updatedMessage = Message.fromFirestore(
-              change.doc.id,
-              change.doc.data()!,
-            );
+        for (var doc in snapshot.docs) {
+          final userId = doc.id;
+          final data = doc.data();
 
-            // Trova e aggiorna il messaggio nella lista locale
-            final index = _messages.indexWhere((m) => m.id == updatedMessage.id);
-            if (index != -1) {
-              if (kDebugMode) {
-                print('✓✓ Status update for message ${updatedMessage.id.substring(0, 8)}');
-                print('   Old: delivered=${_messages[index].delivered}, read=${_messages[index].read}');
-                print('   New: delivered=${updatedMessage.delivered}, read=${updatedMessage.read}');
-              }
+          // Ignora i miei read receipts, interessano solo quelli del partner
+          if (userId == myDeviceId) continue;
 
-              // Aggiorna solo i campi di status, preservando il resto
-              _messages[index].delivered = updatedMessage.delivered;
-              _messages[index].read = updatedMessage.read;
-              _messages[index].readAt = updatedMessage.readAt;
+          final readMessageIds = List<String>.from(data['messageIds'] ?? []);
+          final lastReadAt = data['lastReadAt'] as Timestamp?;
 
-              // Aggiorna cache
-              try {
-                await _cacheService.saveMessage(_messages[index], familyChatId);
-              } catch (e) {
-                if (kDebugMode) print('❌ Error updating cache: $e');
-              }
+          if (kDebugMode) {
+            print('✓✓ Partner read ${readMessageIds.length} messages');
+          }
 
-              notifyListeners();
+          // Aggiorna i messaggi nella lista locale
+          int updatedCount = 0;
+          for (final messageId in readMessageIds) {
+            final index = _messages.indexWhere((m) => m.id == messageId);
+            if (index != -1 && _messages[index].read != true) {
+              _messages[index].read = true;
+              _messages[index].readAt = lastReadAt?.toDate();
+              updatedCount++;
             }
+          }
+
+          if (updatedCount > 0) {
+            // Aggiorna cache
+            try {
+              await _cacheService.saveMessages(_messages, familyChatId);
+              if (kDebugMode) {
+                print('✅ Updated $updatedCount messages to read=true');
+              }
+            } catch (e) {
+              if (kDebugMode) print('❌ Error updating cache: $e');
+            }
+
+            notifyListeners();
           }
         }
       },
@@ -1062,45 +1067,48 @@ class ChatService extends ChangeNotifier {
 
   /// Marca tutti i messaggi non letti del mittente come letti
   /// Utile quando l'utente visualizza la chat
+  /// ⚡ Marca messaggi come letti scrivendo nel documento read_receipts
+  /// Approccio "razzo": 1 scrittura invece di N update
   Future<void> markAllMessagesAsRead(String familyChatId, String recipientDeviceId) async {
     try {
       final now = DateTime.now();
-      final batch = _firestore.batch();
 
-      // Trova tutti i messaggi non letti ricevuti (non inviati da me)
-      int updatedCount = 0;
+      // Trova tutti i messaggi ricevuti (non inviati da me)
+      final receivedMessageIds = _messages
+          .where((m) => m.senderId != recipientDeviceId)
+          .map((m) => m.id)
+          .toList();
+
+      if (receivedMessageIds.isEmpty) {
+        if (kDebugMode) print('⚠️ No messages to mark as read');
+        return;
+      }
+
+      // ⚡ Scrivi nel documento read_receipts (come typing indicator)
+      await _firestore
+          .collection('families')
+          .doc(familyChatId)
+          .collection('read_receipts')
+          .doc(recipientDeviceId)
+          .set({
+        'messageIds': receivedMessageIds,
+        'lastReadAt': FieldValue.serverTimestamp(),
+      }, SetOptions(merge: true));
+
+      // Aggiorna anche localmente
       for (final message in _messages) {
-        if (message.senderId != recipientDeviceId &&
-            message.read != true) {
-          final messageRef = _firestore
-              .collection('families')
-              .doc(familyChatId)
-              .collection('messages')
-              .doc(message.id);
-
-          batch.update(messageRef, {
-            'read': true,
-            'read_at': now.toIso8601String(),
-          });
-
-          // Aggiorna anche in memoria
+        if (message.senderId != recipientDeviceId) {
           message.read = true;
           message.readAt = now;
-          updatedCount++;
         }
       }
 
-      if (updatedCount > 0) {
-        await batch.commit();
+      // Aggiorna cache
+      await _cacheService.saveMessages(_messages, familyChatId);
+      notifyListeners();
 
-        // Aggiorna la cache SQLite
-        await _cacheService.saveMessages(_messages, familyChatId);
-
-        notifyListeners();
-
-        if (kDebugMode) {
-          print('✅ Marked $updatedCount messages as read');
-        }
+      if (kDebugMode) {
+        print('⚡ Marked ${receivedMessageIds.length} messages as read in read_receipts document');
       }
     } catch (e) {
       if (kDebugMode) print('❌ Error marking all messages as read: $e');
