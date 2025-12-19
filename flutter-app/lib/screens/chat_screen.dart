@@ -646,6 +646,32 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                           },
                         ),
                       ),
+                      // 💬 Indicatore "Sta scrivendo..."
+                      if (chatService.partnerIsTyping)
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
+                          child: Row(
+                            children: [
+                              SizedBox(
+                                width: 16,
+                                height: 16,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  valueColor: AlwaysStoppedAnimation<Color>(Colors.grey[400]!),
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              Text(
+                                'Sta scrivendo...',
+                                style: TextStyle(
+                                  color: Colors.grey[600],
+                                  fontSize: 13,
+                                  fontStyle: FontStyle.italic,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
                     ],
                   ),
           ),
