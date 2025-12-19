@@ -200,6 +200,11 @@ class ChatService extends ChangeNotifier {
       _listenToPartnerTyping(familyChatId, _myDeviceId!);
     }
 
+    // ⚡ LISTENER READ RECEIPTS: Avvia SUBITO per non perdere update iniziali
+    if (_myDeviceId != null) {
+      _startReadReceiptsListener(familyChatId, _myDeviceId!);
+    }
+
     bool isFirstSnapshot = true; // Flag per il primo snapshot
 
     _subscription = _firestore
@@ -358,12 +363,6 @@ class ChatService extends ChangeNotifier {
         if (kDebugMode) print('Firestore listener error: $error');
       },
     );
-
-    // ⚡ LISTENER DOCUMENTO READ RECEIPTS (come typing indicator)
-    // Approccio "razzo": ascolta un documento dedicato invece di query messaggi
-    if (_myDeviceId != null) {
-      _startReadReceiptsListener(familyChatId, _myDeviceId!);
-    }
 
     final totalDuration = DateTime.now().difference(startTime);
     if (kDebugMode) print('⏱️ [CHAT_SERVICE] startListening completed in ${totalDuration.inMilliseconds}ms');
