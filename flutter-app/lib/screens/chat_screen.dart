@@ -909,8 +909,14 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                       child: TextField(
                         controller: _messageController,
                         decoration: InputDecoration(
-                          hintText: 'Scrivi un messaggio...',
-                          hintStyle: TextStyle(color: Colors.grey[500]),
+                          hintText: _selectedTodoDate != null
+                              ? 'Nuovo todo'
+                              : 'Scrivi un messaggio...',
+                          hintStyle: TextStyle(
+                            color: _selectedTodoDate != null
+                                ? const Color(0xFF667eea).withOpacity(0.6)
+                                : Colors.grey[500],
+                          ),
                           border: InputBorder.none,
                           contentPadding: const EdgeInsets.symmetric(
                             horizontal: 20,
