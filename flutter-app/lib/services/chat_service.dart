@@ -311,6 +311,15 @@ class ChatService extends ChangeNotifier {
                 } catch (e) {
                   if (kDebugMode) print('❌ Error caching message: $e');
                 }
+
+                // ✅ AUTO-MARK AS READ: Se ricevo un messaggio, marcalo subito come letto
+                if (_myDeviceId != null && message.senderId != _myDeviceId) {
+                  // Messaggio ricevuto da qualcun altro, marcalo come letto
+                  markAllMessagesAsRead(familyChatId, _myDeviceId!);
+                  if (kDebugMode) {
+                    print('✅ [AUTO-READ] Marked message as read: ${message.id.substring(0, 8)}...');
+                  }
+                }
               }
             } else if (change.type == DocumentChangeType.modified) {
               // Gestisci modifiche ai messaggi esistenti (es. timestamp update per reminder o read status)
