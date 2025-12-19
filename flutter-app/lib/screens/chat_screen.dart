@@ -301,6 +301,9 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   }
 
   void _showDateTimePicker() async {
+    // Sentinella per segnalare cancellazione
+    final clearDate = DateTime(1970);
+
     DateTime selectedDate = DateTime.now().add(const Duration(days: 1));
     int selectedHour = 10;
     int selectedMinute = 0;
@@ -326,7 +329,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
             ),
             child: Column(
               children: [
-                // Header con solo X
+                // Header con solo X (cancella se c'è data selezionata)
                 SafeArea(
                   bottom: false,
                   child: Padding(
@@ -334,7 +337,14 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                     child: Align(
                       alignment: Alignment.centerLeft,
                       child: IconButton(
-                        onPressed: () => Navigator.pop(context),
+                        onPressed: () {
+                          // Se c'è una data selezionata, cancellala
+                          if (_selectedTodoDate != null) {
+                            Navigator.pop(context, clearDate);
+                          } else {
+                            Navigator.pop(context);
+                          }
+                        },
                         icon: const Icon(Icons.close, color: Colors.white, size: 28),
                       ),
                     ),
@@ -491,9 +501,14 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     hourController.dispose();
     minuteController.dispose();
 
-    if (result != null) {
+    if (result == clearDate) {
+      // X premuto per cancellare
+      setState(() => _selectedTodoDate = null);
+    } else if (result != null) {
+      // Data selezionata e confermata
       setState(() => _selectedTodoDate = result);
     }
+    // Se result è null, l'utente ha chiuso senza azione (non cambiare niente)
   }
 
   void _sendMessage() async {
@@ -901,31 +916,17 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                             horizontal: 20,
                             vertical: 12,
                           ),
-                          suffixIcon: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              if (_selectedTodoDate != null)
-                                IconButton(
-                                  icon: const Icon(Icons.close, size: 20),
-                                  color: Colors.grey[600],
-                                  onPressed: () {
-                                    setState(() => _selectedTodoDate = null);
-                                  },
-                                  tooltip: 'Annulla todo',
-                                ),
-                              IconButton(
-                                icon: Icon(
-                                  _selectedTodoDate != null
-                                      ? Icons.calendar_month
-                                      : Icons.calendar_month_outlined,
-                                  color: _selectedTodoDate != null
-                                      ? const Color(0xFF667eea)
-                                      : Colors.grey[600],
-                                ),
-                                onPressed: _showDateTimePicker,
-                                tooltip: 'Imposta data/ora',
-                              ),
-                            ],
+                          suffixIcon: IconButton(
+                            icon: Icon(
+                              _selectedTodoDate != null
+                                  ? Icons.calendar_month
+                                  : Icons.calendar_month_outlined,
+                              color: _selectedTodoDate != null
+                                  ? const Color(0xFF667eea)
+                                  : Colors.grey[600],
+                            ),
+                            onPressed: _showDateTimePicker,
+                            tooltip: 'Imposta data/ora',
                           ),
                         ),
                         maxLines: null,
