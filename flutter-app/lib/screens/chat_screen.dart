@@ -317,103 +317,77 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
           borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
           child: Container(
             height: MediaQuery.of(context).size.height * 0.85,
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+            decoration: const BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [Color(0xFF667eea), Color(0xFF764ba2)],
+              ),
             ),
             child: Column(
               children: [
-                // Header gradient
-                Container(
-                  decoration: const BoxDecoration(
-                    gradient: LinearGradient(
-                      colors: [Color(0xFF667eea), Color(0xFF764ba2)],
-                    ),
-                  ),
-                  child: SafeArea(
-                    bottom: false,
-                    child: Column(
+                // Header minimal
+                SafeArea(
+                  bottom: false,
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        // Handle bar
-                        Container(
-                          margin: const EdgeInsets.only(top: 8, bottom: 12),
-                          width: 40,
-                          height: 4,
-                          decoration: BoxDecoration(
-                            color: Colors.white.withOpacity(0.3),
-                            borderRadius: BorderRadius.circular(2),
-                          ),
+                        IconButton(
+                          onPressed: () {
+                            Navigator.pop(context);
+                          },
+                          icon: const Icon(Icons.close, color: Colors.white, size: 28),
                         ),
-                        // Title and actions
-                        Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 8),
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              IconButton(
-                                onPressed: () => Navigator.pop(context),
-                                icon: const Icon(Icons.close, color: Colors.white),
-                              ),
-                              const Text(
-                                'Quando?',
-                                style: TextStyle(
-                                  fontSize: 20,
-                                  fontWeight: FontWeight.bold,
-                                  color: Colors.white,
-                                ),
-                              ),
-                              IconButton(
-                                onPressed: () {
-                                  hourController.dispose();
-                                  minuteController.dispose();
-                                  final dueDate = DateTime(
-                                    selectedDate.year,
-                                    selectedDate.month,
-                                    selectedDate.day,
-                                    selectedHour,
-                                    selectedMinute,
-                                  );
-                                  Navigator.pop(context, dueDate);
-                                },
-                                icon: const Icon(Icons.check_circle, color: Colors.white, size: 28),
-                              ),
-                            ],
-                          ),
-                        ),
-                        // Preview compatta
-                        Padding(
-                          padding: const EdgeInsets.fromLTRB(20, 8, 20, 16),
-                          child: Text(
-                            '${selectedHour.toString().padLeft(2, '0')}:${selectedMinute.toString().padLeft(2, '0')}',
-                            style: const TextStyle(
-                              fontSize: 40,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.white,
-                              letterSpacing: 4,
-                            ),
-                          ),
+                        IconButton(
+                          onPressed: () {
+                            final dueDate = DateTime(
+                              selectedDate.year,
+                              selectedDate.month,
+                              selectedDate.day,
+                              selectedHour,
+                              selectedMinute,
+                            );
+                            Navigator.pop(context, dueDate);
+                          },
+                          icon: const Icon(Icons.check_circle, color: Colors.white, size: 32),
                         ),
                       ],
                     ),
                   ),
                 ),
-                // Calendar
+                // Calendar con theme viola
                 Expanded(
-                  child: CalendarDatePicker(
-                    initialDate: selectedDate,
-                    firstDate: DateTime.now(),
-                    lastDate: DateTime.now().add(const Duration(days: 365)),
-                    onDateChanged: (date) {
-                      setModalState(() => selectedDate = date);
-                    },
+                  child: Theme(
+                    data: ThemeData.light().copyWith(
+                      colorScheme: const ColorScheme.light(
+                        primary: Colors.white,
+                        onPrimary: Color(0xFF667eea),
+                        surface: Colors.transparent,
+                        onSurface: Colors.white,
+                      ),
+                      textTheme: const TextTheme(
+                        bodyLarge: TextStyle(color: Colors.white),
+                        bodyMedium: TextStyle(color: Colors.white70),
+                        titleMedium: TextStyle(color: Colors.white),
+                      ),
+                    ),
+                    child: CalendarDatePicker(
+                      initialDate: selectedDate,
+                      firstDate: DateTime.now(),
+                      lastDate: DateTime.now().add(const Duration(days: 365)),
+                      onDateChanged: (date) {
+                        setModalState(() => selectedDate = date);
+                      },
+                    ),
                   ),
                 ),
-                // Time picker scroll
+                // Time picker scroll viola
                 Container(
                   height: 180,
                   decoration: BoxDecoration(
-                    color: Colors.grey[50],
-                    border: Border(top: BorderSide(color: Colors.grey[200]!)),
+                    color: const Color(0xFF764ba2).withOpacity(0.3),
                   ),
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.center,
@@ -431,7 +405,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                             decoration: BoxDecoration(
                               border: Border.symmetric(
                                 horizontal: BorderSide(
-                                  color: const Color(0xFF667eea).withOpacity(0.3),
+                                  color: Colors.white.withOpacity(0.5),
                                   width: 2,
                                 ),
                               ),
@@ -442,12 +416,10 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                             (index) => Center(
                               child: Text(
                                 index.toString().padLeft(2, '0'),
-                                style: TextStyle(
+                                style: const TextStyle(
                                   fontSize: 24,
                                   fontWeight: FontWeight.w600,
-                                  color: index == selectedHour
-                                      ? const Color(0xFF667eea)
-                                      : Colors.grey[600],
+                                  color: Colors.white,
                                 ),
                               ),
                             ),
@@ -461,7 +433,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                           style: TextStyle(
                             fontSize: 28,
                             fontWeight: FontWeight.bold,
-                            color: Color(0xFF667eea),
+                            color: Colors.white,
                           ),
                         ),
                       ),
@@ -478,7 +450,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                             decoration: BoxDecoration(
                               border: Border.symmetric(
                                 horizontal: BorderSide(
-                                  color: const Color(0xFF667eea).withOpacity(0.3),
+                                  color: Colors.white.withOpacity(0.5),
                                   width: 2,
                                 ),
                               ),
@@ -489,12 +461,10 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                             (index) => Center(
                               child: Text(
                                 index.toString().padLeft(2, '0'),
-                                style: TextStyle(
+                                style: const TextStyle(
                                   fontSize: 24,
                                   fontWeight: FontWeight.w600,
-                                  color: index == selectedMinute
-                                      ? const Color(0xFF667eea)
-                                      : Colors.grey[600],
+                                  color: Colors.white,
                                 ),
                               ),
                             ),
@@ -520,13 +490,15 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   }
 
   void _sendMessage() async {
-    if (_messageController.text.trim().isEmpty) {
-      print('❌ Message is empty');
+    final todoDate = _selectedTodoDate;
+
+    // Permetti invio se c'è una data selezionata (anche con testo vuoto)
+    if (_messageController.text.trim().isEmpty && todoDate == null) {
+      print('❌ Message is empty and no date selected');
       return;
     }
 
     final messageText = _messageController.text.trim();
-    final todoDate = _selectedTodoDate; // Salva prima di clear
     _messageController.clear(); // Clear subito per UX migliore
     setState(() => _selectedTodoDate = null); // Reset todo date
 
