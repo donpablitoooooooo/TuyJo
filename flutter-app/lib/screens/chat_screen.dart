@@ -316,7 +316,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
         builder: (context, setModalState) => ClipRRect(
           borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
           child: Container(
-            height: MediaQuery.of(context).size.height * 0.85,
+            height: MediaQuery.of(context).size.height * 0.70,
             decoration: const BoxDecoration(
               gradient: LinearGradient(
                 begin: Alignment.topCenter,
@@ -326,34 +326,17 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
             ),
             child: Column(
               children: [
-                // Header minimal
+                // Header con solo X
                 SafeArea(
                   bottom: false,
                   child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        IconButton(
-                          onPressed: () {
-                            Navigator.pop(context);
-                          },
-                          icon: const Icon(Icons.close, color: Colors.white, size: 28),
-                        ),
-                        IconButton(
-                          onPressed: () {
-                            final dueDate = DateTime(
-                              selectedDate.year,
-                              selectedDate.month,
-                              selectedDate.day,
-                              selectedHour,
-                              selectedMinute,
-                            );
-                            Navigator.pop(context, dueDate);
-                          },
-                          icon: const Icon(Icons.check_circle, color: Colors.white, size: 32),
-                        ),
-                      ],
+                    padding: const EdgeInsets.only(left: 8, top: 8),
+                    child: Align(
+                      alignment: Alignment.centerLeft,
+                      child: IconButton(
+                        onPressed: () => Navigator.pop(context),
+                        icon: const Icon(Icons.close, color: Colors.white, size: 28),
+                      ),
                     ),
                   ),
                 ),
@@ -383,9 +366,9 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                     ),
                   ),
                 ),
-                // Time picker scroll viola
+                // Time picker con check button a lato
                 Container(
-                  height: 180,
+                  padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 16),
                   decoration: BoxDecoration(
                     color: const Color(0xFF764ba2).withOpacity(0.3),
                   ),
@@ -395,6 +378,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                       // Hour picker
                       SizedBox(
                         width: 70,
+                        height: 140,
                         child: CupertinoPicker(
                           scrollController: hourController,
                           itemExtent: 40,
@@ -440,6 +424,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                       // Minute picker
                       SizedBox(
                         width: 70,
+                        height: 140,
                         child: CupertinoPicker(
                           scrollController: minuteController,
                           itemExtent: 40,
@@ -469,6 +454,28 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                               ),
                             ),
                           ),
+                        ),
+                      ),
+                      const SizedBox(width: 16),
+                      // Check button a lato
+                      Container(
+                        decoration: BoxDecoration(
+                          color: Colors.white.withOpacity(0.2),
+                          shape: BoxShape.circle,
+                        ),
+                        child: IconButton(
+                          onPressed: () {
+                            final dueDate = DateTime(
+                              selectedDate.year,
+                              selectedDate.month,
+                              selectedDate.day,
+                              selectedHour,
+                              selectedMinute,
+                            );
+                            Navigator.pop(context, dueDate);
+                          },
+                          icon: const Icon(Icons.check_circle, color: Colors.white, size: 36),
+                          tooltip: 'Conferma',
                         ),
                       ),
                     ],
@@ -887,17 +894,8 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                       child: TextField(
                         controller: _messageController,
                         decoration: InputDecoration(
-                          hintText: _selectedTodoDate != null
-                              ? 'Todo per ${DateFormat('dd/MM/yy HH:mm').format(_selectedTodoDate!)}'
-                              : 'Scrivi un messaggio...',
-                          hintStyle: TextStyle(
-                            color: _selectedTodoDate != null
-                                ? const Color(0xFF667eea)
-                                : Colors.grey[500],
-                            fontWeight: _selectedTodoDate != null
-                                ? FontWeight.w500
-                                : FontWeight.normal,
-                          ),
+                          hintText: 'Scrivi un messaggio...',
+                          hintStyle: TextStyle(color: Colors.grey[500]),
                           border: InputBorder.none,
                           contentPadding: const EdgeInsets.symmetric(
                             horizontal: 20,
