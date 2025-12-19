@@ -735,8 +735,9 @@ class ChatService extends ChangeNotifier {
     String familyChatId,
     String senderId,
     String senderPublicKey, // Nuova! Per cifrare anche per noi stessi
-    String recipientPublicKey,
-  ) async {
+    String recipientPublicKey, {
+    List<Attachment>? attachments, // Allegati opzionali
+  }) async {
     try {
       final timestamp = DateTime.now();
 
@@ -773,6 +774,8 @@ class ChatService extends ChangeNotifier {
         'message_type': 'text', // Campo non criptato per la Cloud Function
         'delivered': true, // Messaggio consegnato al server
         'read': false, // Non ancora letto dal destinatario
+        if (attachments != null && attachments.isNotEmpty)
+          'attachments': attachments.map((a) => a.toJson()).toList(),
       });
 
       if (kDebugMode) {

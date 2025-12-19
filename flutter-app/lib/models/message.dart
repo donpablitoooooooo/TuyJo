@@ -1,3 +1,48 @@
+// Modello per gli allegati
+class Attachment {
+  final String id;
+  final String type; // 'photo', 'video', 'document'
+  final String url; // URL Firebase Storage
+  final String fileName;
+  final int fileSize; // in bytes
+  final String? thumbnailUrl; // URL thumbnail per video/documenti
+  final String? mimeType; // es. 'image/jpeg', 'video/mp4', 'application/pdf'
+
+  Attachment({
+    required this.id,
+    required this.type,
+    required this.url,
+    required this.fileName,
+    required this.fileSize,
+    this.thumbnailUrl,
+    this.mimeType,
+  });
+
+  factory Attachment.fromJson(Map<String, dynamic> json) {
+    return Attachment(
+      id: json['id'] ?? '',
+      type: json['type'] ?? '',
+      url: json['url'] ?? '',
+      fileName: json['fileName'] ?? '',
+      fileSize: json['fileSize'] ?? 0,
+      thumbnailUrl: json['thumbnailUrl'],
+      mimeType: json['mimeType'],
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'type': type,
+      'url': url,
+      'fileName': fileName,
+      'fileSize': fileSize,
+      if (thumbnailUrl != null) 'thumbnailUrl': thumbnailUrl,
+      if (mimeType != null) 'mimeType': mimeType,
+    };
+  }
+}
+
 class Message {
   final String id;
   final String senderId;
@@ -28,6 +73,9 @@ class Message {
   bool? read; // true quando il destinatario ha visualizzato il messaggio
   DateTime? readAt; // timestamp di quando è stato letto
 
+  // Allegati (foto, video, documenti)
+  List<Attachment>? attachments;
+
   Message({
     required this.id,
     required this.senderId,
@@ -49,6 +97,7 @@ class Message {
     this.delivered,
     this.read,
     this.readAt,
+    this.attachments,
   });
 
   factory Message.fromJson(Map<String, dynamic> json) {
@@ -68,6 +117,14 @@ class Message {
   }
 
   factory Message.fromFirestore(String docId, Map<String, dynamic> data) {
+    // Parse attachments se presenti
+    List<Attachment>? attachments;
+    if (data['attachments'] != null && data['attachments'] is List) {
+      attachments = (data['attachments'] as List)
+          .map((a) => Attachment.fromJson(a as Map<String, dynamic>))
+          .toList();
+    }
+
     return Message(
       id: docId,
       senderId: data['sender_id'] ?? '',
@@ -83,6 +140,7 @@ class Message {
       delivered: data['delivered'],
       read: data['read'],
       readAt: data['read_at'] != null ? DateTime.parse(data['read_at']) : null,
+      attachments: attachments,
     );
   }
 
@@ -102,6 +160,7 @@ class Message {
       if (delivered != null) 'delivered': delivered,
       if (read != null) 'read': read,
       if (readAt != null) 'read_at': readAt!.toIso8601String(),
+      if (attachments != null) 'attachments': attachments!.map((a) => a.toJson()).toList(),
     };
   }
 }
