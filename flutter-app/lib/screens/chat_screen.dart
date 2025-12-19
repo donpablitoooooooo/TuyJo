@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/cupertino.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
 import '../services/pairing_service.dart';
@@ -304,251 +305,218 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     int selectedHour = 10;
     int selectedMinute = 0;
 
+    final hourController = FixedExtentScrollController(initialItem: selectedHour);
+    final minuteController = FixedExtentScrollController(initialItem: selectedMinute);
+
     final result = await showModalBottomSheet<DateTime>(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (context) => StatefulBuilder(
-        builder: (context, setModalState) => Container(
-          height: MediaQuery.of(context).size.height * 0.85,
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [
-                Colors.white,
-                Colors.grey[50]!,
-              ],
+        builder: (context, setModalState) => ClipRRect(
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+          child: Container(
+            height: MediaQuery.of(context).size.height * 0.85,
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
             ),
-            borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withOpacity(0.1),
-                blurRadius: 20,
-                offset: const Offset(0, -5),
-              ),
-            ],
-          ),
-          child: Column(
-            children: [
-              // Handle bar
-              Container(
-                margin: const EdgeInsets.only(top: 12),
-                width: 40,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: Colors.grey[300],
-                  borderRadius: BorderRadius.circular(2),
-                ),
-              ),
-              // Header gradient
-              Container(
-                padding: const EdgeInsets.all(20),
-                decoration: BoxDecoration(
-                  gradient: const LinearGradient(
-                    colors: [Color(0xFF667eea), Color(0xFF764ba2)],
+            child: Column(
+              children: [
+                // Header gradient
+                Container(
+                  decoration: const BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: [Color(0xFF667eea), Color(0xFF764ba2)],
+                    ),
                   ),
-                  borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
-                ),
-                child: SafeArea(
-                  bottom: false,
-                  child: Column(
-                    children: [
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          IconButton(
-                            onPressed: () => Navigator.pop(context),
-                            icon: const Icon(Icons.close, color: Colors.white),
+                  child: SafeArea(
+                    bottom: false,
+                    child: Column(
+                      children: [
+                        // Handle bar
+                        Container(
+                          margin: const EdgeInsets.only(top: 8, bottom: 12),
+                          width: 40,
+                          height: 4,
+                          decoration: BoxDecoration(
+                            color: Colors.white.withOpacity(0.3),
+                            borderRadius: BorderRadius.circular(2),
                           ),
-                          const Text(
-                            'Quando?',
-                            style: TextStyle(
-                              fontSize: 20,
+                        ),
+                        // Title and actions
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 8),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              IconButton(
+                                onPressed: () => Navigator.pop(context),
+                                icon: const Icon(Icons.close, color: Colors.white),
+                              ),
+                              const Text(
+                                'Quando?',
+                                style: TextStyle(
+                                  fontSize: 20,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.white,
+                                ),
+                              ),
+                              IconButton(
+                                onPressed: () {
+                                  hourController.dispose();
+                                  minuteController.dispose();
+                                  final dueDate = DateTime(
+                                    selectedDate.year,
+                                    selectedDate.month,
+                                    selectedDate.day,
+                                    selectedHour,
+                                    selectedMinute,
+                                  );
+                                  Navigator.pop(context, dueDate);
+                                },
+                                icon: const Icon(Icons.check_circle, color: Colors.white, size: 28),
+                              ),
+                            ],
+                          ),
+                        ),
+                        // Preview compatta
+                        Padding(
+                          padding: const EdgeInsets.fromLTRB(20, 8, 20, 16),
+                          child: Text(
+                            '${selectedHour.toString().padLeft(2, '0')}:${selectedMinute.toString().padLeft(2, '0')}',
+                            style: const TextStyle(
+                              fontSize: 40,
                               fontWeight: FontWeight.bold,
                               color: Colors.white,
+                              letterSpacing: 4,
                             ),
                           ),
-                          IconButton(
-                            onPressed: () {
-                              final dueDate = DateTime(
-                                selectedDate.year,
-                                selectedDate.month,
-                                selectedDate.day,
-                                selectedHour,
-                                selectedMinute,
-                              );
-                              Navigator.pop(context, dueDate);
-                            },
-                            icon: const Icon(Icons.check_circle, color: Colors.white, size: 28),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 12),
-                      // Data selezionata display
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-                        decoration: BoxDecoration(
-                          color: Colors.white.withOpacity(0.2),
-                          borderRadius: BorderRadius.circular(16),
                         ),
-                        child: Column(
-                          children: [
-                            Text(
-                              DateFormat('EEEE d MMMM yyyy').format(selectedDate),
-                              style: const TextStyle(
-                                fontSize: 18,
-                                fontWeight: FontWeight.w600,
-                                color: Colors.white,
+                      ],
+                    ),
+                  ),
+                ),
+                // Calendar
+                Expanded(
+                  child: CalendarDatePicker(
+                    initialDate: selectedDate,
+                    firstDate: DateTime.now(),
+                    lastDate: DateTime.now().add(const Duration(days: 365)),
+                    onDateChanged: (date) {
+                      setModalState(() => selectedDate = date);
+                    },
+                  ),
+                ),
+                // Time picker scroll
+                Container(
+                  height: 180,
+                  decoration: BoxDecoration(
+                    color: Colors.grey[50],
+                    border: Border(top: BorderSide(color: Colors.grey[200]!)),
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      // Hour picker
+                      SizedBox(
+                        width: 70,
+                        child: CupertinoPicker(
+                          scrollController: hourController,
+                          itemExtent: 40,
+                          onSelectedItemChanged: (index) {
+                            setModalState(() => selectedHour = index);
+                          },
+                          selectionOverlay: Container(
+                            decoration: BoxDecoration(
+                              border: Border.symmetric(
+                                horizontal: BorderSide(
+                                  color: const Color(0xFF667eea).withOpacity(0.3),
+                                  width: 2,
+                                ),
                               ),
                             ),
-                            const SizedBox(height: 8),
-                            Text(
-                              '${selectedHour.toString().padLeft(2, '0')}:${selectedMinute.toString().padLeft(2, '0')}',
-                              style: const TextStyle(
-                                fontSize: 32,
-                                fontWeight: FontWeight.bold,
-                                color: Colors.white,
-                                letterSpacing: 2,
+                          ),
+                          children: List.generate(
+                            24,
+                            (index) => Center(
+                              child: Text(
+                                index.toString().padLeft(2, '0'),
+                                style: TextStyle(
+                                  fontSize: 24,
+                                  fontWeight: FontWeight.w600,
+                                  color: index == selectedHour
+                                      ? const Color(0xFF667eea)
+                                      : Colors.grey[600],
+                                ),
                               ),
                             ),
-                          ],
+                          ),
+                        ),
+                      ),
+                      const Padding(
+                        padding: EdgeInsets.symmetric(horizontal: 12),
+                        child: Text(
+                          ':',
+                          style: TextStyle(
+                            fontSize: 28,
+                            fontWeight: FontWeight.bold,
+                            color: Color(0xFF667eea),
+                          ),
+                        ),
+                      ),
+                      // Minute picker
+                      SizedBox(
+                        width: 70,
+                        child: CupertinoPicker(
+                          scrollController: minuteController,
+                          itemExtent: 40,
+                          onSelectedItemChanged: (index) {
+                            setModalState(() => selectedMinute = index);
+                          },
+                          selectionOverlay: Container(
+                            decoration: BoxDecoration(
+                              border: Border.symmetric(
+                                horizontal: BorderSide(
+                                  color: const Color(0xFF667eea).withOpacity(0.3),
+                                  width: 2,
+                                ),
+                              ),
+                            ),
+                          ),
+                          children: List.generate(
+                            60,
+                            (index) => Center(
+                              child: Text(
+                                index.toString().padLeft(2, '0'),
+                                style: TextStyle(
+                                  fontSize: 24,
+                                  fontWeight: FontWeight.w600,
+                                  color: index == selectedMinute
+                                      ? const Color(0xFF667eea)
+                                      : Colors.grey[600],
+                                ),
+                              ),
+                            ),
+                          ),
                         ),
                       ),
                     ],
                   ),
                 ),
-              ),
-              // Calendar
-              Expanded(
-                flex: 3,
-                child: CalendarDatePicker(
-                  initialDate: selectedDate,
-                  firstDate: DateTime.now(),
-                  lastDate: DateTime.now().add(const Duration(days: 365)),
-                  onDateChanged: (date) {
-                    setModalState(() => selectedDate = date);
-                  },
-                ),
-              ),
-              // Time picker moderno
-              Container(
-                padding: const EdgeInsets.all(24),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(0.05),
-                      blurRadius: 10,
-                      offset: const Offset(0, -2),
-                    ),
-                  ],
-                ),
-                child: Column(
-                  children: [
-                    Text(
-                      'Ora',
-                      style: TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w600,
-                        color: Colors.grey[700],
-                        letterSpacing: 1,
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        // Hour picker
-                        _buildTimeWheel(
-                          value: selectedHour,
-                          max: 23,
-                          onChanged: (val) => setModalState(() => selectedHour = val),
-                        ),
-                        const Padding(
-                          padding: EdgeInsets.symmetric(horizontal: 16),
-                          child: Text(
-                            ':',
-                            style: TextStyle(
-                              fontSize: 32,
-                              fontWeight: FontWeight.bold,
-                              color: Color(0xFF667eea),
-                            ),
-                          ),
-                        ),
-                        // Minute picker
-                        _buildTimeWheel(
-                          value: selectedMinute,
-                          max: 59,
-                          onChanged: (val) => setModalState(() => selectedMinute = val),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),
     );
+
+    hourController.dispose();
+    minuteController.dispose();
 
     if (result != null) {
       setState(() => _selectedTodoDate = result);
     }
-  }
-
-  Widget _buildTimeWheel({
-    required int value,
-    required int max,
-    required ValueChanged<int> onChanged,
-  }) {
-    return Container(
-      width: 80,
-      height: 120,
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [
-            const Color(0xFF667eea).withOpacity(0.1),
-            const Color(0xFF764ba2).withOpacity(0.1),
-          ],
-        ),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFF667eea).withOpacity(0.3), width: 2),
-      ),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          IconButton(
-            onPressed: () => onChanged((value + 1) > max ? 0 : value + 1),
-            icon: const Icon(Icons.keyboard_arrow_up),
-            color: const Color(0xFF667eea),
-          ),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            decoration: BoxDecoration(
-              gradient: const LinearGradient(
-                colors: [Color(0xFF667eea), Color(0xFF764ba2)],
-              ),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Text(
-              value.toString().padLeft(2, '0'),
-              style: const TextStyle(
-                fontSize: 28,
-                fontWeight: FontWeight.bold,
-                color: Colors.white,
-              ),
-            ),
-          ),
-          IconButton(
-            onPressed: () => onChanged((value - 1) < 0 ? max : value - 1),
-            icon: const Icon(Icons.keyboard_arrow_down),
-            color: const Color(0xFF667eea),
-          ),
-        ],
-      ),
-    );
   }
 
   void _sendMessage() async {
