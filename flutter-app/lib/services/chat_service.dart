@@ -376,7 +376,11 @@ class ChatService extends ChangeNotifier {
   void _startReadReceiptsListener(String familyChatId, String myDeviceId) {
     _readReceiptsSubscription?.cancel();
 
-    if (kDebugMode) print('⚡ Starting read receipts document listener');
+    if (kDebugMode) {
+      print('⚡ [READ_RECEIPTS] Starting listener');
+      print('   Family: ${familyChatId.substring(0, 10)}...');
+      print('   My ID: ${myDeviceId.substring(0, 10)}...');
+    }
 
     _readReceiptsSubscription = _firestore
         .collection('families')
@@ -386,15 +390,24 @@ class ChatService extends ChangeNotifier {
         .listen(
       (snapshot) async {
         if (kDebugMode) {
-          print('⚡ Read receipts document updated: ${snapshot.docs.length} users');
+          print('⚡ [READ_RECEIPTS] Snapshot received!');
+          print('   Docs count: ${snapshot.docs.length}');
+          print('   Changes: ${snapshot.docChanges.length}');
         }
 
         for (var doc in snapshot.docs) {
           final userId = doc.id;
           final data = doc.data();
 
+          if (kDebugMode) {
+            print('   Doc ID: ${userId.substring(0, 10)}...');
+          }
+
           // Ignora i miei read receipts, interessano solo quelli del partner
-          if (userId == myDeviceId) continue;
+          if (userId == myDeviceId) {
+            if (kDebugMode) print('   -> Skipping (my own receipts)');
+            continue;
+          }
 
           final readMessageIds = List<String>.from(data['messageIds'] ?? []);
           final lastReadAt = data['lastReadAt'] as Timestamp?;
