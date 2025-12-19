@@ -395,7 +395,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                         child: Column(
                           children: [
                             Text(
-                              DateFormat('EEEE d MMMM yyyy', 'it_IT').format(selectedDate),
+                              DateFormat('EEEE d MMMM yyyy').format(selectedDate),
                               style: const TextStyle(
                                 fontSize: 18,
                                 fontWeight: FontWeight.w600,
