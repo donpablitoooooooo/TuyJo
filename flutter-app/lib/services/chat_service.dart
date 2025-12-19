@@ -386,9 +386,9 @@ class ChatService extends ChangeNotifier {
         .collection('families')
         .doc(familyChatId)
         .collection('read_receipts')
-        .snapshots()
+        .snapshots(includeMetadataChanges: false)
         .listen(
-      (snapshot) async {
+      (snapshot) {
         if (kDebugMode) {
           print('⚡ [READ_RECEIPTS] Snapshot received!');
           print('   Docs count: ${snapshot.docs.length}');
@@ -428,17 +428,17 @@ class ChatService extends ChangeNotifier {
           }
 
           if (updatedCount > 0) {
-            // Aggiorna cache
-            try {
-              await _cacheService.saveMessages(_messages, familyChatId);
-              if (kDebugMode) {
-                print('✅ Updated $updatedCount messages to read=true');
-              }
-            } catch (e) {
-              if (kDebugMode) print('❌ Error updating cache: $e');
+            if (kDebugMode) {
+              print('✅ Updated $updatedCount messages to read=true');
             }
 
+            // Notifica UI immediatamente (non aspettare il salvataggio cache)
             notifyListeners();
+
+            // Aggiorna cache in background
+            _cacheService.saveMessages(_messages, familyChatId).catchError((e) {
+              if (kDebugMode) print('❌ Error updating cache: $e');
+            });
           }
         }
       },
@@ -486,7 +486,7 @@ class ChatService extends ChangeNotifier {
         .collection('families')
         .doc(familyChatId)
         .collection('users')
-        .snapshots()
+        .snapshots(includeMetadataChanges: false)
         .listen((snapshot) {
       bool partnerTyping = false;
 
