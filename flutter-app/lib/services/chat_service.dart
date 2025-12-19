@@ -17,6 +17,7 @@ class ChatService extends ChangeNotifier {
   final MessageCacheService _cacheService = MessageCacheService();
   StreamSubscription<QuerySnapshot>? _subscription;
   StreamSubscription<QuerySnapshot>? _typingSubscription;
+  StreamSubscription<QuerySnapshot>? _readReceiptsSubscription; // Listener per status updates
   String? _myDeviceId; // Per sapere se sono il sender
   String? _currentFamilyChatId; // Per gestire la cache
   bool _isLoadingFromCache = false;
@@ -358,10 +359,75 @@ class ChatService extends ChangeNotifier {
       },
     );
 
+    // 🔔 LISTENER SEPARATO per read receipts dei miei messaggi
+    // Questo listener riceve gli eventi modified in tempo reale
+    if (_myDeviceId != null) {
+      _startReadReceiptsListener(familyChatId, _myDeviceId!);
+    }
+
     final totalDuration = DateTime.now().difference(startTime);
     if (kDebugMode) print('⏱️ [CHAT_SERVICE] startListening completed in ${totalDuration.inMilliseconds}ms');
 
     notifyListeners();
+  }
+
+  /// Listener dedicato per status updates dei messaggi inviati da me
+  void _startReadReceiptsListener(String familyChatId, String myDeviceId) {
+    _readReceiptsSubscription?.cancel();
+
+    if (kDebugMode) print('👁️ Starting read receipts listener for my messages');
+
+    _readReceiptsSubscription = _firestore
+        .collection('families')
+        .doc(familyChatId)
+        .collection('messages')
+        .where('sender_id', isEqualTo: myDeviceId) // Solo i miei messaggi
+        .orderBy('created_at', descending: true)
+        .limit(50) // Monitora solo ultimi 50 miei messaggi per performance
+        .snapshots()
+        .listen(
+      (snapshot) async {
+        if (kDebugMode) {
+          print('👁️ Read receipts snapshot: ${snapshot.docChanges.length} changes');
+        }
+
+        for (var change in snapshot.docChanges) {
+          if (change.type == DocumentChangeType.modified) {
+            final updatedMessage = Message.fromFirestore(
+              change.doc.id,
+              change.doc.data()!,
+            );
+
+            // Trova e aggiorna il messaggio nella lista locale
+            final index = _messages.indexWhere((m) => m.id == updatedMessage.id);
+            if (index != -1) {
+              if (kDebugMode) {
+                print('✓✓ Status update for message ${updatedMessage.id.substring(0, 8)}');
+                print('   Old: delivered=${_messages[index].delivered}, read=${_messages[index].read}');
+                print('   New: delivered=${updatedMessage.delivered}, read=${updatedMessage.read}');
+              }
+
+              // Aggiorna solo i campi di status, preservando il resto
+              _messages[index].delivered = updatedMessage.delivered;
+              _messages[index].read = updatedMessage.read;
+              _messages[index].readAt = updatedMessage.readAt;
+
+              // Aggiorna cache
+              try {
+                await _cacheService.saveMessage(_messages[index], familyChatId);
+              } catch (e) {
+                if (kDebugMode) print('❌ Error updating cache: $e');
+              }
+
+              notifyListeners();
+            }
+          }
+        }
+      },
+      onError: (error) {
+        if (kDebugMode) print('❌ Read receipts listener error: $error');
+      },
+    );
   }
 
   // Disconnetti dal listener
@@ -370,6 +436,8 @@ class ChatService extends ChangeNotifier {
     _subscription = null;
     _typingSubscription?.cancel();
     _typingSubscription = null;
+    _readReceiptsSubscription?.cancel();
+    _readReceiptsSubscription = null;
     _typingTimer?.cancel();
     _typingTimer = null;
     if (kDebugMode) print('🔇 Stopped listening to chat');
