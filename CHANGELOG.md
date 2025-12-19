@@ -2,6 +2,84 @@
 
 All notable changes to YouAndMe app will be documented in this file.
 
+## [1.5.0] - 2025-12-19
+
+### 🎨 Added - Complete Todo System Redesign
+
+- **Inline Date/Time Picker**: Modale completamente viola con gradiente pulito
+  - Calendario integrato con tema custom bianco su viola
+  - CupertinoPicker iOS-style per scroll ore/minuti (0-23 / 0-59)
+  - Layout compatto (70% altezza schermo, zero spazi vuoti)
+  - Check button riposizionato a lato del time picker (più comodo)
+
+- **Smart Placeholder System**: Feedback visivo discreto
+  - "Scrivi un messaggio..." quando nessuna data selezionata
+  - "Nuovo todo" quando calendario attivo
+  - Sempre grigio, mai invadente
+
+- **Streamlined UX**: Flow pulito e intuitivo
+  - Solo icona calendario nel campo testo (viola quando attiva)
+  - X button intelligente: cancella data se presente, altrimenti chiude
+  - Riclicca calendario per modificare/cancellare
+  - Messaggi vuoti OK se c'è data selezionata
+  - Invio con tastiera (Enter)
+
+### 🐛 Fixed - Critical SQLite Bug
+
+- **is_reminder Field Missing**: Reminder mostrava icona calendario invece di campanellino dopo riavvio app
+  - Root cause: campo `is_reminder` non era salvato nella cache SQLite
+  - Fix: Aggiunto campo `is_reminder INTEGER` allo schema (v2 → v3)
+  - Database migration automatica per utenti esistenti
+  - Save/load `isReminder` field in `saveMessage()`, `saveMessages()`, `_messageFromMap()`
+
+### 🔧 Technical Changes
+
+- SQLite schema upgrade: v2 → v3 (added `is_reminder` column)
+- Migration handler in `_upgradeDatabase()` for seamless upgrade
+- CupertinoPicker integration for native iOS-style scroll wheels
+- Theme override for calendar: white text on purple background
+- Sentinel value (DateTime(1970)) to distinguish clear vs close actions
+- FixedExtentScrollController properly disposed to prevent memory leaks
+- Dynamic placeholder logic based on `_selectedTodoDate` state
+
+### 📝 Files Modified
+
+- `flutter-app/pubspec.yaml` (version 1.4.0+5 → 1.5.0+6)
+- `flutter-app/lib/services/message_cache_service.dart`:
+  - Schema v3: added `is_reminder INTEGER DEFAULT 0`
+  - Migration v2→v3 in `_upgradeDatabase()`
+  - Save/load `isReminder` in cache operations
+- `flutter-app/lib/screens/chat_screen.dart`:
+  - Complete date/time picker redesign (all-purple modal)
+  - Removed old dialog (`_CreateTodoDialog`)
+  - Removed inline X button for date clearing
+  - X button in modal now clears if date exists
+  - Check button moved next to time picker
+  - Smart placeholder ("Nuovo todo" when date selected)
+  - CupertinoPicker scroll wheels (hour/minute)
+- `README.md` (documentation v1.5.0)
+- `CHANGELOG.md` (this file)
+
+### 🎯 UX Flow
+
+1. 📅 Tap calendario → modale viola si apre
+2. 📆 Seleziona data dal calendario integrato
+3. ⏰ Scroll ore/minuti con ruote iOS
+4. ✓ Tap check a lato → conferma e chiude
+5. 💜 Icona calendario diventa viola
+6. ✍️ Scrivi todo (o lascia vuoto)
+7. 📤 Enter → invia con reminder automatico (1h prima)
+
+### 🏗️ Design Philosophy
+
+- **Minimal**: No testi inutili, solo quello che serve
+- **Coerente**: Tutto viola per visual harmony
+- **Intuitivo**: Controlli dove servono (check vicino ai picker)
+- **Immediato**: Feedback istantaneo (icona viola = attivo)
+- **Naturale**: Gesture familiari (riclicca per modificare)
+
+---
+
 ## [1.4.0] - 2025-12-17
 
 ### 🎨 Added - UX Redesign

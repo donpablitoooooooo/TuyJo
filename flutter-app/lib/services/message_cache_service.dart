@@ -7,7 +7,7 @@ import '../models/message.dart';
 /// Permette caricamento istantaneo, ricerca con LIKE, e lazy loading
 class MessageCacheService {
   static const String _dbName = 'messages_cache.db';
-  static const int _dbVersion = 2;
+  static const int _dbVersion = 3;
   static const String _messagesTable = 'messages';
 
   Database? _database;
@@ -62,6 +62,7 @@ class MessageCacheService {
         due_date INTEGER,
         completed INTEGER DEFAULT 0,
         original_todo_id TEXT,
+        is_reminder INTEGER DEFAULT 0,
         delivered INTEGER DEFAULT 0,
         read INTEGER DEFAULT 0,
         read_at INTEGER
@@ -91,6 +92,10 @@ class MessageCacheService {
       await db.execute('ALTER TABLE $_messagesTable ADD COLUMN read INTEGER DEFAULT 0');
       await db.execute('ALTER TABLE $_messagesTable ADD COLUMN read_at INTEGER');
     }
+    if (oldVersion < 3) {
+      // Aggiungi colonna is_reminder per distinguere todo da reminder
+      await db.execute('ALTER TABLE $_messagesTable ADD COLUMN is_reminder INTEGER DEFAULT 0');
+    }
   }
 
   /// Salva un messaggio nella cache
@@ -115,6 +120,7 @@ class MessageCacheService {
       'due_date': message.dueDate?.millisecondsSinceEpoch,
       'completed': message.completed == true ? 1 : 0,
       'original_todo_id': message.originalTodoId,
+      'is_reminder': message.isReminder == true ? 1 : 0,
       'delivered': message.delivered == true ? 1 : 0,
       'read': message.read == true ? 1 : 0,
       'read_at': message.readAt?.millisecondsSinceEpoch,
@@ -152,6 +158,7 @@ class MessageCacheService {
         'due_date': message.dueDate?.millisecondsSinceEpoch,
         'completed': message.completed == true ? 1 : 0,
         'original_todo_id': message.originalTodoId,
+        'is_reminder': message.isReminder == true ? 1 : 0,
         'delivered': message.delivered == true ? 1 : 0,
         'read': message.read == true ? 1 : 0,
         'read_at': message.readAt?.millisecondsSinceEpoch,
@@ -346,6 +353,7 @@ class MessageCacheService {
           : null,
       completed: map['completed'] == 1,
       originalTodoId: map['original_todo_id'] as String?,
+      isReminder: map['is_reminder'] == 1,
       delivered: map['delivered'] == 1,
       read: map['read'] == 1,
       readAt: map['read_at'] != null

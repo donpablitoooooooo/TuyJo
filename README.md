@@ -58,7 +58,85 @@ App di messaggistica privata per due persone con crittografia end-to-end e pairi
 
 ## 📦 Aggiornamenti Recenti (Dicembre 2025)
 
-### 💬 v1.5.0 - WhatsApp-Style Message Indicators (19 Dicembre 2025)
+### 📅 v1.5.0 - Todo System Complete Redesign (19 Dicembre 2025)
+
+**Nuove Feature:**
+
+1. **🎨 Inline Date/Time Picker - All Purple Design**
+   - Modale completamente viola con gradiente pulito
+   - Calendario integrato con tema custom bianco su viola
+   - Scroll wheels iOS-style per ore e minuti (0-23 / 0-59)
+   - Layout compatto (70% altezza schermo)
+   - Zero spazi vuoti, design ottimizzato
+
+2. **📝 Smart Placeholder System**
+   - "Scrivi un messaggio..." → modalità normale
+   - "Nuovo todo" → quando calendario selezionato
+   - Sempre grigio, mai invadente
+   - Feedback visivo chiaro ma discreto
+
+3. **✓ Check Button Riposizionato**
+   - Spostato da header a lato del time picker
+   - Più comodo e raggiungibile
+   - Cerchio bianco semitrasparente di background
+   - Dimensione ottimizzata (36px)
+
+4. **❌ X Button Intelligente**
+   - Header solo con X in alto a sinistra
+   - Se nessuna data → chiude la modale
+   - Se data selezionata → cancella e chiude
+   - Riclicca calendario per modificare/cancellare
+
+5. **📱 UX Streamlined**
+   - Rimossa X inline nel campo testo
+   - Solo icona calendario (viola quando attiva)
+   - Invio con tastiera (Enter)
+   - Messaggi vuoti OK se c'è data selezionata
+   - Flow pulito: seleziona → conferma → scrivi (opzionale) → invia
+
+**Miglioramenti Tecnici:**
+
+- ✅ SQLite schema v3: aggiunto campo `is_reminder` per distinguere todo da reminder
+- ✅ Fix: reminder non mostrava più campanellino dopo riavvio app
+- ✅ Database migration automatica (v2 → v3)
+- ✅ CupertinoPicker per scroll nativo iOS-style
+- ✅ Theme override per calendario bianco su viola
+- ✅ Sentinel value per distinguere clear vs close
+- ✅ Controllers properly disposed (no memory leaks)
+
+**File Modificati:**
+- `pubspec.yaml`: Version bump 1.4.0+5 → 1.5.0+6
+- `message_cache_service.dart`:
+  - Schema SQLite v3 con `is_reminder` column
+  - Migration handler per upgrade automatico
+  - Save/load `isReminder` field in cache
+- `chat_screen.dart`:
+  - Complete date/time picker redesign
+  - All-purple modal design
+  - Inline calendar icon (no separate button)
+  - Smart placeholder logic
+  - X button clear logic with sentinel value
+  - Check button repositioned next to time picker
+
+**UX Flow:**
+- 📅 Tap calendario → modale viola si apre
+- 📆 Seleziona data dal calendario integrato
+- ⏰ Scroll ore/minuti con ruote iOS
+- ✓ Tap check a lato → conferma e chiude
+- 💜 Icona calendario diventa viola
+- ✍️ Scrivi todo (o lascia vuoto)
+- 📤 Enter → invia con reminder automatico (1h prima)
+
+**Design Philosophy:**
+- Minimal e pulito (no testi inutili)
+- Tutto viola per coerenza visiva
+- Controlli dove servono (check vicino ai picker)
+- Feedback immediato (icona viola = attivo)
+- Gesture naturali (riclicca per modificare)
+
+---
+
+### 💬 v1.5.0-beta - WhatsApp-Style Message Indicators (19 Dicembre 2025)
 
 **Nuove Feature:**
 
