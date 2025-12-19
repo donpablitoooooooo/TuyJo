@@ -31,6 +31,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   int _lastMessageCount = 0;
   bool _isLoadingOlderMessages = false; // Track se stiamo caricando messaggi vecchi
   Set<String> _hiddenReminderIds = {}; // Track reminder nascosti per rilevare quando diventano visibili
+  DateTime? _selectedTodoDate; // Data/ora selezionata per todo (null = messaggio normale)
 
   @override
   void initState() {
@@ -298,70 +299,256 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     if (kDebugMode) print('✅ Todo marked as completed: $todoId');
   }
 
-  void _showCreateTodoDialog() {
-    showDialog(
+  void _showDateTimePicker() async {
+    DateTime selectedDate = DateTime.now().add(const Duration(days: 1));
+    int selectedHour = 10;
+    int selectedMinute = 0;
+
+    final result = await showModalBottomSheet<DateTime>(
       context: context,
-      builder: (context) => _CreateTodoDialog(
-        onCreateTodo: _sendTodo,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setModalState) => Container(
+          height: MediaQuery.of(context).size.height * 0.85,
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [
+                Colors.white,
+                Colors.grey[50]!,
+              ],
+            ),
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.1),
+                blurRadius: 20,
+                offset: const Offset(0, -5),
+              ),
+            ],
+          ),
+          child: Column(
+            children: [
+              // Handle bar
+              Container(
+                margin: const EdgeInsets.only(top: 12),
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: Colors.grey[300],
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              // Header gradient
+              Container(
+                padding: const EdgeInsets.all(20),
+                decoration: BoxDecoration(
+                  gradient: const LinearGradient(
+                    colors: [Color(0xFF667eea), Color(0xFF764ba2)],
+                  ),
+                  borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+                ),
+                child: SafeArea(
+                  bottom: false,
+                  child: Column(
+                    children: [
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          IconButton(
+                            onPressed: () => Navigator.pop(context),
+                            icon: const Icon(Icons.close, color: Colors.white),
+                          ),
+                          const Text(
+                            'Quando?',
+                            style: TextStyle(
+                              fontSize: 20,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.white,
+                            ),
+                          ),
+                          IconButton(
+                            onPressed: () {
+                              final dueDate = DateTime(
+                                selectedDate.year,
+                                selectedDate.month,
+                                selectedDate.day,
+                                selectedHour,
+                                selectedMinute,
+                              );
+                              Navigator.pop(context, dueDate);
+                            },
+                            icon: const Icon(Icons.check_circle, color: Colors.white, size: 28),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 12),
+                      // Data selezionata display
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withOpacity(0.2),
+                          borderRadius: BorderRadius.circular(16),
+                        ),
+                        child: Column(
+                          children: [
+                            Text(
+                              DateFormat('EEEE d MMMM yyyy', 'it_IT').format(selectedDate),
+                              style: const TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.w600,
+                                color: Colors.white,
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                            Text(
+                              '${selectedHour.toString().padLeft(2, '0')}:${selectedMinute.toString().padLeft(2, '0')}',
+                              style: const TextStyle(
+                                fontSize: 32,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.white,
+                                letterSpacing: 2,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              // Calendar
+              Expanded(
+                flex: 3,
+                child: CalendarDatePicker(
+                  initialDate: selectedDate,
+                  firstDate: DateTime.now(),
+                  lastDate: DateTime.now().add(const Duration(days: 365)),
+                  onDateChanged: (date) {
+                    setModalState(() => selectedDate = date);
+                  },
+                ),
+              ),
+              // Time picker moderno
+              Container(
+                padding: const EdgeInsets.all(24),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.05),
+                      blurRadius: 10,
+                      offset: const Offset(0, -2),
+                    ),
+                  ],
+                ),
+                child: Column(
+                  children: [
+                    Text(
+                      'Ora',
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.grey[700],
+                        letterSpacing: 1,
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        // Hour picker
+                        _buildTimeWheel(
+                          value: selectedHour,
+                          max: 23,
+                          onChanged: (val) => setModalState(() => selectedHour = val),
+                        ),
+                        const Padding(
+                          padding: EdgeInsets.symmetric(horizontal: 16),
+                          child: Text(
+                            ':',
+                            style: TextStyle(
+                              fontSize: 32,
+                              fontWeight: FontWeight.bold,
+                              color: Color(0xFF667eea),
+                            ),
+                          ),
+                        ),
+                        // Minute picker
+                        _buildTimeWheel(
+                          value: selectedMinute,
+                          max: 59,
+                          onChanged: (val) => setModalState(() => selectedMinute = val),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
+
+    if (result != null) {
+      setState(() => _selectedTodoDate = result);
+    }
   }
 
-  void _sendTodo(String content, DateTime dueDate) async {
-    if (_familyChatId == null || _myDeviceId == null || _partnerPublicKey == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Errore: dati pairing mancanti'),
-          backgroundColor: Colors.red,
+  Widget _buildTimeWheel({
+    required int value,
+    required int max,
+    required ValueChanged<int> onChanged,
+  }) {
+    return Container(
+      width: 80,
+      height: 120,
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [
+            const Color(0xFF667eea).withOpacity(0.1),
+            const Color(0xFF764ba2).withOpacity(0.1),
+          ],
         ),
-      );
-      return;
-    }
-
-    final chatService = Provider.of<ChatService>(context, listen: false);
-    final encryptionService = Provider.of<EncryptionService>(context, listen: false);
-    final myPublicKey = await encryptionService.getPublicKey();
-
-    if (myPublicKey == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Errore: chiave pubblica non trovata'), backgroundColor: Colors.red),
-      );
-      return;
-    }
-
-    // Invia il todo principale (icona calendario)
-    final success = await chatService.sendTodo(
-      content,
-      dueDate,
-      _familyChatId!,
-      _myDeviceId!,
-      myPublicKey,
-      _partnerPublicKey!,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFF667eea).withOpacity(0.3), width: 2),
+      ),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          IconButton(
+            onPressed: () => onChanged((value + 1) > max ? 0 : value + 1),
+            icon: const Icon(Icons.keyboard_arrow_up),
+            color: const Color(0xFF667eea),
+          ),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            decoration: BoxDecoration(
+              gradient: const LinearGradient(
+                colors: [Color(0xFF667eea), Color(0xFF764ba2)],
+              ),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Text(
+              value.toString().padLeft(2, '0'),
+              style: const TextStyle(
+                fontSize: 28,
+                fontWeight: FontWeight.bold,
+                color: Colors.white,
+              ),
+            ),
+          ),
+          IconButton(
+            onPressed: () => onChanged((value - 1) < 0 ? max : value - 1),
+            icon: const Icon(Icons.keyboard_arrow_down),
+            color: const Color(0xFF667eea),
+          ),
+        ],
+      ),
     );
-
-    if (success) {
-      if (kDebugMode) print('✅ Todo sent successfully');
-
-      // Invia anche il messaggio reminder (icona campanello)
-      // Questo messaggio apparirà quando scatta il reminder (1 ora prima)
-      final reminderDate = dueDate.subtract(const Duration(hours: 1));
-      final reminderSuccess = await chatService.sendTodoReminder(
-        content,
-        reminderDate,
-        _familyChatId!,
-        _myDeviceId!,
-        myPublicKey,
-        _partnerPublicKey!,
-      );
-
-      if (reminderSuccess && kDebugMode) {
-        print('🔔 Todo reminder sent successfully');
-      }
-    } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Errore invio todo'), backgroundColor: Colors.red),
-      );
-    }
   }
 
   void _sendMessage() async {
@@ -371,7 +558,9 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     }
 
     final messageText = _messageController.text.trim();
+    final todoDate = _selectedTodoDate; // Salva prima di clear
     _messageController.clear(); // Clear subito per UX migliore
+    setState(() => _selectedTodoDate = null); // Reset todo date
 
     // BLOCCO INVIO: Verifica che siamo in pairing
     final pairingService = Provider.of<PairingService>(context, listen: false);
@@ -400,11 +589,6 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       return;
     }
 
-    print('📤 Sending message...');
-    print('   To family chat: $_familyChatId');
-    print('   From device: $_myDeviceId');
-    print('   Content: $messageText');
-
     final chatService = Provider.of<ChatService>(context, listen: false);
     final encryptionService = Provider.of<EncryptionService>(context, listen: false);
 
@@ -418,22 +602,65 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       return;
     }
 
-    final success = await chatService.sendMessage(
-      messageText,
-      _familyChatId!,
-      _myDeviceId!,
-      myPublicKey, // Chiave pubblica del mittente (per dual encryption)
-      _partnerPublicKey!, // Chiave pubblica del destinatario
-    );
+    bool success;
+
+    // Se c'è una data selezionata, invia come todo, altrimenti come messaggio normale
+    if (todoDate != null) {
+      print('📅 Sending todo...');
+      print('   Due date: ${todoDate.toIso8601String()}');
+      print('   Content: $messageText');
+
+      success = await chatService.sendTodo(
+        messageText,
+        todoDate,
+        _familyChatId!,
+        _myDeviceId!,
+        myPublicKey,
+        _partnerPublicKey!,
+      );
+
+      if (success) {
+        // Invia anche il reminder
+        final reminderDate = todoDate.subtract(const Duration(hours: 1));
+        await chatService.sendTodoReminder(
+          messageText,
+          reminderDate,
+          _familyChatId!,
+          _myDeviceId!,
+          myPublicKey,
+          _partnerPublicKey!,
+        );
+        print('✅ Todo sent successfully');
+      }
+    } else {
+      print('📤 Sending message...');
+      print('   To family chat: $_familyChatId');
+      print('   From device: $_myDeviceId');
+      print('   Content: $messageText');
+
+      success = await chatService.sendMessage(
+        messageText,
+        _familyChatId!,
+        _myDeviceId!,
+        myPublicKey,
+        _partnerPublicKey!,
+      );
+
+      if (success) {
+        print('✅ Message sent successfully with dual encryption');
+      }
+    }
 
     if (success) {
-      print('✅ Message sent successfully with dual encryption');
       // Scrolla in fondo dopo l'invio
       WidgetsBinding.instance.addPostFrameCallback((_) => _scrollToBottom());
     } else {
-      print('❌ Message send failed');
+      print('❌ Send failed');
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Errore invio messaggio'), backgroundColor: Colors.red),
+        SnackBar(
+          content: Text(todoDate != null ? 'Errore invio todo' : 'Errore invio messaggio'),
+          backgroundColor: Colors.red,
+        ),
       );
     }
   }
@@ -704,10 +931,10 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
               child: Row(
                 children: [
                   IconButton(
-                    onPressed: _showCreateTodoDialog,
+                    onPressed: null, // TODO: Allegati foto/video/documenti
                     icon: const Icon(Icons.add_circle_outline),
-                    color: const Color(0xFF667eea),
-                    tooltip: 'Crea To Do',
+                    color: Colors.grey[400],
+                    tooltip: 'Allegati (in arrivo)',
                     iconSize: 28,
                   ),
                   const SizedBox(width: 4),
@@ -720,12 +947,47 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                       child: TextField(
                         controller: _messageController,
                         decoration: InputDecoration(
-                          hintText: 'Scrivi un messaggio...',
-                          hintStyle: TextStyle(color: Colors.grey[500]),
+                          hintText: _selectedTodoDate != null
+                              ? 'Todo per ${DateFormat('dd/MM/yy HH:mm').format(_selectedTodoDate!)}'
+                              : 'Scrivi un messaggio...',
+                          hintStyle: TextStyle(
+                            color: _selectedTodoDate != null
+                                ? const Color(0xFF667eea)
+                                : Colors.grey[500],
+                            fontWeight: _selectedTodoDate != null
+                                ? FontWeight.w500
+                                : FontWeight.normal,
+                          ),
                           border: InputBorder.none,
                           contentPadding: const EdgeInsets.symmetric(
                             horizontal: 20,
                             vertical: 12,
+                          ),
+                          suffixIcon: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              if (_selectedTodoDate != null)
+                                IconButton(
+                                  icon: const Icon(Icons.close, size: 20),
+                                  color: Colors.grey[600],
+                                  onPressed: () {
+                                    setState(() => _selectedTodoDate = null);
+                                  },
+                                  tooltip: 'Annulla todo',
+                                ),
+                              IconButton(
+                                icon: Icon(
+                                  _selectedTodoDate != null
+                                      ? Icons.calendar_month
+                                      : Icons.calendar_month_outlined,
+                                  color: _selectedTodoDate != null
+                                      ? const Color(0xFF667eea)
+                                      : Colors.grey[600],
+                                ),
+                                onPressed: _showDateTimePicker,
+                                tooltip: 'Imposta data/ora',
+                              ),
+                            ],
                           ),
                         ),
                         maxLines: null,
@@ -1146,182 +1408,3 @@ class _TodoMessageBubble extends StatelessWidget {
   }
 }
 
-class _CreateTodoDialog extends StatefulWidget {
-  final Function(String content, DateTime dueDate) onCreateTodo;
-
-  const _CreateTodoDialog({required this.onCreateTodo});
-
-  @override
-  State<_CreateTodoDialog> createState() => _CreateTodoDialogState();
-}
-
-class _CreateTodoDialogState extends State<_CreateTodoDialog> {
-  final _controller = TextEditingController();
-  DateTime _selectedDate = DateTime.now().add(const Duration(days: 1));
-  TimeOfDay _selectedTime = const TimeOfDay(hour: 10, minute: 0);
-  int _testReminderSeconds = 3600; // 1 ora in secondi per default
-  bool _useTestMode = false; // Modalità test disattivata di default
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  Future<void> _pickDate() async {
-    final date = await showDatePicker(
-      context: context,
-      initialDate: _selectedDate,
-      firstDate: DateTime.now(),
-      lastDate: DateTime.now().add(const Duration(days: 365)),
-    );
-    if (date != null) {
-      setState(() => _selectedDate = date);
-    }
-  }
-
-  Future<void> _pickTime() async {
-    final time = await showTimePicker(
-      context: context,
-      initialTime: _selectedTime,
-    );
-    if (time != null) {
-      setState(() => _selectedTime = time);
-    }
-  }
-
-  void _create() {
-    if (_controller.text.trim().isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Inserisci un nome per il To Do')),
-      );
-      return;
-    }
-
-    DateTime actualDueDate;
-
-    if (_useTestMode) {
-      // MODALITÀ TEST: usa i secondi impostati
-      // Il reminder arriva dopo i secondi impostati
-      // Ma il dueDate deve essere 1 ora dopo il reminder (perché il sistema fa dueDate - 1h)
-      actualDueDate = DateTime.now().add(Duration(
-        seconds: _testReminderSeconds, // Quando arriva il reminder
-        hours: 1, // + 1 ora per il dueDate effettivo
-      ));
-    } else {
-      // MODALITÀ NORMALE: usa la data e ora selezionate dal calendario
-      actualDueDate = DateTime(
-        _selectedDate.year,
-        _selectedDate.month,
-        _selectedDate.day,
-        _selectedTime.hour,
-        _selectedTime.minute,
-      );
-    }
-
-    widget.onCreateTodo(_controller.text.trim(), actualDueDate);
-    Navigator.pop(context);
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return AlertDialog(
-      title: const Text('Nuovo To Do'),
-      content: SingleChildScrollView(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            TextField(
-              controller: _controller,
-              decoration: const InputDecoration(
-                labelText: 'Cosa devo ricordare?',
-                hintText: 'Es. Compleanno Helena',
-                border: OutlineInputBorder(),
-              ),
-              maxLines: 2,
-            ),
-            const SizedBox(height: 16),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                const Text(
-                  'Modalità Test (per debug)',
-                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
-                ),
-                Switch(
-                  value: _useTestMode,
-                  onChanged: (value) {
-                    setState(() => _useTestMode = value);
-                  },
-                ),
-              ],
-            ),
-            const Divider(),
-            if (!_useTestMode) ...[
-              const Text(
-                'Data e ora evento:',
-                style: TextStyle(fontWeight: FontWeight.bold),
-              ),
-              const SizedBox(height: 8),
-              Row(
-                children: [
-                  Expanded(
-                    child: OutlinedButton.icon(
-                      onPressed: _pickDate,
-                      icon: const Icon(Icons.calendar_today),
-                      label: Text(DateFormat('dd/MM/yyyy').format(_selectedDate)),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: OutlinedButton.icon(
-                      onPressed: _pickTime,
-                      icon: const Icon(Icons.access_time),
-                      label: Text(_selectedTime.format(context)),
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 8),
-              Text(
-                'Reminder: 1 ora prima dell\'evento',
-                style: TextStyle(fontSize: 12, color: Colors.grey[600], fontStyle: FontStyle.italic),
-              ),
-            ] else ...[
-              const Text(
-                'Reminder tra (secondi):',
-                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
-              ),
-              Slider(
-                value: _testReminderSeconds.toDouble(),
-                min: 10,
-                max: 3600,
-                divisions: 50,
-                label: '$_testReminderSeconds sec',
-                onChanged: (value) {
-                  setState(() => _testReminderSeconds = value.toInt());
-                },
-              ),
-              Text(
-                'Il reminder arriverà tra $_testReminderSeconds secondi (${(_testReminderSeconds / 60).toStringAsFixed(1)} min)\n'
-                'L\'evento sarà schedulato 1 ora dopo il reminder',
-                style: TextStyle(fontSize: 11, color: Colors.grey[600]),
-              ),
-            ],
-          ],
-        ),
-      ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.pop(context),
-          child: const Text('Annulla'),
-        ),
-        ElevatedButton(
-          onPressed: _create,
-          child: const Text('Crea'),
-        ),
-      ],
-    );
-  }
-}
