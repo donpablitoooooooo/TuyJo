@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:io';
+import 'dart:typed_data';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
@@ -1003,6 +1004,8 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                                 delivered: message.delivered ?? false,
                                 read: message.read ?? false,
                                 attachments: message.attachments,
+                                senderId: message.senderId,
+                                currentUserId: _myDeviceId,
                               );
                             }
                           },
@@ -1304,6 +1307,8 @@ class _MessageBubble extends StatefulWidget {
   final bool delivered;
   final bool read;
   final List<Attachment>? attachments;
+  final String? senderId; // ID del mittente del messaggio
+  final String? currentUserId; // ID dell'utente corrente
 
   const _MessageBubble({
     super.key,
@@ -1313,6 +1318,8 @@ class _MessageBubble extends StatefulWidget {
     this.delivered = false,
     this.read = false,
     this.attachments,
+    this.senderId,
+    this.currentUserId,
   });
 
   @override
@@ -1353,7 +1360,7 @@ class _MessageBubbleState extends State<_MessageBubble>
     super.dispose();
   }
 
-  /// Costruisce i widget per mostrare gli allegati
+  /// Costruisce i widget per mostrare gli allegati (decifrati)
   List<Widget> _buildAttachments() {
     if (widget.attachments == null || widget.attachments!.isEmpty) {
       return [];
@@ -1365,16 +1372,22 @@ class _MessageBubbleState extends State<_MessageBubble>
           return _AttachmentImage(
             attachment: attachment,
             isMe: widget.isMe,
+            currentUserId: widget.currentUserId,
+            senderId: widget.senderId,
           );
         } else if (attachment.type == 'video') {
           return _AttachmentVideo(
             attachment: attachment,
             isMe: widget.isMe,
+            currentUserId: widget.currentUserId,
+            senderId: widget.senderId,
           );
         } else {
           return _AttachmentDocument(
             attachment: attachment,
             isMe: widget.isMe,
+            currentUserId: widget.currentUserId,
+            senderId: widget.senderId,
           );
         }
       }),
@@ -1517,47 +1530,66 @@ class _MessageBubbleState extends State<_MessageBubble>
   }
 }
 
-/// Widget per visualizzare allegati immagine
+/// Widget per visualizzare allegati immagine (decifrato)
 class _AttachmentImage extends StatelessWidget {
   final Attachment attachment;
   final bool isMe;
+  final String? currentUserId;
+  final String? senderId;
 
   const _AttachmentImage({
     required this.attachment,
     required this.isMe,
+    this.currentUserId,
+    this.senderId,
   });
 
   @override
   Widget build(BuildContext context) {
+    final attachmentService = AttachmentService();
+
     return GestureDetector(
       onTap: () {
-        // TODO: Apri fullscreen image viewer
+        // TODO: Apri fullscreen image viewer decifrato
       },
       child: ClipRRect(
         borderRadius: BorderRadius.circular(12),
-        child: Image.network(
-          attachment.url,
-          width: 200,
-          fit: BoxFit.cover,
-          loadingBuilder: (context, child, loadingProgress) {
-            if (loadingProgress == null) return child;
-            return Container(
+        child: FutureBuilder<Uint8List?>(
+          future: attachmentService.downloadAndDecryptAttachment(
+            attachment,
+            currentUserId ?? '',
+            senderId ?? '',
+          ),
+          builder: (context, snapshot) {
+            if (snapshot.connectionState == ConnectionState.waiting) {
+              // Caricamento
+              return Container(
+                width: 200,
+                height: 200,
+                color: isMe ? Colors.white.withOpacity(0.1) : Colors.grey[200],
+                child: const Center(
+                  child: CircularProgressIndicator(),
+                ),
+              );
+            }
+
+            if (snapshot.hasError || !snapshot.hasData || snapshot.data == null) {
+              // Errore decifratura
+              return Container(
+                width: 200,
+                height: 200,
+                color: Colors.red.withOpacity(0.1),
+                child: const Center(
+                  child: Icon(Icons.error, color: Colors.red),
+                ),
+              );
+            }
+
+            // Immagine decifrata visualizzata
+            return Image.memory(
+              snapshot.data!,
               width: 200,
-              height: 200,
-              color: isMe ? Colors.white.withOpacity(0.1) : Colors.grey[200],
-              child: const Center(
-                child: CircularProgressIndicator(),
-              ),
-            );
-          },
-          errorBuilder: (context, error, stackTrace) {
-            return Container(
-              width: 200,
-              height: 200,
-              color: Colors.red.withOpacity(0.1),
-              child: const Center(
-                child: Icon(Icons.error, color: Colors.red),
-              ),
+              fit: BoxFit.cover,
             );
           },
         ),
@@ -1566,21 +1598,32 @@ class _AttachmentImage extends StatelessWidget {
   }
 }
 
-/// Widget per visualizzare allegati video
+/// Widget per visualizzare allegati video (cifrato - placeholder)
 class _AttachmentVideo extends StatelessWidget {
   final Attachment attachment;
   final bool isMe;
+  final String? currentUserId;
+  final String? senderId;
 
   const _AttachmentVideo({
     required this.attachment,
     required this.isMe,
+    this.currentUserId,
+    this.senderId,
   });
 
   @override
   Widget build(BuildContext context) {
+    // Per i video cifrati, mostriamo solo un placeholder
+    // TODO: Implementare video player per video cifrati
     return GestureDetector(
       onTap: () {
-        // TODO: Apri video player
+        // TODO: Scaricare, decifrare e aprire video player
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Player video cifrati in sviluppo'),
+          ),
+        );
       },
       child: Container(
         width: 200,
@@ -1592,16 +1635,6 @@ class _AttachmentVideo extends StatelessWidget {
         child: Stack(
           alignment: Alignment.center,
           children: [
-            if (attachment.thumbnailUrl != null)
-              ClipRRect(
-                borderRadius: BorderRadius.circular(12),
-                child: Image.network(
-                  attachment.thumbnailUrl!,
-                  width: 200,
-                  height: 150,
-                  fit: BoxFit.cover,
-                ),
-              ),
             Container(
               width: 50,
               height: 50,
@@ -1624,13 +1657,13 @@ class _AttachmentVideo extends StatelessWidget {
                   color: Colors.black.withOpacity(0.6),
                   borderRadius: BorderRadius.circular(4),
                 ),
-                child: const Row(
+                child: Row(
                   children: [
-                    Icon(Icons.videocam, color: Colors.white, size: 14),
-                    SizedBox(width: 4),
+                    const Icon(Icons.videocam, color: Colors.white, size: 14),
+                    const SizedBox(width: 4),
                     Text(
-                      'Video',
-                      style: TextStyle(color: Colors.white, fontSize: 12),
+                      attachment.fileName,
+                      style: const TextStyle(color: Colors.white, fontSize: 12),
                     ),
                   ],
                 ),
@@ -1643,14 +1676,18 @@ class _AttachmentVideo extends StatelessWidget {
   }
 }
 
-/// Widget per visualizzare allegati documento
+/// Widget per visualizzare allegati documento (cifrato - placeholder)
 class _AttachmentDocument extends StatelessWidget {
   final Attachment attachment;
   final bool isMe;
+  final String? currentUserId;
+  final String? senderId;
 
   const _AttachmentDocument({
     required this.attachment,
     required this.isMe,
+    this.currentUserId,
+    this.senderId,
   });
 
   @override
@@ -1659,7 +1696,12 @@ class _AttachmentDocument extends StatelessWidget {
 
     return GestureDetector(
       onTap: () {
-        // TODO: Apri documento
+        // TODO: Scaricare, decifrare e aprire documento
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Apertura documenti cifrati in sviluppo'),
+          ),
+        );
       },
       child: Container(
         padding: const EdgeInsets.all(12),
@@ -1703,6 +1745,12 @@ class _AttachmentDocument extends StatelessWidget {
                   ),
                 ),
               ],
+            ),
+            const SizedBox(width: 8),
+            Icon(
+              Icons.lock_outline,
+              size: 16,
+              color: isMe ? Colors.white70 : Colors.black54,
             ),
           ],
         ),
