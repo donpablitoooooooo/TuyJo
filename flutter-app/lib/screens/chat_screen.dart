@@ -929,7 +929,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                       Expanded(
                         child: ListView.builder(
                           controller: _scrollController,
-                          padding: const EdgeInsets.all(16),
+                          padding: const EdgeInsets.fromLTRB(12, 60, 12, 8),
                           itemCount: chatService.messages.length,
                           reverse: true, // 🔧 FIX: reverse per mostrare nuovi messaggi in basso
                           itemBuilder: (context, index) {
@@ -1018,7 +1018,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                   ),
           ),
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
             decoration: BoxDecoration(
               color: Colors.white,
               boxShadow: [
@@ -1031,6 +1031,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
               ],
             ),
             child: SafeArea(
+              bottom: false,
               child: Column(
                 children: [
                   // Mostra allegati selezionati
@@ -1396,7 +1397,7 @@ class _MessageBubbleState extends State<_MessageBubble>
       child: FadeTransition(
         opacity: _fadeAnimation,
         child: Padding(
-          padding: const EdgeInsets.only(bottom: 12, left: 8, right: 8),
+          padding: const EdgeInsets.only(bottom: 6, left: 8, right: 8),
           child: Row(
             mainAxisAlignment:
                 widget.isMe ? MainAxisAlignment.end : MainAxisAlignment.start,

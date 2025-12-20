@@ -196,8 +196,8 @@ class _MainScreenState extends State<MainScreen> {
                 ),
                 child: IconButton(
                   icon: Icon(
-                    pairingService.isPaired ? Icons.link : Icons.link_off,
-                    color: pairingService.isPaired ? Colors.green : Colors.red,
+                    Icons.favorite,
+                    color: pairingService.isPaired ? const Color(0xFF667eea) : Colors.grey,
                   ),
                   onPressed: () {},
                 ),
