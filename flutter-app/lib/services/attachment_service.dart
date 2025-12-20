@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:typed_data';
 import 'package:flutter/foundation.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:image_picker/image_picker.dart';
@@ -6,11 +7,13 @@ import 'package:file_picker/file_picker.dart';
 import 'package:mime/mime.dart';
 import 'package:uuid/uuid.dart';
 import '../models/message.dart';
+import 'encryption_service.dart';
 
 class AttachmentService {
   final FirebaseStorage _storage = FirebaseStorage.instance;
   final ImagePicker _imagePicker = ImagePicker();
   final Uuid _uuid = const Uuid();
+  final EncryptionService _encryptionService = EncryptionService();
 
   /// Seleziona una foto dalla galleria
   Future<File?> pickImageFromGallery() async {
@@ -106,16 +109,22 @@ class AttachmentService {
     }
   }
 
-  /// Carica un file su Firebase Storage e restituisce l'URL
+  /// Carica un file su Firebase Storage (con cifratura E2E dual)
+  /// Il file viene cifrato prima dell'upload usando AES con dual encryption delle chiavi
   Future<Attachment?> uploadAttachment(
     File file,
     String familyChatId,
     String senderId,
+    String senderPublicKey,
+    String recipientPublicKey,
   ) async {
     try {
       final String fileName = file.path.split('/').last;
       final String? mimeType = lookupMimeType(file.path);
-      final int fileSize = await file.length();
+
+      // Leggi i byte del file ORIGINALE
+      final Uint8List fileBytes = await file.readAsBytes();
+      final int originalFileSize = fileBytes.length;
 
       // Determina il tipo di allegato
       String attachmentType;
@@ -130,26 +139,49 @@ class AttachmentService {
       // Genera un ID unico per l'allegato
       final String attachmentId = _uuid.v4();
 
+      if (kDebugMode) {
+        print('🔐 Encrypting attachment before upload...');
+        print('   File: $fileName');
+        print('   Size: ${(originalFileSize / 1024 / 1024).toStringAsFixed(2)} MB');
+        print('   Type: $attachmentType');
+      }
+
+      // 🔐 CIFRA IL FILE con dual encryption
+      final encryptedData = _encryptionService.encryptFileDual(
+        fileBytes,
+        senderPublicKey,
+        recipientPublicKey,
+      );
+
+      final Uint8List encryptedFileBytes = encryptedData['encryptedFileBytes'] as Uint8List;
+      final String encryptedKeyRecipient = encryptedData['encryptedKeyRecipient'] as String;
+      final String encryptedKeySender = encryptedData['encryptedKeySender'] as String;
+      final String iv = encryptedData['iv'] as String;
+
+      if (kDebugMode) {
+        print('✅ File encrypted successfully');
+        print('   Encrypted size: ${(encryptedFileBytes.length / 1024 / 1024).toStringAsFixed(2)} MB');
+      }
+
       // Path su Firebase Storage: /families/{familyChatId}/attachments/{attachmentType}/{attachmentId}
       final String storagePath = 'families/$familyChatId/attachments/$attachmentType/$attachmentId';
 
       if (kDebugMode) {
-        print('📤 Uploading attachment to Firebase Storage...');
-        print('   File: $fileName');
-        print('   Size: ${(fileSize / 1024 / 1024).toStringAsFixed(2)} MB');
-        print('   Type: $attachmentType');
+        print('📤 Uploading encrypted file to Firebase Storage...');
         print('   Path: $storagePath');
       }
 
-      // Upload del file
+      // Upload del file CIFRATO
       final Reference ref = _storage.ref().child(storagePath);
-      final UploadTask uploadTask = ref.putFile(
-        file,
+      final UploadTask uploadTask = ref.putData(
+        encryptedFileBytes,
         SettableMetadata(
-          contentType: mimeType,
+          contentType: 'application/octet-stream', // File cifrato binario
           customMetadata: {
             'senderId': senderId,
             'originalFileName': fileName,
+            'originalMimeType': mimeType ?? 'application/octet-stream',
+            'encrypted': 'true',
           },
         ),
       );
@@ -161,41 +193,112 @@ class AttachmentService {
       final String downloadUrl = await snapshot.ref.getDownloadURL();
 
       if (kDebugMode) {
-        print('✅ Attachment uploaded successfully');
+        print('✅ Encrypted attachment uploaded successfully');
         print('   URL: $downloadUrl');
       }
 
-      // Crea l'oggetto Attachment
+      // Crea l'oggetto Attachment con metadata di cifratura
       return Attachment(
         id: attachmentId,
         type: attachmentType,
         url: downloadUrl,
         fileName: fileName,
-        fileSize: fileSize,
+        fileSize: originalFileSize, // Dimensione ORIGINALE (non cifrata)
         mimeType: mimeType,
+        encryptedKeyRecipient: encryptedKeyRecipient,
+        encryptedKeySender: encryptedKeySender,
+        iv: iv,
       );
     } catch (e) {
-      if (kDebugMode) print('❌ Error uploading attachment: $e');
+      if (kDebugMode) print('❌ Error uploading encrypted attachment: $e');
       return null;
     }
   }
 
-  /// Carica più allegati contemporaneamente
+  /// Carica più allegati contemporaneamente (con cifratura E2E dual)
   Future<List<Attachment>> uploadMultipleAttachments(
     List<File> files,
     String familyChatId,
     String senderId,
+    String senderPublicKey,
+    String recipientPublicKey,
   ) async {
     final List<Attachment> uploadedAttachments = [];
 
     for (final file in files) {
-      final attachment = await uploadAttachment(file, familyChatId, senderId);
+      final attachment = await uploadAttachment(
+        file,
+        familyChatId,
+        senderId,
+        senderPublicKey,
+        recipientPublicKey,
+      );
       if (attachment != null) {
         uploadedAttachments.add(attachment);
       }
     }
 
     return uploadedAttachments;
+  }
+
+  /// Scarica e decifra un allegato da Firebase Storage
+  /// Restituisce i byte del file DECIFRATO
+  /// @param attachment - l'oggetto Attachment con i metadata di cifratura
+  /// @param currentUserId - l'ID dell'utente corrente (per determinare quale chiave usare)
+  /// @param messageSenderId - l'ID del sender del messaggio
+  Future<Uint8List?> downloadAndDecryptAttachment(
+    Attachment attachment,
+    String currentUserId,
+    String messageSenderId,
+  ) async {
+    try {
+      if (kDebugMode) {
+        print('📥 Downloading encrypted attachment...');
+        print('   File: ${attachment.fileName}');
+        print('   URL: ${attachment.url}');
+      }
+
+      // Scarica i byte cifrati da Firebase Storage
+      final Reference ref = _storage.refFromURL(attachment.url);
+      final Uint8List? encryptedBytes = await ref.getData();
+
+      if (encryptedBytes == null) {
+        if (kDebugMode) print('❌ Failed to download encrypted file');
+        return null;
+      }
+
+      if (kDebugMode) {
+        print('✅ Encrypted file downloaded');
+        print('   Size: ${(encryptedBytes.length / 1024 / 1024).toStringAsFixed(2)} MB');
+        print('🔓 Decrypting file...');
+      }
+
+      // Determina quale chiave usare: se sono il sender uso encryptedKeySender, altrimenti encryptedKeyRecipient
+      final String encryptedAesKey = (currentUserId == messageSenderId)
+          ? attachment.encryptedKeySender
+          : attachment.encryptedKeyRecipient;
+
+      if (kDebugMode) {
+        print('   Using ${currentUserId == messageSenderId ? "sender" : "recipient"} key for decryption');
+      }
+
+      // Decifra il file usando la propria chiave privata
+      final Uint8List decryptedBytes = _encryptionService.decryptFile(
+        encryptedBytes,
+        encryptedAesKey,
+        attachment.iv,
+      );
+
+      if (kDebugMode) {
+        print('✅ File decrypted successfully');
+        print('   Original size: ${(decryptedBytes.length / 1024 / 1024).toStringAsFixed(2)} MB');
+      }
+
+      return decryptedBytes;
+    } catch (e) {
+      if (kDebugMode) print('❌ Error downloading/decrypting attachment: $e');
+      return null;
+    }
   }
 
   /// Elimina un allegato da Firebase Storage
