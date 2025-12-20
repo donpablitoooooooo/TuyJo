@@ -7,7 +7,7 @@ import '../models/message.dart';
 /// Permette caricamento istantaneo, ricerca con LIKE, e lazy loading
 class MessageCacheService {
   static const String _dbName = 'messages_cache.db';
-  static const int _dbVersion = 3;
+  static const int _dbVersion = 4; // Incrementato per aggiungere colonna attachments
   static const String _messagesTable = 'messages';
 
   Database? _database;
@@ -65,7 +65,8 @@ class MessageCacheService {
         is_reminder INTEGER DEFAULT 0,
         delivered INTEGER DEFAULT 0,
         read INTEGER DEFAULT 0,
-        read_at INTEGER
+        read_at INTEGER,
+        attachments_json TEXT
       )
     ''');
 
@@ -96,11 +97,23 @@ class MessageCacheService {
       // Aggiungi colonna is_reminder per distinguere todo da reminder
       await db.execute('ALTER TABLE $_messagesTable ADD COLUMN is_reminder INTEGER DEFAULT 0');
     }
+    if (oldVersion < 4) {
+      // Aggiungi colonna attachments_json per salvare allegati come JSON
+      await db.execute('ALTER TABLE $_messagesTable ADD COLUMN attachments_json TEXT');
+    }
   }
 
   /// Salva un messaggio nella cache
   Future<void> saveMessage(Message message, String familyChatId) async {
     final db = await _getDatabase();
+
+    // Serializza attachments come JSON se presenti
+    String? attachmentsJson;
+    if (message.attachments != null && message.attachments!.isNotEmpty) {
+      attachmentsJson = json.encode(
+        message.attachments!.map((a) => a.toJson()).toList(),
+      );
+    }
 
     final data = {
       'id': message.id,
@@ -124,6 +137,7 @@ class MessageCacheService {
       'delivered': message.delivered == true ? 1 : 0,
       'read': message.read == true ? 1 : 0,
       'read_at': message.readAt?.millisecondsSinceEpoch,
+      'attachments_json': attachmentsJson,
     };
 
     // Inserisci o aggiorna il messaggio
@@ -140,6 +154,14 @@ class MessageCacheService {
     final batch = db.batch();
 
     for (final message in messages) {
+      // Serializza attachments come JSON se presenti
+      String? attachmentsJson;
+      if (message.attachments != null && message.attachments!.isNotEmpty) {
+        attachmentsJson = json.encode(
+          message.attachments!.map((a) => a.toJson()).toList(),
+        );
+      }
+
       final data = {
         'id': message.id,
         'family_chat_id': familyChatId,
@@ -162,6 +184,7 @@ class MessageCacheService {
         'delivered': message.delivered == true ? 1 : 0,
         'read': message.read == true ? 1 : 0,
         'read_at': message.readAt?.millisecondsSinceEpoch,
+        'attachments_json': attachmentsJson,
       };
 
       batch.insert(_messagesTable, data, conflictAlgorithm: ConflictAlgorithm.replace);
@@ -334,6 +357,21 @@ class MessageCacheService {
 
   /// Converti Map SQL a Message model
   Message _messageFromMap(Map<String, dynamic> map) {
+    // Deserializza attachments dal JSON se presenti
+    List<Attachment>? attachments;
+    final attachmentsJsonString = map['attachments_json'] as String?;
+    if (attachmentsJsonString != null && attachmentsJsonString.isNotEmpty) {
+      try {
+        final List<dynamic> attachmentsList = json.decode(attachmentsJsonString);
+        attachments = attachmentsList
+            .map((a) => Attachment.fromJson(a as Map<String, dynamic>))
+            .toList();
+      } catch (e) {
+        // Se c'è un errore nel parsing, ignora gli attachments invece di crashare
+        attachments = null;
+      }
+    }
+
     return Message(
       id: map['id'] as String,
       senderId: map['sender_id'] as String,
@@ -359,6 +397,7 @@ class MessageCacheService {
       readAt: map['read_at'] != null
           ? DateTime.fromMillisecondsSinceEpoch(map['read_at'] as int)
           : null,
+      attachments: attachments,
     );
   }
 
