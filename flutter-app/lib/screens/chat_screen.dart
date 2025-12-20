@@ -1389,7 +1389,6 @@ class _MessageBubbleState extends State<_MessageBubble>
           );
         }
       }),
-      const SizedBox(height: 8),
     ];
   }
 
@@ -1466,55 +1465,62 @@ class _MessageBubbleState extends State<_MessageBubble>
                       },
                       splashColor: Colors.white.withOpacity(0.2),
                       highlightColor: Colors.white.withOpacity(0.1),
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 16,
-                          vertical: 10,
-                        ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            // Allegati (se presenti)
-                            if (widget.attachments != null && widget.attachments!.isNotEmpty)
-                              ..._buildAttachments(),
-                            // Testo del messaggio (se presente)
-                            if (widget.message.isNotEmpty)
-                              Text(
-                                widget.message,
-                                style: TextStyle(
-                                  color: widget.isMe ? Colors.white : Colors.black87,
-                                  fontSize: 15,
-                                  height: 1.4,
-                                ),
-                              ),
-                            const SizedBox(height: 4),
-                            Row(
-                              mainAxisSize: MainAxisSize.min,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          // Allegati (se presenti) - senza padding per occupare tutta la larghezza
+                          if (widget.attachments != null && widget.attachments!.isNotEmpty)
+                            ..._buildAttachments(),
+                          // Testo e timestamp con padding
+                          Padding(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 16,
+                              vertical: 10,
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                Text(
-                                  DateFormat('HH:mm').format(widget.timestamp),
-                                  style: TextStyle(
-                                    fontSize: 11,
-                                    color: widget.isMe
-                                        ? Colors.white.withOpacity(0.8)
-                                        : Colors.black54,
+                                // Testo del messaggio (se presente)
+                                if (widget.message.isNotEmpty) ...[
+                                  Text(
+                                    widget.message,
+                                    style: TextStyle(
+                                      color: widget.isMe ? Colors.white : Colors.black87,
+                                      fontSize: 15,
+                                      height: 1.4,
+                                    ),
                                   ),
-                                ),
-                                // Mostra le spunte solo per i messaggi inviati da me
-                                if (widget.isMe) ...[
-                                  const SizedBox(width: 4),
-                                  Icon(
-                                    widget.read ? Icons.done_all : Icons.done,
-                                    size: 14,
-                                    color: widget.read
-                                        ? Colors.blue[300]
-                                        : Colors.white.withOpacity(0.8),
-                                  ),
+                                  const SizedBox(height: 4),
                                 ],
+                                Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Text(
+                                      DateFormat('HH:mm').format(widget.timestamp),
+                                      style: TextStyle(
+                                        fontSize: 11,
+                                        color: widget.isMe
+                                            ? Colors.white.withOpacity(0.8)
+                                            : Colors.black54,
+                                      ),
+                                    ),
+                                    // Mostra le spunte solo per i messaggi inviati da me
+                                    if (widget.isMe) ...[
+                                      const SizedBox(width: 4),
+                                      Icon(
+                                        widget.read ? Icons.done_all : Icons.done,
+                                        size: 14,
+                                        color: widget.read
+                                            ? Colors.blue[300]
+                                            : Colors.white.withOpacity(0.8),
+                                      ),
+                                    ],
+                                  ],
+                                ),
                               ],
                             ),
-                          ],
-                        ),
+                          ),
+                        ],
                       ),
                     ),
                   ),
@@ -1573,35 +1579,39 @@ class _AttachmentImage extends StatelessWidget {
           builder: (context, snapshot) {
             if (snapshot.connectionState == ConnectionState.waiting) {
               // Caricamento
-              return Container(
-                constraints: const BoxConstraints(maxWidth: 200, maxHeight: 200),
-                color: isMe ? Colors.white.withOpacity(0.1) : Colors.grey[200],
-                child: const Center(
-                  child: CircularProgressIndicator(),
+              return SizedBox(
+                width: double.infinity,
+                height: 200,
+                child: Container(
+                  color: isMe ? Colors.white.withOpacity(0.1) : Colors.grey[200],
+                  child: const Center(
+                    child: CircularProgressIndicator(),
+                  ),
                 ),
               );
             }
 
             if (snapshot.hasError || !snapshot.hasData || snapshot.data == null) {
               // Errore decifratura
-              return Container(
-                constraints: const BoxConstraints(maxWidth: 200, maxHeight: 200),
-                color: Colors.red.withOpacity(0.1),
-                child: const Center(
-                  child: Icon(Icons.error, color: Colors.red),
+              return SizedBox(
+                width: double.infinity,
+                height: 200,
+                child: Container(
+                  color: Colors.red.withOpacity(0.1),
+                  child: const Center(
+                    child: Icon(Icons.error, color: Colors.red),
+                  ),
                 ),
               );
             }
 
-            // Immagine decifrata visualizzata - usa dimensione naturale della thumbnail
-            return ConstrainedBox(
-              constraints: const BoxConstraints(
-                maxWidth: 200,
-                maxHeight: 200,
-              ),
+            // Immagine decifrata visualizzata - usa tutta la larghezza della bubble
+            return SizedBox(
+              width: double.infinity,
+              height: 200,
               child: Image.memory(
                 snapshot.data!,
-                fit: BoxFit.contain, // Mantiene proporzioni senza tagliare
+                fit: BoxFit.cover, // Taglia per riempire tutta l'area
               ),
             );
           },
