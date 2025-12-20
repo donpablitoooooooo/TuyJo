@@ -1072,7 +1072,9 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                       IconButton(
                         onPressed: _showAttachmentPicker,
                         icon: const Icon(Icons.add_circle_outline),
-                        color: Colors.grey[600],
+                        color: _selectedAttachments.isNotEmpty
+                            ? const Color(0xFF667eea)
+                            : Colors.grey[600],
                         tooltip: 'Allegati',
                         iconSize: 28,
                       ),
@@ -2027,14 +2029,19 @@ class _TodoMessageBubble extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // Testo del todo
+                    // Testo del todo (mostra "Todo" se vuoto)
                     Text(
-                      message.decryptedContent ?? '',
+                      (message.decryptedContent?.isEmpty ?? true)
+                          ? 'Todo'
+                          : message.decryptedContent!,
                       style: TextStyle(
                         color: isMe ? Colors.white : Colors.black87,
                         fontSize: 15,
                         height: 1.4,
                         decoration: isCompleted ? TextDecoration.lineThrough : null,
+                        fontStyle: (message.decryptedContent?.isEmpty ?? true)
+                            ? FontStyle.italic
+                            : FontStyle.normal,
                       ),
                     ),
 
