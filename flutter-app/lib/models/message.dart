@@ -1,12 +1,17 @@
-// Modello per gli allegati
+// Modello per gli allegati (con cifratura E2E dual encryption)
 class Attachment {
   final String id;
   final String type; // 'photo', 'video', 'document'
-  final String url; // URL Firebase Storage
+  final String url; // URL Firebase Storage (contiene file CIFRATO)
   final String fileName;
-  final int fileSize; // in bytes
+  final int fileSize; // Dimensione file ORIGINALE (prima cifratura) in bytes
   final String? thumbnailUrl; // URL thumbnail per video/documenti
   final String? mimeType; // es. 'image/jpeg', 'video/mp4', 'application/pdf'
+
+  // ========== Encryption metadata (dual encryption) ==========
+  final String encryptedKeyRecipient; // Chiave AES cifrata con chiave pubblica destinatario
+  final String encryptedKeySender; // Chiave AES cifrata con chiave pubblica mittente
+  final String iv; // Initialization vector per AES (base64)
 
   Attachment({
     required this.id,
@@ -16,6 +21,9 @@ class Attachment {
     required this.fileSize,
     this.thumbnailUrl,
     this.mimeType,
+    required this.encryptedKeyRecipient,
+    required this.encryptedKeySender,
+    required this.iv,
   });
 
   factory Attachment.fromJson(Map<String, dynamic> json) {
@@ -27,6 +35,9 @@ class Attachment {
       fileSize: json['fileSize'] ?? 0,
       thumbnailUrl: json['thumbnailUrl'],
       mimeType: json['mimeType'],
+      encryptedKeyRecipient: json['encryptedKeyRecipient'] ?? '',
+      encryptedKeySender: json['encryptedKeySender'] ?? '',
+      iv: json['iv'] ?? '',
     );
   }
 
@@ -39,6 +50,9 @@ class Attachment {
       'fileSize': fileSize,
       if (thumbnailUrl != null) 'thumbnailUrl': thumbnailUrl,
       if (mimeType != null) 'mimeType': mimeType,
+      'encryptedKeyRecipient': encryptedKeyRecipient,
+      'encryptedKeySender': encryptedKeySender,
+      'iv': iv,
     };
   }
 }
