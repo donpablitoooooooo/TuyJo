@@ -8,7 +8,8 @@ service firebase.storage {
 
     // Regole per allegati cifrati nelle family chats
     // Path: /families/{familyChatId}/attachments/{type}/{attachmentId}
-    match /families/{familyChatId}/attachments/{type}/{attachmentId} {
+    // Path thumbnails: /families/{familyChatId}/attachments/{type}/thumbnails/{attachmentId}
+    match /families/{familyChatId}/attachments/{type}/{allPaths=**} {
 
       // UPLOAD: consenti a chiunque di caricare allegati cifrati
       // Sicurezza garantita dalla cifratura E2E, non dalle regole Firebase
