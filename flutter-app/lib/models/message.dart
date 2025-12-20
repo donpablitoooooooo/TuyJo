@@ -1,3 +1,5 @@
+import 'package:flutter/foundation.dart';
+
 // Modello per gli allegati (con cifratura E2E dual encryption)
 class Attachment {
   final String id;
@@ -134,9 +136,16 @@ class Message {
     // Parse attachments se presenti
     List<Attachment>? attachments;
     if (data['attachments'] != null && data['attachments'] is List) {
-      attachments = (data['attachments'] as List)
-          .map((a) => Attachment.fromJson(a as Map<String, dynamic>))
-          .toList();
+      try {
+        attachments = (data['attachments'] as List)
+            .map((a) => Attachment.fromJson(a as Map<String, dynamic>))
+            .toList();
+        if (kDebugMode) print('✅ Parsed ${attachments.length} attachments for message $docId');
+      } catch (e) {
+        if (kDebugMode) print('❌ Error parsing attachments for message $docId: $e');
+        // Se c'è un errore, lascia attachments = null invece di crashare il messaggio
+        attachments = null;
+      }
     }
 
     return Message(
