@@ -23,7 +23,7 @@ class ChatScreen extends StatefulWidget {
 class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   final _messageController = TextEditingController();
   final _scrollController = ScrollController();
-  final AttachmentService _attachmentService = AttachmentService();
+  AttachmentService? _attachmentService;
   bool _isLoading = true;
   bool _hasText = false;
   String? _familyChatId;
@@ -170,6 +170,9 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     final pairingService = Provider.of<PairingService>(context, listen: false);
     final chatService = Provider.of<ChatService>(context, listen: false);
     final notificationService = Provider.of<NotificationService>(context, listen: false);
+
+    // Inizializza AttachmentService con EncryptionService condiviso
+    _attachmentService = AttachmentService(encryptionService: chatService.encryptionService);
 
     // Ottieni il family_chat_id e le chiavi
     _familyChatId = await pairingService.getFamilyChatId();
@@ -344,7 +347,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                 color: Colors.blue,
                 onTap: () async {
                   Navigator.pop(context);
-                  final file = await _attachmentService.pickImageFromGallery();
+                  final file = await _attachmentService!.pickImageFromGallery();
                   if (file != null) {
                     setState(() {
                       _selectedAttachments.add(file);
@@ -358,7 +361,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                 color: Colors.purple,
                 onTap: () async {
                   Navigator.pop(context);
-                  final file = await _attachmentService.pickImageFromCamera();
+                  final file = await _attachmentService!.pickImageFromCamera();
                   if (file != null) {
                     setState(() {
                       _selectedAttachments.add(file);
@@ -372,7 +375,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                 color: Colors.orange,
                 onTap: () async {
                   Navigator.pop(context);
-                  final file = await _attachmentService.pickVideoFromGallery();
+                  final file = await _attachmentService!.pickVideoFromGallery();
                   if (file != null) {
                     setState(() {
                       _selectedAttachments.add(file);
@@ -386,7 +389,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                 color: Colors.red,
                 onTap: () async {
                   Navigator.pop(context);
-                  final file = await _attachmentService.pickVideoFromCamera();
+                  final file = await _attachmentService!.pickVideoFromCamera();
                   if (file != null) {
                     setState(() {
                       _selectedAttachments.add(file);
@@ -400,7 +403,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                 color: Colors.green,
                 onTap: () async {
                   Navigator.pop(context);
-                  final file = await _attachmentService.pickDocument();
+                  final file = await _attachmentService!.pickDocument();
                   if (file != null) {
                     setState(() {
                       _selectedAttachments.add(file);
@@ -726,7 +729,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       List<Attachment>? uploadedAttachments;
       if (attachments.isNotEmpty) {
         try {
-          uploadedAttachments = await _attachmentService.uploadMultipleAttachments(
+          uploadedAttachments = await _attachmentService!.uploadMultipleAttachments(
             attachments,
             _familyChatId!,
             _myDeviceId!,
@@ -1006,6 +1009,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                                 attachments: message.attachments,
                                 senderId: message.senderId,
                                 currentUserId: _myDeviceId,
+                                attachmentService: _attachmentService,
                               );
                             }
                           },
@@ -1309,6 +1313,7 @@ class _MessageBubble extends StatefulWidget {
   final List<Attachment>? attachments;
   final String? senderId; // ID del mittente del messaggio
   final String? currentUserId; // ID dell'utente corrente
+  final AttachmentService? attachmentService;
 
   const _MessageBubble({
     super.key,
@@ -1320,6 +1325,7 @@ class _MessageBubble extends StatefulWidget {
     this.attachments,
     this.senderId,
     this.currentUserId,
+    this.attachmentService,
   });
 
   @override
@@ -1366,6 +1372,11 @@ class _MessageBubbleState extends State<_MessageBubble>
       return [];
     }
 
+    // Se attachmentService non è disponibile, non mostrare allegati
+    if (widget.attachmentService == null) {
+      return [];
+    }
+
     return [
       ...widget.attachments!.map((attachment) {
         if (attachment.type == 'photo') {
@@ -1374,6 +1385,7 @@ class _MessageBubbleState extends State<_MessageBubble>
             isMe: widget.isMe,
             currentUserId: widget.currentUserId,
             senderId: widget.senderId,
+            attachmentService: widget.attachmentService!,
           );
         } else if (attachment.type == 'video') {
           return _AttachmentVideo(
@@ -1388,6 +1400,7 @@ class _MessageBubbleState extends State<_MessageBubble>
             isMe: widget.isMe,
             currentUserId: widget.currentUserId,
             senderId: widget.senderId,
+            attachmentService: widget.attachmentService!,
           );
         }
       }),
@@ -1536,17 +1549,18 @@ class _AttachmentImage extends StatelessWidget {
   final bool isMe;
   final String? currentUserId;
   final String? senderId;
+  final AttachmentService attachmentService;
 
   const _AttachmentImage({
     required this.attachment,
     required this.isMe,
     this.currentUserId,
     this.senderId,
+    required this.attachmentService,
   });
 
   @override
   Widget build(BuildContext context) {
-    final attachmentService = AttachmentService();
 
     return GestureDetector(
       onTap: () {
@@ -1682,17 +1696,18 @@ class _AttachmentDocument extends StatelessWidget {
   final bool isMe;
   final String? currentUserId;
   final String? senderId;
+  final AttachmentService attachmentService;
 
   const _AttachmentDocument({
     required this.attachment,
     required this.isMe,
     this.currentUserId,
     this.senderId,
+    required this.attachmentService,
   });
 
   @override
   Widget build(BuildContext context) {
-    final AttachmentService attachmentService = AttachmentService();
 
     return GestureDetector(
       onTap: () {

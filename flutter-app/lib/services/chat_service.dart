@@ -35,6 +35,7 @@ class ChatService extends ChangeNotifier {
   bool get isConnected => _subscription != null;
   bool get isLoadingFromCache => _isLoadingFromCache;
   bool get partnerIsTyping => _partnerIsTyping;
+  EncryptionService get encryptionService => _encryptionService;
 
   /// Carica messaggi più vecchi (per infinite scroll)
   Future<void> loadOlderMessages({int limit = 50}) async {

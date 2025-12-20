@@ -13,7 +13,9 @@ class AttachmentService {
   final FirebaseStorage _storage = FirebaseStorage.instance;
   final ImagePicker _imagePicker = ImagePicker();
   final Uuid _uuid = const Uuid();
-  final EncryptionService _encryptionService = EncryptionService();
+  final EncryptionService encryptionService;
+
+  AttachmentService({required this.encryptionService});
 
   /// Seleziona una foto dalla galleria
   Future<File?> pickImageFromGallery() async {
@@ -147,7 +149,7 @@ class AttachmentService {
       }
 
       // 🔐 CIFRA IL FILE con dual encryption
-      final encryptedData = _encryptionService.encryptFileDual(
+      final encryptedData = encryptionService.encryptFileDual(
         fileBytes,
         senderPublicKey,
         recipientPublicKey,
@@ -283,7 +285,7 @@ class AttachmentService {
       }
 
       // Decifra il file usando la propria chiave privata
-      final Uint8List decryptedBytes = _encryptionService.decryptFile(
+      final Uint8List decryptedBytes = encryptionService.decryptFile(
         encryptedBytes,
         encryptedAesKey,
         attachment.iv,
