@@ -76,21 +76,6 @@ class _MainScreenState extends State<MainScreen> {
     ];
 
     return Scaffold(
-      appBar: AppBar(
-        backgroundColor: Colors.white,
-        elevation: 0,
-        leading: Builder(
-          builder: (context) => IconButton(
-            icon: const Icon(Icons.menu, color: Color(0xFF667eea)),
-            onPressed: () => Scaffold.of(context).openDrawer(),
-          ),
-        ),
-        title: Text(
-          _selectedIndex == 0 ? 'Family Chat ❤️' :
-          _selectedIndex == 1 ? 'Media' : 'Impostazioni',
-          style: const TextStyle(color: Color(0xFF667eea)),
-        ),
-      ),
       drawer: Drawer(
         child: Container(
           decoration: const BoxDecoration(
@@ -161,9 +146,65 @@ class _MainScreenState extends State<MainScreen> {
           ),
         ),
       ),
-      body: IndexedStack(
-        index: _selectedIndex,
-        children: screens,
+      body: Stack(
+        children: [
+          // Main content
+          IndexedStack(
+            index: _selectedIndex,
+            children: screens,
+          ),
+          // Floating hamburger menu (top left)
+          Positioned(
+            top: 48,
+            left: 16,
+            child: Builder(
+              builder: (context) => Container(
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  shape: BoxShape.circle,
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.1),
+                      blurRadius: 8,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
+                ),
+                child: IconButton(
+                  icon: const Icon(Icons.menu, color: Color(0xFF667eea)),
+                  onPressed: () => Scaffold.of(context).openDrawer(),
+                ),
+              ),
+            ),
+          ),
+          // Floating paired/unpaired status (top right)
+          Positioned(
+            top: 48,
+            right: 16,
+            child: Consumer<PairingService>(
+              builder: (context, pairingService, _) => Container(
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  shape: BoxShape.circle,
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.1),
+                      blurRadius: 8,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
+                ),
+                child: IconButton(
+                  icon: Icon(
+                    pairingService.isPaired ? Icons.link : Icons.link_off,
+                    color: pairingService.isPaired ? Colors.green : Colors.red,
+                  ),
+                  onPressed: () {},
+                ),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }

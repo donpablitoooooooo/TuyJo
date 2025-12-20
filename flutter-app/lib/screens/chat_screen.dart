@@ -895,35 +895,6 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     return Scaffold(
       body: Column(
         children: [
-          // Status indicator bar
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              border: Border(
-                bottom: BorderSide(color: Colors.grey[200]!),
-              ),
-            ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.end,
-              children: [
-                Icon(
-                  chatService.isConnected ? Icons.cloud_done : Icons.cloud_off,
-                  color: chatService.isConnected ? Colors.green : Colors.red,
-                  size: 20,
-                ),
-                const SizedBox(width: 8),
-                Text(
-                  chatService.isConnected ? 'Online' : 'Offline',
-                  style: TextStyle(
-                    color: chatService.isConnected ? Colors.green : Colors.red,
-                    fontSize: 12,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-              ],
-            ),
-          ),
           Expanded(
             child: chatService.messages.isEmpty
                 ? const Center(
