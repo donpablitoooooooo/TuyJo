@@ -27,6 +27,13 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   bool _isLoading = true;
   bool _hasText = false;
   String? _familyChatId;
+
+  // Computed property per determinare se il pulsante send è abilitato
+  bool get _canSend =>
+      _hasText ||
+      _selectedTodoDate != null ||
+      _selectedAttachments.isNotEmpty;
+
   String? _myDeviceId;
   String? _partnerPublicKey;
   bool _lastPairingStatus = false;
@@ -324,7 +331,10 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
               colors: [Color(0xFF667eea), Color(0xFF764ba2)],
             ),
           ),
-          child: SafeArea(
+          child: Padding(
+            padding: EdgeInsets.only(
+              bottom: MediaQuery.of(context).padding.bottom,
+            ),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
@@ -382,34 +392,6 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                 },
               ),
               _AttachmentOption(
-                icon: Icons.video_library,
-                label: 'Video da galleria',
-                color: Colors.orange,
-                onTap: () async {
-                  Navigator.pop(context);
-                  final file = await _attachmentService!.pickVideoFromGallery();
-                  if (file != null) {
-                    setState(() {
-                      _selectedAttachments.add(file);
-                    });
-                  }
-                },
-              ),
-              _AttachmentOption(
-                icon: Icons.videocam,
-                label: 'Registra video',
-                color: Colors.red,
-                onTap: () async {
-                  Navigator.pop(context);
-                  final file = await _attachmentService!.pickVideoFromCamera();
-                  if (file != null) {
-                    setState(() {
-                      _selectedAttachments.add(file);
-                    });
-                  }
-                },
-              ),
-              _AttachmentOption(
                 icon: Icons.insert_drive_file,
                 label: 'Documento',
                 color: Colors.green,
@@ -426,7 +408,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
               const SizedBox(height: 16),
             ],
           ), // Chiude Column
-        ), // Chiude SafeArea
+        ), // Chiude Padding
       ), // Chiude Container
     ), // Chiude ClipRRect
     ); // Chiude showModalBottomSheet
@@ -1118,13 +1100,13 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                   ),
                   const SizedBox(width: 8),
                   AnimatedScale(
-                    scale: _hasText ? 1.0 : 0.8,
+                    scale: _canSend ? 1.0 : 0.8,
                     duration: const Duration(milliseconds: 200),
                     curve: Curves.easeOutBack,
                     child: AnimatedContainer(
                       duration: const Duration(milliseconds: 200),
                       decoration: BoxDecoration(
-                        gradient: _hasText
+                        gradient: _canSend
                             ? const LinearGradient(
                                 colors: [
                                   Color(0xFF667eea),
@@ -1138,7 +1120,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                                 ],
                               ),
                         shape: BoxShape.circle,
-                        boxShadow: _hasText
+                        boxShadow: _canSend
                             ? [
                                 BoxShadow(
                                   color: const Color(0xFF667eea).withOpacity(0.4),
@@ -1149,7 +1131,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                             : [],
                       ),
                       child: IconButton(
-                        onPressed: _hasText ? _sendMessage : null,
+                        onPressed: _canSend ? _sendMessage : null,
                         icon: const Icon(Icons.send_rounded),
                         color: Colors.white,
                         iconSize: 22,
