@@ -721,7 +721,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       print('   Content: $messageText');
       print('   Attachments: ${attachments.length}');
 
-      // Upload allegati se presenti
+      // Upload allegati se presenti (con cifratura E2E dual)
       List<Attachment>? uploadedAttachments;
       if (attachments.isNotEmpty) {
         try {
@@ -729,6 +729,8 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
             attachments,
             _familyChatId!,
             _myDeviceId!,
+            myPublicKey, // Chiave pubblica mittente
+            _partnerPublicKey!, // Chiave pubblica destinatario
           );
 
           if (uploadedAttachments.isEmpty) {
