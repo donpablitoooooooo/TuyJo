@@ -1018,7 +1018,12 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                   ),
           ),
           Container(
-            padding: const EdgeInsets.fromLTRB(8, 12, 8, 12),
+            padding: EdgeInsets.fromLTRB(
+              8,
+              12,
+              8,
+              12 + MediaQuery.of(context).padding.bottom,
+            ),
             decoration: BoxDecoration(
               color: Colors.white,
               boxShadow: [
