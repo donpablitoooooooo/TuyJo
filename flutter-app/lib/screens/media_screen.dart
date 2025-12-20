@@ -223,7 +223,7 @@ class _MediaGridItem extends StatelessWidget {
         fit: StackFit.expand,
         children: [
           FutureBuilder<Uint8List?>(
-            future: attachmentService.downloadAndDecryptAttachment(
+            future: attachmentService!.downloadAndDecryptAttachment(
               item.attachment,
               currentUserId ?? '',
               item.message.senderId,
