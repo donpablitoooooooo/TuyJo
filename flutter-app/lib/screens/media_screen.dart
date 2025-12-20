@@ -16,11 +16,21 @@ class MediaScreen extends StatefulWidget {
 
 class _MediaScreenState extends State<MediaScreen> with SingleTickerProviderStateMixin {
   late TabController _tabController;
+  String? _currentUserId;
 
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 3, vsync: this);
+    _loadCurrentUserId();
+  }
+
+  Future<void> _loadCurrentUserId() async {
+    final pairingService = Provider.of<PairingService>(context, listen: false);
+    final userId = await pairingService.getMyUserId();
+    setState(() {
+      _currentUserId = userId;
+    });
   }
 
   @override
@@ -55,9 +65,7 @@ class _MediaScreenState extends State<MediaScreen> with SingleTickerProviderStat
   @override
   Widget build(BuildContext context) {
     final chatService = Provider.of<ChatService>(context);
-    final pairingService = Provider.of<PairingService>(context);
     final messages = chatService.messages;
-    final currentUserId = pairingService.myDeviceId;
 
     final photos = _getAttachmentsByType(messages, 'photo');
     final videos = _getAttachmentsByType(messages, 'video');
@@ -87,9 +95,9 @@ class _MediaScreenState extends State<MediaScreen> with SingleTickerProviderStat
       body: TabBarView(
         controller: _tabController,
         children: [
-          _MediaGrid(items: photos, type: 'photo', currentUserId: currentUserId),
-          _MediaGrid(items: videos, type: 'video', currentUserId: currentUserId),
-          _MediaList(items: documents, currentUserId: currentUserId),
+          _MediaGrid(items: photos, type: 'photo', currentUserId: _currentUserId),
+          _MediaGrid(items: videos, type: 'video', currentUserId: _currentUserId),
+          _MediaList(items: documents, currentUserId: _currentUserId),
         ],
       ),
     );
