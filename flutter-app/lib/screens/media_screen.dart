@@ -17,16 +17,22 @@ class MediaScreen extends StatefulWidget {
 class _MediaScreenState extends State<MediaScreen> with SingleTickerProviderStateMixin {
   late TabController _tabController;
   String? _currentUserId;
+  AttachmentService? _attachmentService;
 
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 3, vsync: this);
-    _loadCurrentUserId();
+    _initialize();
   }
 
-  Future<void> _loadCurrentUserId() async {
+  Future<void> _initialize() async {
     final pairingService = Provider.of<PairingService>(context, listen: false);
+    final chatService = Provider.of<ChatService>(context, listen: false);
+
+    // Inizializza AttachmentService con EncryptionService condiviso
+    _attachmentService = AttachmentService(encryptionService: chatService.encryptionService);
+
     final userId = await pairingService.getMyUserId();
     setState(() {
       _currentUserId = userId;
@@ -95,9 +101,9 @@ class _MediaScreenState extends State<MediaScreen> with SingleTickerProviderStat
       body: TabBarView(
         controller: _tabController,
         children: [
-          _MediaGrid(items: photos, type: 'photo', currentUserId: _currentUserId),
-          _MediaGrid(items: videos, type: 'video', currentUserId: _currentUserId),
-          _MediaList(items: documents, currentUserId: _currentUserId),
+          _MediaGrid(items: photos, type: 'photo', currentUserId: _currentUserId, attachmentService: _attachmentService),
+          _MediaGrid(items: videos, type: 'video', currentUserId: _currentUserId, attachmentService: _attachmentService),
+          _MediaList(items: documents, currentUserId: _currentUserId, attachmentService: _attachmentService),
         ],
       ),
     );
@@ -120,11 +126,13 @@ class _MediaGrid extends StatelessWidget {
   final List<_MediaItem> items;
   final String type;
   final String? currentUserId;
+  final AttachmentService? attachmentService;
 
   const _MediaGrid({
     required this.items,
     required this.type,
     this.currentUserId,
+    this.attachmentService,
   });
 
   @override
@@ -176,6 +184,7 @@ class _MediaGrid extends StatelessWidget {
           item: item,
           isVideo: type == 'video',
           currentUserId: currentUserId,
+          attachmentService: attachmentService,
         );
       },
     );
@@ -187,16 +196,24 @@ class _MediaGridItem extends StatelessWidget {
   final _MediaItem item;
   final bool isVideo;
   final String? currentUserId;
+  final AttachmentService? attachmentService;
 
   const _MediaGridItem({
     required this.item,
     required this.isVideo,
     this.currentUserId,
+    this.attachmentService,
   });
 
   @override
   Widget build(BuildContext context) {
-    final attachmentService = AttachmentService();
+    // Se attachmentService non è disponibile, mostra un placeholder
+    if (attachmentService == null) {
+      return Container(
+        color: Colors.grey[200],
+        child: const Center(child: Icon(Icons.error, color: Colors.grey)),
+      );
+    }
 
     return GestureDetector(
       onTap: () {
@@ -287,10 +304,12 @@ class _MediaGridItem extends StatelessWidget {
 class _MediaList extends StatelessWidget {
   final List<_MediaItem> items;
   final String? currentUserId;
+  final AttachmentService? attachmentService;
 
   const _MediaList({
     required this.items,
     this.currentUserId,
+    this.attachmentService,
   });
 
   @override
@@ -337,6 +356,7 @@ class _MediaList extends StatelessWidget {
         return _DocumentListItem(
           item: item,
           currentUserId: currentUserId,
+          attachmentService: attachmentService,
         );
       },
     );
@@ -347,10 +367,12 @@ class _MediaList extends StatelessWidget {
 class _DocumentListItem extends StatelessWidget {
   final _MediaItem item;
   final String? currentUserId;
+  final AttachmentService? attachmentService;
 
   const _DocumentListItem({
     required this.item,
     this.currentUserId,
+    this.attachmentService,
   });
 
   String _getFileExtension(String fileName) {
