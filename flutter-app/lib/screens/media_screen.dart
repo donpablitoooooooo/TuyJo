@@ -78,32 +78,46 @@ class _MediaScreenState extends State<MediaScreen> with SingleTickerProviderStat
     final documents = _getAttachmentsByType(messages, 'document');
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Media'),
-        bottom: TabBar(
-          controller: _tabController,
-          tabs: [
-            Tab(
-              icon: const Icon(Icons.photo),
-              text: 'Foto (${photos.length})',
-            ),
-            Tab(
-              icon: const Icon(Icons.videocam),
-              text: 'Video (${videos.length})',
-            ),
-            Tab(
-              icon: const Icon(Icons.insert_drive_file),
-              text: 'Documenti (${documents.length})',
-            ),
-          ],
-        ),
-      ),
-      body: TabBarView(
-        controller: _tabController,
+      body: Column(
         children: [
-          _MediaGrid(items: photos, type: 'photo', currentUserId: _currentUserId, attachmentService: _attachmentService),
-          _MediaGrid(items: videos, type: 'video', currentUserId: _currentUserId, attachmentService: _attachmentService),
-          _MediaList(items: documents, currentUserId: _currentUserId, attachmentService: _attachmentService),
+          Container(
+            decoration: BoxDecoration(
+              color: Colors.white,
+              border: Border(
+                bottom: BorderSide(color: Colors.grey[200]!),
+              ),
+            ),
+            child: TabBar(
+              controller: _tabController,
+              labelColor: const Color(0xFF667eea),
+              unselectedLabelColor: Colors.grey[600],
+              indicatorColor: const Color(0xFF667eea),
+              tabs: [
+                Tab(
+                  icon: const Icon(Icons.photo),
+                  text: 'Foto (${photos.length})',
+                ),
+                Tab(
+                  icon: const Icon(Icons.videocam),
+                  text: 'Video (${videos.length})',
+                ),
+                Tab(
+                  icon: const Icon(Icons.insert_drive_file),
+                  text: 'Documenti (${documents.length})',
+                ),
+              ],
+            ),
+          ),
+          Expanded(
+            child: TabBarView(
+              controller: _tabController,
+              children: [
+                _MediaGrid(items: photos, type: 'photo', currentUserId: _currentUserId, attachmentService: _attachmentService),
+                _MediaGrid(items: videos, type: 'video', currentUserId: _currentUserId, attachmentService: _attachmentService),
+                _MediaList(items: documents, currentUserId: _currentUserId, attachmentService: _attachmentService),
+              ],
+            ),
+          ),
         ],
       ),
     );

@@ -292,9 +292,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Impostazioni'),
-      ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
           : ListView(
@@ -309,7 +306,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       children: [
                         Row(
                           children: const [
-                            Icon(Icons.backup, color: Colors.blue),
+                            Icon(Icons.backup, color: Color(0xFF667eea)),
                             SizedBox(width: 8),
                             Text(
                               'Backup & Ripristino',

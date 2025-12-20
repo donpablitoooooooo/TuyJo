@@ -76,31 +76,94 @@ class _MainScreenState extends State<MainScreen> {
     ];
 
     return Scaffold(
+      appBar: AppBar(
+        backgroundColor: Colors.white,
+        elevation: 0,
+        leading: Builder(
+          builder: (context) => IconButton(
+            icon: const Icon(Icons.menu, color: Color(0xFF667eea)),
+            onPressed: () => Scaffold.of(context).openDrawer(),
+          ),
+        ),
+        title: Text(
+          _selectedIndex == 0 ? 'Family Chat ❤️' :
+          _selectedIndex == 1 ? 'Media' : 'Impostazioni',
+          style: const TextStyle(color: Color(0xFF667eea)),
+        ),
+      ),
+      drawer: Drawer(
+        child: Container(
+          decoration: const BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: [
+                Color(0xFF667eea),
+                Color(0xFF764ba2),
+              ],
+            ),
+          ),
+          child: ListView(
+            padding: EdgeInsets.zero,
+            children: [
+              const DrawerHeader(
+                decoration: BoxDecoration(
+                  color: Colors.transparent,
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    Icon(Icons.favorite, color: Colors.white, size: 48),
+                    SizedBox(height: 16),
+                    Text(
+                      'You & Me',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 24,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              ListTile(
+                leading: const Icon(Icons.chat_bubble, color: Colors.white),
+                title: const Text('Chat', style: TextStyle(color: Colors.white)),
+                selected: _selectedIndex == 0,
+                selectedTileColor: Colors.white.withOpacity(0.2),
+                onTap: () {
+                  _onItemTapped(0);
+                  Navigator.pop(context);
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.perm_media, color: Colors.white),
+                title: const Text('Media', style: TextStyle(color: Colors.white)),
+                selected: _selectedIndex == 1,
+                selectedTileColor: Colors.white.withOpacity(0.2),
+                onTap: () {
+                  _onItemTapped(1);
+                  Navigator.pop(context);
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.settings, color: Colors.white),
+                title: const Text('Impostazioni', style: TextStyle(color: Colors.white)),
+                selected: _selectedIndex == 2,
+                selectedTileColor: Colors.white.withOpacity(0.2),
+                onTap: () {
+                  _onItemTapped(2);
+                  Navigator.pop(context);
+                },
+              ),
+            ],
+          ),
+        ),
+      ),
       body: IndexedStack(
         index: _selectedIndex,
         children: screens,
-      ),
-      bottomNavigationBar: BottomNavigationBar(
-        items: const <BottomNavigationBarItem>[
-          BottomNavigationBarItem(
-            icon: Icon(Icons.chat_bubble_outline),
-            activeIcon: Icon(Icons.chat_bubble),
-            label: 'Chat',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.perm_media_outlined),
-            activeIcon: Icon(Icons.perm_media),
-            label: 'Media',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.settings_outlined),
-            activeIcon: Icon(Icons.settings),
-            label: 'Impostazioni',
-          ),
-        ],
-        currentIndex: _selectedIndex,
-        selectedItemColor: Colors.blue,
-        onTap: _onItemTapped,
       ),
     );
   }

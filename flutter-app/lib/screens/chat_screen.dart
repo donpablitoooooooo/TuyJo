@@ -893,48 +893,37 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     }
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Family Chat ❤️'),
-        actions: [
-          IconButton(
-            icon: Icon(
-              chatService.isConnected ? Icons.cloud_done : Icons.cloud_off,
-              color: chatService.isConnected ? Colors.green : Colors.red,
-            ),
-            onPressed: () {},
-          ),
-          IconButton(
-            icon: const Icon(Icons.delete_outline),
-            tooltip: 'Reset pairing',
-            onPressed: () async {
-              final confirmed = await showDialog<bool>(
-                context: context,
-                builder: (context) => AlertDialog(
-                  title: const Text('Reset Pairing'),
-                  content: const Text('Vuoi eliminare il pairing? Dovrai scansionare di nuovo il QR code.'),
-                  actions: [
-                    TextButton(
-                      onPressed: () => Navigator.pop(context, false),
-                      child: const Text('Annulla'),
-                    ),
-                    TextButton(
-                      onPressed: () => Navigator.pop(context, true),
-                      child: const Text('Reset'),
-                    ),
-                  ],
-                ),
-              );
-
-              if (confirmed == true) {
-                chatService.stopListening();
-                await pairingService.clearPairing();
-              }
-            },
-          ),
-        ],
-      ),
       body: Column(
         children: [
+          // Status indicator bar
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              border: Border(
+                bottom: BorderSide(color: Colors.grey[200]!),
+              ),
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                Icon(
+                  chatService.isConnected ? Icons.cloud_done : Icons.cloud_off,
+                  color: chatService.isConnected ? Colors.green : Colors.red,
+                  size: 20,
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  chatService.isConnected ? 'Online' : 'Offline',
+                  style: TextStyle(
+                    color: chatService.isConnected ? Colors.green : Colors.red,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ],
+            ),
+          ),
           Expanded(
             child: chatService.messages.isEmpty
                 ? const Center(
@@ -1107,7 +1096,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                       IconButton(
                         onPressed: _showAttachmentPicker,
                         icon: const Icon(Icons.add_circle_outline),
-                        color: const Color(0xFF667eea),
+                        color: Colors.grey[600],
                         tooltip: 'Allegati',
                         iconSize: 28,
                       ),
