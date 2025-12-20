@@ -1018,7 +1018,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                   ),
           ),
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+            padding: const EdgeInsets.fromLTRB(8, 12, 8, 12),
             decoration: BoxDecoration(
               color: Colors.white,
               boxShadow: [
@@ -1030,9 +1030,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                 ),
               ],
             ),
-            child: SafeArea(
-              bottom: false,
-              child: Column(
+            child: Column(
                 children: [
                   // Mostra allegati selezionati
                   if (_selectedAttachments.isNotEmpty)
@@ -1155,7 +1153,6 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                   ),
                 ],
               ),
-            ),
           ),
         ],
       ),
