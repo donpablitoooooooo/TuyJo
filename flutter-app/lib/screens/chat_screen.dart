@@ -425,9 +425,10 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
               ),
               const SizedBox(height: 16),
             ],
-          ),
-        ),
-      ), // Chiude ClipRRect
+          ), // Chiude Column
+        ), // Chiude SafeArea
+      ), // Chiude Container
+    ), // Chiude ClipRRect
     ); // Chiude showModalBottomSheet
   } // Chiude _showAttachmentPicker
 
