@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../services/pairing_service.dart';
 import 'chat_screen.dart';
+import 'media_screen.dart';
 import 'settings_screen.dart';
 
 class MainScreen extends StatefulWidget {
@@ -40,15 +41,15 @@ class _MainScreenState extends State<MainScreen> {
 
     if (mounted) {
       setState(() {
-        // Se paired, mostra Chat (index 0), altrimenti Impostazioni (index 1)
-        _selectedIndex = pairingService.isPaired ? 0 : 1;
+        // Se paired, mostra Chat (index 0), altrimenti Impostazioni (index 2)
+        _selectedIndex = pairingService.isPaired ? 0 : 2;
         _isInitialized = true;
       });
     }
 
     final totalDuration = DateTime.now().difference(startTime);
     print('⏱️ [MAIN_SCREEN] Tab initialization complete in ${totalDuration.inMilliseconds}ms');
-    print('   Selected tab: ${_selectedIndex == 0 ? "Chat" : "Settings"}');
+    print('   Selected tab: ${_selectedIndex == 0 ? "Chat" : (_selectedIndex == 1 ? "Media" : "Settings")}');
   }
 
   void _onItemTapped(int index) {
@@ -70,6 +71,7 @@ class _MainScreenState extends State<MainScreen> {
 
     final List<Widget> screens = [
       const ChatScreen(),
+      const MediaScreen(),
       const SettingsScreen(),
     ];
 
@@ -84,6 +86,11 @@ class _MainScreenState extends State<MainScreen> {
             icon: Icon(Icons.chat_bubble_outline),
             activeIcon: Icon(Icons.chat_bubble),
             label: 'Chat',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.perm_media_outlined),
+            activeIcon: Icon(Icons.perm_media),
+            label: 'Media',
           ),
           BottomNavigationBarItem(
             icon: Icon(Icons.settings_outlined),

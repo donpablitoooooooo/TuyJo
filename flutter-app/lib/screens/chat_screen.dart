@@ -1,4 +1,6 @@
 import 'dart:async';
+import 'dart:io';
+import 'dart:typed_data';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
@@ -8,6 +10,7 @@ import '../services/pairing_service.dart';
 import '../services/chat_service.dart';
 import '../services/encryption_service.dart';
 import '../services/notification_service.dart';
+import '../services/attachment_service.dart';
 import '../models/message.dart';
 
 class ChatScreen extends StatefulWidget {
@@ -20,6 +23,7 @@ class ChatScreen extends StatefulWidget {
 class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   final _messageController = TextEditingController();
   final _scrollController = ScrollController();
+  AttachmentService? _attachmentService;
   bool _isLoading = true;
   bool _hasText = false;
   String? _familyChatId;
@@ -33,6 +37,8 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   bool _isLoadingOlderMessages = false; // Track se stiamo caricando messaggi vecchi
   Set<String> _hiddenReminderIds = {}; // Track reminder nascosti per rilevare quando diventano visibili
   DateTime? _selectedTodoDate; // Data/ora selezionata per todo (null = messaggio normale)
+  List<File> _selectedAttachments = []; // Lista di file selezionati da inviare
+  bool _isUploadingAttachments = false; // Stato di upload allegati
 
   @override
   void initState() {
@@ -164,6 +170,9 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     final pairingService = Provider.of<PairingService>(context, listen: false);
     final chatService = Provider.of<ChatService>(context, listen: false);
     final notificationService = Provider.of<NotificationService>(context, listen: false);
+
+    // Inizializza AttachmentService con EncryptionService condiviso
+    _attachmentService = AttachmentService(encryptionService: chatService.encryptionService);
 
     // Ottieni il family_chat_id e le chiavi
     _familyChatId = await pairingService.getFamilyChatId();
@@ -299,6 +308,129 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
 
     if (kDebugMode) print('✅ Todo marked as completed: $todoId');
   }
+
+  /// Mostra il bottom sheet per selezionare il tipo di allegato
+  void _showAttachmentPicker() async {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (context) => ClipRRect(
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+        child: Container(
+          decoration: const BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: [Color(0xFF667eea), Color(0xFF764ba2)],
+            ),
+          ),
+          child: SafeArea(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // Header con X
+                Padding(
+                  padding: const EdgeInsets.only(left: 8, top: 8),
+                  child: Row(
+                    children: [
+                      IconButton(
+                        onPressed: () => Navigator.pop(context),
+                        icon: const Icon(Icons.close, color: Colors.white, size: 28),
+                      ),
+                      const Expanded(
+                        child: Text(
+                          'Seleziona allegato',
+                          style: TextStyle(
+                            fontSize: 20,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.white,
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
+                      ),
+                      const SizedBox(width: 48), // Spacer per centrare il titolo
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 8),
+              _AttachmentOption(
+                icon: Icons.photo_library,
+                label: 'Foto da galleria',
+                color: Colors.blue,
+                onTap: () async {
+                  Navigator.pop(context);
+                  final file = await _attachmentService!.pickImageFromGallery();
+                  if (file != null) {
+                    setState(() {
+                      _selectedAttachments.add(file);
+                    });
+                  }
+                },
+              ),
+              _AttachmentOption(
+                icon: Icons.camera_alt,
+                label: 'Scatta foto',
+                color: Colors.purple,
+                onTap: () async {
+                  Navigator.pop(context);
+                  final file = await _attachmentService!.pickImageFromCamera();
+                  if (file != null) {
+                    setState(() {
+                      _selectedAttachments.add(file);
+                    });
+                  }
+                },
+              ),
+              _AttachmentOption(
+                icon: Icons.video_library,
+                label: 'Video da galleria',
+                color: Colors.orange,
+                onTap: () async {
+                  Navigator.pop(context);
+                  final file = await _attachmentService!.pickVideoFromGallery();
+                  if (file != null) {
+                    setState(() {
+                      _selectedAttachments.add(file);
+                    });
+                  }
+                },
+              ),
+              _AttachmentOption(
+                icon: Icons.videocam,
+                label: 'Registra video',
+                color: Colors.red,
+                onTap: () async {
+                  Navigator.pop(context);
+                  final file = await _attachmentService!.pickVideoFromCamera();
+                  if (file != null) {
+                    setState(() {
+                      _selectedAttachments.add(file);
+                    });
+                  }
+                },
+              ),
+              _AttachmentOption(
+                icon: Icons.insert_drive_file,
+                label: 'Documento',
+                color: Colors.green,
+                onTap: () async {
+                  Navigator.pop(context);
+                  final file = await _attachmentService!.pickDocument();
+                  if (file != null) {
+                    setState(() {
+                      _selectedAttachments.add(file);
+                    });
+                  }
+                },
+              ),
+              const SizedBox(height: 16),
+            ],
+          ), // Chiude Column
+        ), // Chiude SafeArea
+      ), // Chiude Container
+    ), // Chiude ClipRRect
+    ); // Chiude showModalBottomSheet
+  } // Chiude _showAttachmentPicker
 
   void _showDateTimePicker() async {
     // Sentinella per segnalare cancellazione
@@ -513,16 +645,21 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
 
   void _sendMessage() async {
     final todoDate = _selectedTodoDate;
+    final attachments = List<File>.from(_selectedAttachments);
 
-    // Permetti invio se c'è una data selezionata (anche con testo vuoto)
-    if (_messageController.text.trim().isEmpty && todoDate == null) {
-      print('❌ Message is empty and no date selected');
+    // Permetti invio se c'è testo, una data selezionata o allegati
+    if (_messageController.text.trim().isEmpty && todoDate == null && attachments.isEmpty) {
+      print('❌ Message is empty, no date selected, and no attachments');
       return;
     }
 
     final messageText = _messageController.text.trim();
     _messageController.clear(); // Clear subito per UX migliore
-    setState(() => _selectedTodoDate = null); // Reset todo date
+    setState(() {
+      _selectedTodoDate = null; // Reset todo date
+      _selectedAttachments.clear(); // Clear attachments
+      _isUploadingAttachments = true; // Mostra loader
+    });
 
     // BLOCCO INVIO: Verifica che siamo in pairing
     final pairingService = Provider.of<PairingService>(context, listen: false);
@@ -599,6 +736,39 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       print('   To family chat: $_familyChatId');
       print('   From device: $_myDeviceId');
       print('   Content: $messageText');
+      print('   Attachments: ${attachments.length}');
+
+      // Upload allegati se presenti (con cifratura E2E dual)
+      List<Attachment>? uploadedAttachments;
+      if (attachments.isNotEmpty) {
+        try {
+          uploadedAttachments = await _attachmentService!.uploadMultipleAttachments(
+            attachments,
+            _familyChatId!,
+            _myDeviceId!,
+            myPublicKey, // Chiave pubblica mittente
+            _partnerPublicKey!, // Chiave pubblica destinatario
+          );
+
+          if (uploadedAttachments.isEmpty) {
+            throw Exception('No attachments uploaded');
+          }
+
+          if (kDebugMode) {
+            print('✅ ${uploadedAttachments.length} attachments uploaded successfully');
+          }
+        } catch (e) {
+          if (kDebugMode) print('❌ Error uploading attachments: $e');
+          setState(() => _isUploadingAttachments = false);
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Errore caricamento allegati'),
+              backgroundColor: Colors.red,
+            ),
+          );
+          return;
+        }
+      }
 
       success = await chatService.sendMessage(
         messageText,
@@ -606,12 +776,19 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
         _myDeviceId!,
         myPublicKey,
         _partnerPublicKey!,
+        attachments: uploadedAttachments,
       );
 
       if (success) {
         print('✅ Message sent successfully with dual encryption');
+        if (uploadedAttachments != null) {
+          print('   With ${uploadedAttachments.length} attachments');
+        }
       }
     }
+
+    // Reset loading state
+    setState(() => _isUploadingAttachments = false);
 
     if (success) {
       // Scrolla in fondo dopo l'invio
@@ -842,6 +1019,10 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                                 isMe: isMe,
                                 delivered: message.delivered ?? false,
                                 read: message.read ?? false,
+                                attachments: message.attachments,
+                                senderId: message.senderId,
+                                currentUserId: _myDeviceId,
+                                attachmentService: _attachmentService,
                               );
                             }
                           },
@@ -890,17 +1071,48 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
               ],
             ),
             child: SafeArea(
-              child: Row(
+              child: Column(
                 children: [
-                  IconButton(
-                    onPressed: null, // TODO: Allegati foto/video/documenti
-                    icon: const Icon(Icons.add_circle_outline),
-                    color: Colors.grey[400],
-                    tooltip: 'Allegati (in arrivo)',
-                    iconSize: 28,
-                  ),
-                  const SizedBox(width: 4),
-                  Expanded(
+                  // Mostra allegati selezionati
+                  if (_selectedAttachments.isNotEmpty)
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      decoration: BoxDecoration(
+                        color: Colors.grey[100],
+                        border: Border(
+                          bottom: BorderSide(color: Colors.grey[300]!),
+                        ),
+                      ),
+                      child: SizedBox(
+                        height: 80,
+                        child: ListView.builder(
+                          scrollDirection: Axis.horizontal,
+                          itemCount: _selectedAttachments.length,
+                          itemBuilder: (context, index) {
+                            final file = _selectedAttachments[index];
+                            return _AttachmentPreview(
+                              file: file,
+                              onRemove: () {
+                                setState(() {
+                                  _selectedAttachments.removeAt(index);
+                                });
+                              },
+                            );
+                          },
+                        ),
+                      ),
+                    ),
+                  Row(
+                    children: [
+                      IconButton(
+                        onPressed: _showAttachmentPicker,
+                        icon: const Icon(Icons.add_circle_outline),
+                        color: const Color(0xFF667eea),
+                        tooltip: 'Allegati',
+                        iconSize: 28,
+                      ),
+                      const SizedBox(width: 4),
+                      Expanded(
                     child: Container(
                       decoration: BoxDecoration(
                         color: Colors.grey[100],
@@ -976,8 +1188,134 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                         iconSize: 22,
                       ),
                     ),
+                      ),
+                    ],
                   ),
                 ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Widget per le opzioni di selezione allegati nel bottom sheet
+class _AttachmentOption extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final Color color;
+  final VoidCallback onTap;
+
+  const _AttachmentOption({
+    required this.icon,
+    required this.label,
+    required this.color,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+        child: Row(
+          children: [
+            Container(
+              width: 56,
+              height: 56,
+              decoration: BoxDecoration(
+                color: Colors.white.withOpacity(0.2),
+                shape: BoxShape.circle,
+                border: Border.all(
+                  color: Colors.white.withOpacity(0.3),
+                  width: 1,
+                ),
+              ),
+              child: Icon(icon, color: Colors.white, size: 28),
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Text(
+                label,
+                style: const TextStyle(
+                  fontSize: 17,
+                  fontWeight: FontWeight.w500,
+                  color: Colors.white,
+                ),
+              ),
+            ),
+            const Icon(Icons.chevron_right, color: Colors.white70, size: 24),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Widget per mostrare preview degli allegati selezionati
+class _AttachmentPreview extends StatelessWidget {
+  final File file;
+  final VoidCallback onRemove;
+
+  const _AttachmentPreview({
+    required this.file,
+    required this.onRemove,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final fileName = file.path.split('/').last;
+    final isImage = fileName.toLowerCase().endsWith('.jpg') ||
+        fileName.toLowerCase().endsWith('.jpeg') ||
+        fileName.toLowerCase().endsWith('.png');
+
+    return Container(
+      width: 80,
+      margin: const EdgeInsets.only(right: 8),
+      child: Stack(
+        children: [
+          Container(
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(8),
+              color: Colors.grey[300],
+            ),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(8),
+              child: isImage
+                  ? Image.file(
+                      file,
+                      fit: BoxFit.cover,
+                      width: 80,
+                      height: 80,
+                    )
+                  : Center(
+                      child: Icon(
+                        Icons.insert_drive_file,
+                        size: 32,
+                        color: Colors.grey[600],
+                      ),
+                    ),
+            ),
+          ),
+          Positioned(
+            top: 4,
+            right: 4,
+            child: GestureDetector(
+              onTap: onRemove,
+              child: Container(
+                padding: const EdgeInsets.all(4),
+                decoration: const BoxDecoration(
+                  color: Colors.red,
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(
+                  Icons.close,
+                  size: 16,
+                  color: Colors.white,
+                ),
               ),
             ),
           ),
@@ -993,6 +1331,10 @@ class _MessageBubble extends StatefulWidget {
   final bool isMe;
   final bool delivered;
   final bool read;
+  final List<Attachment>? attachments;
+  final String? senderId; // ID del mittente del messaggio
+  final String? currentUserId; // ID dell'utente corrente
+  final AttachmentService? attachmentService;
 
   const _MessageBubble({
     super.key,
@@ -1001,6 +1343,10 @@ class _MessageBubble extends StatefulWidget {
     required this.isMe,
     this.delivered = false,
     this.read = false,
+    this.attachments,
+    this.senderId,
+    this.currentUserId,
+    this.attachmentService,
   });
 
   @override
@@ -1039,6 +1385,48 @@ class _MessageBubbleState extends State<_MessageBubble>
   void dispose() {
     _controller.dispose();
     super.dispose();
+  }
+
+  /// Costruisce i widget per mostrare gli allegati (decifrati)
+  List<Widget> _buildAttachments() {
+    if (widget.attachments == null || widget.attachments!.isEmpty) {
+      return [];
+    }
+
+    // Se attachmentService non è disponibile, non mostrare allegati
+    if (widget.attachmentService == null) {
+      return [];
+    }
+
+    return [
+      ...widget.attachments!.map((attachment) {
+        if (attachment.type == 'photo') {
+          return _AttachmentImage(
+            attachment: attachment,
+            isMe: widget.isMe,
+            currentUserId: widget.currentUserId,
+            senderId: widget.senderId,
+            attachmentService: widget.attachmentService!,
+          );
+        } else if (attachment.type == 'video') {
+          return _AttachmentVideo(
+            attachment: attachment,
+            isMe: widget.isMe,
+            currentUserId: widget.currentUserId,
+            senderId: widget.senderId,
+          );
+        } else {
+          return _AttachmentDocument(
+            attachment: attachment,
+            isMe: widget.isMe,
+            currentUserId: widget.currentUserId,
+            senderId: widget.senderId,
+            attachmentService: widget.attachmentService!,
+          );
+        }
+      }),
+      const SizedBox(height: 8),
+    ];
   }
 
   @override
@@ -1122,14 +1510,19 @@ class _MessageBubbleState extends State<_MessageBubble>
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text(
-                              widget.message,
-                              style: TextStyle(
-                                color: widget.isMe ? Colors.white : Colors.black87,
-                                fontSize: 15,
-                                height: 1.4,
+                            // Allegati (se presenti)
+                            if (widget.attachments != null && widget.attachments!.isNotEmpty)
+                              ..._buildAttachments(),
+                            // Testo del messaggio (se presente)
+                            if (widget.message.isNotEmpty)
+                              Text(
+                                widget.message,
+                                style: TextStyle(
+                                  color: widget.isMe ? Colors.white : Colors.black87,
+                                  fontSize: 15,
+                                  height: 1.4,
+                                ),
                               ),
-                            ),
                             const SizedBox(height: 4),
                             Row(
                               mainAxisSize: MainAxisSize.min,
@@ -1165,6 +1558,420 @@ class _MessageBubbleState extends State<_MessageBubble>
               ),
             ],
           ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Widget per visualizzare allegati immagine (decifrato)
+class _AttachmentImage extends StatelessWidget {
+  final Attachment attachment;
+  final bool isMe;
+  final String? currentUserId;
+  final String? senderId;
+  final AttachmentService attachmentService;
+
+  const _AttachmentImage({
+    required this.attachment,
+    required this.isMe,
+    this.currentUserId,
+    this.senderId,
+    required this.attachmentService,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+
+    return GestureDetector(
+      onTap: () {
+        // Apri fullscreen image viewer
+        Navigator.of(context).push(
+          MaterialPageRoute(
+            builder: (context) => _FullscreenImageViewer(
+              attachment: attachment,
+              attachmentService: attachmentService,
+              currentUserId: currentUserId,
+              senderId: senderId,
+            ),
+          ),
+        );
+      },
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(12),
+        child: FutureBuilder<Uint8List?>(
+          future: attachmentService.downloadAndDecryptAttachment(
+            attachment,
+            currentUserId ?? '',
+            senderId ?? '',
+            useThumbnail: true, // Usa thumbnail per performance
+          ),
+          builder: (context, snapshot) {
+            if (snapshot.connectionState == ConnectionState.waiting) {
+              // Caricamento
+              return Container(
+                constraints: const BoxConstraints(maxWidth: 200, maxHeight: 200),
+                color: isMe ? Colors.white.withOpacity(0.1) : Colors.grey[200],
+                child: const Center(
+                  child: CircularProgressIndicator(),
+                ),
+              );
+            }
+
+            if (snapshot.hasError || !snapshot.hasData || snapshot.data == null) {
+              // Errore decifratura
+              return Container(
+                constraints: const BoxConstraints(maxWidth: 200, maxHeight: 200),
+                color: Colors.red.withOpacity(0.1),
+                child: const Center(
+                  child: Icon(Icons.error, color: Colors.red),
+                ),
+              );
+            }
+
+            // Immagine decifrata visualizzata - usa dimensione naturale della thumbnail
+            return ConstrainedBox(
+              constraints: const BoxConstraints(
+                maxWidth: 200,
+                maxHeight: 200,
+              ),
+              child: Image.memory(
+                snapshot.data!,
+                fit: BoxFit.contain, // Mantiene proporzioni senza tagliare
+              ),
+            );
+          },
+        ),
+      ),
+    );
+  }
+}
+
+/// Widget per visualizzare allegati video (cifrato - placeholder)
+class _AttachmentVideo extends StatelessWidget {
+  final Attachment attachment;
+  final bool isMe;
+  final String? currentUserId;
+  final String? senderId;
+
+  const _AttachmentVideo({
+    required this.attachment,
+    required this.isMe,
+    this.currentUserId,
+    this.senderId,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    // Per i video cifrati, mostriamo solo un placeholder
+    // TODO: Implementare video player per video cifrati
+    return GestureDetector(
+      onTap: () {
+        // TODO: Scaricare, decifrare e aprire video player
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Player video cifrati in sviluppo'),
+          ),
+        );
+      },
+      child: Container(
+        width: 200,
+        height: 150,
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(12),
+          color: isMe ? Colors.white.withOpacity(0.1) : Colors.grey[200],
+        ),
+        child: Stack(
+          alignment: Alignment.center,
+          children: [
+            Container(
+              width: 50,
+              height: 50,
+              decoration: BoxDecoration(
+                color: Colors.black.withOpacity(0.5),
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(
+                Icons.play_arrow,
+                color: Colors.white,
+                size: 32,
+              ),
+            ),
+            Positioned(
+              bottom: 8,
+              right: 8,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color: Colors.black.withOpacity(0.6),
+                  borderRadius: BorderRadius.circular(4),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.videocam, color: Colors.white, size: 14),
+                    const SizedBox(width: 4),
+                    Text(
+                      attachment.fileName,
+                      style: const TextStyle(color: Colors.white, fontSize: 12),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Widget per visualizzare allegati documento (cifrato - placeholder)
+class _AttachmentDocument extends StatelessWidget {
+  final Attachment attachment;
+  final bool isMe;
+  final String? currentUserId;
+  final String? senderId;
+  final AttachmentService attachmentService;
+
+  const _AttachmentDocument({
+    required this.attachment,
+    required this.isMe,
+    this.currentUserId,
+    this.senderId,
+    required this.attachmentService,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+
+    return GestureDetector(
+      onTap: () {
+        // TODO: Scaricare, decifrare e aprire documento
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Apertura documenti cifrati in sviluppo'),
+          ),
+        );
+      },
+      child: Container(
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(12),
+          color: isMe ? Colors.white.withOpacity(0.1) : Colors.grey[200],
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 40,
+              height: 40,
+              decoration: BoxDecoration(
+                color: isMe ? Colors.white.withOpacity(0.2) : Colors.grey[300],
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Icon(
+                Icons.insert_drive_file,
+                color: isMe ? Colors.white : Colors.grey[700],
+              ),
+            ),
+            const SizedBox(width: 12),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  attachment.fileName.length > 20
+                      ? '${attachment.fileName.substring(0, 20)}...'
+                      : attachment.fileName,
+                  style: TextStyle(
+                    color: isMe ? Colors.white : Colors.black87,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+                Text(
+                  attachmentService.formatFileSize(attachment.fileSize),
+                  style: TextStyle(
+                    color: isMe ? Colors.white70 : Colors.black54,
+                    fontSize: 12,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(width: 8),
+            Icon(
+              Icons.lock_outline,
+              size: 16,
+              color: isMe ? Colors.white70 : Colors.black54,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Widget per visualizzare immagine a schermo intero con zoom
+class _FullscreenImageViewer extends StatefulWidget {
+  final Attachment attachment;
+  final AttachmentService attachmentService;
+  final String? currentUserId;
+  final String? senderId;
+
+  const _FullscreenImageViewer({
+    required this.attachment,
+    required this.attachmentService,
+    this.currentUserId,
+    this.senderId,
+  });
+
+  @override
+  State<_FullscreenImageViewer> createState() => _FullscreenImageViewerState();
+}
+
+class _FullscreenImageViewerState extends State<_FullscreenImageViewer> {
+  bool _showOverlay = true;
+
+  void _toggleOverlay() {
+    setState(() {
+      _showOverlay = !_showOverlay;
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: Colors.black,
+      body: GestureDetector(
+        onTap: _toggleOverlay,
+        child: Stack(
+          children: [
+            // Immagine full screen con zoom
+            Center(
+              child: FutureBuilder<Uint8List?>(
+                future: widget.attachmentService.downloadAndDecryptAttachment(
+                  widget.attachment,
+                  widget.currentUserId ?? '',
+                  widget.senderId ?? '',
+                  useThumbnail: false, // Carica immagine FULL RESOLUTION
+                ),
+                builder: (context, snapshot) {
+                  if (snapshot.connectionState == ConnectionState.waiting) {
+                    // Loading
+                    return const Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        CircularProgressIndicator(color: Colors.white),
+                        SizedBox(height: 16),
+                        Text(
+                          'Caricamento immagine...',
+                          style: TextStyle(color: Colors.white70),
+                        ),
+                      ],
+                    );
+                  }
+
+                  if (snapshot.hasError || !snapshot.hasData || snapshot.data == null) {
+                    // Errore
+                    return Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        const Icon(Icons.error, color: Colors.red, size: 64),
+                        const SizedBox(height: 16),
+                        Text(
+                          'Errore caricamento immagine',
+                          style: TextStyle(color: Colors.white70),
+                        ),
+                      ],
+                    );
+                  }
+
+                  // Immagine decifrata con zoom
+                  return InteractiveViewer(
+                    minScale: 0.5,
+                    maxScale: 4.0,
+                    child: Image.memory(
+                      snapshot.data!,
+                      fit: BoxFit.contain,
+                    ),
+                  );
+                },
+              ),
+            ),
+
+            // Overlay con animazione fade (pulsante chiudi in alto a destra)
+            AnimatedOpacity(
+              opacity: _showOverlay ? 1.0 : 0.0,
+              duration: const Duration(milliseconds: 200),
+              child: SafeArea(
+                child: Align(
+                  alignment: Alignment.topRight,
+                  child: Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: IconButton(
+                      icon: const Icon(Icons.close, color: Colors.white, size: 32),
+                      onPressed: () => Navigator.of(context).pop(),
+                      style: IconButton.styleFrom(
+                        backgroundColor: Colors.black.withOpacity(0.5),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+
+            // Overlay con animazione fade (info file in basso)
+            AnimatedOpacity(
+              opacity: _showOverlay ? 1.0 : 0.0,
+              duration: const Duration(milliseconds: 200),
+              child: SafeArea(
+                child: Align(
+                  alignment: Alignment.bottomCenter,
+                  child: Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment.bottomCenter,
+                        end: Alignment.topCenter,
+                        colors: [
+                          Colors.black.withOpacity(0.7),
+                          Colors.transparent,
+                        ],
+                      ),
+                    ),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          widget.attachment.fileName,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 14,
+                            fontWeight: FontWeight.w500,
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
+                        const SizedBox(height: 4),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            const Icon(Icons.lock, color: Colors.white70, size: 14),
+                            const SizedBox(width: 4),
+                            Text(
+                              'Cifrato E2E • ${widget.attachmentService.formatFileSize(widget.attachment.fileSize)}',
+                              style: const TextStyle(
+                                color: Colors.white70,
+                                fontSize: 12,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ],
         ),
       ),
     );

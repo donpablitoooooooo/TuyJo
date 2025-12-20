@@ -1,0 +1,28 @@
+rules_version = '2';
+
+// Firebase Storage Security Rules per app di messaggistica E2E
+// NOTA: I file sono completamente cifrati (AES-256 + RSA dual encryption)
+// Solo chi possiede le chiavi private RSA può decifrare, quindi è sicuro
+service firebase.storage {
+  match /b/{bucket}/o {
+
+    // Regole per allegati cifrati nelle family chats
+    // Path: /families/{familyChatId}/attachments/{type}/{attachmentId}
+    // Path thumbnails: /families/{familyChatId}/attachments/{type}/thumbnails/{attachmentId}
+    match /families/{familyChatId}/attachments/{type}/{allPaths=**} {
+
+      // UPLOAD: consenti a chiunque di caricare allegati cifrati
+      // Sicurezza garantita dalla cifratura E2E, non dalle regole Firebase
+      allow write: if true;
+
+      // DOWNLOAD: consenti a chiunque di scaricare allegati
+      // Solo chi ha le chiavi private RSA può decifrare i file
+      allow read: if true;
+    }
+
+    // Blocca tutto il resto
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}

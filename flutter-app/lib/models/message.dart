@@ -1,3 +1,64 @@
+import 'package:flutter/foundation.dart';
+
+// Modello per gli allegati (con cifratura E2E dual encryption)
+class Attachment {
+  final String id;
+  final String type; // 'photo', 'video', 'document'
+  final String url; // URL Firebase Storage (contiene file CIFRATO)
+  final String fileName;
+  final int fileSize; // Dimensione file ORIGINALE (prima cifratura) in bytes
+  final String? thumbnailUrl; // URL thumbnail per video/documenti
+  final String? mimeType; // es. 'image/jpeg', 'video/mp4', 'application/pdf'
+
+  // ========== Encryption metadata (dual encryption) ==========
+  final String encryptedKeyRecipient; // Chiave AES cifrata con chiave pubblica destinatario
+  final String encryptedKeySender; // Chiave AES cifrata con chiave pubblica mittente
+  final String iv; // Initialization vector per AES (base64)
+
+  Attachment({
+    required this.id,
+    required this.type,
+    required this.url,
+    required this.fileName,
+    required this.fileSize,
+    this.thumbnailUrl,
+    this.mimeType,
+    required this.encryptedKeyRecipient,
+    required this.encryptedKeySender,
+    required this.iv,
+  });
+
+  factory Attachment.fromJson(Map<String, dynamic> json) {
+    return Attachment(
+      id: json['id'] ?? '',
+      type: json['type'] ?? '',
+      url: json['url'] ?? '',
+      fileName: json['fileName'] ?? '',
+      fileSize: json['fileSize'] ?? 0,
+      thumbnailUrl: json['thumbnailUrl'],
+      mimeType: json['mimeType'],
+      encryptedKeyRecipient: json['encryptedKeyRecipient'] ?? '',
+      encryptedKeySender: json['encryptedKeySender'] ?? '',
+      iv: json['iv'] ?? '',
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'type': type,
+      'url': url,
+      'fileName': fileName,
+      'fileSize': fileSize,
+      if (thumbnailUrl != null) 'thumbnailUrl': thumbnailUrl,
+      if (mimeType != null) 'mimeType': mimeType,
+      'encryptedKeyRecipient': encryptedKeyRecipient,
+      'encryptedKeySender': encryptedKeySender,
+      'iv': iv,
+    };
+  }
+}
+
 class Message {
   final String id;
   final String senderId;
@@ -28,6 +89,9 @@ class Message {
   bool? read; // true quando il destinatario ha visualizzato il messaggio
   DateTime? readAt; // timestamp di quando è stato letto
 
+  // Allegati (foto, video, documenti)
+  List<Attachment>? attachments;
+
   Message({
     required this.id,
     required this.senderId,
@@ -49,6 +113,7 @@ class Message {
     this.delivered,
     this.read,
     this.readAt,
+    this.attachments,
   });
 
   factory Message.fromJson(Map<String, dynamic> json) {
@@ -68,6 +133,21 @@ class Message {
   }
 
   factory Message.fromFirestore(String docId, Map<String, dynamic> data) {
+    // Parse attachments se presenti
+    List<Attachment>? attachments;
+    if (data['attachments'] != null && data['attachments'] is List) {
+      try {
+        attachments = (data['attachments'] as List)
+            .map((a) => Attachment.fromJson(a as Map<String, dynamic>))
+            .toList();
+        if (kDebugMode) print('✅ Parsed ${attachments.length} attachments for message $docId');
+      } catch (e) {
+        if (kDebugMode) print('❌ Error parsing attachments for message $docId: $e');
+        // Se c'è un errore, lascia attachments = null invece di crashare il messaggio
+        attachments = null;
+      }
+    }
+
     return Message(
       id: docId,
       senderId: data['sender_id'] ?? '',
@@ -83,6 +163,7 @@ class Message {
       delivered: data['delivered'],
       read: data['read'],
       readAt: data['read_at'] != null ? DateTime.parse(data['read_at']) : null,
+      attachments: attachments,
     );
   }
 
@@ -102,6 +183,7 @@ class Message {
       if (delivered != null) 'delivered': delivered,
       if (read != null) 'read': read,
       if (readAt != null) 'read_at': readAt!.toIso8601String(),
+      if (attachments != null) 'attachments': attachments!.map((a) => a.toJson()).toList(),
     };
   }
 }

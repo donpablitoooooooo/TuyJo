@@ -35,6 +35,7 @@ class ChatService extends ChangeNotifier {
   bool get isConnected => _subscription != null;
   bool get isLoadingFromCache => _isLoadingFromCache;
   bool get partnerIsTyping => _partnerIsTyping;
+  EncryptionService get encryptionService => _encryptionService;
 
   /// Carica messaggi più vecchi (per infinite scroll)
   Future<void> loadOlderMessages({int limit = 50}) async {
@@ -232,6 +233,11 @@ class ChatService extends ChangeNotifier {
                 change.doc.id,
                 change.doc.data()!,
               );
+
+              // Log se il messaggio ha attachments
+              if (kDebugMode && message.attachments != null && message.attachments!.isNotEmpty) {
+                print('📎 Message ${message.id.substring(0, 8)} has ${message.attachments!.length} attachments');
+              }
 
               // Aggiungi solo se non esiste già in memoria
               if (!_messages.any((m) => m.id == message.id)) {
@@ -735,8 +741,9 @@ class ChatService extends ChangeNotifier {
     String familyChatId,
     String senderId,
     String senderPublicKey, // Nuova! Per cifrare anche per noi stessi
-    String recipientPublicKey,
-  ) async {
+    String recipientPublicKey, {
+    List<Attachment>? attachments, // Allegati opzionali
+  }) async {
     try {
       final timestamp = DateTime.now();
 
@@ -773,6 +780,8 @@ class ChatService extends ChangeNotifier {
         'message_type': 'text', // Campo non criptato per la Cloud Function
         'delivered': true, // Messaggio consegnato al server
         'read': false, // Non ancora letto dal destinatario
+        if (attachments != null && attachments.isNotEmpty)
+          'attachments': attachments.map((a) => a.toJson()).toList(),
       });
 
       if (kDebugMode) {
