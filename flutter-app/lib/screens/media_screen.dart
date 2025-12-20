@@ -1,7 +1,10 @@
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
 import '../services/chat_service.dart';
+import '../services/pairing_service.dart';
+import '../services/attachment_service.dart';
 import '../models/message.dart';
 
 class MediaScreen extends StatefulWidget {
@@ -52,7 +55,9 @@ class _MediaScreenState extends State<MediaScreen> with SingleTickerProviderStat
   @override
   Widget build(BuildContext context) {
     final chatService = Provider.of<ChatService>(context);
+    final pairingService = Provider.of<PairingService>(context);
     final messages = chatService.messages;
+    final currentUserId = pairingService.myDeviceId;
 
     final photos = _getAttachmentsByType(messages, 'photo');
     final videos = _getAttachmentsByType(messages, 'video');
@@ -82,9 +87,9 @@ class _MediaScreenState extends State<MediaScreen> with SingleTickerProviderStat
       body: TabBarView(
         controller: _tabController,
         children: [
-          _MediaGrid(items: photos, type: 'photo'),
-          _MediaGrid(items: videos, type: 'video'),
-          _MediaList(items: documents),
+          _MediaGrid(items: photos, type: 'photo', currentUserId: currentUserId),
+          _MediaGrid(items: videos, type: 'video', currentUserId: currentUserId),
+          _MediaList(items: documents, currentUserId: currentUserId),
         ],
       ),
     );
@@ -102,14 +107,16 @@ class _MediaItem {
   });
 }
 
-/// Griglia per foto e video
+/// Griglia per foto e video (cifrati)
 class _MediaGrid extends StatelessWidget {
   final List<_MediaItem> items;
   final String type;
+  final String? currentUserId;
 
   const _MediaGrid({
     required this.items,
     required this.type,
+    this.currentUserId,
   });
 
   @override
@@ -160,49 +167,64 @@ class _MediaGrid extends StatelessWidget {
         return _MediaGridItem(
           item: item,
           isVideo: type == 'video',
+          currentUserId: currentUserId,
         );
       },
     );
   }
 }
 
-/// Singolo elemento della griglia (foto/video)
+/// Singolo elemento della griglia (foto/video cifrato)
 class _MediaGridItem extends StatelessWidget {
   final _MediaItem item;
   final bool isVideo;
+  final String? currentUserId;
 
   const _MediaGridItem({
     required this.item,
     required this.isVideo,
+    this.currentUserId,
   });
 
   @override
   Widget build(BuildContext context) {
+    final attachmentService = AttachmentService();
+
     return GestureDetector(
       onTap: () {
-        // TODO: Apri fullscreen viewer
+        // TODO: Apri fullscreen viewer con immagine decifrata
       },
       child: Stack(
         fit: StackFit.expand,
         children: [
-          Image.network(
-            item.attachment.url,
-            fit: BoxFit.cover,
-            loadingBuilder: (context, child, loadingProgress) {
-              if (loadingProgress == null) return child;
-              return Container(
-                color: Colors.grey[200],
-                child: const Center(
-                  child: CircularProgressIndicator(strokeWidth: 2),
-                ),
-              );
-            },
-            errorBuilder: (context, error, stackTrace) {
-              return Container(
-                color: Colors.grey[300],
-                child: const Center(
-                  child: Icon(Icons.error, color: Colors.red),
-                ),
+          FutureBuilder<Uint8List?>(
+            future: attachmentService.downloadAndDecryptAttachment(
+              item.attachment,
+              currentUserId ?? '',
+              item.message.senderId,
+            ),
+            builder: (context, snapshot) {
+              if (snapshot.connectionState == ConnectionState.waiting) {
+                return Container(
+                  color: Colors.grey[200],
+                  child: const Center(
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  ),
+                );
+              }
+
+              if (snapshot.hasError || !snapshot.hasData || snapshot.data == null) {
+                return Container(
+                  color: Colors.grey[300],
+                  child: const Center(
+                    child: Icon(Icons.error, color: Colors.red, size: 24),
+                  ),
+                );
+              }
+
+              return Image.memory(
+                snapshot.data!,
+                fit: BoxFit.cover,
               );
             },
           ),
@@ -253,12 +275,14 @@ class _MediaGridItem extends StatelessWidget {
   }
 }
 
-/// Lista per documenti
+/// Lista per documenti (cifrati)
 class _MediaList extends StatelessWidget {
   final List<_MediaItem> items;
+  final String? currentUserId;
 
   const _MediaList({
     required this.items,
+    this.currentUserId,
   });
 
   @override
@@ -302,18 +326,23 @@ class _MediaList extends StatelessWidget {
       separatorBuilder: (context, index) => const SizedBox(height: 12),
       itemBuilder: (context, index) {
         final item = items[index];
-        return _DocumentListItem(item: item);
+        return _DocumentListItem(
+          item: item,
+          currentUserId: currentUserId,
+        );
       },
     );
   }
 }
 
-/// Singolo elemento della lista documenti
+/// Singolo elemento della lista documenti (cifrato)
 class _DocumentListItem extends StatelessWidget {
   final _MediaItem item;
+  final String? currentUserId;
 
   const _DocumentListItem({
     required this.item,
+    this.currentUserId,
   });
 
   String _getFileExtension(String fileName) {
