@@ -1,0 +1,25 @@
+rules_version = '2';
+
+// Firebase Storage Security Rules per app di messaggistica E2E
+service firebase.storage {
+  match /b/{bucket}/o {
+
+    // Regole per allegati cifrati nelle family chats
+    // Path: /families/{familyChatId}/attachments/{type}/{attachmentId}
+    match /families/{familyChatId}/attachments/{type}/{attachmentId} {
+
+      // UPLOAD: consenti a qualsiasi utente autenticato di caricare allegati cifrati
+      // La sicurezza è garantita dalla cifratura E2E, non dalle regole di Firebase
+      allow write: if request.auth != null;
+
+      // DOWNLOAD: consenti a qualsiasi utente autenticato di scaricare allegati
+      // Solo chi ha le chiavi private può decifrare i file
+      allow read: if request.auth != null;
+    }
+
+    // Blocca tutto il resto
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}
