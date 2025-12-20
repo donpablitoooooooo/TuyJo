@@ -1610,8 +1610,7 @@ class _AttachmentImage extends StatelessWidget {
             if (snapshot.connectionState == ConnectionState.waiting) {
               // Caricamento
               return Container(
-                width: 200,
-                height: 200,
+                constraints: const BoxConstraints(maxWidth: 200, maxHeight: 200),
                 color: isMe ? Colors.white.withOpacity(0.1) : Colors.grey[200],
                 child: const Center(
                   child: CircularProgressIndicator(),
@@ -1622,8 +1621,7 @@ class _AttachmentImage extends StatelessWidget {
             if (snapshot.hasError || !snapshot.hasData || snapshot.data == null) {
               // Errore decifratura
               return Container(
-                width: 200,
-                height: 200,
+                constraints: const BoxConstraints(maxWidth: 200, maxHeight: 200),
                 color: Colors.red.withOpacity(0.1),
                 child: const Center(
                   child: Icon(Icons.error, color: Colors.red),
@@ -1631,11 +1629,16 @@ class _AttachmentImage extends StatelessWidget {
               );
             }
 
-            // Immagine decifrata visualizzata
-            return Image.memory(
-              snapshot.data!,
-              width: 200,
-              fit: BoxFit.cover,
+            // Immagine decifrata visualizzata - usa dimensione naturale della thumbnail
+            return ConstrainedBox(
+              constraints: const BoxConstraints(
+                maxWidth: 200,
+                maxHeight: 200,
+              ),
+              child: Image.memory(
+                snapshot.data!,
+                fit: BoxFit.contain, // Mantiene proporzioni senza tagliare
+              ),
             );
           },
         ),
