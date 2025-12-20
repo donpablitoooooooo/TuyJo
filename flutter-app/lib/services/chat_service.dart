@@ -234,6 +234,11 @@ class ChatService extends ChangeNotifier {
                 change.doc.data()!,
               );
 
+              // Log se il messaggio ha attachments
+              if (kDebugMode && message.attachments != null && message.attachments!.isNotEmpty) {
+                print('📎 Message ${message.id.substring(0, 8)} has ${message.attachments!.length} attachments');
+              }
+
               // Aggiungi solo se non esiste già in memoria
               if (!_messages.any((m) => m.id == message.id)) {
                 // Decrypt e popola i campi
