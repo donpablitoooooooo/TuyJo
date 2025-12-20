@@ -427,9 +427,9 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
             ],
           ),
         ),
-      ),
-    );
-  }
+      ), // Chiude ClipRRect
+    ); // Chiude showModalBottomSheet
+  } // Chiude _showAttachmentPicker
 
   void _showDateTimePicker() async {
     // Sentinella per segnalare cancellazione
