@@ -6,16 +6,21 @@ import 'package:image_picker/image_picker.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:mime/mime.dart';
 import 'package:uuid/uuid.dart';
+import 'package:image/image.dart' as img;
 import '../models/message.dart';
 import 'encryption_service.dart';
+import 'attachment_cache_service.dart';
 
 class AttachmentService {
   final FirebaseStorage _storage = FirebaseStorage.instance;
   final ImagePicker _imagePicker = ImagePicker();
   final Uuid _uuid = const Uuid();
   final EncryptionService encryptionService;
+  final AttachmentCacheService _cacheService = AttachmentCacheService();
 
-  AttachmentService({required this.encryptionService});
+  AttachmentService({required this.encryptionService}) {
+    _cacheService.initialize();
+  }
 
   /// Seleziona una foto dalla galleria
   Future<File?> pickImageFromGallery() async {
@@ -107,6 +112,36 @@ class AttachmentService {
       return null;
     } catch (e) {
       if (kDebugMode) print('❌ Error picking document: $e');
+      return null;
+    }
+  }
+
+  /// Genera thumbnail da immagine (max 300px lato più lungo)
+  Future<Uint8List?> _generateThumbnail(Uint8List imageBytes) async {
+    try {
+      // Decodifica immagine
+      final image = img.decodeImage(imageBytes);
+      if (image == null) return null;
+
+      // Ridimensiona mantenendo aspect ratio
+      final thumbnail = img.copyResize(
+        image,
+        width: image.width > image.height ? 300 : null,
+        height: image.height > image.width ? 300 : null,
+      );
+
+      // Encode come JPEG con qualità 85
+      final thumbnailBytes = img.encodeJpg(thumbnail, quality: 85);
+
+      if (kDebugMode) {
+        print('📐 Generated thumbnail:');
+        print('   Original: ${(imageBytes.length / 1024).toStringAsFixed(1)} KB');
+        print('   Thumbnail: ${(thumbnailBytes.length / 1024).toStringAsFixed(1)} KB');
+      }
+
+      return Uint8List.fromList(thumbnailBytes);
+    } catch (e) {
+      if (kDebugMode) print('❌ Error generating thumbnail: $e');
       return null;
     }
   }
