@@ -123,15 +123,15 @@ class AttachmentService {
       final image = img.decodeImage(imageBytes);
       if (image == null) return null;
 
-      // Ridimensiona mantenendo aspect ratio
+      // Ridimensiona mantenendo aspect ratio (150px per thumbnail più leggere)
       final thumbnail = img.copyResize(
         image,
-        width: image.width > image.height ? 300 : null,
-        height: image.height > image.width ? 300 : null,
+        width: image.width > image.height ? 150 : null,
+        height: image.height > image.width ? 150 : null,
       );
 
-      // Encode come JPEG con qualità 85
-      final thumbnailBytes = img.encodeJpg(thumbnail, quality: 85);
+      // Encode come JPEG con qualità 80 per ridurre ulteriormente
+      final thumbnailBytes = img.encodeJpg(thumbnail, quality: 80);
 
       if (kDebugMode) {
         print('📐 Generated thumbnail:');

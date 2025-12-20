@@ -314,33 +314,45 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
-      builder: (context) => Container(
-        decoration: const BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-        ),
-        child: SafeArea(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const SizedBox(height: 12),
-              Container(
-                width: 40,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: Colors.grey[300],
-                  borderRadius: BorderRadius.circular(2),
+      builder: (context) => ClipRRect(
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+        child: Container(
+          decoration: const BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: [Color(0xFF667eea), Color(0xFF764ba2)],
+            ),
+          ),
+          child: SafeArea(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // Header con X
+                Padding(
+                  padding: const EdgeInsets.only(left: 8, top: 8),
+                  child: Row(
+                    children: [
+                      IconButton(
+                        onPressed: () => Navigator.pop(context),
+                        icon: const Icon(Icons.close, color: Colors.white, size: 28),
+                      ),
+                      const Expanded(
+                        child: Text(
+                          'Seleziona allegato',
+                          style: TextStyle(
+                            fontSize: 20,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.white,
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
+                      ),
+                      const SizedBox(width: 48), // Spacer per centrare il titolo
+                    ],
+                  ),
                 ),
-              ),
-              const SizedBox(height: 16),
-              const Text(
-                'Seleziona allegato',
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              const SizedBox(height: 16),
+                const SizedBox(height: 8),
               _AttachmentOption(
                 icon: Icons.photo_library,
                 label: 'Foto da galleria',
@@ -1211,22 +1223,30 @@ class _AttachmentOption extends StatelessWidget {
         child: Row(
           children: [
             Container(
-              width: 48,
-              height: 48,
+              width: 56,
+              height: 56,
               decoration: BoxDecoration(
-                color: color.withOpacity(0.1),
+                color: Colors.white.withOpacity(0.2),
                 shape: BoxShape.circle,
+                border: Border.all(
+                  color: Colors.white.withOpacity(0.3),
+                  width: 1,
+                ),
               ),
-              child: Icon(icon, color: color, size: 24),
+              child: Icon(icon, color: Colors.white, size: 28),
             ),
             const SizedBox(width: 16),
-            Text(
-              label,
-              style: const TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w500,
+            Expanded(
+              child: Text(
+                label,
+                style: const TextStyle(
+                  fontSize: 17,
+                  fontWeight: FontWeight.w500,
+                  color: Colors.white,
+                ),
               ),
             ),
+            const Icon(Icons.chevron_right, color: Colors.white70, size: 24),
           ],
         ),
       ),
@@ -1786,7 +1806,7 @@ class _AttachmentDocument extends StatelessWidget {
 }
 
 /// Widget per visualizzare immagine a schermo intero con zoom
-class _FullscreenImageViewer extends StatelessWidget {
+class _FullscreenImageViewer extends StatefulWidget {
   final Attachment attachment;
   final AttachmentService attachmentService;
   final String? currentUserId;
@@ -1800,131 +1820,155 @@ class _FullscreenImageViewer extends StatelessWidget {
   });
 
   @override
+  State<_FullscreenImageViewer> createState() => _FullscreenImageViewerState();
+}
+
+class _FullscreenImageViewerState extends State<_FullscreenImageViewer> {
+  bool _showOverlay = true;
+
+  void _toggleOverlay() {
+    setState(() {
+      _showOverlay = !_showOverlay;
+    });
+  }
+
+  @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.black,
-      body: Stack(
-        children: [
-          // Immagine full screen con zoom
-          Center(
-            child: FutureBuilder<Uint8List?>(
-              future: attachmentService.downloadAndDecryptAttachment(
-                attachment,
-                currentUserId ?? '',
-                senderId ?? '',
-                useThumbnail: false, // Carica immagine FULL RESOLUTION
-              ),
-              builder: (context, snapshot) {
-                if (snapshot.connectionState == ConnectionState.waiting) {
-                  // Loading
-                  return const Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      CircularProgressIndicator(color: Colors.white),
-                      SizedBox(height: 16),
-                      Text(
-                        'Caricamento immagine...',
-                        style: TextStyle(color: Colors.white70),
-                      ),
-                    ],
-                  );
-                }
-
-                if (snapshot.hasError || !snapshot.hasData || snapshot.data == null) {
-                  // Errore
-                  return Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      const Icon(Icons.error, color: Colors.red, size: 64),
-                      const SizedBox(height: 16),
-                      Text(
-                        'Errore caricamento immagine',
-                        style: TextStyle(color: Colors.white70),
-                      ),
-                    ],
-                  );
-                }
-
-                // Immagine decifrata con zoom
-                return InteractiveViewer(
-                  minScale: 0.5,
-                  maxScale: 4.0,
-                  child: Image.memory(
-                    snapshot.data!,
-                    fit: BoxFit.contain,
-                  ),
-                );
-              },
-            ),
-          ),
-
-          // Pulsante chiudi in alto a destra
-          SafeArea(
-            child: Align(
-              alignment: Alignment.topRight,
-              child: Padding(
-                padding: const EdgeInsets.all(16),
-                child: IconButton(
-                  icon: const Icon(Icons.close, color: Colors.white, size: 32),
-                  onPressed: () => Navigator.of(context).pop(),
-                  style: IconButton.styleFrom(
-                    backgroundColor: Colors.black.withOpacity(0.5),
-                  ),
+      body: GestureDetector(
+        onTap: _toggleOverlay,
+        child: Stack(
+          children: [
+            // Immagine full screen con zoom
+            Center(
+              child: FutureBuilder<Uint8List?>(
+                future: widget.attachmentService.downloadAndDecryptAttachment(
+                  widget.attachment,
+                  widget.currentUserId ?? '',
+                  widget.senderId ?? '',
+                  useThumbnail: false, // Carica immagine FULL RESOLUTION
                 ),
-              ),
-            ),
-          ),
-
-          // Info file in basso
-          SafeArea(
-            child: Align(
-              alignment: Alignment.bottomCenter,
-              child: Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.bottomCenter,
-                    end: Alignment.topCenter,
-                    colors: [
-                      Colors.black.withOpacity(0.7),
-                      Colors.transparent,
-                    ],
-                  ),
-                ),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      attachment.fileName,
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 14,
-                        fontWeight: FontWeight.w500,
-                      ),
-                      textAlign: TextAlign.center,
-                    ),
-                    const SizedBox(height: 4),
-                    Row(
+                builder: (context, snapshot) {
+                  if (snapshot.connectionState == ConnectionState.waiting) {
+                    // Loading
+                    return const Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        const Icon(Icons.lock, color: Colors.white70, size: 14),
-                        const SizedBox(width: 4),
+                        CircularProgressIndicator(color: Colors.white),
+                        SizedBox(height: 16),
                         Text(
-                          'Cifrato E2E • ${attachmentService.formatFileSize(attachment.fileSize)}',
+                          'Caricamento immagine...',
+                          style: TextStyle(color: Colors.white70),
+                        ),
+                      ],
+                    );
+                  }
+
+                  if (snapshot.hasError || !snapshot.hasData || snapshot.data == null) {
+                    // Errore
+                    return Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        const Icon(Icons.error, color: Colors.red, size: 64),
+                        const SizedBox(height: 16),
+                        Text(
+                          'Errore caricamento immagine',
+                          style: TextStyle(color: Colors.white70),
+                        ),
+                      ],
+                    );
+                  }
+
+                  // Immagine decifrata con zoom
+                  return InteractiveViewer(
+                    minScale: 0.5,
+                    maxScale: 4.0,
+                    child: Image.memory(
+                      snapshot.data!,
+                      fit: BoxFit.contain,
+                    ),
+                  );
+                },
+              ),
+            ),
+
+            // Overlay con animazione fade (pulsante chiudi in alto a destra)
+            AnimatedOpacity(
+              opacity: _showOverlay ? 1.0 : 0.0,
+              duration: const Duration(milliseconds: 200),
+              child: SafeArea(
+                child: Align(
+                  alignment: Alignment.topRight,
+                  child: Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: IconButton(
+                      icon: const Icon(Icons.close, color: Colors.white, size: 32),
+                      onPressed: () => Navigator.of(context).pop(),
+                      style: IconButton.styleFrom(
+                        backgroundColor: Colors.black.withOpacity(0.5),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+
+            // Overlay con animazione fade (info file in basso)
+            AnimatedOpacity(
+              opacity: _showOverlay ? 1.0 : 0.0,
+              duration: const Duration(milliseconds: 200),
+              child: SafeArea(
+                child: Align(
+                  alignment: Alignment.bottomCenter,
+                  child: Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment.bottomCenter,
+                        end: Alignment.topCenter,
+                        colors: [
+                          Colors.black.withOpacity(0.7),
+                          Colors.transparent,
+                        ],
+                      ),
+                    ),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          widget.attachment.fileName,
                           style: const TextStyle(
-                            color: Colors.white70,
-                            fontSize: 12,
+                            color: Colors.white,
+                            fontSize: 14,
+                            fontWeight: FontWeight.w500,
                           ),
+                          textAlign: TextAlign.center,
+                        ),
+                        const SizedBox(height: 4),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            const Icon(Icons.lock, color: Colors.white70, size: 14),
+                            const SizedBox(width: 4),
+                            Text(
+                              'Cifrato E2E • ${widget.attachmentService.formatFileSize(widget.attachment.fileSize)}',
+                              style: const TextStyle(
+                                color: Colors.white70,
+                                fontSize: 12,
+                              ),
+                            ),
+                          ],
                         ),
                       ],
                     ),
-                  ],
+                  ),
                 ),
               ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
