@@ -217,7 +217,19 @@ class _MediaGridItem extends StatelessWidget {
 
     return GestureDetector(
       onTap: () {
-        // TODO: Apri fullscreen viewer con immagine decifrata
+        // Apri fullscreen viewer solo per foto
+        if (!isVideo && attachmentService != null) {
+          Navigator.of(context).push(
+            MaterialPageRoute(
+              builder: (context) => _FullscreenImageViewer(
+                attachment: item.attachment,
+                attachmentService: attachmentService!,
+                currentUserId: currentUserId,
+                senderId: item.message.senderId,
+              ),
+            ),
+          );
+        }
       },
       child: Stack(
         fit: StackFit.expand,
@@ -227,6 +239,7 @@ class _MediaGridItem extends StatelessWidget {
               item.attachment,
               currentUserId ?? '',
               item.message.senderId,
+              useThumbnail: true, // Usa thumbnail per performance nella griglia
             ),
             builder: (context, snapshot) {
               if (snapshot.connectionState == ConnectionState.waiting) {
@@ -509,5 +522,160 @@ class _DocumentListItem extends StatelessWidget {
         ),
       ),
     );
+  }
+}
+
+/// Widget per visualizzare immagine a schermo intero con zoom
+class _FullscreenImageViewer extends StatelessWidget {
+  final Attachment attachment;
+  final AttachmentService attachmentService;
+  final String? currentUserId;
+  final String? senderId;
+
+  const _FullscreenImageViewer({
+    required this.attachment,
+    required this.attachmentService,
+    this.currentUserId,
+    this.senderId,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: Colors.black,
+      body: Stack(
+        children: [
+          // Immagine full screen con zoom
+          Center(
+            child: FutureBuilder<Uint8List?>(
+              future: attachmentService.downloadAndDecryptAttachment(
+                attachment,
+                currentUserId ?? '',
+                senderId ?? '',
+                useThumbnail: false, // Carica immagine FULL RESOLUTION
+              ),
+              builder: (context, snapshot) {
+                if (snapshot.connectionState == ConnectionState.waiting) {
+                  // Loading
+                  return const Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      CircularProgressIndicator(color: Colors.white),
+                      SizedBox(height: 16),
+                      Text(
+                        'Caricamento immagine...',
+                        style: TextStyle(color: Colors.white70),
+                      ),
+                    ],
+                  );
+                }
+
+                if (snapshot.hasError || !snapshot.hasData || snapshot.data == null) {
+                  // Errore
+                  return Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      const Icon(Icons.error, color: Colors.red, size: 64),
+                      const SizedBox(height: 16),
+                      Text(
+                        'Errore caricamento immagine',
+                        style: TextStyle(color: Colors.white70),
+                      ),
+                    ],
+                  );
+                }
+
+                // Immagine decifrata con zoom
+                return InteractiveViewer(
+                  minScale: 0.5,
+                  maxScale: 4.0,
+                  child: Image.memory(
+                    snapshot.data!,
+                    fit: BoxFit.contain,
+                  ),
+                );
+              },
+            ),
+          ),
+
+          // Pulsante chiudi in alto a destra
+          SafeArea(
+            child: Align(
+              alignment: Alignment.topRight,
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: IconButton(
+                  icon: const Icon(Icons.close, color: Colors.white, size: 32),
+                  onPressed: () => Navigator.of(context).pop(),
+                  style: IconButton.styleFrom(
+                    backgroundColor: Colors.black.withOpacity(0.5),
+                  ),
+                ),
+              ),
+            ),
+          ),
+
+          // Info file in basso
+          SafeArea(
+            child: Align(
+              alignment: Alignment.bottomCenter,
+              child: Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.bottomCenter,
+                    end: Alignment.topCenter,
+                    colors: [
+                      Colors.black.withOpacity(0.7),
+                      Colors.transparent,
+                    ],
+                  ),
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      attachment.fileName,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 14,
+                        fontWeight: FontWeight.w500,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                    const SizedBox(height: 4),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        const Icon(Icons.lock, color: Colors.white70, size: 14),
+                        const SizedBox(width: 4),
+                        Text(
+                          'Cifrato E2E • ${_formatFileSize(attachment.fileSize)}',
+                          style: const TextStyle(
+                            color: Colors.white70,
+                            fontSize: 12,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  String _formatFileSize(int bytes) {
+    if (bytes < 1024) {
+      return '$bytes B';
+    } else if (bytes < 1024 * 1024) {
+      return '${(bytes / 1024).toStringAsFixed(1)} KB';
+    } else {
+      return '${(bytes / 1024 / 1024).toStringAsFixed(1)} MB';
+    }
   }
 }

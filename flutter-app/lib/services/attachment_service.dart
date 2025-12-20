@@ -234,6 +234,54 @@ class AttachmentService {
         print('   URL: $downloadUrl');
       }
 
+      // 🖼️ GENERA E CARICA THUMBNAIL (solo per foto)
+      String? thumbnailUrl;
+      if (attachmentType == 'photo') {
+        if (kDebugMode) print('📐 Generating thumbnail for photo...');
+
+        final Uint8List? thumbnailBytes = await _generateThumbnail(fileBytes);
+
+        if (thumbnailBytes != null) {
+          // Cifra il thumbnail con le stesse chiavi
+          final encryptedThumbnailData = encryptionService.encryptFileDual(
+            thumbnailBytes,
+            senderPublicKey,
+            recipientPublicKey,
+          );
+
+          final Uint8List encryptedThumbnailBytes = encryptedThumbnailData['encryptedFileBytes'] as Uint8List;
+
+          // Upload thumbnail cifrato con path diverso
+          final String thumbnailPath = 'families/$familyChatId/attachments/$attachmentType/thumbnails/$attachmentId';
+          final Reference thumbnailRef = _storage.ref().child(thumbnailPath);
+
+          if (kDebugMode) {
+            print('📤 Uploading encrypted thumbnail...');
+            print('   Path: $thumbnailPath');
+          }
+
+          final UploadTask thumbnailUploadTask = thumbnailRef.putData(
+            encryptedThumbnailBytes,
+            SettableMetadata(
+              contentType: 'application/octet-stream',
+              customMetadata: {
+                'senderId': senderId,
+                'type': 'thumbnail',
+                'encrypted': 'true',
+              },
+            ),
+          );
+
+          final TaskSnapshot thumbnailSnapshot = await thumbnailUploadTask;
+          thumbnailUrl = await thumbnailSnapshot.ref.getDownloadURL();
+
+          if (kDebugMode) {
+            print('✅ Thumbnail uploaded successfully');
+            print('   URL: $thumbnailUrl');
+          }
+        }
+      }
+
       // Crea l'oggetto Attachment con metadata di cifratura
       return Attachment(
         id: attachmentId,
@@ -242,6 +290,7 @@ class AttachmentService {
         fileName: fileName,
         fileSize: originalFileSize, // Dimensione ORIGINALE (non cifrata)
         mimeType: mimeType,
+        thumbnailUrl: thumbnailUrl, // URL thumbnail cifrato (solo per foto)
         encryptedKeyRecipient: encryptedKeyRecipient,
         encryptedKeySender: encryptedKeySender,
         iv: iv,
