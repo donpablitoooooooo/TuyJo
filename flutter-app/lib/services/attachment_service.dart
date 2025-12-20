@@ -278,25 +278,45 @@ class AttachmentService {
     return uploadedAttachments;
   }
 
-  /// Scarica e decifra un allegato da Firebase Storage
+  /// Scarica e decifra un allegato da Firebase Storage (con cache locale)
   /// Restituisce i byte del file DECIFRATO
   /// @param attachment - l'oggetto Attachment con i metadata di cifratura
   /// @param currentUserId - l'ID dell'utente corrente (per determinare quale chiave usare)
   /// @param messageSenderId - l'ID del sender del messaggio
+  /// @param useThumbnail - se true, usa thumbnail invece di full image (solo per foto)
   Future<Uint8List?> downloadAndDecryptAttachment(
     Attachment attachment,
     String currentUserId,
-    String messageSenderId,
-  ) async {
+    String messageSenderId, {
+    bool useThumbnail = false,
+  }) async {
     try {
+      // 🚀 CACHE: Prova prima a caricare dalla cache locale
+      final cachedBytes = await _cacheService.loadFromCache(
+        attachment.id,
+        isThumbnail: useThumbnail,
+      );
+
+      if (cachedBytes != null) {
+        if (kDebugMode) {
+          print('💨 Loaded ${useThumbnail ? "thumbnail" : "full image"} from cache: ${attachment.fileName}');
+        }
+        return cachedBytes;
+      }
+
+      // Se richiesta thumbnail ma non esiste, usa full image
+      final url = (useThumbnail && attachment.thumbnailUrl != null)
+          ? attachment.thumbnailUrl!
+          : attachment.url;
+
       if (kDebugMode) {
-        print('📥 Downloading encrypted attachment...');
+        print('📥 Downloading encrypted ${useThumbnail ? "thumbnail" : "full image"}...');
         print('   File: ${attachment.fileName}');
-        print('   URL: ${attachment.url}');
+        print('   URL: $url');
       }
 
       // Scarica i byte cifrati da Firebase Storage
-      final Reference ref = _storage.refFromURL(attachment.url);
+      final Reference ref = _storage.refFromURL(url);
       final Uint8List? encryptedBytes = await ref.getData();
 
       if (encryptedBytes == null) {
@@ -330,6 +350,13 @@ class AttachmentService {
         print('✅ File decrypted successfully');
         print('   Original size: ${(decryptedBytes.length / 1024 / 1024).toStringAsFixed(2)} MB');
       }
+
+      // 💾 Salva in cache per prossimi utilizzi
+      await _cacheService.saveToCache(
+        attachment.id,
+        decryptedBytes,
+        isThumbnail: useThumbnail,
+      );
 
       return decryptedBytes;
     } catch (e) {
