@@ -352,6 +352,68 @@ class EncryptionService {
     return output.toBytes();
   }
 
+  // ========== File Encryption Methods (Dual Encryption) ==========
+
+  /// Cifra un file con AES e cifra la chiave AES con DUE chiavi pubbliche RSA (dual encryption)
+  /// Restituisce un map con: encryptedFileBytes, encryptedKeyRecipient, encryptedKeySender, iv
+  Map<String, dynamic> encryptFileDual(
+    Uint8List fileBytes,
+    String senderPublicKey,
+    String recipientPublicKey,
+  ) {
+    try {
+      // 1. Genera UNA chiave AES casuale per questo file
+      final aesKey = _generateRandomKey(32);
+
+      // 2. Cifra il file con AES (UNA volta)
+      final key = encrypt_lib.Key(aesKey);
+      final iv = encrypt_lib.IV.fromSecureRandom(16);
+      final encrypter = encrypt_lib.Encrypter(encrypt_lib.AES(key));
+      final encryptedFile = encrypter.encryptBytes(fileBytes, iv: iv);
+
+      // 3. Cifra la chiave AES DUE volte con RSA (una per ogni public key)
+      final encryptedAesKeyRecipient = encryptAesKeyOnly(aesKey, recipientPublicKey);
+      final encryptedAesKeySender = encryptAesKeyOnly(aesKey, senderPublicKey);
+
+      // 4. Restituisci tutto
+      return {
+        'encryptedFileBytes': encryptedFile.bytes, // Uint8List
+        'encryptedKeyRecipient': encryptedAesKeyRecipient, // String (base64)
+        'encryptedKeySender': encryptedAesKeySender, // String (base64)
+        'iv': iv.base64, // String (base64)
+      };
+    } catch (e) {
+      throw Exception('File dual encryption failed: $e');
+    }
+  }
+
+  /// Decifra un file usando la propria chiave privata
+  /// @param encryptedBytes - i byte del file cifrato
+  /// @param encryptedAesKeyBase64 - la chiave AES cifrata con la propria chiave pubblica (base64)
+  /// @param ivBase64 - l'initialization vector (base64)
+  /// @returns i byte del file decifrato
+  Uint8List decryptFile(
+    Uint8List encryptedBytes,
+    String encryptedAesKeyBase64,
+    String ivBase64,
+  ) {
+    try {
+      // 1. Decifra la chiave AES con la propria chiave privata RSA
+      final encryptedAesKey = base64Decode(encryptedAesKeyBase64);
+      final aesKey = _rsaDecrypt(encryptedAesKey);
+
+      // 2. Decifra il file con AES
+      final key = encrypt_lib.Key(aesKey);
+      final iv = encrypt_lib.IV.fromBase64(ivBase64);
+      final encrypter = encrypt_lib.Encrypter(encrypt_lib.AES(key));
+      final encrypted = encrypt_lib.Encrypted(encryptedBytes);
+
+      return Uint8List.fromList(encrypter.decryptBytes(encrypted, iv: iv));
+    } catch (e) {
+      throw Exception('File decryption failed: $e');
+    }
+  }
+
   // ========== K_family Encryption Methods (AES-GCM) ==========
 
   /// Cifra un messaggio con K_family usando AES-256-GCM
