@@ -2,7 +2,7 @@
 
 App di messaggistica privata per due persone con crittografia end-to-end e pairing tramite QR code.
 
-[![Status](https://img.shields.io/badge/status-v1.5.0--stable-success)](./README.md)
+[![Status](https://img.shields.io/badge/status-v1.6.0--stable-success)](./README.md)
 [![Flutter](https://img.shields.io/badge/Flutter-3.x-blue)](https://flutter.dev)
 [![Firebase](https://img.shields.io/badge/Firebase-Firestore-orange)](https://firebase.google.com)
 
@@ -19,6 +19,8 @@ App di messaggistica privata per due persone con crittografia end-to-end e pairi
 - ✓✓ **Read Receipts** - spunte singole/doppie (consegnato/letto) in tempo reale
 - ⌨️ **Typing Indicator** - "Sta scrivendo..." quando il partner digita
 - 📅 **To Do & Reminders** - promemoria cifrati con notifiche schedulate 1h prima
+- 📎 **Message Attachments** - foto, video, documenti cifrati E2E con thumbnail
+- 🖼️ **Fullscreen Viewer** - visualizzatore immagini con zoom e overlay tap-to-toggle
 - 💾 **SQLite Cache** - caricamento istantaneo con lazy loading (100 messaggi iniziali)
 - 📜 **Infinite Scroll** - carica automaticamente 50 messaggi vecchi scrollando in alto
 - ⚡ **Performance Ottimizzate** - reverse ListView + ordine DESC per zero lag
@@ -57,6 +59,97 @@ App di messaggistica privata per due persone con crittografia end-to-end e pairi
 ---
 
 ## 📦 Aggiornamenti Recenti (Dicembre 2025)
+
+### 📎 v1.6.0 - Message Attachments with E2E Encryption (20 Dicembre 2025)
+
+**Nuove Feature:**
+
+1. **📎 Message Attachments - E2E Encrypted**
+   - Supporto completo per **foto, video, documenti**
+   - Cifratura end-to-end con **dual encryption** (AES-256 + RSA-2048)
+   - Upload su Firebase Storage con file completamente cifrati
+   - Metadata di cifratura separati per mittente e destinatario
+   - Picker nativo per galleria, fotocamera, documenti
+
+2. **🖼️ Smart Thumbnail System**
+   - Generazione automatica thumbnail **150px** per foto
+   - Thumbnail cifrate con **stesse chiavi AES** del full image
+   - Riduzione ~70% banda per gallery/chat views
+   - Upload separato su Firebase Storage (path `/thumbnails/`)
+   - Quality JPEG ottimizzata (80) per performance
+
+3. **💾 Attachment Cache Service**
+   - Cache locale a **due livelli**: memoria + disco
+   - Evita ri-download e ri-decifratura di file già visti
+   - Cache key MD5 per thumbnail vs full resolution
+   - Persistenza su filesystem con `path_provider`
+   - Inizializzazione automatica al primo utilizzo
+
+4. **📱 Fullscreen Image Viewer**
+   - Visualizzatore fullscreen con **InteractiveViewer** (zoom 0.5x-4x)
+   - **Tap-to-toggle overlay** con animazione fade (200ms)
+   - Background nero per vista immersiva
+   - Info file cifrato (nome, dimensione, lock icon)
+   - Carica full resolution solo quando aperto
+
+5. **🎨 UX Improvements**
+   - Modal allegati con **gradiente viola** (stile calendario)
+   - Icone bianche su cerchi semitrasparenti
+   - Thumbnail in chat con **aspect ratio** preservato (BoxFit.contain)
+   - ConstrainedBox invece di dimensioni fisse
+   - MediaScreen con griglia 3 colonne per gallery
+
+6. **🗄️ SQLite Attachments Support**
+   - Database v4 con colonna `attachments_json`
+   - Serializzazione/deserializzazione automatica JSON
+   - Migration automatica da v3 → v4
+   - Fix critico: messaggi con media persistono dopo restart
+   - Batch save per performance
+
+**Miglioramenti Tecnici:**
+
+- ✅ Firebase Storage rules aggiornate per path con wildcards
+- ✅ `file_picker` aggiornato a v8.1.6 (fix deprecation v1 embedding)
+- ✅ `image` package v4.1.7 per thumbnail generation
+- ✅ Dependency injection per `AttachmentService` (shared `EncryptionService`)
+- ✅ Try-catch robusto per parsing attachments (no crash se errori)
+- ✅ Thumbnail generation con `img.copyResize` (aspect ratio preservato)
+- ✅ Dual encryption anche per thumbnail (stesso IV + chiave AES)
+
+**File Modificati:**
+- `pubspec.yaml`: Version 1.5.0+6 → **1.6.0+7**
+  - `file_picker: ^6.1.1` → `^8.1.6`
+  - `image_picker: ^1.0.4` → `^1.1.2`
+  - Added `image: ^4.1.7`
+- `storage.rules`: Path pattern con `{allPaths=**}` per thumbnails
+- `attachment_service.dart`: Thumbnail generation, dual encryption, cache integration
+- `attachment_cache_service.dart`: NEW - Two-tier cache (memory + disk)
+- `encryption_service.dart`: New method `encryptFileWithExistingKey()`
+- `message_cache_service.dart`: DB v4 con `attachments_json` column
+- `chat_screen.dart`: Fullscreen viewer, attachment picker redesign, aspect ratio fix
+- `media_screen.dart`: Gallery integration, fullscreen viewer, thumbnail usage
+- `message.dart`: Try-catch for attachment parsing (error resilience)
+- `chat_service.dart`: Debug logging for attachment messages
+
+**Security Model:**
+- 🔐 File cifrati **prima** dell'upload (AES-256)
+- 🔐 Chiave AES cifrata **due volte** con RSA (sender + recipient)
+- 🔐 Thumbnail cifrate con **stesse chiavi** del full image
+- 🔐 Firebase Storage contiene **solo file binari cifrati**
+- 🔐 Metadata cifratura salvati in Firestore (encrypted_key_sender/recipient, iv)
+
+**UX Flow:**
+- 📎 Tap allegato → modal viola si apre
+- 📸 Scegli foto/video/documento
+- 🔐 File cifrato automaticamente
+- 🖼️ Thumbnail generata e cifrata (solo foto)
+- ⬆️ Upload su Firebase Storage
+- 💬 Messaggio inviato con attachments array
+- 👁️ Thumbnail mostrata in chat (aspect ratio preservato)
+- 🔍 Tap immagine → fullscreen viewer (zoom + overlay tap-to-toggle)
+- 💾 Cache automatica (no ri-download)
+
+---
 
 ### 📅 v1.5.0 - Todo System Complete Redesign (19 Dicembre 2025)
 
@@ -721,10 +814,15 @@ Aggiorna le security rules come indicato nella sezione Setup.
 - [x] **Read Receipts** (spunte letto/consegnato WhatsApp-style)
 - [x] **Typing Indicator** ("Sta scrivendo..." real-time)
 - [x] **Real-time Updates** (aggiornamenti istantanei senza refresh)
+- [x] **Message Attachments** (foto, video, documenti cifrati E2E)
+- [x] **Thumbnail System** (150px con cache locale)
+- [x] **Fullscreen Viewer** (zoom + tap-to-toggle overlay)
+- [x] **Attachment Cache** (memoria + disco, two-tier)
 
 ### 🚧 Roadmap Future
-- [ ] Autenticazione Firebase (optional)
-- [ ] Supporto media (foto, video)
+- [ ] Autenticazione anonima Firebase + regole DB/Storage aggiornate
+- [ ] Niente spunta se offline (gestione stato connessione)
+- [ ] Prima botta di grafica (redesign UI/UX)
 - [ ] Multiple device support
 - [ ] iOS build completo
 - [ ] Message deletion / editing
@@ -772,9 +870,10 @@ Per problemi o domande:
 
 ---
 
-**Versione:** 1.5.0+6
-**Ultima modifica:** 2025-12-19
-**Architettura:** RSA-only + Dual Encryption + SQLite Cache + Smart Reminders + Real-time Indicators
-**Performance:** ⚡ Instant load (< 100ms) + Zero visual glitches + Scalable to 1000+ messages + Real-time updates "a razzo" 🚀
-**UX:** 🎨 WhatsApp-style indicators + Todo Redesign + Smart Auto-Scroll + Dynamic Timestamps + Typing awareness
+**Versione:** 1.6.0+7
+**Ultima modifica:** 2025-12-20
+**Architettura:** RSA-only + Dual Encryption + SQLite Cache + Smart Reminders + Real-time Indicators + E2E Attachments
+**Performance:** ⚡ Instant load (< 100ms) + Zero visual glitches + Scalable to 1000+ messages + Real-time updates "a razzo" 🚀 + Thumbnail caching
+**UX:** 🎨 WhatsApp-style indicators + Todo Redesign + Smart Auto-Scroll + Dynamic Timestamps + Typing awareness + Fullscreen viewer
+**Security:** 🔐 AES-256 + RSA-2048 dual encryption for messages AND files + Firebase Storage with encrypted binaries only
 **Dependencies:** ✅ Updated to latest stable versions (Dec 2025)
