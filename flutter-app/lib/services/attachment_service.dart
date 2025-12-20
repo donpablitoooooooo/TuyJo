@@ -27,9 +27,9 @@ class AttachmentService {
     try {
       final XFile? image = await _imagePicker.pickImage(
         source: ImageSource.gallery,
-        maxWidth: 1920,
-        maxHeight: 1920,
-        imageQuality: 85,
+        maxWidth: 4096,  // Qualità stampa
+        maxHeight: 4096, // Qualità stampa
+        imageQuality: 95, // Alta qualità per stampa
       );
 
       if (image != null) {
@@ -47,9 +47,9 @@ class AttachmentService {
     try {
       final XFile? image = await _imagePicker.pickImage(
         source: ImageSource.camera,
-        maxWidth: 1920,
-        maxHeight: 1920,
-        imageQuality: 85,
+        maxWidth: 4096,  // Qualità stampa
+        maxHeight: 4096, // Qualità stampa
+        imageQuality: 95, // Alta qualità per stampa
       );
 
       if (image != null) {
@@ -116,22 +116,22 @@ class AttachmentService {
     }
   }
 
-  /// Genera thumbnail da immagine (max 300px lato più lungo)
+  /// Genera thumbnail da immagine (300px lato più lungo, qualità 90)
   Future<Uint8List?> _generateThumbnail(Uint8List imageBytes) async {
     try {
       // Decodifica immagine
       final image = img.decodeImage(imageBytes);
       if (image == null) return null;
 
-      // Ridimensiona mantenendo aspect ratio (150px per thumbnail più leggere)
+      // Ridimensiona mantenendo aspect ratio (300px per qualità migliore)
       final thumbnail = img.copyResize(
         image,
-        width: image.width > image.height ? 150 : null,
-        height: image.height > image.width ? 150 : null,
+        width: image.width > image.height ? 300 : null,
+        height: image.height > image.width ? 300 : null,
       );
 
-      // Encode come JPEG con qualità 80 per ridurre ulteriormente
-      final thumbnailBytes = img.encodeJpg(thumbnail, quality: 80);
+      // Encode come JPEG con qualità 90 per migliore visualizzazione
+      final thumbnailBytes = img.encodeJpg(thumbnail, quality: 90);
 
       if (kDebugMode) {
         print('📐 Generated thumbnail:');
