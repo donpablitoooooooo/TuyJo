@@ -381,9 +381,29 @@ class EncryptionService {
         'encryptedKeyRecipient': encryptedAesKeyRecipient, // String (base64)
         'encryptedKeySender': encryptedAesKeySender, // String (base64)
         'iv': iv.base64, // String (base64)
+        'aesKey': aesKey, // Uint8List - chiave AES per riutilizzo (NON salvare su DB!)
       };
     } catch (e) {
       throw Exception('File dual encryption failed: $e');
+    }
+  }
+
+  /// Cifra un file usando chiavi AES e IV esistenti (per thumbnail che condividono chiavi con full image)
+  /// Restituisce solo i bytes cifrati
+  Uint8List encryptFileWithExistingKey(
+    Uint8List fileBytes,
+    Uint8List aesKey,
+    String ivBase64,
+  ) {
+    try {
+      final key = encrypt_lib.Key(aesKey);
+      final iv = encrypt_lib.IV.fromBase64(ivBase64);
+      final encrypter = encrypt_lib.Encrypter(encrypt_lib.AES(key));
+      final encryptedFile = encrypter.encryptBytes(fileBytes, iv: iv);
+
+      return encryptedFile.bytes;
+    } catch (e) {
+      throw Exception('File encryption with existing key failed: $e');
     }
   }
 

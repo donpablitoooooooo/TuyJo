@@ -194,6 +194,7 @@ class AttachmentService {
       final String encryptedKeyRecipient = encryptedData['encryptedKeyRecipient'] as String;
       final String encryptedKeySender = encryptedData['encryptedKeySender'] as String;
       final String iv = encryptedData['iv'] as String;
+      final Uint8List aesKey = encryptedData['aesKey'] as Uint8List; // Salva chiave AES per thumbnail
 
       if (kDebugMode) {
         print('✅ File encrypted successfully');
@@ -242,14 +243,12 @@ class AttachmentService {
         final Uint8List? thumbnailBytes = await _generateThumbnail(fileBytes);
 
         if (thumbnailBytes != null) {
-          // Cifra il thumbnail con le stesse chiavi
-          final encryptedThumbnailData = encryptionService.encryptFileDual(
+          // Cifra il thumbnail con le STESSE chiavi AES e IV del full image
+          final Uint8List encryptedThumbnailBytes = encryptionService.encryptFileWithExistingKey(
             thumbnailBytes,
-            senderPublicKey,
-            recipientPublicKey,
+            aesKey, // Usa la stessa chiave AES del full image
+            iv,     // Usa lo stesso IV del full image
           );
-
-          final Uint8List encryptedThumbnailBytes = encryptedThumbnailData['encryptedFileBytes'] as Uint8List;
 
           // Upload thumbnail cifrato con path diverso
           final String thumbnailPath = 'families/$familyChatId/attachments/$attachmentType/thumbnails/$attachmentId';
