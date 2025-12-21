@@ -8,6 +8,8 @@ import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
 import 'package:open_filex/open_filex.dart';
 import 'package:path_provider/path_provider.dart';
+import 'package:flutter_linkify/flutter_linkify.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../services/pairing_service.dart';
 import '../services/chat_service.dart';
 import '../services/encryption_service.dart';
@@ -1508,12 +1510,31 @@ class _MessageBubbleState extends State<_MessageBubble>
                               children: [
                                 // Testo del messaggio (se presente)
                                 if (widget.message.isNotEmpty) ...[
-                                  Text(
-                                    widget.message,
+                                  Linkify(
+                                    onOpen: (link) async {
+                                      final uri = Uri.parse(link.url);
+                                      if (await canLaunchUrl(uri)) {
+                                        await launchUrl(
+                                          uri,
+                                          mode: LaunchMode.externalApplication,
+                                        );
+                                      }
+                                    },
+                                    text: widget.message,
                                     style: TextStyle(
                                       color: widget.isMe ? Colors.white : Colors.black87,
                                       fontSize: 15,
                                       height: 1.4,
+                                    ),
+                                    linkStyle: TextStyle(
+                                      color: widget.isMe ? Colors.white : Colors.blue,
+                                      fontSize: 15,
+                                      height: 1.4,
+                                      decoration: TextDecoration.underline,
+                                    ),
+                                    options: const LinkifyOptions(
+                                      humanize: false,
+                                      looseUrl: true,
                                     ),
                                   ),
                                   const SizedBox(height: 4),
@@ -2167,20 +2188,45 @@ class _TodoMessageBubble extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     // Testo del todo (mostra "Todo" se vuoto)
-                    Text(
-                      (message.decryptedContent?.isEmpty ?? true)
-                          ? 'Todo'
-                          : message.decryptedContent!,
-                      style: TextStyle(
-                        color: isMe ? Colors.white : Colors.black87,
-                        fontSize: 15,
-                        height: 1.4,
-                        decoration: isCompleted ? TextDecoration.lineThrough : null,
-                        fontStyle: (message.decryptedContent?.isEmpty ?? true)
-                            ? FontStyle.italic
-                            : FontStyle.normal,
-                      ),
-                    ),
+                    (message.decryptedContent?.isEmpty ?? true)
+                        ? Text(
+                            'Todo',
+                            style: TextStyle(
+                              color: isMe ? Colors.white : Colors.black87,
+                              fontSize: 15,
+                              height: 1.4,
+                              decoration: isCompleted ? TextDecoration.lineThrough : null,
+                              fontStyle: FontStyle.italic,
+                            ),
+                          )
+                        : Linkify(
+                            onOpen: (link) async {
+                              final uri = Uri.parse(link.url);
+                              if (await canLaunchUrl(uri)) {
+                                await launchUrl(
+                                  uri,
+                                  mode: LaunchMode.externalApplication,
+                                );
+                              }
+                            },
+                            text: message.decryptedContent!,
+                            style: TextStyle(
+                              color: isMe ? Colors.white : Colors.black87,
+                              fontSize: 15,
+                              height: 1.4,
+                              decoration: isCompleted ? TextDecoration.lineThrough : null,
+                            ),
+                            linkStyle: TextStyle(
+                              color: isMe ? Colors.white : Colors.blue,
+                              fontSize: 15,
+                              height: 1.4,
+                              decoration: TextDecoration.underline,
+                            ),
+                            options: const LinkifyOptions(
+                              humanize: false,
+                              looseUrl: true,
+                            ),
+                          ),
 
                     // Data e ora (icona campanello per reminder, calendario per evento)
                     if (message.dueDate != null) ...[
