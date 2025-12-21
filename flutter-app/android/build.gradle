@@ -23,29 +23,28 @@ rootProject.buildDir = '../build'
 subprojects {
     project.buildDir = "${rootProject.buildDir}/${project.name}"
 
-    // Configura JVM toolchain per tutti i subprojects per evitare incompatibilità
-    pluginManager.withPlugin("com.android.library") {
-        android {
-            compileOptions {
-                sourceCompatibility = JavaVersion.VERSION_17
-                targetCompatibility = JavaVersion.VERSION_17
+    // Usa Java Toolchain per forzare tutti i moduli a usare JDK 17
+    afterEvaluate { project ->
+        if (project.extensions.findByName('android') != null) {
+            project.android {
+                compileOptions {
+                    sourceCompatibility JavaVersion.VERSION_17
+                    targetCompatibility JavaVersion.VERSION_17
+                }
             }
         }
-    }
 
-    pluginManager.withPlugin("com.android.application") {
-        android {
-            compileOptions {
-                sourceCompatibility = JavaVersion.VERSION_17
-                targetCompatibility = JavaVersion.VERSION_17
-            }
+        // Forza tutti i task Java a usare JDK 17
+        tasks.withType(JavaCompile).configureEach {
+            sourceCompatibility = '17'
+            targetCompatibility = '17'
         }
-    }
 
-    // Configura Kotlin JVM target
-    tasks.withType(org.jetbrains.kotlin.gradle.tasks.KotlinCompile).configureEach {
-        kotlinOptions {
-            jvmTarget = '17'
+        // Forza tutti i task Kotlin a usare JVM target 17
+        tasks.withType(org.jetbrains.kotlin.gradle.tasks.KotlinCompile).configureEach {
+            kotlinOptions {
+                jvmTarget = '17'
+            }
         }
     }
 }
