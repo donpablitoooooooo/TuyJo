@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../services/pairing_service.dart';
+import '../services/couple_selfie_service.dart';
 import 'chat_screen.dart';
 import 'media_screen.dart';
 import 'settings_screen.dart';
+import 'couple_selfie_screen.dart';
 
 class MainScreen extends StatefulWidget {
   const MainScreen({Key? key}) : super(key: key);
@@ -45,6 +47,16 @@ class _MainScreenState extends State<MainScreen> {
         _selectedIndex = pairingService.isPaired ? 0 : 2;
         _isInitialized = true;
       });
+
+      // Se paired, inizializza anche il CoupleSelfieService
+      if (pairingService.isPaired) {
+        final coupleSelfieService = Provider.of<CoupleSelfieService>(context, listen: false);
+        pairingService.getFamilyChatId().then((familyChatId) {
+          if (familyChatId != null) {
+            coupleSelfieService.initialize(familyChatId);
+          }
+        });
+      }
     }
 
     final totalDuration = DateTime.now().difference(startTime);
@@ -177,31 +189,80 @@ class _MainScreenState extends State<MainScreen> {
               ),
             ),
           ),
-          // Floating paired/unpaired status (top right)
+          // Floating couple selfie / pairing status (top right)
           Positioned(
             top: 48,
             right: 16,
-            child: Consumer<PairingService>(
-              builder: (context, pairingService, _) => Container(
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  shape: BoxShape.circle,
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(0.1),
-                      blurRadius: 8,
-                      offset: const Offset(0, 2),
+            child: Consumer2<PairingService, CoupleSelfieService>(
+              builder: (context, pairingService, coupleSelfieService, _) {
+                final isPaired = pairingService.isPaired;
+                final hasSelfie = coupleSelfieService.hasSelfie;
+                final selfieUrl = coupleSelfieService.selfieUrl;
+
+                return GestureDetector(
+                  onTap: isPaired
+                      ? () {
+                          // Navigate to couple selfie screen
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => const CoupleSelfieScreen(),
+                            ),
+                          );
+                        }
+                      : null,
+                  child: Container(
+                    width: 48,
+                    height: 48,
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      shape: BoxShape.circle,
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.1),
+                          blurRadius: 8,
+                          offset: const Offset(0, 2),
+                        ),
+                      ],
                     ),
-                  ],
-                ),
-                child: IconButton(
-                  icon: Icon(
-                    Icons.favorite,
-                    color: pairingService.isPaired ? const Color(0xFF667eea) : Colors.grey,
+                    child: ClipOval(
+                      child: hasSelfie && selfieUrl != null
+                          ? Image.network(
+                              selfieUrl,
+                              fit: BoxFit.cover,
+                              errorBuilder: (context, error, stackTrace) {
+                                // Fallback to heart icon if image fails to load
+                                return Icon(
+                                  Icons.favorite,
+                                  color: isPaired ? const Color(0xFF667eea) : Colors.grey,
+                                  size: 24,
+                                );
+                              },
+                              loadingBuilder: (context, child, loadingProgress) {
+                                if (loadingProgress == null) return child;
+                                return Center(
+                                  child: CircularProgressIndicator(
+                                    value: loadingProgress.expectedTotalBytes != null
+                                        ? loadingProgress.cumulativeBytesLoaded /
+                                            loadingProgress.expectedTotalBytes!
+                                        : null,
+                                    strokeWidth: 2,
+                                    valueColor: const AlwaysStoppedAnimation<Color>(
+                                      Color(0xFF667eea),
+                                    ),
+                                  ),
+                                );
+                              },
+                            )
+                          : Icon(
+                              Icons.favorite,
+                              color: isPaired ? const Color(0xFF667eea) : Colors.grey,
+                              size: 24,
+                            ),
+                    ),
                   ),
-                  onPressed: () {},
-                ),
-              ),
+                );
+              },
             ),
           ),
         ],

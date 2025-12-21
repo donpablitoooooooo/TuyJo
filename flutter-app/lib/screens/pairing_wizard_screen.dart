@@ -52,6 +52,7 @@ class _PairingWizardScreenState extends State<PairingWizardScreen> {
       setState(() {
         _myQrData = qrData;
         _isGeneratingQR = false;
+        _step1Completed = true; // Step 1 completato automaticamente quando il QR è generato
       });
     } catch (e) {
       if (mounted) {
@@ -164,7 +165,9 @@ class _PairingWizardScreenState extends State<PairingWizardScreen> {
                 ),
                 child: IconButton(
                   icon: const Icon(Icons.arrow_back, color: Color(0xFF667eea)),
-                  onPressed: () => Navigator.of(context).pop(),
+                  onPressed: () {
+                    Navigator.of(context, rootNavigator: false).pop();
+                  },
                 ),
               ),
             ),
@@ -248,54 +251,6 @@ class _PairingWizardScreenState extends State<PairingWizardScreen> {
                                       dataModuleStyle: const QrDataModuleStyle(
                                         dataModuleShape: QrDataModuleShape.square,
                                         color: Color(0xFF667eea),
-                                      ),
-                                    ),
-                                  ),
-                                  const SizedBox(height: 16),
-                                  Material(
-                                    color: Colors.transparent,
-                                    child: InkWell(
-                                      borderRadius: BorderRadius.circular(12),
-                                      onTap: () {
-                                        setState(() {
-                                          _step1Completed = !_step1Completed;
-                                        });
-                                      },
-                                      child: Container(
-                                        padding: const EdgeInsets.symmetric(
-                                          horizontal: 12,
-                                          vertical: 12,
-                                        ),
-                                        decoration: BoxDecoration(
-                                          color: _step1Completed
-                                              ? const Color(0xFF667eea).withOpacity(0.1)
-                                              : Colors.transparent,
-                                          borderRadius: BorderRadius.circular(12),
-                                          border: Border.all(
-                                            color: _step1Completed
-                                                ? const Color(0xFF667eea)
-                                                : Colors.grey.shade300,
-                                          ),
-                                        ),
-                                        child: Row(
-                                          children: [
-                                            Icon(
-                                              _step1Completed
-                                                  ? Icons.check_box
-                                                  : Icons.check_box_outline_blank,
-                                              color: _step1Completed
-                                                  ? const Color(0xFF667eea)
-                                                  : Colors.grey,
-                                            ),
-                                            const SizedBox(width: 12),
-                                            const Expanded(
-                                              child: Text(
-                                                'Il mio amore ha scansionato il QR',
-                                                style: TextStyle(fontSize: 14),
-                                              ),
-                                            ),
-                                          ],
-                                        ),
                                       ),
                                     ),
                                   ),

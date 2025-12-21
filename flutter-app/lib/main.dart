@@ -8,6 +8,7 @@ import 'services/encryption_service.dart';
 import 'services/notification_service.dart';
 import 'services/pairing_service.dart';
 import 'services/message_cache_service.dart';
+import 'services/couple_selfie_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -61,6 +62,7 @@ class MyApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => AuthService()),
         ChangeNotifierProvider(create: (_) => ChatService(encryptionService, notificationService)),
         ChangeNotifierProvider.value(value: pairingService),
+        ChangeNotifierProvider(create: (_) => CoupleSelfieService()),
         Provider.value(value: encryptionService),
         Provider.value(value: notificationService),
       ],
