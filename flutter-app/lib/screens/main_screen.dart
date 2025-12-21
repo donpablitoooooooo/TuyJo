@@ -197,7 +197,7 @@ class _MainScreenState extends State<MainScreen> {
               builder: (context, pairingService, coupleSelfieService, _) {
                 final isPaired = pairingService.isPaired;
                 final hasSelfie = coupleSelfieService.hasSelfie;
-                final selfieUrl = coupleSelfieService.selfieUrl;
+                final cachedSelfieBytes = coupleSelfieService.cachedSelfieBytes;
 
                 return GestureDetector(
                   onTap: isPaired
@@ -226,9 +226,9 @@ class _MainScreenState extends State<MainScreen> {
                       ],
                     ),
                     child: ClipOval(
-                      child: hasSelfie && selfieUrl != null
-                          ? Image.network(
-                              selfieUrl,
+                      child: hasSelfie && cachedSelfieBytes != null
+                          ? Image.memory(
+                              cachedSelfieBytes,
                               fit: BoxFit.cover,
                               errorBuilder: (context, error, stackTrace) {
                                 // Fallback to heart icon if image fails to load
@@ -236,21 +236,6 @@ class _MainScreenState extends State<MainScreen> {
                                   Icons.favorite,
                                   color: isPaired ? const Color(0xFF667eea) : Colors.grey,
                                   size: 24,
-                                );
-                              },
-                              loadingBuilder: (context, child, loadingProgress) {
-                                if (loadingProgress == null) return child;
-                                return Center(
-                                  child: CircularProgressIndicator(
-                                    value: loadingProgress.expectedTotalBytes != null
-                                        ? loadingProgress.cumulativeBytesLoaded /
-                                            loadingProgress.expectedTotalBytes!
-                                        : null,
-                                    strokeWidth: 2,
-                                    valueColor: const AlwaysStoppedAnimation<Color>(
-                                      Color(0xFF667eea),
-                                    ),
-                                  ),
                                 );
                               },
                             )

@@ -22,6 +22,31 @@ allprojects {
 rootProject.buildDir = '../build'
 subprojects {
     project.buildDir = "${rootProject.buildDir}/${project.name}"
+
+    // Usa Java Toolchain per forzare tutti i moduli a usare JDK 17
+    afterEvaluate { project ->
+        if (project.extensions.findByName('android') != null) {
+            project.android {
+                compileOptions {
+                    sourceCompatibility JavaVersion.VERSION_17
+                    targetCompatibility JavaVersion.VERSION_17
+                }
+            }
+        }
+
+        // Forza tutti i task Java a usare JDK 17
+        tasks.withType(JavaCompile).configureEach {
+            sourceCompatibility = '17'
+            targetCompatibility = '17'
+        }
+
+        // Forza tutti i task Kotlin a usare JVM target 17
+        tasks.withType(org.jetbrains.kotlin.gradle.tasks.KotlinCompile).configureEach {
+            kotlinOptions {
+                jvmTarget = '17'
+            }
+        }
+    }
 }
 subprojects {
     project.evaluationDependsOn(':app')

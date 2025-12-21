@@ -6,12 +6,18 @@ import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
+import 'package:open_filex/open_filex.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:flutter_linkify/flutter_linkify.dart';
+import 'package:url_launcher/url_launcher.dart';
+import 'package:receive_sharing_intent/receive_sharing_intent.dart';
 import '../services/pairing_service.dart';
 import '../services/chat_service.dart';
 import '../services/encryption_service.dart';
 import '../services/notification_service.dart';
 import '../services/attachment_service.dart';
 import '../models/message.dart';
+import 'pdf_viewer_screen.dart';
 
 class ChatScreen extends StatefulWidget {
   const ChatScreen({super.key});
@@ -47,6 +53,9 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   List<File> _selectedAttachments = []; // Lista di file selezionati da inviare
   bool _isUploadingAttachments = false; // Stato di upload allegati
 
+  // Stream subscription per condivisione file da altre app
+  StreamSubscription? _intentMediaStreamSubscription;
+
   @override
   void initState() {
     super.initState();
@@ -72,6 +81,55 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
 
     // 📜 INFINITE SCROLL: Listen per scroll verso l'alto (messaggi vecchi)
     _scrollController.addListener(_onScroll);
+
+    // 📤 CONDIVISIONE: Listen per file condivisi da altre app
+    _initSharedFiles();
+  }
+
+  /// Inizializza listener per file condivisi da altre app
+  void _initSharedFiles() {
+    // Per file media (immagini, video, documenti) condivisi mentre l'app è chiusa
+    ReceiveSharingIntent.instance.getInitialMedia().then((List<SharedMediaFile> value) {
+      if (value.isNotEmpty) {
+        _handleSharedFiles(value);
+      }
+    });
+
+    // Per file media condivisi mentre l'app è aperta
+    _intentMediaStreamSubscription = ReceiveSharingIntent.instance.getMediaStream().listen(
+      (List<SharedMediaFile> value) {
+        if (value.isNotEmpty) {
+          _handleSharedFiles(value);
+        }
+      },
+      onError: (err) {
+        if (kDebugMode) print("Errore ricezione file condivisi: $err");
+      },
+    );
+  }
+
+  /// Gestisce file media condivisi da altre app
+  void _handleSharedFiles(List<SharedMediaFile> sharedFiles) {
+    if (kDebugMode) {
+      print("📤 Ricevuti ${sharedFiles.length} file condivisi");
+    }
+
+    // Usa addPostFrameCallback per assicurarsi che il widget sia completamente inizializzato
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+
+      setState(() {
+        for (var sharedFile in sharedFiles) {
+          final file = File(sharedFile.path);
+          if (!_selectedAttachments.any((f) => f.path == file.path)) {
+            _selectedAttachments.add(file);
+          }
+        }
+      });
+
+      // Reset condivisione intent per evitare duplicati
+      ReceiveSharingIntent.instance.reset();
+    });
   }
 
   @override
@@ -245,6 +303,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     _scrollController.dispose();
     _typingTimer?.cancel();
     _reminderCheckTimer?.cancel();
+    _intentMediaStreamSubscription?.cancel();
     super.dispose();
   }
 
@@ -637,6 +696,26 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
 
     final messageText = _messageController.text.trim();
     _messageController.clear(); // Clear subito per UX migliore
+
+    // Crea allegati placeholder per invio ottimistico
+    List<Attachment>? placeholderAttachments;
+    if (attachments.isNotEmpty) {
+      placeholderAttachments = attachments.map((file) {
+        final fileName = file.path.split('/').last;
+        return Attachment(
+          id: 'uploading_${DateTime.now().millisecondsSinceEpoch}',
+          type: file.path.endsWith('.pdf') ? 'document' :
+                file.path.contains('video') ? 'video' : 'photo',
+          url: '', // URL vuoto indica che è in upload
+          fileName: fileName,
+          fileSize: 0,
+          encryptedKeyRecipient: '',
+          encryptedKeySender: '',
+          iv: '',
+        );
+      }).toList();
+    }
+
     setState(() {
       _selectedTodoDate = null; // Reset todo date
       _selectedAttachments.clear(); // Clear attachments
@@ -720,6 +799,16 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       print('   Content: $messageText');
       print('   Attachments: ${attachments.length}');
 
+      // Aggiungi messaggio pending subito (invio ottimistico)
+      String? pendingMessageId;
+      if (messageText.isNotEmpty || placeholderAttachments != null) {
+        pendingMessageId = chatService.addPendingMessage(
+          messageText,
+          _myDeviceId!,
+          placeholderAttachments,
+        );
+      }
+
       // Upload allegati se presenti (con cifratura E2E dual)
       List<Attachment>? uploadedAttachments;
       if (attachments.isNotEmpty) {
@@ -741,6 +830,10 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
           }
         } catch (e) {
           if (kDebugMode) print('❌ Error uploading attachments: $e');
+          // Rimuovi messaggio pending in caso di errore
+          if (pendingMessageId != null) {
+            chatService.removePendingMessage(pendingMessageId);
+          }
           setState(() => _isUploadingAttachments = false);
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
@@ -760,6 +853,11 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
         _partnerPublicKey!,
         attachments: uploadedAttachments,
       );
+
+      // Rimuovi messaggio pending dopo invio (successo o fallimento)
+      if (pendingMessageId != null) {
+        chatService.removePendingMessage(pendingMessageId);
+      }
 
       if (success) {
         print('✅ Message sent successfully with dual encryption');
@@ -1466,12 +1564,35 @@ class _MessageBubbleState extends State<_MessageBubble>
                               children: [
                                 // Testo del messaggio (se presente)
                                 if (widget.message.isNotEmpty) ...[
-                                  Text(
-                                    widget.message,
+                                  Linkify(
+                                    onOpen: (link) async {
+                                      try {
+                                        final uri = Uri.parse(link.url);
+                                        await launchUrl(
+                                          uri,
+                                          mode: LaunchMode.externalApplication,
+                                        );
+                                      } catch (e) {
+                                        if (kDebugMode) {
+                                          print('Errore apertura URL: $e');
+                                        }
+                                      }
+                                    },
+                                    text: widget.message,
                                     style: TextStyle(
                                       color: widget.isMe ? Colors.white : Colors.black87,
                                       fontSize: 15,
                                       height: 1.4,
+                                    ),
+                                    linkStyle: TextStyle(
+                                      color: widget.isMe ? Colors.white : Colors.blue,
+                                      fontSize: 15,
+                                      height: 1.4,
+                                      decoration: TextDecoration.underline,
+                                    ),
+                                    options: const LinkifyOptions(
+                                      humanize: false,
+                                      looseUrl: true,
                                     ),
                                   ),
                                   const SizedBox(height: 4),
@@ -1536,6 +1657,32 @@ class _AttachmentImage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Se URL è vuoto, l'allegato è in upload - mostra placeholder
+    if (attachment.url.isEmpty) {
+      return ClipRRect(
+        borderRadius: BorderRadius.circular(12),
+        child: SizedBox(
+          width: double.infinity,
+          height: 200,
+          child: Container(
+            color: isMe ? Colors.white.withOpacity(0.1) : Colors.grey[200],
+            child: const Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  CircularProgressIndicator(),
+                  SizedBox(height: 8),
+                  Text(
+                    'Caricamento...',
+                    style: TextStyle(fontSize: 12, color: Colors.grey),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      );
+    }
 
     return GestureDetector(
       onTap: () {
@@ -1684,7 +1831,7 @@ class _AttachmentVideo extends StatelessWidget {
 }
 
 /// Widget per visualizzare allegati documento (cifrato - placeholder)
-class _AttachmentDocument extends StatelessWidget {
+class _AttachmentDocument extends StatefulWidget {
   final Attachment attachment;
   final bool isMe;
   final String? currentUserId;
@@ -1700,65 +1847,152 @@ class _AttachmentDocument extends StatelessWidget {
   });
 
   @override
-  Widget build(BuildContext context) {
+  State<_AttachmentDocument> createState() => _AttachmentDocumentState();
+}
 
-    return GestureDetector(
-      onTap: () {
-        // TODO: Scaricare, decifrare e aprire documento
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Apertura documenti cifrati in sviluppo'),
+class _AttachmentDocumentState extends State<_AttachmentDocument> {
+  bool _isDownloading = false;
+
+  Future<void> _openDocument() async {
+    if (_isDownloading) return;
+
+    // Se URL è vuoto, il documento è ancora in upload - non fare nulla
+    if (widget.attachment.url.isEmpty) return;
+
+    // Check if it's a PDF - open with integrated viewer
+    final isPdf = widget.attachment.fileName.toLowerCase().endsWith('.pdf');
+
+    if (isPdf) {
+      // Open PDF with integrated viewer
+      if (mounted) {
+        Navigator.of(context).push(
+          MaterialPageRoute(
+            builder: (context) => PdfViewerScreen(
+              attachment: widget.attachment,
+              attachmentService: widget.attachmentService,
+              currentUserId: widget.currentUserId,
+              senderId: widget.senderId,
+            ),
           ),
         );
-      },
+      }
+      return;
+    }
+
+    // For non-PDF documents, download and open with external app
+    setState(() => _isDownloading = true);
+
+    try {
+      // 1. Download and decrypt document
+      final decryptedBytes = await widget.attachmentService.downloadAndDecryptAttachment(
+        widget.attachment,
+        widget.currentUserId ?? '',
+        widget.senderId ?? '',
+        useThumbnail: false,
+      );
+
+      if (decryptedBytes == null) {
+        throw Exception('Failed to download document');
+      }
+
+      // 2. Save to temporary directory
+      final tempDir = await getTemporaryDirectory();
+      final file = File('${tempDir.path}/${widget.attachment.fileName}');
+      await file.writeAsBytes(decryptedBytes);
+
+      // 3. Open with external app
+      final result = await OpenFilex.open(file.path);
+
+      if (result.type != ResultType.done && mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Impossibile aprire: ${result.message}'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } catch (e) {
+      if (kDebugMode) print('❌ Error opening document: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Errore: ${e.toString()}'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isDownloading = false);
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: _openDocument,
       child: Container(
         padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(12),
-          color: isMe ? Colors.white.withOpacity(0.1) : Colors.grey[200],
+          color: widget.isMe ? Colors.white.withOpacity(0.1) : Colors.grey[200],
         ),
         child: Row(
-          mainAxisSize: MainAxisSize.min,
           children: [
             Container(
               width: 40,
               height: 40,
               decoration: BoxDecoration(
-                color: isMe ? Colors.white.withOpacity(0.2) : Colors.grey[300],
+                color: widget.isMe ? Colors.white.withOpacity(0.2) : Colors.grey[300],
                 borderRadius: BorderRadius.circular(8),
               ),
-              child: Icon(
-                Icons.insert_drive_file,
-                color: isMe ? Colors.white : Colors.grey[700],
-              ),
+              child: (_isDownloading || widget.attachment.url.isEmpty)
+                  ? Padding(
+                      padding: const EdgeInsets.all(10),
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        valueColor: AlwaysStoppedAnimation<Color>(
+                          widget.isMe ? Colors.white : Colors.grey[700]!,
+                        ),
+                      ),
+                    )
+                  : Icon(
+                      Icons.insert_drive_file,
+                      color: widget.isMe ? Colors.white : Colors.grey[700],
+                    ),
             ),
             const SizedBox(width: 12),
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  attachment.fileName.length > 20
-                      ? '${attachment.fileName.substring(0, 20)}...'
-                      : attachment.fileName,
-                  style: TextStyle(
-                    color: isMe ? Colors.white : Colors.black87,
-                    fontWeight: FontWeight.w500,
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    widget.attachment.fileName,
+                    style: TextStyle(
+                      color: widget.isMe ? Colors.white : Colors.black87,
+                      fontWeight: FontWeight.w500,
+                    ),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
                   ),
-                ),
-                Text(
-                  attachmentService.formatFileSize(attachment.fileSize),
-                  style: TextStyle(
-                    color: isMe ? Colors.white70 : Colors.black54,
-                    fontSize: 12,
+                  Text(
+                    widget.attachment.url.isEmpty
+                        ? 'Caricamento...'
+                        : widget.attachmentService.formatFileSize(widget.attachment.fileSize),
+                    style: TextStyle(
+                      color: widget.isMe ? Colors.white70 : Colors.black54,
+                      fontSize: 12,
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
             const SizedBox(width: 8),
             Icon(
               Icons.lock_outline,
               size: 16,
-              color: isMe ? Colors.white70 : Colors.black54,
+              color: widget.isMe ? Colors.white70 : Colors.black54,
             ),
           ],
         ),
@@ -2012,20 +2246,49 @@ class _TodoMessageBubble extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     // Testo del todo (mostra "Todo" se vuoto)
-                    Text(
-                      (message.decryptedContent?.isEmpty ?? true)
-                          ? 'Todo'
-                          : message.decryptedContent!,
-                      style: TextStyle(
-                        color: isMe ? Colors.white : Colors.black87,
-                        fontSize: 15,
-                        height: 1.4,
-                        decoration: isCompleted ? TextDecoration.lineThrough : null,
-                        fontStyle: (message.decryptedContent?.isEmpty ?? true)
-                            ? FontStyle.italic
-                            : FontStyle.normal,
-                      ),
-                    ),
+                    (message.decryptedContent?.isEmpty ?? true)
+                        ? Text(
+                            'Todo',
+                            style: TextStyle(
+                              color: isMe ? Colors.white : Colors.black87,
+                              fontSize: 15,
+                              height: 1.4,
+                              decoration: isCompleted ? TextDecoration.lineThrough : null,
+                              fontStyle: FontStyle.italic,
+                            ),
+                          )
+                        : Linkify(
+                            onOpen: (link) async {
+                              try {
+                                final uri = Uri.parse(link.url);
+                                await launchUrl(
+                                  uri,
+                                  mode: LaunchMode.externalApplication,
+                                );
+                              } catch (e) {
+                                if (kDebugMode) {
+                                  print('Errore apertura URL: $e');
+                                }
+                              }
+                            },
+                            text: message.decryptedContent!,
+                            style: TextStyle(
+                              color: isMe ? Colors.white : Colors.black87,
+                              fontSize: 15,
+                              height: 1.4,
+                              decoration: isCompleted ? TextDecoration.lineThrough : null,
+                            ),
+                            linkStyle: TextStyle(
+                              color: isMe ? Colors.white : Colors.blue,
+                              fontSize: 15,
+                              height: 1.4,
+                              decoration: TextDecoration.underline,
+                            ),
+                            options: const LinkifyOptions(
+                              humanize: false,
+                              looseUrl: true,
+                            ),
+                          ),
 
                     // Data e ora (icona campanello per reminder, calendario per evento)
                     if (message.dueDate != null) ...[

@@ -6,6 +6,7 @@ import '../services/chat_service.dart';
 import '../services/pairing_service.dart';
 import '../services/attachment_service.dart';
 import '../models/message.dart';
+import 'pdf_viewer_screen.dart';
 
 class MediaScreen extends StatefulWidget {
   const MediaScreen({super.key});
@@ -14,15 +15,13 @@ class MediaScreen extends StatefulWidget {
   State<MediaScreen> createState() => _MediaScreenState();
 }
 
-class _MediaScreenState extends State<MediaScreen> with SingleTickerProviderStateMixin {
-  late TabController _tabController;
+class _MediaScreenState extends State<MediaScreen> {
   String? _currentUserId;
   AttachmentService? _attachmentService;
 
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 3, vsync: this);
     _initialize();
   }
 
@@ -39,25 +38,17 @@ class _MediaScreenState extends State<MediaScreen> with SingleTickerProviderStat
     });
   }
 
-  @override
-  void dispose() {
-    _tabController.dispose();
-    super.dispose();
-  }
-
-  /// Ottiene tutti gli allegati dai messaggi, filtrati per tipo
-  List<_MediaItem> _getAttachmentsByType(List<Message> messages, String type) {
+  /// Ottiene tutti gli allegati dai messaggi
+  List<_MediaItem> _getAllAttachments(List<Message> messages) {
     final List<_MediaItem> items = [];
 
     for (var message in messages) {
       if (message.attachments != null && message.attachments!.isNotEmpty) {
         for (var attachment in message.attachments!) {
-          if (attachment.type == type) {
-            items.add(_MediaItem(
-              attachment: attachment,
-              message: message,
-            ));
-          }
+          items.add(_MediaItem(
+            attachment: attachment,
+            message: message,
+          ));
         }
       }
     }
@@ -73,53 +64,45 @@ class _MediaScreenState extends State<MediaScreen> with SingleTickerProviderStat
     final chatService = Provider.of<ChatService>(context);
     final messages = chatService.messages;
 
-    final photos = _getAttachmentsByType(messages, 'photo');
-    final videos = _getAttachmentsByType(messages, 'video');
-    final documents = _getAttachmentsByType(messages, 'document');
+    final allMedia = _getAllAttachments(messages);
 
     return Scaffold(
-      body: Column(
-        children: [
-          Container(
-            decoration: BoxDecoration(
-              color: Colors.white,
-              border: Border(
-                bottom: BorderSide(color: Colors.grey[200]!),
+      body: allMedia.isEmpty
+          ? Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(
+                    Icons.perm_media_outlined,
+                    size: 64,
+                    color: Colors.grey[400],
+                  ),
+                  const SizedBox(height: 16),
+                  Text(
+                    'Nessun media',
+                    style: TextStyle(
+                      fontSize: 18,
+                      color: Colors.grey[600],
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    'I media condivisi appariranno qui',
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: Colors.grey[500],
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                ],
               ),
+            )
+          : _AllMediaList(
+              items: allMedia,
+              currentUserId: _currentUserId,
+              attachmentService: _attachmentService,
             ),
-            child: TabBar(
-              controller: _tabController,
-              labelColor: const Color(0xFF667eea),
-              unselectedLabelColor: Colors.grey[600],
-              indicatorColor: const Color(0xFF667eea),
-              tabs: [
-                Tab(
-                  icon: const Icon(Icons.photo),
-                  text: 'Foto (${photos.length})',
-                ),
-                Tab(
-                  icon: const Icon(Icons.videocam),
-                  text: 'Video (${videos.length})',
-                ),
-                Tab(
-                  icon: const Icon(Icons.insert_drive_file),
-                  text: 'Documenti (${documents.length})',
-                ),
-              ],
-            ),
-          ),
-          Expanded(
-            child: TabBarView(
-              controller: _tabController,
-              children: [
-                _MediaGrid(items: photos, type: 'photo', currentUserId: _currentUserId, attachmentService: _attachmentService),
-                _MediaGrid(items: videos, type: 'video', currentUserId: _currentUserId, attachmentService: _attachmentService),
-                _MediaList(items: documents, currentUserId: _currentUserId, attachmentService: _attachmentService),
-              ],
-            ),
-          ),
-        ],
-      ),
     );
   }
 }
@@ -133,6 +116,55 @@ class _MediaItem {
     required this.attachment,
     required this.message,
   });
+}
+
+/// Lista unificata per tutti i media
+class _AllMediaList extends StatelessWidget {
+  final List<_MediaItem> items;
+  final String? currentUserId;
+  final AttachmentService? attachmentService;
+
+  const _AllMediaList({
+    required this.items,
+    this.currentUserId,
+    this.attachmentService,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    // Mostra tutti i media (foto, video, documenti) in un'unica griglia
+    return GridView.builder(
+      padding: const EdgeInsets.all(4),
+      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: 3,
+        crossAxisSpacing: 4,
+        mainAxisSpacing: 4,
+      ),
+      itemCount: items.length,
+      itemBuilder: (context, index) {
+        final item = items[index];
+        final type = item.attachment.type;
+
+        // Renderizza in base al tipo
+        if (type == 'photo' || type == 'video') {
+          return _MediaGridItem(
+            item: item,
+            isVideo: type == 'video',
+            currentUserId: currentUserId,
+            attachmentService: attachmentService,
+          );
+        } else if (type == 'document') {
+          return _DocumentGridItem(
+            item: item,
+            currentUserId: currentUserId,
+            attachmentService: attachmentService,
+          );
+        }
+
+        return const SizedBox.shrink();
+      },
+    );
+  }
 }
 
 /// Griglia per foto e video (cifrati)
@@ -301,6 +333,137 @@ class _MediaGridItem extends StatelessWidget {
                 ),
               ),
             ),
+          // Data in basso a destra
+          Positioned(
+            bottom: 4,
+            right: 4,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+              decoration: BoxDecoration(
+                color: Colors.black.withOpacity(0.6),
+                borderRadius: BorderRadius.circular(4),
+              ),
+              child: Text(
+                DateFormat('dd/MM').format(item.message.timestamp),
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 10,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Singolo elemento della griglia per documenti (cifrato)
+class _DocumentGridItem extends StatelessWidget {
+  final _MediaItem item;
+  final String? currentUserId;
+  final AttachmentService? attachmentService;
+
+  const _DocumentGridItem({
+    required this.item,
+    this.currentUserId,
+    this.attachmentService,
+  });
+
+  String _getFileExtension(String fileName) {
+    final parts = fileName.split('.');
+    return parts.length > 1 ? parts.last.toUpperCase() : 'FILE';
+  }
+
+  Color _getFileColor(String fileName) {
+    final ext = _getFileExtension(fileName).toLowerCase();
+    switch (ext) {
+      case 'pdf':
+        return Colors.red;
+      case 'doc':
+      case 'docx':
+        return Colors.blue;
+      case 'xls':
+      case 'xlsx':
+        return Colors.green;
+      case 'ppt':
+      case 'pptx':
+        return Colors.orange;
+      default:
+        return Colors.grey;
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final fileExtension = _getFileExtension(item.attachment.fileName);
+    final fileColor = _getFileColor(item.attachment.fileName);
+
+    return GestureDetector(
+      onTap: () {
+        if (attachmentService == null) return;
+
+        // Check if it's a PDF - open with integrated viewer
+        final isPdf = item.attachment.fileName.toLowerCase().endsWith('.pdf');
+
+        if (isPdf) {
+          // Open PDF with integrated viewer
+          Navigator.of(context).push(
+            MaterialPageRoute(
+              builder: (context) => PdfViewerScreen(
+                attachment: item.attachment,
+                attachmentService: attachmentService!,
+                currentUserId: currentUserId,
+                senderId: item.message.senderId,
+              ),
+            ),
+          );
+        } else {
+          // For non-PDF documents, show a message
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Apri il documento dalla chat per visualizzarlo'),
+            ),
+          );
+        }
+      },
+      child: Stack(
+        fit: StackFit.expand,
+        children: [
+          // Background con colore del tipo di file
+          Container(
+            decoration: BoxDecoration(
+              color: fileColor.withOpacity(0.1),
+              border: Border.all(color: fileColor.withOpacity(0.3)),
+            ),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(
+                  Icons.insert_drive_file,
+                  color: fileColor,
+                  size: 48,
+                ),
+                const SizedBox(height: 4),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: fileColor,
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                  child: Text(
+                    fileExtension,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 10,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
           // Data in basso a destra
           Positioned(
             bottom: 4,
