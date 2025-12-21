@@ -640,6 +640,26 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
 
     final messageText = _messageController.text.trim();
     _messageController.clear(); // Clear subito per UX migliore
+
+    // Crea allegati placeholder per invio ottimistico
+    List<Attachment>? placeholderAttachments;
+    if (attachments.isNotEmpty) {
+      placeholderAttachments = attachments.map((file) {
+        final fileName = file.path.split('/').last;
+        return Attachment(
+          id: 'uploading_${DateTime.now().millisecondsSinceEpoch}',
+          type: file.path.endsWith('.pdf') ? 'document' :
+                file.path.contains('video') ? 'video' : 'photo',
+          url: '', // URL vuoto indica che è in upload
+          fileName: fileName,
+          fileSize: 0,
+          encryptedKeyRecipient: '',
+          encryptedKeySender: '',
+          iv: '',
+        );
+      }).toList();
+    }
+
     setState(() {
       _selectedTodoDate = null; // Reset todo date
       _selectedAttachments.clear(); // Clear attachments
@@ -723,6 +743,16 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       print('   Content: $messageText');
       print('   Attachments: ${attachments.length}');
 
+      // Aggiungi messaggio pending subito (invio ottimistico)
+      String? pendingMessageId;
+      if (messageText.isNotEmpty || placeholderAttachments != null) {
+        pendingMessageId = chatService.addPendingMessage(
+          messageText,
+          _myDeviceId!,
+          placeholderAttachments,
+        );
+      }
+
       // Upload allegati se presenti (con cifratura E2E dual)
       List<Attachment>? uploadedAttachments;
       if (attachments.isNotEmpty) {
@@ -744,6 +774,10 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
           }
         } catch (e) {
           if (kDebugMode) print('❌ Error uploading attachments: $e');
+          // Rimuovi messaggio pending in caso di errore
+          if (pendingMessageId != null) {
+            chatService.removePendingMessage(pendingMessageId);
+          }
           setState(() => _isUploadingAttachments = false);
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
@@ -763,6 +797,11 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
         _partnerPublicKey!,
         attachments: uploadedAttachments,
       );
+
+      // Rimuovi messaggio pending dopo invio (successo o fallimento)
+      if (pendingMessageId != null) {
+        chatService.removePendingMessage(pendingMessageId);
+      }
 
       if (success) {
         print('✅ Message sent successfully with dual encryption');
@@ -1539,6 +1578,32 @@ class _AttachmentImage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Se URL è vuoto, l'allegato è in upload - mostra placeholder
+    if (attachment.url.isEmpty) {
+      return ClipRRect(
+        borderRadius: BorderRadius.circular(12),
+        child: SizedBox(
+          width: double.infinity,
+          height: 200,
+          child: Container(
+            color: isMe ? Colors.white.withOpacity(0.1) : Colors.grey[200],
+            child: const Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  CircularProgressIndicator(),
+                  SizedBox(height: 8),
+                  Text(
+                    'Caricamento...',
+                    style: TextStyle(fontSize: 12, color: Colors.grey),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      );
+    }
 
     return GestureDetector(
       onTap: () {
@@ -1712,6 +1777,9 @@ class _AttachmentDocumentState extends State<_AttachmentDocument> {
   Future<void> _openDocument() async {
     if (_isDownloading) return;
 
+    // Se URL è vuoto, il documento è ancora in upload - non fare nulla
+    if (widget.attachment.url.isEmpty) return;
+
     // Check if it's a PDF - open with integrated viewer
     final isPdf = widget.attachment.fileName.toLowerCase().endsWith('.pdf');
 
@@ -1800,7 +1868,7 @@ class _AttachmentDocumentState extends State<_AttachmentDocument> {
                 color: widget.isMe ? Colors.white.withOpacity(0.2) : Colors.grey[300],
                 borderRadius: BorderRadius.circular(8),
               ),
-              child: _isDownloading
+              child: (_isDownloading || widget.attachment.url.isEmpty)
                   ? Padding(
                       padding: const EdgeInsets.all(10),
                       child: CircularProgressIndicator(
@@ -1830,7 +1898,9 @@ class _AttachmentDocumentState extends State<_AttachmentDocument> {
                     overflow: TextOverflow.ellipsis,
                   ),
                   Text(
-                    widget.attachmentService.formatFileSize(widget.attachment.fileSize),
+                    widget.attachment.url.isEmpty
+                        ? 'Caricamento...'
+                        : widget.attachmentService.formatFileSize(widget.attachment.fileSize),
                     style: TextStyle(
                       color: widget.isMe ? Colors.white70 : Colors.black54,
                       fontSize: 12,

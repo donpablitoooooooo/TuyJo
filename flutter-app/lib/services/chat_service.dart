@@ -734,6 +734,35 @@ class ChatService extends ChangeNotifier {
     }
   }
 
+  /// Aggiunge un messaggio pending alla lista (per invio ottimistico)
+  String addPendingMessage(
+    String content,
+    String senderId,
+    List<Attachment>? attachments,
+  ) {
+    final tempId = 'pending_${DateTime.now().millisecondsSinceEpoch}';
+    final message = Message(
+      id: tempId,
+      senderId: senderId,
+      timestamp: DateTime.now(),
+      decryptedContent: content,
+      messageType: 'text',
+      isPending: true,
+      attachments: attachments,
+    );
+
+    _messages.insert(0, message); // Aggiungi in cima (messaggi recenti)
+    notifyListeners();
+
+    return tempId;
+  }
+
+  /// Rimuove un messaggio pending quando l'invio è completato
+  void removePendingMessage(String tempId) {
+    _messages.removeWhere((m) => m.id == tempId);
+    notifyListeners();
+  }
+
   /// Invia un messaggio cifrato con RSA hybrid encryption e dual encryption
   /// Ogni messaggio ha una chiave AES univoca, cifrata con ENTRAMBE le public key
   Future<bool> sendMessage(

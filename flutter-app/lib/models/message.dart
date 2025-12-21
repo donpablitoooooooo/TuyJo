@@ -88,6 +88,7 @@ class Message {
   bool? delivered; // true quando il messaggio è stato salvato in Firestore
   bool? read; // true quando il destinatario ha visualizzato il messaggio
   DateTime? readAt; // timestamp di quando è stato letto
+  bool isPending; // true quando il messaggio è ancora in fase di invio (ottimistico)
 
   // Allegati (foto, video, documenti)
   List<Attachment>? attachments;
@@ -113,6 +114,7 @@ class Message {
     this.delivered,
     this.read,
     this.readAt,
+    this.isPending = false,
     this.attachments,
   });
 
