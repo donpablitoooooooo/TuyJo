@@ -20,6 +20,14 @@ service firebase.storage {
       allow read: if true;
     }
 
+    // Regole per le foto di coppia (couple selfie)
+    // Path: /families/{familyChatId}/couple_selfie_*
+    match /families/{familyChatId}/{fileName} {
+      // UPLOAD e DOWNLOAD: consenti a utenti autenticati
+      // Le foto di coppia non sono cifrate, quindi serve autenticazione
+      allow read, write: if request.auth != null;
+    }
+
     // Blocca tutto il resto
     match /{allPaths=**} {
       allow read, write: if false;
