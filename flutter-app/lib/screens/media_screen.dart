@@ -131,63 +131,37 @@ class _AllMediaList extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Separa media visivi (foto/video) dai documenti
-    final visualMedia = items.where((item) =>
-      item.attachment.type == 'photo' || item.attachment.type == 'video'
-    ).toList();
-    final documents = items.where((item) =>
-      item.attachment.type == 'document'
-    ).toList();
+    // Mostra tutti i media (foto, video, documenti) in un'unica griglia
+    return GridView.builder(
+      padding: const EdgeInsets.all(4),
+      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: 3,
+        crossAxisSpacing: 4,
+        mainAxisSpacing: 4,
+      ),
+      itemCount: items.length,
+      itemBuilder: (context, index) {
+        final item = items[index];
+        final type = item.attachment.type;
 
-    return CustomScrollView(
-      slivers: [
-        // Griglia di foto e video
-        if (visualMedia.isNotEmpty)
-          SliverPadding(
-            padding: const EdgeInsets.all(4),
-            sliver: SliverGrid(
-              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount: 3,
-                crossAxisSpacing: 4,
-                mainAxisSpacing: 4,
-              ),
-              delegate: SliverChildBuilderDelegate(
-                (context, index) {
-                  final item = visualMedia[index];
-                  return _MediaGridItem(
-                    item: item,
-                    isVideo: item.attachment.type == 'video',
-                    currentUserId: currentUserId,
-                    attachmentService: attachmentService,
-                  );
-                },
-                childCount: visualMedia.length,
-              ),
-            ),
-          ),
+        // Renderizza in base al tipo
+        if (type == 'photo' || type == 'video') {
+          return _MediaGridItem(
+            item: item,
+            isVideo: type == 'video',
+            currentUserId: currentUserId,
+            attachmentService: attachmentService,
+          );
+        } else if (type == 'document') {
+          return _DocumentGridItem(
+            item: item,
+            currentUserId: currentUserId,
+            attachmentService: attachmentService,
+          );
+        }
 
-        // Lista documenti
-        if (documents.isNotEmpty)
-          SliverPadding(
-            padding: const EdgeInsets.all(16),
-            sliver: SliverList(
-              delegate: SliverChildBuilderDelegate(
-                (context, index) {
-                  final item = documents[index];
-                  return Padding(
-                    padding: const EdgeInsets.only(bottom: 12),
-                    child: _DocumentListItem(
-                      item: item,
-                      currentUserId: currentUserId,
-                      attachmentService: attachmentService,
-                    ),
-                  );
-                },
-                childCount: documents.length,
-              ),
-            ),
-          ),
-      ],
+        return const SizedBox.shrink();
+      },
     );
   }
 }
@@ -358,6 +332,113 @@ class _MediaGridItem extends StatelessWidget {
                 ),
               ),
             ),
+          // Data in basso a destra
+          Positioned(
+            bottom: 4,
+            right: 4,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+              decoration: BoxDecoration(
+                color: Colors.black.withOpacity(0.6),
+                borderRadius: BorderRadius.circular(4),
+              ),
+              child: Text(
+                DateFormat('dd/MM').format(item.message.timestamp),
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 10,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Singolo elemento della griglia per documenti (cifrato)
+class _DocumentGridItem extends StatelessWidget {
+  final _MediaItem item;
+  final String? currentUserId;
+  final AttachmentService? attachmentService;
+
+  const _DocumentGridItem({
+    required this.item,
+    this.currentUserId,
+    this.attachmentService,
+  });
+
+  String _getFileExtension(String fileName) {
+    final parts = fileName.split('.');
+    return parts.length > 1 ? parts.last.toUpperCase() : 'FILE';
+  }
+
+  Color _getFileColor(String fileName) {
+    final ext = _getFileExtension(fileName).toLowerCase();
+    switch (ext) {
+      case 'pdf':
+        return Colors.red;
+      case 'doc':
+      case 'docx':
+        return Colors.blue;
+      case 'xls':
+      case 'xlsx':
+        return Colors.green;
+      case 'ppt':
+      case 'pptx':
+        return Colors.orange;
+      default:
+        return Colors.grey;
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final fileExtension = _getFileExtension(item.attachment.fileName);
+    final fileColor = _getFileColor(item.attachment.fileName);
+
+    return GestureDetector(
+      onTap: () {
+        // TODO: Apri documento
+      },
+      child: Stack(
+        fit: StackFit.expand,
+        children: [
+          // Background con colore del tipo di file
+          Container(
+            decoration: BoxDecoration(
+              color: fileColor.withOpacity(0.1),
+              border: Border.all(color: fileColor.withOpacity(0.3)),
+            ),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(
+                  Icons.insert_drive_file,
+                  color: fileColor,
+                  size: 48,
+                ),
+                const SizedBox(height: 4),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: fileColor,
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                  child: Text(
+                    fileExtension,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 10,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
           // Data in basso a destra
           Positioned(
             bottom: 4,

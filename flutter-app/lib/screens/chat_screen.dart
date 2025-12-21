@@ -6,6 +6,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
+import 'package:open_filex/open_filex.dart';
+import 'package:path_provider/path_provider.dart';
 import '../services/pairing_service.dart';
 import '../services/chat_service.dart';
 import '../services/encryption_service.dart';
@@ -1684,7 +1686,7 @@ class _AttachmentVideo extends StatelessWidget {
 }
 
 /// Widget per visualizzare allegati documento (cifrato - placeholder)
-class _AttachmentDocument extends StatelessWidget {
+class _AttachmentDocument extends StatefulWidget {
   final Attachment attachment;
   final bool isMe;
   final String? currentUserId;
@@ -1700,65 +1702,126 @@ class _AttachmentDocument extends StatelessWidget {
   });
 
   @override
-  Widget build(BuildContext context) {
+  State<_AttachmentDocument> createState() => _AttachmentDocumentState();
+}
 
-    return GestureDetector(
-      onTap: () {
-        // TODO: Scaricare, decifrare e aprire documento
+class _AttachmentDocumentState extends State<_AttachmentDocument> {
+  bool _isDownloading = false;
+
+  Future<void> _openDocument() async {
+    if (_isDownloading) return;
+
+    setState(() => _isDownloading = true);
+
+    try {
+      // 1. Download and decrypt document
+      final decryptedBytes = await widget.attachmentService.downloadAndDecryptAttachment(
+        widget.attachment,
+        widget.currentUserId ?? '',
+        widget.senderId ?? '',
+        useThumbnail: false,
+      );
+
+      if (decryptedBytes == null) {
+        throw Exception('Failed to download document');
+      }
+
+      // 2. Save to temporary directory
+      final tempDir = await getTemporaryDirectory();
+      final file = File('${tempDir.path}/${widget.attachment.fileName}');
+      await file.writeAsBytes(decryptedBytes);
+
+      // 3. Open with external app
+      final result = await OpenFilex.open(file.path);
+
+      if (result.type != ResultType.done && mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Apertura documenti cifrati in sviluppo'),
+          SnackBar(
+            content: Text('Impossibile aprire: ${result.message}'),
+            backgroundColor: Colors.red,
           ),
         );
-      },
+      }
+    } catch (e) {
+      if (kDebugMode) print('❌ Error opening document: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Errore: ${e.toString()}'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isDownloading = false);
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: _openDocument,
       child: Container(
         padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(12),
-          color: isMe ? Colors.white.withOpacity(0.1) : Colors.grey[200],
+          color: widget.isMe ? Colors.white.withOpacity(0.1) : Colors.grey[200],
         ),
         child: Row(
-          mainAxisSize: MainAxisSize.min,
           children: [
             Container(
               width: 40,
               height: 40,
               decoration: BoxDecoration(
-                color: isMe ? Colors.white.withOpacity(0.2) : Colors.grey[300],
+                color: widget.isMe ? Colors.white.withOpacity(0.2) : Colors.grey[300],
                 borderRadius: BorderRadius.circular(8),
               ),
-              child: Icon(
-                Icons.insert_drive_file,
-                color: isMe ? Colors.white : Colors.grey[700],
-              ),
+              child: _isDownloading
+                  ? Padding(
+                      padding: const EdgeInsets.all(10),
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        valueColor: AlwaysStoppedAnimation<Color>(
+                          widget.isMe ? Colors.white : Colors.grey[700]!,
+                        ),
+                      ),
+                    )
+                  : Icon(
+                      Icons.insert_drive_file,
+                      color: widget.isMe ? Colors.white : Colors.grey[700],
+                    ),
             ),
             const SizedBox(width: 12),
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  attachment.fileName.length > 20
-                      ? '${attachment.fileName.substring(0, 20)}...'
-                      : attachment.fileName,
-                  style: TextStyle(
-                    color: isMe ? Colors.white : Colors.black87,
-                    fontWeight: FontWeight.w500,
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    widget.attachment.fileName,
+                    style: TextStyle(
+                      color: widget.isMe ? Colors.white : Colors.black87,
+                      fontWeight: FontWeight.w500,
+                    ),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
                   ),
-                ),
-                Text(
-                  attachmentService.formatFileSize(attachment.fileSize),
-                  style: TextStyle(
-                    color: isMe ? Colors.white70 : Colors.black54,
-                    fontSize: 12,
+                  Text(
+                    widget.attachmentService.formatFileSize(widget.attachment.fileSize),
+                    style: TextStyle(
+                      color: widget.isMe ? Colors.white70 : Colors.black54,
+                      fontSize: 12,
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
             const SizedBox(width: 8),
             Icon(
               Icons.lock_outline,
               size: 16,
-              color: isMe ? Colors.white70 : Colors.black54,
+              color: widget.isMe ? Colors.white70 : Colors.black54,
             ),
           ],
         ),
