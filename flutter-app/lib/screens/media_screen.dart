@@ -14,15 +14,13 @@ class MediaScreen extends StatefulWidget {
   State<MediaScreen> createState() => _MediaScreenState();
 }
 
-class _MediaScreenState extends State<MediaScreen> with SingleTickerProviderStateMixin {
-  late TabController _tabController;
+class _MediaScreenState extends State<MediaScreen> {
   String? _currentUserId;
   AttachmentService? _attachmentService;
 
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 3, vsync: this);
     _initialize();
   }
 
@@ -39,25 +37,17 @@ class _MediaScreenState extends State<MediaScreen> with SingleTickerProviderStat
     });
   }
 
-  @override
-  void dispose() {
-    _tabController.dispose();
-    super.dispose();
-  }
-
-  /// Ottiene tutti gli allegati dai messaggi, filtrati per tipo
-  List<_MediaItem> _getAttachmentsByType(List<Message> messages, String type) {
+  /// Ottiene tutti gli allegati dai messaggi
+  List<_MediaItem> _getAllAttachments(List<Message> messages) {
     final List<_MediaItem> items = [];
 
     for (var message in messages) {
       if (message.attachments != null && message.attachments!.isNotEmpty) {
         for (var attachment in message.attachments!) {
-          if (attachment.type == type) {
-            items.add(_MediaItem(
-              attachment: attachment,
-              message: message,
-            ));
-          }
+          items.add(_MediaItem(
+            attachment: attachment,
+            message: message,
+          ));
         }
       }
     }
@@ -73,53 +63,45 @@ class _MediaScreenState extends State<MediaScreen> with SingleTickerProviderStat
     final chatService = Provider.of<ChatService>(context);
     final messages = chatService.messages;
 
-    final photos = _getAttachmentsByType(messages, 'photo');
-    final videos = _getAttachmentsByType(messages, 'video');
-    final documents = _getAttachmentsByType(messages, 'document');
+    final allMedia = _getAllAttachments(messages);
 
     return Scaffold(
-      body: Column(
-        children: [
-          Container(
-            decoration: BoxDecoration(
-              color: Colors.white,
-              border: Border(
-                bottom: BorderSide(color: Colors.grey[200]!),
+      body: allMedia.isEmpty
+          ? Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(
+                    Icons.perm_media_outlined,
+                    size: 64,
+                    color: Colors.grey[400],
+                  ),
+                  const SizedBox(height: 16),
+                  Text(
+                    'Nessun media',
+                    style: TextStyle(
+                      fontSize: 18,
+                      color: Colors.grey[600],
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    'I media condivisi appariranno qui',
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: Colors.grey[500],
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                ],
               ),
+            )
+          : _AllMediaList(
+              items: allMedia,
+              currentUserId: _currentUserId,
+              attachmentService: _attachmentService,
             ),
-            child: TabBar(
-              controller: _tabController,
-              labelColor: const Color(0xFF667eea),
-              unselectedLabelColor: Colors.grey[600],
-              indicatorColor: const Color(0xFF667eea),
-              tabs: [
-                Tab(
-                  icon: const Icon(Icons.photo),
-                  text: 'Foto (${photos.length})',
-                ),
-                Tab(
-                  icon: const Icon(Icons.videocam),
-                  text: 'Video (${videos.length})',
-                ),
-                Tab(
-                  icon: const Icon(Icons.insert_drive_file),
-                  text: 'Documenti (${documents.length})',
-                ),
-              ],
-            ),
-          ),
-          Expanded(
-            child: TabBarView(
-              controller: _tabController,
-              children: [
-                _MediaGrid(items: photos, type: 'photo', currentUserId: _currentUserId, attachmentService: _attachmentService),
-                _MediaGrid(items: videos, type: 'video', currentUserId: _currentUserId, attachmentService: _attachmentService),
-                _MediaList(items: documents, currentUserId: _currentUserId, attachmentService: _attachmentService),
-              ],
-            ),
-          ),
-        ],
-      ),
     );
   }
 }
@@ -133,6 +115,58 @@ class _MediaItem {
     required this.attachment,
     required this.message,
   });
+}
+
+/// Lista unificata per tutti i media
+class _AllMediaList extends StatelessWidget {
+  final List<_MediaItem> items;
+  final String? currentUserId;
+  final AttachmentService? attachmentService;
+
+  const _AllMediaList({
+    required this.items,
+    this.currentUserId,
+    this.attachmentService,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return ListView.builder(
+      padding: const EdgeInsets.all(8),
+      itemCount: items.length,
+      itemBuilder: (context, index) {
+        final item = items[index];
+        final type = item.attachment.type;
+
+        // Renderizza in base al tipo
+        if (type == 'photo' || type == 'video') {
+          return Padding(
+            padding: const EdgeInsets.only(bottom: 8),
+            child: AspectRatio(
+              aspectRatio: 1.0,
+              child: _MediaGridItem(
+                item: item,
+                isVideo: type == 'video',
+                currentUserId: currentUserId,
+                attachmentService: attachmentService,
+              ),
+            ),
+          );
+        } else if (type == 'document') {
+          return Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+            child: _DocumentListItem(
+              item: item,
+              currentUserId: currentUserId,
+              attachmentService: attachmentService,
+            ),
+          );
+        }
+
+        return const SizedBox.shrink();
+      },
+    );
+  }
 }
 
 /// Griglia per foto e video (cifrati)
