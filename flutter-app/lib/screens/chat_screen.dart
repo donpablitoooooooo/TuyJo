@@ -10,6 +10,7 @@ import 'package:open_filex/open_filex.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:flutter_linkify/flutter_linkify.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:receive_sharing_intent/receive_sharing_intent.dart';
 import '../services/pairing_service.dart';
 import '../services/chat_service.dart';
 import '../services/encryption_service.dart';
@@ -52,6 +53,10 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   List<File> _selectedAttachments = []; // Lista di file selezionati da inviare
   bool _isUploadingAttachments = false; // Stato di upload allegati
 
+  // Stream subscriptions per condivisione file da altre app
+  StreamSubscription? _intentDataStreamSubscription;
+  StreamSubscription? _intentMediaStreamSubscription;
+
   @override
   void initState() {
     super.initState();
@@ -77,6 +82,83 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
 
     // 📜 INFINITE SCROLL: Listen per scroll verso l'alto (messaggi vecchi)
     _scrollController.addListener(_onScroll);
+
+    // 📤 CONDIVISIONE: Listen per file condivisi da altre app
+    _initSharedFiles();
+  }
+
+  /// Inizializza listener per file condivisi da altre app
+  void _initSharedFiles() {
+    // Per file media (immagini, video, documenti) condivisi mentre l'app è chiusa
+    ReceiveSharingIntent.getInitialMedia().then((List<SharedMediaFile> value) {
+      if (value.isNotEmpty) {
+        _handleSharedFiles(value);
+      }
+    });
+
+    // Per file media condivisi mentre l'app è aperta
+    _intentMediaStreamSubscription = ReceiveSharingIntent.getMediaStream().listen(
+      (List<SharedMediaFile> value) {
+        if (value.isNotEmpty) {
+          _handleSharedFiles(value);
+        }
+      },
+      onError: (err) {
+        if (kDebugMode) print("Errore ricezione file condivisi: $err");
+      },
+    );
+
+    // Per testo condiviso (URL, testo semplice)
+    ReceiveSharingIntent.getInitialText().then((String? value) {
+      if (value != null && value.isNotEmpty) {
+        _handleSharedText(value);
+      }
+    });
+
+    _intentDataStreamSubscription = ReceiveSharingIntent.getTextStream().listen(
+      (String value) {
+        if (value.isNotEmpty) {
+          _handleSharedText(value);
+        }
+      },
+      onError: (err) {
+        if (kDebugMode) print("Errore ricezione testo condiviso: $err");
+      },
+    );
+  }
+
+  /// Gestisce file media condivisi da altre app
+  void _handleSharedFiles(List<SharedMediaFile> sharedFiles) {
+    if (kDebugMode) {
+      print("📤 Ricevuti ${sharedFiles.length} file condivisi");
+    }
+
+    setState(() {
+      for (var sharedFile in sharedFiles) {
+        final file = File(sharedFile.path);
+        if (!_selectedAttachments.any((f) => f.path == file.path)) {
+          _selectedAttachments.add(file);
+        }
+      }
+    });
+
+    // Reset condivisione intent per evitare duplicati
+    ReceiveSharingIntent.reset();
+  }
+
+  /// Gestisce testo condiviso da altre app
+  void _handleSharedText(String text) {
+    if (kDebugMode) {
+      print("📤 Ricevuto testo condiviso: $text");
+    }
+
+    setState(() {
+      _messageController.text = text;
+      _hasText = true;
+    });
+
+    // Reset condivisione intent per evitare duplicati
+    ReceiveSharingIntent.reset();
   }
 
   @override
@@ -250,6 +332,8 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     _scrollController.dispose();
     _typingTimer?.cancel();
     _reminderCheckTimer?.cancel();
+    _intentDataStreamSubscription?.cancel();
+    _intentMediaStreamSubscription?.cancel();
     super.dispose();
   }
 

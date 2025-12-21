@@ -58,6 +58,7 @@ dependencies:
   image: ^4.1.7
   open_filex: ^4.5.0
   pdfx: ^2.7.0
+  receive_sharing_intent: ^1.8.0
 
 dev_dependencies:
   flutter_test:
