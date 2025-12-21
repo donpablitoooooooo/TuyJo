@@ -131,40 +131,63 @@ class _AllMediaList extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ListView.builder(
-      padding: const EdgeInsets.all(8),
-      itemCount: items.length,
-      itemBuilder: (context, index) {
-        final item = items[index];
-        final type = item.attachment.type;
+    // Separa media visivi (foto/video) dai documenti
+    final visualMedia = items.where((item) =>
+      item.attachment.type == 'photo' || item.attachment.type == 'video'
+    ).toList();
+    final documents = items.where((item) =>
+      item.attachment.type == 'document'
+    ).toList();
 
-        // Renderizza in base al tipo
-        if (type == 'photo' || type == 'video') {
-          return Padding(
-            padding: const EdgeInsets.only(bottom: 8),
-            child: AspectRatio(
-              aspectRatio: 1.0,
-              child: _MediaGridItem(
-                item: item,
-                isVideo: type == 'video',
-                currentUserId: currentUserId,
-                attachmentService: attachmentService,
+    return CustomScrollView(
+      slivers: [
+        // Griglia di foto e video
+        if (visualMedia.isNotEmpty)
+          SliverPadding(
+            padding: const EdgeInsets.all(4),
+            sliver: SliverGrid(
+              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: 3,
+                crossAxisSpacing: 4,
+                mainAxisSpacing: 4,
+              ),
+              delegate: SliverChildBuilderDelegate(
+                (context, index) {
+                  final item = visualMedia[index];
+                  return _MediaGridItem(
+                    item: item,
+                    isVideo: item.attachment.type == 'video',
+                    currentUserId: currentUserId,
+                    attachmentService: attachmentService,
+                  );
+                },
+                childCount: visualMedia.length,
               ),
             ),
-          );
-        } else if (type == 'document') {
-          return Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-            child: _DocumentListItem(
-              item: item,
-              currentUserId: currentUserId,
-              attachmentService: attachmentService,
-            ),
-          );
-        }
+          ),
 
-        return const SizedBox.shrink();
-      },
+        // Lista documenti
+        if (documents.isNotEmpty)
+          SliverPadding(
+            padding: const EdgeInsets.all(16),
+            sliver: SliverList(
+              delegate: SliverChildBuilderDelegate(
+                (context, index) {
+                  final item = documents[index];
+                  return Padding(
+                    padding: const EdgeInsets.only(bottom: 12),
+                    child: _DocumentListItem(
+                      item: item,
+                      currentUserId: currentUserId,
+                      attachmentService: attachmentService,
+                    ),
+                  );
+                },
+                childCount: documents.length,
+              ),
+            ),
+          ),
+      ],
     );
   }
 }
