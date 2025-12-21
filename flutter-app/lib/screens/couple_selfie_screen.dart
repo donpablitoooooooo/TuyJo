@@ -218,11 +218,10 @@ class _CoupleSelfieScreenState extends State<CoupleSelfieScreen> {
         return;
       }
 
-      // 2. Crop image in circular shape
+      // 2. Crop image in square shape (will be displayed as circle)
       final croppedFile = await ImageCropper().cropImage(
         sourcePath: pickedFile.path,
         aspectRatio: const CropAspectRatio(ratioX: 1, ratioY: 1),
-        cropStyle: CropStyle.circle, // Circular crop!
         uiSettings: [
           AndroidUiSettings(
             toolbarTitle: 'Centra le Facce',
@@ -232,6 +231,7 @@ class _CoupleSelfieScreenState extends State<CoupleSelfieScreen> {
             initAspectRatio: CropAspectRatioPreset.square,
             lockAspectRatio: true,
             hideBottomControls: false,
+            backgroundColor: Colors.black,
           ),
           IOSUiSettings(
             title: 'Centra le Facce',
