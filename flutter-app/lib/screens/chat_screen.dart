@@ -90,14 +90,14 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   /// Inizializza listener per file condivisi da altre app
   void _initSharedFiles() {
     // Per file media (immagini, video, documenti) condivisi mentre l'app è chiusa
-    ReceiveSharingIntent.getInitialMedia().then((List<SharedMediaFile> value) {
+    ReceiveSharingIntent.instance.getInitialMedia().then((List<SharedMediaFile> value) {
       if (value.isNotEmpty) {
         _handleSharedFiles(value);
       }
     });
 
     // Per file media condivisi mentre l'app è aperta
-    _intentMediaStreamSubscription = ReceiveSharingIntent.getMediaStream().listen(
+    _intentMediaStreamSubscription = ReceiveSharingIntent.instance.getMediaStream().listen(
       (List<SharedMediaFile> value) {
         if (value.isNotEmpty) {
           _handleSharedFiles(value);
@@ -109,13 +109,13 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     );
 
     // Per testo condiviso (URL, testo semplice)
-    ReceiveSharingIntent.getInitialText().then((String? value) {
+    ReceiveSharingIntent.instance.getInitialText().then((String? value) {
       if (value != null && value.isNotEmpty) {
         _handleSharedText(value);
       }
     });
 
-    _intentDataStreamSubscription = ReceiveSharingIntent.getTextStream().listen(
+    _intentDataStreamSubscription = ReceiveSharingIntent.instance.getTextStream().listen(
       (String value) {
         if (value.isNotEmpty) {
           _handleSharedText(value);
@@ -143,7 +143,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     });
 
     // Reset condivisione intent per evitare duplicati
-    ReceiveSharingIntent.reset();
+    ReceiveSharingIntent.instance.reset();
   }
 
   /// Gestisce testo condiviso da altre app
@@ -158,7 +158,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     });
 
     // Reset condivisione intent per evitare duplicati
-    ReceiveSharingIntent.reset();
+    ReceiveSharingIntent.instance.reset();
   }
 
   @override
