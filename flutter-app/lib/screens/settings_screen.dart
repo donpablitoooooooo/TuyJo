@@ -18,7 +18,6 @@ class SettingsScreen extends StatefulWidget {
 
 class _SettingsScreenState extends State<SettingsScreen> {
   final _storage = const FlutterSecureStorage();
-  final _keyController = TextEditingController();
   bool _isLoading = false;
   bool _isPaired = false;
 
@@ -26,12 +25,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
   void initState() {
     super.initState();
     _checkPairingStatus();
-  }
-
-  @override
-  void dispose() {
-    _keyController.dispose();
-    super.dispose();
   }
 
   Future<void> _checkPairingStatus() async {
@@ -76,108 +69,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
               Icon(Icons.check_circle, color: Colors.white),
               SizedBox(width: 12),
               Expanded(child: Text('Chiave privata copiata!')),
-            ],
-          ),
-          backgroundColor: Colors.green[600],
-          behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        ),
-      );
-    } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Row(
-            children: [
-              const Icon(Icons.error, color: Colors.white),
-              const SizedBox(width: 12),
-              Expanded(child: Text('Errore: $e')),
-            ],
-          ),
-          backgroundColor: Colors.red[600],
-          behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        ),
-      );
-    } finally {
-      setState(() => _isLoading = false);
-    }
-  }
-
-  Future<void> _restorePrivateKey() async {
-    final key = _keyController.text.trim();
-
-    if (key.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: const Row(
-            children: [
-              Icon(Icons.warning_amber, color: Colors.white),
-              SizedBox(width: 12),
-              Expanded(child: Text('Inserisci una chiave privata valida')),
-            ],
-          ),
-          backgroundColor: Colors.orange[700],
-          behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        ),
-      );
-      return;
-    }
-
-    setState(() => _isLoading = true);
-    try {
-      final encryptionService = Provider.of<EncryptionService>(context, listen: false);
-      final pairingService = Provider.of<PairingService>(context, listen: false);
-
-      encryptionService.loadPrivateKey(key);
-      final publicKey = await encryptionService.deriveAndSavePublicKey();
-
-      if (publicKey == null) {
-        throw Exception('Impossibile derivare la chiave pubblica');
-      }
-
-      final existingPublicKey = await _storage.read(key: 'rsa_public_key');
-      final bool isDifferentKey = existingPublicKey != null && existingPublicKey != publicKey;
-
-      await _storage.write(key: 'rsa_private_key', value: key);
-      await pairingService.saveMyPublicKey(publicKey);
-
-      if (isDifferentKey) {
-        await pairingService.clearPairing();
-        setState(() => _isPaired = false);
-
-        if (!mounted) return;
-        _keyController.clear();
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: const Row(
-              children: [
-                Icon(Icons.info, color: Colors.white),
-                SizedBox(width: 12),
-                Expanded(
-                  child: Text('Chiave ripristinata. Devi rifare il pairing.'),
-                ),
-              ],
-            ),
-            backgroundColor: Colors.orange[700],
-            behavior: SnackBarBehavior.floating,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-            duration: const Duration(seconds: 4),
-          ),
-        );
-        return;
-      }
-
-      if (!mounted) return;
-      _keyController.clear();
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: const Row(
-            children: [
-              Icon(Icons.check_circle, color: Colors.white),
-              SizedBox(width: 12),
-              Expanded(child: Text('Chiave ripristinata con successo!')),
             ],
           ),
           backgroundColor: Colors.green[600],
@@ -268,6 +159,234 @@ class _SettingsScreenState extends State<SettingsScreen> {
     } finally {
       setState(() => _isLoading = false);
     }
+  }
+
+  void _showNewPairingDialog() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: Row(
+          children: const [
+            Icon(Icons.favorite, color: Color(0xFF667eea)),
+            SizedBox(width: 12),
+            Text('Nuovo Pairing'),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: const [
+            Text(
+              'Stai per creare un nuovo pairing.',
+              style: TextStyle(fontSize: 16),
+            ),
+            SizedBox(height: 16),
+            Text(
+              '💡 Consiglio: salva la chiave privata prima di procedere, così potrai recuperare l\'account in caso di perdita del dispositivo.',
+              style: TextStyle(fontSize: 13, color: Colors.grey),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Annulla'),
+          ),
+          TextButton(
+            onPressed: () async {
+              Navigator.pop(context);
+              // Mostra dialog per salvare la chiave (opzionale)
+              _showSaveKeyDialog();
+            },
+            style: TextButton.styleFrom(foregroundColor: const Color(0xFF667eea)),
+            child: const Text('Continua'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showSaveKeyDialog() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: Row(
+          children: const [
+            Icon(Icons.backup, color: Color(0xFF667eea)),
+            SizedBox(width: 12),
+            Text('Salva Chiave'),
+          ],
+        ),
+        content: const Text(
+          'Vuoi salvare ora la tua chiave privata?\n\nPotrai farlo anche dopo dal menu Backup.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () {
+              Navigator.pop(context);
+              // Vai direttamente al wizard
+              _startPairingWizard();
+            },
+            child: const Text('Più tardi'),
+          ),
+          TextButton(
+            onPressed: () async {
+              Navigator.pop(context);
+              // Copia la chiave e poi vai al wizard
+              await _copyPrivateKey();
+              _startPairingWizard();
+            },
+            style: TextButton.styleFrom(foregroundColor: const Color(0xFF667eea)),
+            child: const Text('Salva ora'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showRestoreDialog() {
+    final keyController = TextEditingController();
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: Row(
+          children: const [
+            Icon(Icons.restore, color: Color(0xFF667eea)),
+            SizedBox(width: 12),
+            Text('Ripristino'),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text('Incolla qui la tua chiave privata:'),
+            const SizedBox(height: 16),
+            TextField(
+              controller: keyController,
+              decoration: InputDecoration(
+                hintText: 'Chiave privata...',
+                filled: true,
+                fillColor: Colors.grey[50],
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: const BorderSide(color: Color(0xFF667eea), width: 2),
+                ),
+              ),
+              maxLines: 4,
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () {
+              keyController.dispose();
+              Navigator.pop(context);
+            },
+            child: const Text('Annulla'),
+          ),
+          TextButton(
+            onPressed: () async {
+              final key = keyController.text.trim();
+              keyController.dispose();
+              Navigator.pop(context);
+
+              if (key.isEmpty) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: const Row(
+                      children: [
+                        Icon(Icons.warning_amber, color: Colors.white),
+                        SizedBox(width: 12),
+                        Expanded(child: Text('Chiave privata vuota')),
+                      ],
+                    ),
+                    backgroundColor: Colors.orange[700],
+                    behavior: SnackBarBehavior.floating,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  ),
+                );
+                return;
+              }
+
+              // Ripristina la chiave
+              setState(() => _isLoading = true);
+              try {
+                final encryptionService = Provider.of<EncryptionService>(context, listen: false);
+                final pairingService = Provider.of<PairingService>(context, listen: false);
+
+                encryptionService.loadPrivateKey(key);
+                final publicKey = await encryptionService.deriveAndSavePublicKey();
+
+                if (publicKey == null) {
+                  throw Exception('Impossibile derivare la chiave pubblica');
+                }
+
+                await _storage.write(key: 'rsa_private_key', value: key);
+                await pairingService.saveMyPublicKey(publicKey);
+
+                if (!mounted) return;
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: const Row(
+                      children: [
+                        Icon(Icons.check_circle, color: Colors.white),
+                        SizedBox(width: 12),
+                        Expanded(child: Text('Chiave ripristinata! Ora fai il pairing.')),
+                      ],
+                    ),
+                    backgroundColor: Colors.green[600],
+                    behavior: SnackBarBehavior.floating,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  ),
+                );
+
+                // Vai al wizard di pairing
+                await Future.delayed(const Duration(seconds: 1));
+                _startPairingWizard();
+              } catch (e) {
+                if (!mounted) return;
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Row(
+                      children: [
+                        const Icon(Icons.error, color: Colors.white),
+                        const SizedBox(width: 12),
+                        Expanded(child: Text('Errore: $e')),
+                      ],
+                    ),
+                    backgroundColor: Colors.red[600],
+                    behavior: SnackBarBehavior.floating,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  ),
+                );
+              } finally {
+                setState(() => _isLoading = false);
+              }
+            },
+            style: TextButton.styleFrom(foregroundColor: const Color(0xFF667eea)),
+            child: const Text('Ripristina'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _startPairingWizard() async {
+    await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => const PairingWizardScreen(),
+      ),
+    );
+    _checkPairingStatus();
   }
 
   void _showDeleteDialog() {
@@ -375,58 +494,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
         ),
         const SizedBox(height: 40),
 
-        // Backup Section
-        _SettingsSection(
-          title: 'Backup & Ripristino',
-          icon: Icons.backup,
-          children: [
-            const Text(
-              'Salva la tua chiave privata per recuperare l\'account',
-              style: TextStyle(color: Colors.grey, fontSize: 14),
-            ),
-            const SizedBox(height: 16),
-            _PurpleButton(
-              onPressed: _copyPrivateKey,
-              icon: Icons.copy,
-              label: 'Copia Chiave Privata',
-            ),
-            const SizedBox(height: 24),
-            const Text(
-              'Ripristina da backup',
-              style: TextStyle(color: Colors.grey, fontSize: 14),
-            ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: _keyController,
-              decoration: InputDecoration(
-                hintText: 'Incolla qui la chiave privata',
-                filled: true,
-                fillColor: Colors.grey[50],
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  borderSide: BorderSide(color: Colors.grey[300]!),
-                ),
-                enabledBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  borderSide: BorderSide(color: Colors.grey[300]!),
-                ),
-                focusedBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  borderSide: const BorderSide(color: Color(0xFF667eea), width: 2),
-                ),
-              ),
-              maxLines: 3,
-            ),
-            const SizedBox(height: 12),
-            _OutlineButton(
-              onPressed: _restorePrivateKey,
-              icon: Icons.restore,
-              label: 'Ripristina',
-            ),
-          ],
-        ),
-        const SizedBox(height: 24),
-
         // Pairing Section
         _SettingsSection(
           title: 'Pairing',
@@ -434,6 +501,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           iconColor: const Color(0xFF667eea),
           children: [
             if (_isPaired) ...[
+              // Paired: mostra status e backup
               Container(
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
@@ -457,26 +525,36 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   ],
                 ),
               ),
-            ] else ...[
+              const SizedBox(height: 16),
               const Text(
-                'Accoppia i dispositivi per iniziare a chattare',
+                'Salva la tua chiave privata se non l\'hai fatto',
                 style: TextStyle(color: Colors.grey, fontSize: 14),
               ),
+              const SizedBox(height: 12),
+              _OutlineButton(
+                onPressed: _copyPrivateKey,
+                icon: Icons.backup,
+                label: 'Backup Chiave',
+              ),
+            ] else ...[
+              // Unpaired: mostra scelta Nuovo vs Ripristino
+              const Text(
+                'Scegli come procedere:',
+                style: TextStyle(color: Colors.grey, fontSize: 14),
+              ),
+              const SizedBox(height: 16),
+              _PurpleButton(
+                onPressed: _showNewPairingDialog,
+                icon: Icons.favorite,
+                label: 'Nuovo Pairing',
+              ),
+              const SizedBox(height: 12),
+              _OutlineButton(
+                onPressed: _showRestoreDialog,
+                icon: Icons.restore,
+                label: 'Ripristino da Backup',
+              ),
             ],
-            const SizedBox(height: 16),
-            _PurpleButton(
-              onPressed: () async {
-                await Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => const PairingWizardScreen(),
-                  ),
-                );
-                _checkPairingStatus();
-              },
-              icon: Icons.qr_code_scanner,
-              label: _isPaired ? 'Rifai Pairing' : 'Inizia Pairing',
-            ),
           ],
         ),
 
