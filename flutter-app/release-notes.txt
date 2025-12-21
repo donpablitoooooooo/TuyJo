@@ -1,0 +1,22 @@
+Private Messaging v1.7.0
+
+NOVITÀ:
+✨ URL e indirizzi cliccabili - Tap sui link nei messaggi per aprirli nel browser
+📤 Condividi da altre app - Condividi foto/PDF da qualsiasi app in Private Messaging
+📄 Viewer PDF integrato - Visualizza PDF direttamente nell'app con zoom
+🎨 Media unificati - Tutti i media (foto, video, PDF) in un'unica pagina
+💾 Cache offline - Foto profilo visibile anche senza connessione
+
+MIGLIORAMENTI:
+⚡ Caricamento messaggi più veloce con placeholder animati
+📐 Layout documenti ottimizzato con titoli troncati
+🚀 Performance generali migliorate
+
+BUG FIX:
+🐛 Risolto schermo bianco quando si condividono PDF
+🐛 Fix cache foto profilo che non appariva offline
+🐛 Fix layout documenti con nomi lunghi
+
+NOTE:
+⚠️ Richiede rebuild completo dell'app dopo aggiornamento
+📱 Compatibilità: Android 6.0+ (API 23)
