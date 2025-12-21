@@ -114,17 +114,22 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       print("📤 Ricevuti ${sharedFiles.length} file condivisi");
     }
 
-    setState(() {
-      for (var sharedFile in sharedFiles) {
-        final file = File(sharedFile.path);
-        if (!_selectedAttachments.any((f) => f.path == file.path)) {
-          _selectedAttachments.add(file);
-        }
-      }
-    });
+    // Usa addPostFrameCallback per assicurarsi che il widget sia completamente inizializzato
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
 
-    // Reset condivisione intent per evitare duplicati
-    ReceiveSharingIntent.instance.reset();
+      setState(() {
+        for (var sharedFile in sharedFiles) {
+          final file = File(sharedFile.path);
+          if (!_selectedAttachments.any((f) => f.path == file.path)) {
+            _selectedAttachments.add(file);
+          }
+        }
+      });
+
+      // Reset condivisione intent per evitare duplicati
+      ReceiveSharingIntent.instance.reset();
+    });
   }
 
   @override
