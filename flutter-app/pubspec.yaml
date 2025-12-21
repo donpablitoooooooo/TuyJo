@@ -55,6 +55,7 @@ dependencies:
   path_provider: ^2.1.5
   image: ^4.1.7
   open_filex: ^4.5.0
+  pdfx: ^2.7.0
 
 dev_dependencies:
   flutter_test:

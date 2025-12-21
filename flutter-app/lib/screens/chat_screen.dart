@@ -14,6 +14,7 @@ import '../services/encryption_service.dart';
 import '../services/notification_service.dart';
 import '../services/attachment_service.dart';
 import '../models/message.dart';
+import 'pdf_viewer_screen.dart';
 
 class ChatScreen extends StatefulWidget {
   const ChatScreen({super.key});
@@ -1711,6 +1712,27 @@ class _AttachmentDocumentState extends State<_AttachmentDocument> {
   Future<void> _openDocument() async {
     if (_isDownloading) return;
 
+    // Check if it's a PDF - open with integrated viewer
+    final isPdf = widget.attachment.fileName.toLowerCase().endsWith('.pdf');
+
+    if (isPdf) {
+      // Open PDF with integrated viewer
+      if (mounted) {
+        Navigator.of(context).push(
+          MaterialPageRoute(
+            builder: (context) => PdfViewerScreen(
+              attachment: widget.attachment,
+              attachmentService: widget.attachmentService,
+              currentUserId: widget.currentUserId,
+              senderId: widget.senderId,
+            ),
+          ),
+        );
+      }
+      return;
+    }
+
+    // For non-PDF documents, download and open with external app
     setState(() => _isDownloading = true);
 
     try {

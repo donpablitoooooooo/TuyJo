@@ -6,6 +6,7 @@ import '../services/chat_service.dart';
 import '../services/pairing_service.dart';
 import '../services/attachment_service.dart';
 import '../models/message.dart';
+import 'pdf_viewer_screen.dart';
 
 class MediaScreen extends StatefulWidget {
   const MediaScreen({super.key});
@@ -401,7 +402,31 @@ class _DocumentGridItem extends StatelessWidget {
 
     return GestureDetector(
       onTap: () {
-        // TODO: Apri documento
+        if (attachmentService == null) return;
+
+        // Check if it's a PDF - open with integrated viewer
+        final isPdf = item.attachment.fileName.toLowerCase().endsWith('.pdf');
+
+        if (isPdf) {
+          // Open PDF with integrated viewer
+          Navigator.of(context).push(
+            MaterialPageRoute(
+              builder: (context) => PdfViewerScreen(
+                attachment: item.attachment,
+                attachmentService: attachmentService!,
+                currentUserId: currentUserId,
+                senderId: item.message.senderId,
+              ),
+            ),
+          );
+        } else {
+          // For non-PDF documents, show a message
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Apri il documento dalla chat per visualizzarlo'),
+            ),
+          );
+        }
       },
       child: Stack(
         fit: StackFit.expand,
