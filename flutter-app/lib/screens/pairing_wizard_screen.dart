@@ -1,7 +1,9 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import '../services/pairing_service.dart';
 import '../services/encryption_service.dart';
 
@@ -22,11 +24,42 @@ class _PairingWizardScreenState extends State<PairingWizardScreen> {
   bool _isGeneratingQR = true;
   bool _showScanner = false;
   bool _isProcessingQR = false;
+  bool _bothPaired = false; // Entrambi i dispositivi hanno completato il pairing
+  StreamSubscription<QuerySnapshot>? _pairingStatusSubscription;
 
   @override
   void initState() {
     super.initState();
     _generateMyQR();
+  }
+
+  @override
+  void dispose() {
+    _pairingStatusSubscription?.cancel();
+    super.dispose();
+  }
+
+  /// Inizia ad ascoltare quando entrambi i dispositivi hanno completato il pairing
+  void _startListeningForBothPaired() async {
+    final pairingService = Provider.of<PairingService>(context, listen: false);
+    final familyChatId = await pairingService.getFamilyChatId();
+
+    if (familyChatId == null) return;
+
+    _pairingStatusSubscription = FirebaseFirestore.instance
+        .collection('families')
+        .doc(familyChatId)
+        .collection('users')
+        .snapshots()
+        .listen((snapshot) {
+      final userCount = snapshot.docs.length;
+
+      if (mounted) {
+        setState(() {
+          _bothPaired = userCount >= 2;
+        });
+      }
+    });
   }
 
   Future<void> _generateMyQR() async {
@@ -104,6 +137,9 @@ class _PairingWizardScreenState extends State<PairingWizardScreen> {
           });
 
           _showFloatingSnackBar('QR del partner scansionato con successo!');
+
+          // Inizia ad ascoltare quando entrambi hanno completato
+          _startListeningForBothPaired();
 
           // NON navigare automaticamente - lascia che l'utente prema il pulsante
           // quando il partner ha completato il suo pairing
@@ -374,26 +410,30 @@ class _PairingWizardScreenState extends State<PairingWizardScreen> {
                                   ),
                                 ],
                               ),
-                              child: const Column(
+                              child: Column(
                                 children: [
                                   Icon(
-                                    Icons.favorite,
-                                    color: Color(0xFF667eea),
+                                    _bothPaired ? Icons.favorite : Icons.favorite_border,
+                                    color: const Color(0xFF667eea),
                                     size: 48,
                                   ),
-                                  SizedBox(height: 12),
+                                  const SizedBox(height: 12),
                                   Text(
-                                    'Hai completato il pairing!',
-                                    style: TextStyle(
+                                    _bothPaired
+                                        ? 'Pairing completato!'
+                                        : 'Hai completato il pairing!',
+                                    style: const TextStyle(
                                       color: Color(0xFF667eea),
                                       fontWeight: FontWeight.bold,
                                       fontSize: 20,
                                     ),
                                   ),
-                                  SizedBox(height: 8),
+                                  const SizedBox(height: 8),
                                   Text(
-                                    'Assicurati che il tuo amore abbia completato\nentrambi gli step, poi premi "Vai alla Chat"',
-                                    style: TextStyle(
+                                    _bothPaired
+                                        ? 'Entrambi siete pronti!\nPremi "Vai alla Chat" per iniziare 💜'
+                                        : 'Attendi che il tuo amore completi\nentrambi gli step...',
+                                    style: const TextStyle(
                                       color: Colors.grey,
                                       fontSize: 14,
                                     ),
@@ -407,39 +447,49 @@ class _PairingWizardScreenState extends State<PairingWizardScreen> {
                               width: double.infinity,
                               child: Container(
                                 decoration: BoxDecoration(
-                                  gradient: const LinearGradient(
-                                    colors: [
-                                      Color(0xFF667eea),
-                                      Color(0xFF764ba2),
-                                    ],
-                                  ),
+                                  gradient: _bothPaired
+                                      ? const LinearGradient(
+                                          colors: [
+                                            Color(0xFF667eea),
+                                            Color(0xFF764ba2),
+                                          ],
+                                        )
+                                      : null,
+                                  color: _bothPaired ? null : Colors.grey.shade300,
                                   borderRadius: BorderRadius.circular(12),
-                                  boxShadow: [
-                                    BoxShadow(
-                                      color: const Color(0xFF667eea).withOpacity(0.3),
-                                      blurRadius: 8,
-                                      offset: const Offset(0, 4),
-                                    ),
-                                  ],
+                                  boxShadow: _bothPaired
+                                      ? [
+                                          BoxShadow(
+                                            color: const Color(0xFF667eea).withOpacity(0.3),
+                                            blurRadius: 8,
+                                            offset: const Offset(0, 4),
+                                          ),
+                                        ]
+                                      : null,
                                 ),
                                 child: Material(
                                   color: Colors.transparent,
                                   child: InkWell(
                                     borderRadius: BorderRadius.circular(12),
-                                    onTap: () {
-                                      Navigator.of(context).popUntil((route) => route.isFirst);
-                                    },
+                                    onTap: _bothPaired
+                                        ? () {
+                                            Navigator.of(context).popUntil((route) => route.isFirst);
+                                          }
+                                        : null,
                                     child: Container(
                                       padding: const EdgeInsets.symmetric(vertical: 16),
-                                      child: const Row(
+                                      child: Row(
                                         mainAxisAlignment: MainAxisAlignment.center,
                                         children: [
-                                          Icon(Icons.chat, color: Colors.white),
-                                          SizedBox(width: 12),
+                                          Icon(
+                                            _bothPaired ? Icons.chat : Icons.hourglass_empty,
+                                            color: _bothPaired ? Colors.white : Colors.grey.shade500,
+                                          ),
+                                          const SizedBox(width: 12),
                                           Text(
-                                            'Vai alla Chat',
+                                            _bothPaired ? 'Vai alla Chat' : 'In attesa...',
                                             style: TextStyle(
-                                              color: Colors.white,
+                                              color: _bothPaired ? Colors.white : Colors.grey.shade500,
                                               fontSize: 16,
                                               fontWeight: FontWeight.w600,
                                             ),
