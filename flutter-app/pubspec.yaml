@@ -15,7 +15,7 @@ dependencies:
   provider: ^6.1.5
 
   # Networking
-  http: ^1.6.0
+  http: ^1.2.2
 
   # Storage
   shared_preferences: ^2.5.4
@@ -30,12 +30,12 @@ dependencies:
   asn1lib: ^1.5.0
 
   # Firebase (aggiornate alle ultime versioni)
-  firebase_core: ^4.3.0
-  firebase_auth: ^6.1.3
-  cloud_firestore: ^6.1.1
-  firebase_messaging: ^16.1.0
-  firebase_storage: ^13.0.5
-  flutter_local_notifications: ^19.5.0
+  firebase_core: ^4.4.0
+  firebase_auth: ^6.3.0
+  cloud_firestore: ^6.3.0
+  firebase_messaging: ^16.3.0
+  firebase_storage: ^13.3.0
+  flutter_local_notifications: ^19.0.1
 
   # UI
   flutter_chat_ui: ^2.11.1
@@ -50,15 +50,15 @@ dependencies:
   mobile_scanner: ^7.1.4
 
   # File Picking & Media
-  image_picker: ^1.1.2
-  image_cropper: ^8.0.2
-  file_picker: ^8.1.6
-  mime: ^1.0.6
-  path_provider: ^2.1.5
-  image: ^4.1.7
-  open_filex: ^4.5.0
-  pdfx: ^2.7.0
-  receive_sharing_intent: ^1.8.0
+  image_picker: ^1.2.0
+  image_cropper: ^9.0.0
+  file_picker: ^8.2.0
+  mime: ^2.0.0
+  path_provider: ^2.1.6
+  image: ^4.3.0
+  open_filex: ^4.6.0
+  pdfx: ^2.8.0
+  receive_sharing_intent: ^1.9.0
 
 dev_dependencies:
   flutter_test:
