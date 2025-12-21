@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../services/pairing_service.dart';
+import '../services/couple_selfie_service.dart';
 import 'chat_screen.dart';
 import 'media_screen.dart';
 import 'settings_screen.dart';
+import 'couple_selfie_screen.dart';
 
 class MainScreen extends StatefulWidget {
   const MainScreen({Key? key}) : super(key: key);
@@ -45,6 +47,16 @@ class _MainScreenState extends State<MainScreen> {
         _selectedIndex = pairingService.isPaired ? 0 : 2;
         _isInitialized = true;
       });
+
+      // Se paired, inizializza anche il CoupleSelfieService
+      if (pairingService.isPaired) {
+        final coupleSelfieService = Provider.of<CoupleSelfieService>(context, listen: false);
+        pairingService.getFamilyChatId().then((familyChatId) {
+          if (familyChatId != null) {
+            coupleSelfieService.initialize(familyChatId);
+          }
+        });
+      }
     }
 
     final totalDuration = DateTime.now().difference(startTime);
@@ -76,31 +88,184 @@ class _MainScreenState extends State<MainScreen> {
     ];
 
     return Scaffold(
-      body: IndexedStack(
-        index: _selectedIndex,
-        children: screens,
+      drawer: Drawer(
+        child: Container(
+          decoration: const BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: [
+                Color(0xFF667eea),
+                Color(0xFF764ba2),
+              ],
+            ),
+          ),
+          child: ListView(
+            padding: EdgeInsets.zero,
+            children: [
+              const DrawerHeader(
+                decoration: BoxDecoration(
+                  color: Colors.transparent,
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    Icon(Icons.favorite, color: Colors.white, size: 48),
+                    SizedBox(height: 16),
+                    Text(
+                      'You & Me',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 24,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              ListTile(
+                leading: const Icon(Icons.chat_bubble, color: Colors.white),
+                title: const Text('Chat', style: TextStyle(color: Colors.white)),
+                selected: _selectedIndex == 0,
+                selectedTileColor: Colors.white.withOpacity(0.2),
+                onTap: () {
+                  _onItemTapped(0);
+                  Navigator.pop(context);
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.perm_media, color: Colors.white),
+                title: const Text('Media', style: TextStyle(color: Colors.white)),
+                selected: _selectedIndex == 1,
+                selectedTileColor: Colors.white.withOpacity(0.2),
+                onTap: () {
+                  _onItemTapped(1);
+                  Navigator.pop(context);
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.settings, color: Colors.white),
+                title: const Text('Impostazioni', style: TextStyle(color: Colors.white)),
+                selected: _selectedIndex == 2,
+                selectedTileColor: Colors.white.withOpacity(0.2),
+                onTap: () {
+                  _onItemTapped(2);
+                  Navigator.pop(context);
+                },
+              ),
+            ],
+          ),
+        ),
       ),
-      bottomNavigationBar: BottomNavigationBar(
-        items: const <BottomNavigationBarItem>[
-          BottomNavigationBarItem(
-            icon: Icon(Icons.chat_bubble_outline),
-            activeIcon: Icon(Icons.chat_bubble),
-            label: 'Chat',
+      body: Stack(
+        children: [
+          // Main content
+          IndexedStack(
+            index: _selectedIndex,
+            children: screens,
           ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.perm_media_outlined),
-            activeIcon: Icon(Icons.perm_media),
-            label: 'Media',
+          // Floating hamburger menu (top left)
+          Positioned(
+            top: 48,
+            left: 16,
+            child: Builder(
+              builder: (context) => Container(
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  shape: BoxShape.circle,
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.1),
+                      blurRadius: 8,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
+                ),
+                child: IconButton(
+                  icon: const Icon(Icons.menu, color: Color(0xFF667eea)),
+                  onPressed: () => Scaffold.of(context).openDrawer(),
+                ),
+              ),
+            ),
           ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.settings_outlined),
-            activeIcon: Icon(Icons.settings),
-            label: 'Impostazioni',
+          // Floating couple selfie / pairing status (top right)
+          Positioned(
+            top: 48,
+            right: 16,
+            child: Consumer2<PairingService, CoupleSelfieService>(
+              builder: (context, pairingService, coupleSelfieService, _) {
+                final isPaired = pairingService.isPaired;
+                final hasSelfie = coupleSelfieService.hasSelfie;
+                final selfieUrl = coupleSelfieService.selfieUrl;
+
+                return GestureDetector(
+                  onTap: isPaired
+                      ? () {
+                          // Navigate to couple selfie screen
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => const CoupleSelfieScreen(),
+                            ),
+                          );
+                        }
+                      : null,
+                  child: Container(
+                    width: 48,
+                    height: 48,
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      shape: BoxShape.circle,
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.1),
+                          blurRadius: 8,
+                          offset: const Offset(0, 2),
+                        ),
+                      ],
+                    ),
+                    child: ClipOval(
+                      child: hasSelfie && selfieUrl != null
+                          ? Image.network(
+                              selfieUrl,
+                              fit: BoxFit.cover,
+                              errorBuilder: (context, error, stackTrace) {
+                                // Fallback to heart icon if image fails to load
+                                return Icon(
+                                  Icons.favorite,
+                                  color: isPaired ? const Color(0xFF667eea) : Colors.grey,
+                                  size: 24,
+                                );
+                              },
+                              loadingBuilder: (context, child, loadingProgress) {
+                                if (loadingProgress == null) return child;
+                                return Center(
+                                  child: CircularProgressIndicator(
+                                    value: loadingProgress.expectedTotalBytes != null
+                                        ? loadingProgress.cumulativeBytesLoaded /
+                                            loadingProgress.expectedTotalBytes!
+                                        : null,
+                                    strokeWidth: 2,
+                                    valueColor: const AlwaysStoppedAnimation<Color>(
+                                      Color(0xFF667eea),
+                                    ),
+                                  ),
+                                );
+                              },
+                            )
+                          : Icon(
+                              Icons.favorite,
+                              color: isPaired ? const Color(0xFF667eea) : Colors.grey,
+                              size: 24,
+                            ),
+                    ),
+                  ),
+                );
+              },
+            ),
           ),
         ],
-        currentIndex: _selectedIndex,
-        selectedItemColor: Colors.blue,
-        onTap: _onItemTapped,
       ),
     );
   }

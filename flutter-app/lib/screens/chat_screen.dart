@@ -27,6 +27,13 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   bool _isLoading = true;
   bool _hasText = false;
   String? _familyChatId;
+
+  // Computed property per determinare se il pulsante send è abilitato
+  bool get _canSend =>
+      _hasText ||
+      _selectedTodoDate != null ||
+      _selectedAttachments.isNotEmpty;
+
   String? _myDeviceId;
   String? _partnerPublicKey;
   bool _lastPairingStatus = false;
@@ -324,7 +331,10 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
               colors: [Color(0xFF667eea), Color(0xFF764ba2)],
             ),
           ),
-          child: SafeArea(
+          child: Padding(
+            padding: EdgeInsets.only(
+              bottom: MediaQuery.of(context).padding.bottom,
+            ),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
@@ -382,34 +392,6 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                 },
               ),
               _AttachmentOption(
-                icon: Icons.video_library,
-                label: 'Video da galleria',
-                color: Colors.orange,
-                onTap: () async {
-                  Navigator.pop(context);
-                  final file = await _attachmentService!.pickVideoFromGallery();
-                  if (file != null) {
-                    setState(() {
-                      _selectedAttachments.add(file);
-                    });
-                  }
-                },
-              ),
-              _AttachmentOption(
-                icon: Icons.videocam,
-                label: 'Registra video',
-                color: Colors.red,
-                onTap: () async {
-                  Navigator.pop(context);
-                  final file = await _attachmentService!.pickVideoFromCamera();
-                  if (file != null) {
-                    setState(() {
-                      _selectedAttachments.add(file);
-                    });
-                  }
-                },
-              ),
-              _AttachmentOption(
                 icon: Icons.insert_drive_file,
                 label: 'Documento',
                 color: Colors.green,
@@ -426,7 +408,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
               const SizedBox(height: 16),
             ],
           ), // Chiude Column
-        ), // Chiude SafeArea
+        ), // Chiude Padding
       ), // Chiude Container
     ), // Chiude ClipRRect
     ); // Chiude showModalBottomSheet
@@ -893,46 +875,6 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     }
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Family Chat ❤️'),
-        actions: [
-          IconButton(
-            icon: Icon(
-              chatService.isConnected ? Icons.cloud_done : Icons.cloud_off,
-              color: chatService.isConnected ? Colors.green : Colors.red,
-            ),
-            onPressed: () {},
-          ),
-          IconButton(
-            icon: const Icon(Icons.delete_outline),
-            tooltip: 'Reset pairing',
-            onPressed: () async {
-              final confirmed = await showDialog<bool>(
-                context: context,
-                builder: (context) => AlertDialog(
-                  title: const Text('Reset Pairing'),
-                  content: const Text('Vuoi eliminare il pairing? Dovrai scansionare di nuovo il QR code.'),
-                  actions: [
-                    TextButton(
-                      onPressed: () => Navigator.pop(context, false),
-                      child: const Text('Annulla'),
-                    ),
-                    TextButton(
-                      onPressed: () => Navigator.pop(context, true),
-                      child: const Text('Reset'),
-                    ),
-                  ],
-                ),
-              );
-
-              if (confirmed == true) {
-                chatService.stopListening();
-                await pairingService.clearPairing();
-              }
-            },
-          ),
-        ],
-      ),
       body: Column(
         children: [
           Expanded(
@@ -969,7 +911,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                       Expanded(
                         child: ListView.builder(
                           controller: _scrollController,
-                          padding: const EdgeInsets.all(16),
+                          padding: const EdgeInsets.fromLTRB(12, 60, 12, 2),
                           itemCount: chatService.messages.length,
                           reverse: true, // 🔧 FIX: reverse per mostrare nuovi messaggi in basso
                           itemBuilder: (context, index) {
@@ -1058,7 +1000,12 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                   ),
           ),
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
+            padding: EdgeInsets.fromLTRB(
+              8,
+              12,
+              8,
+              12 + MediaQuery.of(context).padding.bottom,
+            ),
             decoration: BoxDecoration(
               color: Colors.white,
               boxShadow: [
@@ -1070,8 +1017,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                 ),
               ],
             ),
-            child: SafeArea(
-              child: Column(
+            child: Column(
                 children: [
                   // Mostra allegati selezionati
                   if (_selectedAttachments.isNotEmpty)
@@ -1103,11 +1049,14 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                       ),
                     ),
                   Row(
+                    crossAxisAlignment: CrossAxisAlignment.center,
                     children: [
                       IconButton(
                         onPressed: _showAttachmentPicker,
                         icon: const Icon(Icons.add_circle_outline),
-                        color: const Color(0xFF667eea),
+                        color: _selectedAttachments.isNotEmpty
+                            ? const Color(0xFF667eea)
+                            : Colors.grey[600],
                         tooltip: 'Allegati',
                         iconSize: 28,
                       ),
@@ -1151,13 +1100,13 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                   ),
                   const SizedBox(width: 8),
                   AnimatedScale(
-                    scale: _hasText ? 1.0 : 0.8,
+                    scale: _canSend ? 1.0 : 0.8,
                     duration: const Duration(milliseconds: 200),
                     curve: Curves.easeOutBack,
                     child: AnimatedContainer(
                       duration: const Duration(milliseconds: 200),
                       decoration: BoxDecoration(
-                        gradient: _hasText
+                        gradient: _canSend
                             ? const LinearGradient(
                                 colors: [
                                   Color(0xFF667eea),
@@ -1171,7 +1120,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                                 ],
                               ),
                         shape: BoxShape.circle,
-                        boxShadow: _hasText
+                        boxShadow: _canSend
                             ? [
                                 BoxShadow(
                                   color: const Color(0xFF667eea).withOpacity(0.4),
@@ -1182,7 +1131,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                             : [],
                       ),
                       child: IconButton(
-                        onPressed: _hasText ? _sendMessage : null,
+                        onPressed: _canSend ? _sendMessage : null,
                         icon: const Icon(Icons.send_rounded),
                         color: Colors.white,
                         iconSize: 22,
@@ -1193,7 +1142,6 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                   ),
                 ],
               ),
-            ),
           ),
         ],
       ),
@@ -1425,7 +1373,6 @@ class _MessageBubbleState extends State<_MessageBubble>
           );
         }
       }),
-      const SizedBox(height: 8),
     ];
   }
 
@@ -1502,55 +1449,62 @@ class _MessageBubbleState extends State<_MessageBubble>
                       },
                       splashColor: Colors.white.withOpacity(0.2),
                       highlightColor: Colors.white.withOpacity(0.1),
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 16,
-                          vertical: 10,
-                        ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            // Allegati (se presenti)
-                            if (widget.attachments != null && widget.attachments!.isNotEmpty)
-                              ..._buildAttachments(),
-                            // Testo del messaggio (se presente)
-                            if (widget.message.isNotEmpty)
-                              Text(
-                                widget.message,
-                                style: TextStyle(
-                                  color: widget.isMe ? Colors.white : Colors.black87,
-                                  fontSize: 15,
-                                  height: 1.4,
-                                ),
-                              ),
-                            const SizedBox(height: 4),
-                            Row(
-                              mainAxisSize: MainAxisSize.min,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          // Allegati (se presenti) - senza padding per occupare tutta la larghezza
+                          if (widget.attachments != null && widget.attachments!.isNotEmpty)
+                            ..._buildAttachments(),
+                          // Testo e timestamp con padding
+                          Padding(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 16,
+                              vertical: 10,
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                Text(
-                                  DateFormat('HH:mm').format(widget.timestamp),
-                                  style: TextStyle(
-                                    fontSize: 11,
-                                    color: widget.isMe
-                                        ? Colors.white.withOpacity(0.8)
-                                        : Colors.black54,
+                                // Testo del messaggio (se presente)
+                                if (widget.message.isNotEmpty) ...[
+                                  Text(
+                                    widget.message,
+                                    style: TextStyle(
+                                      color: widget.isMe ? Colors.white : Colors.black87,
+                                      fontSize: 15,
+                                      height: 1.4,
+                                    ),
                                   ),
-                                ),
-                                // Mostra le spunte solo per i messaggi inviati da me
-                                if (widget.isMe) ...[
-                                  const SizedBox(width: 4),
-                                  Icon(
-                                    widget.read ? Icons.done_all : Icons.done,
-                                    size: 14,
-                                    color: widget.read
-                                        ? Colors.blue[300]
-                                        : Colors.white.withOpacity(0.8),
-                                  ),
+                                  const SizedBox(height: 4),
                                 ],
+                                Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Text(
+                                      DateFormat('HH:mm').format(widget.timestamp),
+                                      style: TextStyle(
+                                        fontSize: 11,
+                                        color: widget.isMe
+                                            ? Colors.white.withOpacity(0.8)
+                                            : Colors.black54,
+                                      ),
+                                    ),
+                                    // Mostra le spunte solo per i messaggi inviati da me
+                                    if (widget.isMe) ...[
+                                      const SizedBox(width: 4),
+                                      Icon(
+                                        widget.read ? Icons.done_all : Icons.done,
+                                        size: 14,
+                                        color: widget.read
+                                            ? Colors.blue[300]
+                                            : Colors.white.withOpacity(0.8),
+                                      ),
+                                    ],
+                                  ],
+                                ),
                               ],
                             ),
-                          ],
-                        ),
+                          ),
+                        ],
                       ),
                     ),
                   ),
@@ -1609,35 +1563,39 @@ class _AttachmentImage extends StatelessWidget {
           builder: (context, snapshot) {
             if (snapshot.connectionState == ConnectionState.waiting) {
               // Caricamento
-              return Container(
-                constraints: const BoxConstraints(maxWidth: 200, maxHeight: 200),
-                color: isMe ? Colors.white.withOpacity(0.1) : Colors.grey[200],
-                child: const Center(
-                  child: CircularProgressIndicator(),
+              return SizedBox(
+                width: double.infinity,
+                height: 200,
+                child: Container(
+                  color: isMe ? Colors.white.withOpacity(0.1) : Colors.grey[200],
+                  child: const Center(
+                    child: CircularProgressIndicator(),
+                  ),
                 ),
               );
             }
 
             if (snapshot.hasError || !snapshot.hasData || snapshot.data == null) {
               // Errore decifratura
-              return Container(
-                constraints: const BoxConstraints(maxWidth: 200, maxHeight: 200),
-                color: Colors.red.withOpacity(0.1),
-                child: const Center(
-                  child: Icon(Icons.error, color: Colors.red),
+              return SizedBox(
+                width: double.infinity,
+                height: 200,
+                child: Container(
+                  color: Colors.red.withOpacity(0.1),
+                  child: const Center(
+                    child: Icon(Icons.error, color: Colors.red),
+                  ),
                 ),
               );
             }
 
-            // Immagine decifrata visualizzata - usa dimensione naturale della thumbnail
-            return ConstrainedBox(
-              constraints: const BoxConstraints(
-                maxWidth: 200,
-                maxHeight: 200,
-              ),
+            // Immagine decifrata visualizzata - usa tutta la larghezza della bubble
+            return SizedBox(
+              width: double.infinity,
+              height: 200,
               child: Image.memory(
                 snapshot.data!,
-                fit: BoxFit.contain, // Mantiene proporzioni senza tagliare
+                fit: BoxFit.cover, // Taglia per riempire tutta l'area
               ),
             );
           },
@@ -2053,14 +2011,19 @@ class _TodoMessageBubble extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // Testo del todo
+                    // Testo del todo (mostra "Todo" se vuoto)
                     Text(
-                      message.decryptedContent ?? '',
+                      (message.decryptedContent?.isEmpty ?? true)
+                          ? 'Todo'
+                          : message.decryptedContent!,
                       style: TextStyle(
                         color: isMe ? Colors.white : Colors.black87,
                         fontSize: 15,
                         height: 1.4,
                         decoration: isCompleted ? TextDecoration.lineThrough : null,
+                        fontStyle: (message.decryptedContent?.isEmpty ?? true)
+                            ? FontStyle.italic
+                            : FontStyle.normal,
                       ),
                     ),
 

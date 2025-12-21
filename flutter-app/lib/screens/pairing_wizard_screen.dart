@@ -1,7 +1,9 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import '../services/pairing_service.dart';
 import '../services/encryption_service.dart';
 
@@ -22,11 +24,42 @@ class _PairingWizardScreenState extends State<PairingWizardScreen> {
   bool _isGeneratingQR = true;
   bool _showScanner = false;
   bool _isProcessingQR = false;
+  bool _bothPaired = false; // Entrambi i dispositivi hanno completato il pairing
+  StreamSubscription<QuerySnapshot>? _pairingStatusSubscription;
 
   @override
   void initState() {
     super.initState();
     _generateMyQR();
+  }
+
+  @override
+  void dispose() {
+    _pairingStatusSubscription?.cancel();
+    super.dispose();
+  }
+
+  /// Inizia ad ascoltare quando entrambi i dispositivi hanno completato il pairing
+  void _startListeningForBothPaired() async {
+    final pairingService = Provider.of<PairingService>(context, listen: false);
+    final familyChatId = await pairingService.getFamilyChatId();
+
+    if (familyChatId == null) return;
+
+    _pairingStatusSubscription = FirebaseFirestore.instance
+        .collection('families')
+        .doc(familyChatId)
+        .collection('users')
+        .snapshots()
+        .listen((snapshot) {
+      final userCount = snapshot.docs.length;
+
+      if (mounted) {
+        setState(() {
+          _bothPaired = userCount >= 2;
+        });
+      }
+    });
   }
 
   Future<void> _generateMyQR() async {
@@ -52,14 +85,35 @@ class _PairingWizardScreenState extends State<PairingWizardScreen> {
       setState(() {
         _myQrData = qrData;
         _isGeneratingQR = false;
+        _step1Completed = true; // Step 1 completato automaticamente quando il QR è generato
       });
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Errore generazione QR: $e')),
-        );
+        _showFloatingSnackBar('Errore generazione QR: $e', isError: true);
       }
     }
+  }
+
+  void _showFloatingSnackBar(String message, {bool isError = false}) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Row(
+          children: [
+            Icon(
+              isError ? Icons.error_outline : Icons.check_circle_outline,
+              color: Colors.white,
+            ),
+            const SizedBox(width: 12),
+            Expanded(child: Text(message)),
+          ],
+        ),
+        backgroundColor: isError ? Colors.red : const Color(0xFF667eea),
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        margin: const EdgeInsets.all(16),
+        duration: Duration(seconds: isError ? 3 : 2),
+      ),
+    );
   }
 
   Future<void> _handlePartnerQRCode(String qrData) async {
@@ -82,38 +136,20 @@ class _PairingWizardScreenState extends State<PairingWizardScreen> {
             _showScanner = false;
           });
 
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('✅ QR del partner scansionato!'),
-              backgroundColor: Colors.green,
-              duration: Duration(seconds: 2),
-            ),
-          );
+          _showFloatingSnackBar('QR del partner scansionato con successo!');
 
-          // Se entrambi gli step completati, naviga a ChatScreen
-          if (_step1Completed && _step2Completed) {
-            await Future.delayed(const Duration(milliseconds: 500));
-            if (mounted) {
-              Navigator.of(context).popUntil((route) => route.isFirst);
-            }
-          }
+          // Inizia ad ascoltare quando entrambi hanno completato
+          _startListeningForBothPaired();
+
+          // NON navigare automaticamente - lascia che l'utente prema il pulsante
+          // quando il partner ha completato il suo pairing
         } else {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('❌ QR Code non valido'),
-              backgroundColor: Colors.red,
-            ),
-          );
+          _showFloatingSnackBar('QR Code non valido', isError: true);
         }
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Errore: $e'),
-            backgroundColor: Colors.red,
-          ),
-        );
+        _showFloatingSnackBar('Errore: $e', isError: true);
       }
     } finally {
       setState(() {
@@ -129,174 +165,350 @@ class _PairingWizardScreenState extends State<PairingWizardScreen> {
     }
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Pairing'),
-        centerTitle: true,
-      ),
-      body: _isGeneratingQR
-          ? const Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  CircularProgressIndicator(),
-                  SizedBox(height: 16),
-                  Text('Preparazione pairing...'),
-                ],
-              ),
-            )
-          : SingleChildScrollView(
-              padding: const EdgeInsets.all(24.0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text(
-                    'Pairing con il tuo amore ❤️',
-                    style: TextStyle(
-                      fontSize: 24,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  const Text(
-                    'Completa entrambi i passaggi per accoppiare i dispositivi',
-                    style: TextStyle(
-                      fontSize: 14,
-                      color: Colors.grey,
-                    ),
-                  ),
-                  const SizedBox(height: 32),
-
-                  // STEP 1: Mostra il tuo QR
-                  _buildStepCard(
-                    stepNumber: 1,
-                    title: 'Mostra il tuo QR',
-                    description: 'Fai scansionare questo QR al tuo amore',
-                    isCompleted: _step1Completed,
-                    child: Column(
-                      children: [
-                        if (_myQrData != null) ...[
-                          Container(
-                            padding: const EdgeInsets.all(16),
-                            decoration: BoxDecoration(
-                              color: Colors.white,
-                              borderRadius: BorderRadius.circular(12),
-                              border: Border.all(color: Colors.grey.shade300),
-                            ),
-                            child: QrImageView(
-                              data: _myQrData!,
-                              version: QrVersions.auto,
-                              size: 200,
-                              backgroundColor: Colors.white,
-                            ),
-                          ),
-                          const SizedBox(height: 16),
-                          CheckboxListTile(
-                            title: const Text('Il mio amore ha scansionato il QR'),
-                            value: _step1Completed,
-                            onChanged: (value) {
-                              setState(() {
-                                _step1Completed = value ?? false;
-                              });
-                            },
-                            controlAffinity: ListTileControlAffinity.leading,
-                          ),
-                        ],
-                      ],
-                    ),
-                  ),
-
-                  const SizedBox(height: 24),
-
-                  // STEP 2: Scansiona QR partner
-                  _buildStepCard(
-                    stepNumber: 2,
-                    title: 'Leggi il QR del tuo amore',
-                    description: 'Scansiona il QR mostrato dal tuo amore',
-                    isCompleted: _step2Completed,
-                    child: Column(
-                      children: [
-                        if (!_step2Completed) ...[
-                          SizedBox(
-                            width: double.infinity,
-                            child: ElevatedButton.icon(
-                              onPressed: () {
-                                setState(() {
-                                  _showScanner = true;
-                                });
-                              },
-                              icon: const Icon(Icons.qr_code_scanner),
-                              label: const Text('Scansiona QR'),
-                              style: ElevatedButton.styleFrom(
-                                padding: const EdgeInsets.symmetric(vertical: 16),
-                              ),
-                            ),
-                          ),
-                        ] else ...[
-                          const Row(
-                            children: [
-                              Icon(Icons.check_circle, color: Colors.green, size: 32),
-                              SizedBox(width: 12),
-                              Text(
-                                'QR scansionato con successo!',
-                                style: TextStyle(
-                                  color: Colors.green,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ],
-                      ],
-                    ),
-                  ),
-
-                  const SizedBox(height: 32),
-
-                  // Stato completamento
-                  if (_step1Completed && _step2Completed) ...[
-                    Container(
-                      width: double.infinity,
-                      padding: const EdgeInsets.all(16),
-                      decoration: BoxDecoration(
-                        color: Colors.green.shade50,
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: Colors.green),
-                      ),
-                      child: const Row(
-                        children: [
-                          Icon(Icons.favorite, color: Colors.red, size: 32),
-                          SizedBox(width: 12),
-                          Expanded(
-                            child: Text(
-                              'Pairing completato! Potete iniziare a chattare in modo sicuro ❤️',
-                              style: TextStyle(
-                                color: Colors.green,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                    SizedBox(
-                      width: double.infinity,
-                      child: ElevatedButton.icon(
-                        onPressed: () {
-                          Navigator.of(context).popUntil((route) => route.isFirst);
-                        },
-                        icon: const Icon(Icons.chat),
-                        label: const Text('Vai alla Chat'),
-                        style: ElevatedButton.styleFrom(
-                          padding: const EdgeInsets.symmetric(vertical: 16),
-                          backgroundColor: Colors.green,
-                        ),
-                      ),
+      body: Container(
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [
+              Color(0xFF667eea),
+              Color(0xFF764ba2),
+            ],
+          ),
+        ),
+        child: Stack(
+          children: [
+            // Floating back button
+            Positioned(
+              top: 48,
+              left: 16,
+              child: Container(
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  shape: BoxShape.circle,
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.1),
+                      blurRadius: 8,
+                      offset: const Offset(0, 2),
                     ),
                   ],
-                ],
+                ),
+                child: IconButton(
+                  icon: const Icon(Icons.arrow_back, color: Color(0xFF667eea)),
+                  onPressed: () {
+                    Navigator.of(context, rootNavigator: false).pop();
+                  },
+                ),
               ),
             ),
+
+            // Main content
+            SafeArea(
+              child: _isGeneratingQR
+                  ? const Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          CircularProgressIndicator(
+                            valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                          ),
+                          SizedBox(height: 16),
+                          Text(
+                            'Preparazione pairing...',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 16,
+                            ),
+                          ),
+                        ],
+                      ),
+                    )
+                  : SingleChildScrollView(
+                      padding: const EdgeInsets.fromLTRB(24, 80, 24, 24),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          // Header
+                          const Text(
+                            'Pairing con il tuo amore',
+                            style: TextStyle(
+                              fontSize: 28,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.white,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          const Text(
+                            'Completa entrambi i passaggi per accoppiare i dispositivi',
+                            style: TextStyle(
+                              fontSize: 14,
+                              color: Colors.white70,
+                            ),
+                          ),
+                          const SizedBox(height: 32),
+
+                          // STEP 1: Mostra il tuo QR
+                          _buildStepCard(
+                            stepNumber: 1,
+                            title: 'Mostra il tuo QR',
+                            description: 'Fai scansionare questo QR al tuo amore',
+                            isCompleted: _step1Completed,
+                            child: Column(
+                              children: [
+                                if (_myQrData != null) ...[
+                                  Center(
+                                    child: Container(
+                                      padding: const EdgeInsets.all(16),
+                                      decoration: BoxDecoration(
+                                        color: Colors.white,
+                                        borderRadius: BorderRadius.circular(16),
+                                        boxShadow: [
+                                          BoxShadow(
+                                            color: Colors.black.withOpacity(0.05),
+                                            blurRadius: 8,
+                                            offset: const Offset(0, 2),
+                                          ),
+                                        ],
+                                      ),
+                                      child: QrImageView(
+                                        data: _myQrData!,
+                                        version: QrVersions.auto,
+                                        size: 200,
+                                        backgroundColor: Colors.white,
+                                        eyeStyle: const QrEyeStyle(
+                                          eyeShape: QrEyeShape.square,
+                                          color: Color(0xFF667eea),
+                                        ),
+                                        dataModuleStyle: const QrDataModuleStyle(
+                                          dataModuleShape: QrDataModuleShape.square,
+                                          color: Color(0xFF667eea),
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ],
+                            ),
+                          ),
+
+                          const SizedBox(height: 24),
+
+                          // STEP 2: Scansiona QR partner
+                          _buildStepCard(
+                            stepNumber: 2,
+                            title: 'Leggi il QR del tuo amore',
+                            description: 'Scansiona il QR mostrato dal tuo amore',
+                            isCompleted: _step2Completed,
+                            child: Column(
+                              children: [
+                                if (!_step2Completed) ...[
+                                  SizedBox(
+                                    width: double.infinity,
+                                    child: Container(
+                                      decoration: BoxDecoration(
+                                        gradient: const LinearGradient(
+                                          colors: [
+                                            Color(0xFF667eea),
+                                            Color(0xFF764ba2),
+                                          ],
+                                        ),
+                                        borderRadius: BorderRadius.circular(12),
+                                        boxShadow: [
+                                          BoxShadow(
+                                            color: const Color(0xFF667eea).withOpacity(0.3),
+                                            blurRadius: 8,
+                                            offset: const Offset(0, 4),
+                                          ),
+                                        ],
+                                      ),
+                                      child: Material(
+                                        color: Colors.transparent,
+                                        child: InkWell(
+                                          borderRadius: BorderRadius.circular(12),
+                                          onTap: () {
+                                            setState(() {
+                                              _showScanner = true;
+                                            });
+                                          },
+                                          child: Container(
+                                            padding: const EdgeInsets.symmetric(vertical: 16),
+                                            child: const Row(
+                                              mainAxisAlignment: MainAxisAlignment.center,
+                                              children: [
+                                                Icon(
+                                                  Icons.qr_code_scanner,
+                                                  color: Colors.white,
+                                                ),
+                                                SizedBox(width: 12),
+                                                Text(
+                                                  'Scansiona QR',
+                                                  style: TextStyle(
+                                                    color: Colors.white,
+                                                    fontSize: 16,
+                                                    fontWeight: FontWeight.w600,
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                ] else ...[
+                                  Container(
+                                    padding: const EdgeInsets.all(16),
+                                    decoration: BoxDecoration(
+                                      color: const Color(0xFF667eea).withOpacity(0.1),
+                                      borderRadius: BorderRadius.circular(12),
+                                      border: Border.all(
+                                        color: const Color(0xFF667eea),
+                                      ),
+                                    ),
+                                    child: const Row(
+                                      children: [
+                                        Icon(
+                                          Icons.check_circle,
+                                          color: Color(0xFF667eea),
+                                          size: 32,
+                                        ),
+                                        SizedBox(width: 12),
+                                        Expanded(
+                                          child: Text(
+                                            'QR scansionato con successo!',
+                                            style: TextStyle(
+                                              color: Color(0xFF667eea),
+                                              fontWeight: FontWeight.w600,
+                                              fontSize: 14,
+                                            ),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ],
+                              ],
+                            ),
+                          ),
+
+                          const SizedBox(height: 32),
+
+                          // Stato completamento
+                          if (_step1Completed && _step2Completed) ...[
+                            Container(
+                              width: double.infinity,
+                              padding: const EdgeInsets.all(20),
+                              decoration: BoxDecoration(
+                                color: Colors.white,
+                                borderRadius: BorderRadius.circular(16),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: Colors.black.withOpacity(0.1),
+                                    blurRadius: 12,
+                                    offset: const Offset(0, 4),
+                                  ),
+                                ],
+                              ),
+                              child: Column(
+                                children: [
+                                  Icon(
+                                    _bothPaired ? Icons.favorite : Icons.favorite_border,
+                                    color: const Color(0xFF667eea),
+                                    size: 48,
+                                  ),
+                                  const SizedBox(height: 12),
+                                  Text(
+                                    _bothPaired
+                                        ? 'Pairing completato!'
+                                        : 'Hai completato il pairing!',
+                                    style: const TextStyle(
+                                      color: Color(0xFF667eea),
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 20,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 8),
+                                  Text(
+                                    _bothPaired
+                                        ? 'Entrambi siete pronti!\nPremi "Vai alla Chat" per iniziare 💜'
+                                        : 'Attendi che il tuo amore completi\nentrambi gli step...',
+                                    style: const TextStyle(
+                                      color: Colors.grey,
+                                      fontSize: 14,
+                                    ),
+                                    textAlign: TextAlign.center,
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(height: 16),
+                            SizedBox(
+                              width: double.infinity,
+                              child: Container(
+                                decoration: BoxDecoration(
+                                  gradient: _bothPaired
+                                      ? const LinearGradient(
+                                          colors: [
+                                            Color(0xFF667eea),
+                                            Color(0xFF764ba2),
+                                          ],
+                                        )
+                                      : null,
+                                  color: _bothPaired ? null : Colors.grey.shade300,
+                                  borderRadius: BorderRadius.circular(12),
+                                  boxShadow: _bothPaired
+                                      ? [
+                                          BoxShadow(
+                                            color: const Color(0xFF667eea).withOpacity(0.3),
+                                            blurRadius: 8,
+                                            offset: const Offset(0, 4),
+                                          ),
+                                        ]
+                                      : null,
+                                ),
+                                child: Material(
+                                  color: Colors.transparent,
+                                  child: InkWell(
+                                    borderRadius: BorderRadius.circular(12),
+                                    onTap: _bothPaired
+                                        ? () {
+                                            Navigator.of(context).popUntil((route) => route.isFirst);
+                                          }
+                                        : null,
+                                    child: Container(
+                                      padding: const EdgeInsets.symmetric(vertical: 16),
+                                      child: Row(
+                                        mainAxisAlignment: MainAxisAlignment.center,
+                                        children: [
+                                          Icon(
+                                            _bothPaired ? Icons.chat : Icons.hourglass_empty,
+                                            color: _bothPaired ? Colors.white : Colors.grey.shade500,
+                                          ),
+                                          const SizedBox(width: 12),
+                                          Text(
+                                            _bothPaired ? 'Vai alla Chat' : 'In attesa...',
+                                            style: TextStyle(
+                                              color: _bothPaired ? Colors.white : Colors.grey.shade500,
+                                              fontSize: 16,
+                                              fontWeight: FontWeight.w600,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
+                    ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 
@@ -307,63 +519,81 @@ class _PairingWizardScreenState extends State<PairingWizardScreen> {
     required bool isCompleted,
     required Widget child,
   }) {
-    return Card(
-      elevation: 2,
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Container(
-                  width: 40,
-                  height: 40,
-                  decoration: BoxDecoration(
-                    color: isCompleted ? Colors.green : Colors.blue,
-                    shape: BoxShape.circle,
-                  ),
-                  child: Center(
-                    child: isCompleted
-                        ? const Icon(Icons.check, color: Colors.white)
-                        : Text(
-                            '$stepNumber',
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontWeight: FontWeight.bold,
-                              fontSize: 18,
-                            ),
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.1),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      padding: const EdgeInsets.all(20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 48,
+                height: 48,
+                decoration: BoxDecoration(
+                  gradient: isCompleted
+                      ? const LinearGradient(
+                          colors: [
+                            Color(0xFF667eea),
+                            Color(0xFF764ba2),
+                          ],
+                        )
+                      : null,
+                  color: isCompleted ? null : Colors.grey.shade200,
+                  shape: BoxShape.circle,
+                ),
+                child: Center(
+                  child: isCompleted
+                      ? const Icon(Icons.check, color: Colors.white, size: 24)
+                      : Text(
+                          '$stepNumber',
+                          style: TextStyle(
+                            color: Colors.grey.shade600,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 20,
                           ),
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        title,
-                        style: const TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
                         ),
-                      ),
-                      Text(
-                        description,
-                        style: const TextStyle(
-                          fontSize: 12,
-                          color: Colors.grey,
-                        ),
-                      ),
-                    ],
-                  ),
                 ),
-              ],
-            ),
-            const SizedBox(height: 16),
-            child,
-          ],
-        ),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      style: const TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                        color: Color(0xFF2d3436),
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      description,
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: Colors.grey.shade600,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 20),
+          child,
+        ],
       ),
     );
   }
@@ -372,109 +602,181 @@ class _PairingWizardScreenState extends State<PairingWizardScreen> {
     final controller = MobileScannerController();
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Scansiona QR'),
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back),
-          onPressed: () {
-            controller.dispose();
-            setState(() {
-              _showScanner = false;
-            });
-          },
+      body: Container(
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [
+              Color(0xFF667eea),
+              Color(0xFF764ba2),
+            ],
+          ),
         ),
-        actions: [
-          IconButton(
-            icon: ListenableBuilder(
-              listenable: controller,
-              builder: (context, child) {
-                final torchState = controller.value.torchState;
-                switch (torchState) {
-                  case TorchState.off:
-                    return const Icon(Icons.flash_off);
-                  case TorchState.on:
-                    return const Icon(Icons.flash_on, color: Colors.yellow);
-                  case TorchState.unavailable:
-                  case TorchState.auto:
-                    return const Icon(Icons.flash_off);
-                }
-              },
+        child: Stack(
+          children: [
+            // Camera scanner
+            ClipRRect(
+              borderRadius: BorderRadius.circular(0),
+              child: MobileScanner(
+                controller: controller,
+                onDetect: (capture) {
+                  final List<Barcode> barcodes = capture.barcodes;
+                  for (final barcode in barcodes) {
+                    final String? code = barcode.rawValue;
+                    if (code != null && !_isProcessingQR) {
+                      controller.dispose();
+                      _handlePartnerQRCode(code);
+                      break;
+                    }
+                  }
+                },
+              ),
             ),
-            onPressed: () => controller.toggleTorch(),
-          ),
-        ],
-      ),
-      body: Stack(
-        children: [
-          MobileScanner(
-            controller: controller,
-            onDetect: (capture) {
-              final List<Barcode> barcodes = capture.barcodes;
-              for (final barcode in barcodes) {
-                final String? code = barcode.rawValue;
-                if (code != null && !_isProcessingQR) {
-                  controller.dispose();
-                  _handlePartnerQRCode(code);
-                  break;
-                }
-              }
-            },
-          ),
-          Positioned(
-            top: 20,
-            left: 20,
-            right: 20,
-            child: Card(
-              color: Colors.black.withOpacity(0.7),
-              child: const Padding(
-                padding: EdgeInsets.all(16.0),
-                child: Text(
+
+            // Floating back button
+            Positioned(
+              top: 48,
+              left: 16,
+              child: Container(
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  shape: BoxShape.circle,
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.3),
+                      blurRadius: 8,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
+                ),
+                child: IconButton(
+                  icon: const Icon(Icons.arrow_back, color: Color(0xFF667eea)),
+                  onPressed: () {
+                    controller.dispose();
+                    setState(() {
+                      _showScanner = false;
+                    });
+                  },
+                ),
+              ),
+            ),
+
+            // Floating torch button
+            Positioned(
+              top: 48,
+              right: 16,
+              child: Container(
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  shape: BoxShape.circle,
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.3),
+                      blurRadius: 8,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
+                ),
+                child: IconButton(
+                  icon: ListenableBuilder(
+                    listenable: controller,
+                    builder: (context, child) {
+                      final torchState = controller.value.torchState;
+                      switch (torchState) {
+                        case TorchState.off:
+                          return const Icon(Icons.flash_off, color: Color(0xFF667eea));
+                        case TorchState.on:
+                          return const Icon(Icons.flash_on, color: Colors.amber);
+                        case TorchState.unavailable:
+                        case TorchState.auto:
+                          return const Icon(Icons.flash_off, color: Colors.grey);
+                      }
+                    },
+                  ),
+                  onPressed: () => controller.toggleTorch(),
+                ),
+              ),
+            ),
+
+            // Instructions
+            Positioned(
+              top: 120,
+              left: 20,
+              right: 20,
+              child: Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(16),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.2),
+                      blurRadius: 12,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
+                ),
+                child: const Text(
                   'Inquadra il QR Code del tuo amore',
                   style: TextStyle(
-                    color: Colors.white,
+                    color: Color(0xFF2d3436),
                     fontSize: 16,
+                    fontWeight: FontWeight.w600,
                   ),
                   textAlign: TextAlign.center,
                 ),
               ),
             ),
-          ),
-          Center(
-            child: Container(
-              width: 250,
-              height: 250,
-              decoration: BoxDecoration(
-                border: Border.all(
-                  color: Colors.green,
-                  width: 3,
-                ),
-                borderRadius: BorderRadius.circular(16),
-              ),
-            ),
-          ),
-          if (_isProcessingQR)
-            Container(
-              color: Colors.black.withOpacity(0.7),
-              child: const Center(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    CircularProgressIndicator(
-                      valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                    ),
-                    SizedBox(height: 16),
-                    Text(
-                      'Importazione chiave...',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 16,
-                      ),
+
+            // Scan frame
+            Center(
+              child: Container(
+                width: 250,
+                height: 250,
+                decoration: BoxDecoration(
+                  border: Border.all(
+                    color: Colors.white,
+                    width: 3,
+                  ),
+                  borderRadius: BorderRadius.circular(16),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.3),
+                      blurRadius: 12,
+                      offset: const Offset(0, 4),
                     ),
                   ],
                 ),
               ),
             ),
-        ],
+
+            // Processing overlay
+            if (_isProcessingQR)
+              Container(
+                color: Colors.black.withOpacity(0.8),
+                child: const Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      CircularProgressIndicator(
+                        valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                      ),
+                      SizedBox(height: 16),
+                      Text(
+                        'Importazione chiave...',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 16,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+          ],
+        ),
       ),
     );
   }

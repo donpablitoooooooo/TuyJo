@@ -8,6 +8,7 @@ import 'services/encryption_service.dart';
 import 'services/notification_service.dart';
 import 'services/pairing_service.dart';
 import 'services/message_cache_service.dart';
+import 'services/couple_selfie_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -61,14 +62,25 @@ class MyApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => AuthService()),
         ChangeNotifierProvider(create: (_) => ChatService(encryptionService, notificationService)),
         ChangeNotifierProvider.value(value: pairingService),
+        ChangeNotifierProvider(create: (_) => CoupleSelfieService()),
         Provider.value(value: encryptionService),
         Provider.value(value: notificationService),
       ],
       child: MaterialApp(
         title: 'Private Messaging',
         theme: ThemeData(
-          colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
+          colorScheme: ColorScheme.fromSeed(
+            seedColor: const Color(0xFF667eea),
+            primary: const Color(0xFF667eea),
+            secondary: const Color(0xFF764ba2),
+          ),
           useMaterial3: true,
+          scaffoldBackgroundColor: Colors.white,
+          appBarTheme: const AppBarTheme(
+            backgroundColor: Colors.white,
+            foregroundColor: Color(0xFF667eea),
+            elevation: 0,
+          ),
         ),
         home: const AuthWrapper(),
         debugShowCheckedModeBanner: false,
