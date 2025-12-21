@@ -105,13 +105,8 @@ class _PairingWizardScreenState extends State<PairingWizardScreen> {
 
           _showFloatingSnackBar('QR del partner scansionato con successo!');
 
-          // Se entrambi gli step completati, naviga a ChatScreen
-          if (_step1Completed && _step2Completed) {
-            await Future.delayed(const Duration(milliseconds: 1500));
-            if (mounted) {
-              Navigator.of(context).popUntil((route) => route.isFirst);
-            }
-          }
+          // NON navigare automaticamente - lascia che l'utente prema il pulsante
+          // quando il partner ha completato il suo pairing
         } else {
           _showFloatingSnackBar('QR Code non valido', isError: true);
         }
@@ -226,31 +221,33 @@ class _PairingWizardScreenState extends State<PairingWizardScreen> {
                             child: Column(
                               children: [
                                 if (_myQrData != null) ...[
-                                  Container(
-                                    padding: const EdgeInsets.all(16),
-                                    decoration: BoxDecoration(
-                                      color: Colors.white,
-                                      borderRadius: BorderRadius.circular(16),
-                                      boxShadow: [
-                                        BoxShadow(
-                                          color: Colors.black.withOpacity(0.05),
-                                          blurRadius: 8,
-                                          offset: const Offset(0, 2),
-                                        ),
-                                      ],
-                                    ),
-                                    child: QrImageView(
-                                      data: _myQrData!,
-                                      version: QrVersions.auto,
-                                      size: 200,
-                                      backgroundColor: Colors.white,
-                                      eyeStyle: const QrEyeStyle(
-                                        eyeShape: QrEyeShape.square,
-                                        color: Color(0xFF667eea),
+                                  Center(
+                                    child: Container(
+                                      padding: const EdgeInsets.all(16),
+                                      decoration: BoxDecoration(
+                                        color: Colors.white,
+                                        borderRadius: BorderRadius.circular(16),
+                                        boxShadow: [
+                                          BoxShadow(
+                                            color: Colors.black.withOpacity(0.05),
+                                            blurRadius: 8,
+                                            offset: const Offset(0, 2),
+                                          ),
+                                        ],
                                       ),
-                                      dataModuleStyle: const QrDataModuleStyle(
-                                        dataModuleShape: QrDataModuleShape.square,
-                                        color: Color(0xFF667eea),
+                                      child: QrImageView(
+                                        data: _myQrData!,
+                                        version: QrVersions.auto,
+                                        size: 200,
+                                        backgroundColor: Colors.white,
+                                        eyeStyle: const QrEyeStyle(
+                                          eyeShape: QrEyeShape.square,
+                                          color: Color(0xFF667eea),
+                                        ),
+                                        dataModuleStyle: const QrDataModuleStyle(
+                                          dataModuleShape: QrDataModuleShape.square,
+                                          color: Color(0xFF667eea),
+                                        ),
                                       ),
                                     ),
                                   ),
@@ -386,7 +383,7 @@ class _PairingWizardScreenState extends State<PairingWizardScreen> {
                                   ),
                                   SizedBox(height: 12),
                                   Text(
-                                    'Pairing completato!',
+                                    'Hai completato il pairing!',
                                     style: TextStyle(
                                       color: Color(0xFF667eea),
                                       fontWeight: FontWeight.bold,
@@ -395,7 +392,7 @@ class _PairingWizardScreenState extends State<PairingWizardScreen> {
                                   ),
                                   SizedBox(height: 8),
                                   Text(
-                                    'Potete iniziare a chattare in modo sicuro',
+                                    'Assicurati che il tuo amore abbia completato\nentrambi gli step, poi premi "Vai alla Chat"',
                                     style: TextStyle(
                                       color: Colors.grey,
                                       fontSize: 14,
