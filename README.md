@@ -60,6 +60,114 @@ App di messaggistica privata per due persone con crittografia end-to-end e pairi
 
 ## 📦 Aggiornamenti Recenti (Dicembre 2025)
 
+### 🎨 v1.7.0 - UI Redesign Purple/White + Couple Selfie (21 Dicembre 2025)
+
+**Design Completo Rinnovato:**
+
+1. **💜 Purple/White Theme**
+   - Gradiente viola (#667eea → #764ba2) in tutta l'app
+   - Design minimalista e moderno
+   - Card bianche con ombre e bordi arrotondati
+   - Palette colori coerente in tutte le schermate
+
+2. **🍔 Hamburger Menu + Floating Icons**
+   - Rimossa bottom navigation bar
+   - Menu hamburger in alto a sinistra (floating)
+   - Drawer con gradiente viola
+   - Tondino pairing status in alto a destra (floating)
+   - Massimo spazio per la chat
+
+3. **🚀 Smart Pairing Wizard**
+   - Design completamente ridisegnato con tema viola/bianco
+   - QR code viola personalizzato
+   - **Step 1**: Completamento automatico quando il QR è generato
+   - **Step 2**: Scansione QR partner
+   - **Smart Button**: Si illumina quando ENTRAMBI completano il pairing
+     - Grigio + ⏳ "In attesa..." quando non pronto
+     - Viola + 💬 "Vai alla Chat" quando pronto
+   - Listener real-time su Firestore per sincronizzazione
+
+4. **💑 Couple Selfie Feature**
+   - Tap sul tondino in alto a destra → scatta/scegli selfie di coppia
+   - **Crop circolare** con editor dedicato per centrare le facce
+   - Foto appare su **entrambi i dispositivi** automaticamente
+   - Sincronizzazione real-time via Firebase Storage + Firestore
+   - Sostituisce il cuoricino quando caricata
+   - Il **primo** che carica vince
+
+5. **📱 Multi-Architecture Support**
+   - Supporto dispositivi 32-bit (armeabi-v7a)
+   - Supporto dispositivi 64-bit (arm64-v8a)
+   - Fix crash su telefoni vecchi
+   - NDK filters configurati correttamente
+
+6. **🎯 Miglioramenti Chat**
+   - + icona allegati grigia (stile calendario)
+   - Icona diventa viola quando allegati selezionati
+   - Send button abilitato per testo, todo O allegati
+   - Immagini full-width con BoxFit.cover
+   - Testo todo opzionale
+
+**Miglioramenti Tecnici:**
+
+- ✅ `image_cropper: ^8.0.2` per crop circolare
+- ✅ `CoupleSelfieService` per gestione foto condivisa
+- ✅ Firebase Storage rules aggiornate per couple_selfie_*
+- ✅ Firestore rules aggiornate per campo `couple_selfie_url`
+- ✅ UCropActivity dichiarata in AndroidManifest
+- ✅ Consumer2 per pairing + selfie service
+- ✅ Listener Firestore per smart button nel wizard
+- ✅ Layout centered per QR code
+
+**File Modificati/Creati:**
+- `pubspec.yaml`: Versione 1.6.0+7 → **1.7.0+8**
+  - Added `image_cropper: ^8.0.2`
+- `main.dart`: Provider per CoupleSelfieService
+- `main_screen.dart`:
+  - Rimossa BottomNavigationBar
+  - Aggiunto Drawer con gradiente
+  - Floating hamburger menu (top-left)
+  - Floating couple selfie/status (top-right con foto)
+  - Consumer2 per real-time selfie updates
+- `pairing_wizard_screen.dart`:
+  - Complete redesign con purple/white theme
+  - Removed manual checkbox for step 1
+  - Smart button con Firestore listener
+  - QR code centrato e styled in viola
+  - Auto-navigation rimossa (manuale con button)
+- `chat_screen.dart`:
+  - Removed AppBar
+  - Gray + icon (purple when selected)
+  - Full-width image bubbles
+  - Optional todo text
+- `settings_screen.dart`:
+  - Purple gradient buttons
+  - White sections con shadows
+  - Nuovo pairing flow (Nuovo/Ripristino)
+- `couple_selfie_screen.dart`: NEW - Camera/gallery + crop screen
+- `couple_selfie_service.dart`: NEW - Firebase sync service
+- `storage.rules`: Regole per couple_selfie_url
+- `firestore.rules`: Write permission per families/{familyId}
+- `android/app/build.gradle`: NDK abiFilters
+- `AndroidManifest.xml`: UCropActivity declaration
+
+**UX Flow Selfie:**
+- 📸 Tap tondino (quando paired) → apre CoupleSelfieScreen
+- 📷 Scatta foto o scegli da galleria
+- ✂️ Editor circolare per centrare facce
+- ☁️ Upload automatico su Firebase
+- 🔄 Sync su entrambi i dispositivi
+- 💜 Foto appare nel tondino in tempo reale
+
+**UX Flow Pairing:**
+- 🔑 Step 1: Genera QR → ✅ auto-completato
+- 📱 Step 2: Scansiona QR partner → ✅ completato quando scansioni
+- ⏳ Button grigio "In attesa..." → aspetta il partner
+- 💜 Button si illumina quando ENTRAMBI hanno completato
+- 💬 Tap "Vai alla Chat" → inizia a messaggiare!
+
+---
+
 ### 📎 v1.6.0 - Message Attachments with E2E Encryption (20 Dicembre 2025)
 
 **Nuove Feature:**
@@ -870,10 +978,10 @@ Per problemi o domande:
 
 ---
 
-**Versione:** 1.6.0+7
-**Ultima modifica:** 2025-12-20
-**Architettura:** RSA-only + Dual Encryption + SQLite Cache + Smart Reminders + Real-time Indicators + E2E Attachments
-**Performance:** ⚡ Instant load (< 100ms) + Zero visual glitches + Scalable to 1000+ messages + Real-time updates "a razzo" 🚀 + Thumbnail caching
-**UX:** 🎨 WhatsApp-style indicators + Todo Redesign + Smart Auto-Scroll + Dynamic Timestamps + Typing awareness + Fullscreen viewer
-**Security:** 🔐 AES-256 + RSA-2048 dual encryption for messages AND files + Firebase Storage with encrypted binaries only
-**Dependencies:** ✅ Updated to latest stable versions (Dec 2025)
+**Versione:** 1.7.0+8
+**Ultima modifica:** 2025-12-21
+**Architettura:** RSA-only + Dual Encryption + SQLite Cache + Smart Reminders + Real-time Indicators + E2E Attachments + Couple Selfie Sync
+**Performance:** ⚡ Instant load (< 100ms) + Zero visual glitches + Scalable to 1000+ messages + Real-time updates "a razzo" 🚀 + Thumbnail caching + Multi-architecture (32/64-bit)
+**UX:** 🎨 Purple/White Modern Design + Hamburger Menu + Floating Icons + Smart Pairing Button + Couple Selfie with Circular Crop + WhatsApp-style indicators + Dynamic Timestamps + Fullscreen viewer
+**Security:** 🔐 AES-256 + RSA-2048 dual encryption for messages AND files + Firebase Storage with encrypted binaries + Compartmentalized security rules
+**Dependencies:** ✅ Updated to latest stable versions (Dec 2025) + image_cropper for circular crop
