@@ -1512,12 +1512,16 @@ class _MessageBubbleState extends State<_MessageBubble>
                                 if (widget.message.isNotEmpty) ...[
                                   Linkify(
                                     onOpen: (link) async {
-                                      final uri = Uri.parse(link.url);
-                                      if (await canLaunchUrl(uri)) {
+                                      try {
+                                        final uri = Uri.parse(link.url);
                                         await launchUrl(
                                           uri,
                                           mode: LaunchMode.externalApplication,
                                         );
+                                      } catch (e) {
+                                        if (kDebugMode) {
+                                          print('Errore apertura URL: $e');
+                                        }
                                       }
                                     },
                                     text: widget.message,
@@ -2201,12 +2205,16 @@ class _TodoMessageBubble extends StatelessWidget {
                           )
                         : Linkify(
                             onOpen: (link) async {
-                              final uri = Uri.parse(link.url);
-                              if (await canLaunchUrl(uri)) {
+                              try {
+                                final uri = Uri.parse(link.url);
                                 await launchUrl(
                                   uri,
                                   mode: LaunchMode.externalApplication,
                                 );
+                              } catch (e) {
+                                if (kDebugMode) {
+                                  print('Errore apertura URL: $e');
+                                }
                               }
                             },
                             text: message.decryptedContent!,
