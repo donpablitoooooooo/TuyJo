@@ -4,7 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 import 'package:pdfx/pdfx.dart';
 import 'package:path_provider/path_provider.dart';
-import '../models/attachment.dart';
+import '../models/message.dart';
 import '../services/attachment_service.dart';
 
 /// Schermo per visualizzare PDF cifrati con zoom e scroll
@@ -68,14 +68,19 @@ class _PdfViewerScreenState extends State<PdfViewerScreen> {
       if (kDebugMode) print('✅ [PDF_VIEWER] PDF saved to temp: ${file.path}');
 
       // 3. Initialize PDF controller
-      final document = await PdfDocument.openFile(file.path);
+      final pdfDocument = PdfDocument.openFile(file.path);
 
       setState(() {
         _pdfController = PdfController(
-          document: document,
+          document: pdfDocument,
         );
-        _totalPages = document.pagesCount;
         _isLoading = false;
+      });
+
+      // Get page count after document is loaded
+      final document = await pdfDocument;
+      setState(() {
+        _totalPages = document.pagesCount;
       });
 
       if (kDebugMode) print('✅ [PDF_VIEWER] PDF loaded successfully: $_totalPages pages');
