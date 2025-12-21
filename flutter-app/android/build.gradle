@@ -25,6 +25,25 @@ subprojects {
 }
 subprojects {
     project.evaluationDependsOn(':app')
+
+    // Configura JVM target per tutti i subprojects per evitare incompatibilità
+    afterEvaluate { project ->
+        if (project.hasProperty('android')) {
+            project.android {
+                compileOptions {
+                    sourceCompatibility JavaVersion.VERSION_17
+                    targetCompatibility JavaVersion.VERSION_17
+                }
+            }
+        }
+
+        // Configura Kotlin JVM target
+        tasks.withType(org.jetbrains.kotlin.gradle.tasks.KotlinCompile).configureEach {
+            kotlinOptions {
+                jvmTarget = '17'
+            }
+        }
+    }
 }
 
 tasks.register("clean", Delete) {
