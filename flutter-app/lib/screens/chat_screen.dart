@@ -53,8 +53,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   List<File> _selectedAttachments = []; // Lista di file selezionati da inviare
   bool _isUploadingAttachments = false; // Stato di upload allegati
 
-  // Stream subscriptions per condivisione file da altre app
-  StreamSubscription? _intentDataStreamSubscription;
+  // Stream subscription per condivisione file da altre app
   StreamSubscription? _intentMediaStreamSubscription;
 
   @override
@@ -107,24 +106,6 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
         if (kDebugMode) print("Errore ricezione file condivisi: $err");
       },
     );
-
-    // Per testo condiviso (URL, testo semplice)
-    ReceiveSharingIntent.instance.getInitialText().then((String? value) {
-      if (value != null && value.isNotEmpty) {
-        _handleSharedText(value);
-      }
-    });
-
-    _intentDataStreamSubscription = ReceiveSharingIntent.instance.getTextStream().listen(
-      (String value) {
-        if (value.isNotEmpty) {
-          _handleSharedText(value);
-        }
-      },
-      onError: (err) {
-        if (kDebugMode) print("Errore ricezione testo condiviso: $err");
-      },
-    );
   }
 
   /// Gestisce file media condivisi da altre app
@@ -140,21 +121,6 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
           _selectedAttachments.add(file);
         }
       }
-    });
-
-    // Reset condivisione intent per evitare duplicati
-    ReceiveSharingIntent.instance.reset();
-  }
-
-  /// Gestisce testo condiviso da altre app
-  void _handleSharedText(String text) {
-    if (kDebugMode) {
-      print("📤 Ricevuto testo condiviso: $text");
-    }
-
-    setState(() {
-      _messageController.text = text;
-      _hasText = true;
     });
 
     // Reset condivisione intent per evitare duplicati
@@ -332,7 +298,6 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     _scrollController.dispose();
     _typingTimer?.cancel();
     _reminderCheckTimer?.cancel();
-    _intentDataStreamSubscription?.cancel();
     _intentMediaStreamSubscription?.cancel();
     super.dispose();
   }
