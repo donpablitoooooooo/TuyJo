@@ -96,6 +96,12 @@ class _PairingWizardScreenState extends State<PairingWizardScreen> {
         _isGeneratingQR = false;
         _step1Completed = true; // Step 1 completato automaticamente quando il QR è generato
       });
+
+      // Se ho già la chiave partner (riapro wizard dopo aver fatto pairing),
+      // avvia subito il listener
+      if (pairingService.partnerPublicKey != null) {
+        _startListeningForBothPaired();
+      }
     } catch (e) {
       if (mounted) {
         _showFloatingSnackBar('Errore generazione QR: $e', isError: true);
@@ -265,8 +271,8 @@ class _PairingWizardScreenState extends State<PairingWizardScreen> {
                             isCompleted: _step1Completed,
                             child: Column(
                               children: [
-                                // Mostra il QR finché non scansiono il partner (step 2)
-                                if (_myQrData != null && !_step2Completed) ...[
+                                // Mostra il QR finché non siamo entrambi paired
+                                if (_myQrData != null && !_bothPaired) ...[
                                   Center(
                                     child: Container(
                                       padding: const EdgeInsets.all(16),
@@ -297,7 +303,7 @@ class _PairingWizardScreenState extends State<PairingWizardScreen> {
                                       ),
                                     ),
                                   ),
-                                ] else if (_step2Completed) ...[
+                                ] else if (_bothPaired) ...[
                                   Container(
                                     padding: const EdgeInsets.all(16),
                                     decoration: BoxDecoration(
@@ -317,7 +323,7 @@ class _PairingWizardScreenState extends State<PairingWizardScreen> {
                                         SizedBox(width: 12),
                                         Expanded(
                                           child: Text(
-                                            'QR non più necessario!',
+                                            'Pairing completato!',
                                             style: TextStyle(
                                               color: Color(0xFF667eea),
                                               fontWeight: FontWeight.w600,
