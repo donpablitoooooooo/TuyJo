@@ -336,6 +336,39 @@ class PairingService extends ChangeNotifier {
             final myDocPartnerKey = myDocData?['partner_public_key'] as String?;
             final myDocPublicKey = myDocData?['my_public_key'] as String?;
 
+            // Controlla se il partner ha richiesto la cancellazione della cache
+            final deleteCacheRequested = myDocData?['delete_cache_requested'] as bool?;
+            if (deleteCacheRequested == true) {
+              if (kDebugMode) print('🗑️ [PAIRING] Partner requested cache deletion, cleaning up...');
+
+              // Importa i servizi necessari (assumendo che siano disponibili via Provider o altro)
+              // Per ora triggeriamo unpair completo che include pulizia cache
+              try {
+                // Rimuovi il flag
+                await _firestore
+                    .collection('families')
+                    .doc(chatId)
+                    .collection('users')
+                    .doc(myUserId)
+                    .update({'delete_cache_requested': FieldValue.delete()});
+
+                // Triggera pulizia: unpair + cache locale
+                // Nota: la cache viene pulita dal chiamante (es. ChatService)
+                // per ora facciamo solo unpair
+                await _storage.delete(key: 'partner_public_key');
+                _isPaired = false;
+                _partnerPublicKey = null;
+                _familyWasComplete = false;
+                stopListeningToPairingStatus();
+                notifyListeners();
+
+                if (kDebugMode) print('✅ [PAIRING] Cache deletion completed (triggered by partner)');
+                return; // Esci dal listener
+              } catch (e) {
+                if (kDebugMode) print('❌ [PAIRING] Error processing cache deletion: $e');
+              }
+            }
+
             // Trova il documento del partner
             final partnerDocs = snapshot.docs.where((doc) => doc.id != myUserId).toList();
 

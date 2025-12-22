@@ -88,10 +88,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
     }
   }
 
-  /// Elimina il pairing con diverse modalità
-  /// [deleteFromServer] - se true, elimina messaggi e foto dal server (per entrambi)
-  ///                    - se false, elimina solo la cache locale (cambio telefono)
-  Future<void> _deletePairing({required bool deleteFromServer}) async {
+  /// Elimina il pairing con 3 modalità:
+  /// - 'all': Elimina tutti i messaggi (server per entrambi)
+  /// - 'mine': Elimina solo i miei (cache locale)
+  /// - 'partner': Elimina quelli del partner (quando ha cambiato telefono senza unpair)
+  Future<void> _deletePairing({required String mode}) async {
     setState(() => _isLoading = true);
     try {
       final pairingService = Provider.of<PairingService>(context, listen: false);
@@ -102,36 +103,66 @@ class _SettingsScreenState extends State<SettingsScreen> {
       final chatId = await pairingService.getFamilyChatId();
       final myUserId = await pairingService.getMyUserId();
 
-      if (deleteFromServer) {
-        // OPZIONE 2: Elimina tutto (server + cache locale)
+      if (mode == 'all') {
+        // OPZIONE 1: Elimina tutti i messaggi dal server (per entrambi)
         if (chatId != null && mounted) {
-          // Elimina messaggi + foto dal SERVER Firestore (per entrambi gli utenti)
           await chatService.deleteMessagesAndCoupleSelfie(chatId);
+        }
+
+        // Unpair + pulisci cache locale
+        await pairingService.clearPairing();
+        chatService.stopListening();
+        chatService.clearMessages();
+        if (chatId != null) {
+          await coupleSelfieService.removeCoupleSelfie(chatId);
+        }
+      } else if (mode == 'mine') {
+        // OPZIONE 2: Elimina solo cache locale (Cambio Telefono)
+        await pairingService.clearPairing();
+        chatService.stopListening();
+        chatService.clearMessages();
+        if (chatId != null) {
+          await coupleSelfieService.removeCoupleSelfie(chatId);
+        }
+      } else if (mode == 'partner') {
+        // OPZIONE 3: Triggera pulizia cache del partner (ha cambiato telefono senza unpair)
+        if (chatId != null && myUserId != null) {
+          // Scrivi flag in Firestore per notificare il partner di pulire la cache
+          final partnerId = await pairingService.getPartnerId();
+          if (partnerId != null) {
+            await FirebaseFirestore.instance
+                .collection('families')
+                .doc(chatId)
+                .collection('users')
+                .doc(partnerId)
+                .update({
+              'delete_cache_requested': true,
+              'delete_cache_requested_at': FieldValue.serverTimestamp(),
+            });
+          }
+        }
+
+        // Unpair + pulisci cache locale
+        await pairingService.clearPairing();
+        chatService.stopListening();
+        chatService.clearMessages();
+        if (chatId != null) {
+          await coupleSelfieService.removeCoupleSelfie(chatId);
         }
       }
 
-      // Sempre: fai unpair (rimuove documento users e notifica il partner)
-      await pairingService.clearPairing();
-
-      // Sempre: pulisci cache locale messaggi
-      chatService.stopListening();
-      chatService.clearMessages();
-
-      // Sempre: pulisci cache locale foto
-      if (chatId != null) {
-        await coupleSelfieService.removeCoupleSelfie(chatId);
-      }
-
-      // Rimuovi token FCM
+      // Sempre: rimuovi token FCM
       if (chatId != null && myUserId != null && mounted) {
         await notificationService.deleteTokenFromFirestore(chatId, myUserId);
       }
 
       if (!mounted) return;
 
-      final message = deleteFromServer
-          ? 'Tutto eliminato (server + locale)'
-          : 'Pairing eliminato (solo cache locale)';
+      final message = mode == 'all'
+          ? 'Tutti i messaggi eliminati (server)'
+          : mode == 'mine'
+              ? 'Pairing eliminato (solo cache locale)'
+              : 'Richiesta pulizia cache partner inviata';
 
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -415,16 +446,22 @@ class _SettingsScreenState extends State<SettingsScreen> {
             Text('Scegli come procedere:'),
             SizedBox(height: 20),
             _DeleteOption(
-              icon: Icons.phone_android,
-              title: 'Cambio Telefono',
-              description: 'Il partner mantiene tutto sul suo telefono',
+              icon: Icons.delete_forever,
+              title: 'Elimina Tutti i Messaggi',
+              description: 'Elimina messaggi e foto dal server (per entrambi)',
+              isDestructive: true,
             ),
             SizedBox(height: 12),
             _DeleteOption(
-              icon: Icons.delete_forever,
-              title: 'Elimina Tutto',
-              description: 'Elimina messaggi e foto da entrambi (irreversibile)',
-              isDestructive: true,
+              icon: Icons.phone_android,
+              title: 'Elimina i Miei Messaggi',
+              description: 'Elimina solo la mia cache locale (Cambio Telefono)',
+            ),
+            SizedBox(height: 12),
+            _DeleteOption(
+              icon: Icons.phonelink_erase,
+              title: 'Elimina Messaggi del Partner',
+              description: 'Utile quando il partner ha cambiato telefono senza unpair',
             ),
           ],
         ),
@@ -436,17 +473,24 @@ class _SettingsScreenState extends State<SettingsScreen> {
           TextButton(
             onPressed: () {
               Navigator.pop(context);
-              _deletePairing(deleteFromServer: false);
+              _deletePairing(mode: 'all');
             },
-            child: const Text('Cambio Telefono'),
+            style: TextButton.styleFrom(foregroundColor: Colors.red),
+            child: const Text('Tutti'),
           ),
           TextButton(
             onPressed: () {
               Navigator.pop(context);
-              _deletePairing(deleteFromServer: true);
+              _deletePairing(mode: 'mine');
             },
-            style: TextButton.styleFrom(foregroundColor: Colors.red),
-            child: const Text('Elimina Tutto'),
+            child: const Text('I Miei'),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.pop(context);
+              _deletePairing(mode: 'partner');
+            },
+            child: const Text('Del Partner'),
           ),
         ],
       ),
