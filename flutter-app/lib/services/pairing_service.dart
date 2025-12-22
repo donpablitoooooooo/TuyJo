@@ -120,8 +120,8 @@ class PairingService extends ChangeNotifier {
         print('   _isPaired sarà true quando entrambi avranno completato il pairing');
       }
 
-      // IMPORTANTE: Prima di creare il mio documento, elimina eventuali documenti vecchi
-      // Questo garantisce che ogni pairing parta pulito, senza documenti corrotti dal pairing precedente
+      // IMPORTANTE: Prima di creare il mio documento, pulisci solo le famiglie COMPLETE dal pairing precedente
+      // Se userCount == 1, potrebbe essere il partner che sta facendo pairing contemporaneamente, NON eliminare!
       final myUserId = await getMyUserId();
       final myPublicKey = await _storage.read(key: 'rsa_public_key');
       final familyChatId = await getFamilyChatId();
@@ -134,10 +134,11 @@ class PairingService extends ChangeNotifier {
             .collection('users')
             .get();
 
-        if (existingDocs.docs.isNotEmpty) {
+        // Elimina SOLO se userCount >= 2 (famiglia completa dal pairing precedente)
+        if (existingDocs.docs.length >= 2) {
           if (kDebugMode) {
-            print('⚠️ [PAIRING] Trovati ${existingDocs.docs.length} documenti vecchi nella famiglia');
-            print('   Elimino tutti i documenti vecchi prima di creare quello nuovo...');
+            print('⚠️ [PAIRING] Trovata famiglia completa vecchia (${existingDocs.docs.length} documenti)');
+            print('   Elimino famiglia vecchia prima di creare nuovo pairing...');
           }
 
           // Elimina tutti i documenti vecchi
@@ -151,7 +152,9 @@ class PairingService extends ChangeNotifier {
             if (kDebugMode) print('   🗑️ Eliminato documento vecchio: ${doc.id.substring(0, 10)}...');
           }
 
-          if (kDebugMode) print('   ✅ Documenti vecchi eliminati, famiglia pulita');
+          if (kDebugMode) print('   ✅ Famiglia vecchia eliminata, pairing pulito');
+        } else if (existingDocs.docs.length == 1) {
+          if (kDebugMode) print('   ℹ️ [PAIRING] Trovato 1 documento (probabilmente il partner sta facendo pairing), lo tengo');
         }
 
         // Ora crea il MIO documento pulito
