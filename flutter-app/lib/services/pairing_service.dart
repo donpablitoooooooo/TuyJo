@@ -318,6 +318,7 @@ class PairingService extends ChangeNotifier {
       bool keysAreValid = false;
       bool familyIsCorrupted = false;
 
+      // Verifica le chiavi SOLO se userCount >= 2
       if (userCount >= 2) {
         try {
           final myDocList = snapshot.docs.where((doc) => doc.id == myUserId).toList();
@@ -345,21 +346,17 @@ class PairingService extends ChangeNotifier {
               }
 
               // Verifica che le chiavi si corrispondano
-              // La mia partner_key deve corrispondere alla public_key del partner
-              // La partner_key del partner deve corrispondere alla mia public_key
               final myKeysMatch = myDocPartnerKey != null &&
                                    myDocPartnerKey == partnerDocPublicKey;
 
               final partnerKeysMatch = partnerDocPartnerKey != null &&
                                         partnerDocPartnerKey == myDocPublicKey;
 
-              // Verifica anche con la cache locale
               final cacheMatches = _partnerPublicKey != null &&
                                     _partnerPublicKey == partnerDocPublicKey;
 
               keysAreValid = myKeysMatch && partnerKeysMatch && cacheMatches;
 
-              // Se mancano chiavi O non corrispondono, la famiglia è corrotta
               if (!keysAreValid) {
                 familyIsCorrupted = true;
                 if (kDebugMode) {
@@ -372,7 +369,7 @@ class PairingService extends ChangeNotifier {
 
               if (kDebugMode) print('     - Famiglia valida: $keysAreValid');
             } else {
-              if (kDebugMode) print('   ⚠️ Partner document not found');
+              if (kDebugMode) print('   ⚠️ Partner document not found (userCount=2 ma solo 1 doc?)');
               familyIsCorrupted = true;
             }
           } else {
@@ -382,6 +379,11 @@ class PairingService extends ChangeNotifier {
         } catch (e) {
           if (kDebugMode) print('   ⚠️ Error checking keys: $e');
           familyIsCorrupted = true;
+        }
+      } else {
+        // userCount < 2: pairing iniziale in corso, non verificare le chiavi
+        if (kDebugMode && _partnerPublicKey != null) {
+          print('   ⏳ Pairing in corso, chiavi non verificate (aspettando partner...)');
         }
       }
 
@@ -419,7 +421,11 @@ class PairingService extends ChangeNotifier {
       final shouldBePaired = userCount >= 2 && _partnerPublicKey != null && keysAreValid;
 
       if (kDebugMode) {
-        print('   shouldBePaired: $shouldBePaired (userCount >= 2: ${userCount >= 2}, has partner key: ${_partnerPublicKey != null}, keys valid: $keysAreValid)');
+        if (userCount < 2) {
+          print('   shouldBePaired: $shouldBePaired (aspettando partner, userCount: $userCount/2)');
+        } else {
+          print('   shouldBePaired: $shouldBePaired (userCount: 2, has partner key: ${_partnerPublicKey != null}, keys valid: $keysAreValid)');
+        }
       }
 
       if (_isPaired != shouldBePaired) {
