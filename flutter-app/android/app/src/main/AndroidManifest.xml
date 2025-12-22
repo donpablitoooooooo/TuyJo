@@ -52,7 +52,8 @@
     <application
         android:label="Private Messaging"
         android:name="${applicationName}"
-        android:icon="@mipmap/ic_launcher">
+        android:icon="@mipmap/ic_launcher"
+        android:allowTaskReparenting="false">
 
         <activity
             android:name=".MainActivity"
