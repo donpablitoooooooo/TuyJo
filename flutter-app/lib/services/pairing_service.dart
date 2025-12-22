@@ -121,9 +121,11 @@ class PairingService extends ChangeNotifier {
       }
 
       // Crea il MIO documento nella famiglia per segnalare "io sono nella famiglia"
+      // Salvo anche la chiave del partner per verificare che abbiamo le chiavi giuste
       final myUserId = await getMyUserId();
+      final myPublicKey = await _storage.read(key: 'rsa_public_key');
       final familyChatId = await getFamilyChatId();
-      if (myUserId != null && familyChatId != null) {
+      if (myUserId != null && familyChatId != null && myPublicKey != null) {
         await _firestore
             .collection('families')
             .doc(familyChatId)
@@ -131,6 +133,8 @@ class PairingService extends ChangeNotifier {
             .doc(myUserId)  // documento MIO!
             .set({
           'paired_at': FieldValue.serverTimestamp(),
+          'my_public_key': myPublicKey,
+          'partner_public_key': partnerPublicKey,
         });
         if (kDebugMode) print('✅ [PAIRING] Created my user document in family: $myUserId');
       }
@@ -279,11 +283,38 @@ class PairingService extends ChangeNotifier {
         print('   Current _isPaired: $_isPaired');
       }
 
-      // LOGICA ROBUSTA: isPaired = true SOLO se userCount >= 2
-      final shouldBePaired = userCount >= 2 && _partnerPublicKey != null;
+      // LOGICA ROBUSTA: isPaired = true SOLO se:
+      // 1. userCount == 2
+      // 2. Ho la chiave del partner
+      // 3. Il mio documento ha la chiave del partner corretta
+      bool keysAreValid = false;
+      if (userCount >= 2 && _partnerPublicKey != null) {
+        try {
+          // Verifica che il mio documento abbia la chiave partner corretta
+          final myDocList = snapshot.docs.where((doc) => doc.id == myUserId).toList();
+          if (myDocList.isNotEmpty) {
+            final myDoc = myDocList.first;
+            final myDocPartnerKey = myDoc.data()?['partner_public_key'] as String?;
+
+            keysAreValid = myDocPartnerKey == _partnerPublicKey;
+
+            if (kDebugMode) {
+              print('   Verifico chiavi:');
+              print('     - myDoc ha partner_public_key: ${myDocPartnerKey != null ? "YES" : "NO"}');
+              print('     - Corrisponde a _partnerPublicKey: $keysAreValid');
+            }
+          } else {
+            if (kDebugMode) print('   ⚠️ My document not found in family users');
+          }
+        } catch (e) {
+          if (kDebugMode) print('   ⚠️ Error checking keys: $e');
+        }
+      }
+
+      final shouldBePaired = userCount >= 2 && _partnerPublicKey != null && keysAreValid;
 
       if (kDebugMode) {
-        print('   shouldBePaired: $shouldBePaired (userCount >= 2: ${userCount >= 2}, has partner key: ${_partnerPublicKey != null})');
+        print('   shouldBePaired: $shouldBePaired (userCount >= 2: ${userCount >= 2}, has partner key: ${_partnerPublicKey != null}, keys valid: $keysAreValid)');
       }
 
       if (_isPaired != shouldBePaired) {
