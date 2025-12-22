@@ -126,14 +126,39 @@ class PairingService extends ChangeNotifier {
   }
 
   /// Reset del pairing (elimina partner)
+  /// Rimuove anche il documento dalla collezione users su Firestore
+  /// così l'altro telefono vede il cambiamento e fa auto-unpair
   Future<void> resetPairing() async {
+    try {
+      // Prima rimuovi il documento users da Firestore se esiste
+      final chatId = await getFamilyChatId();
+      final myUserId = await getMyUserId();
+
+      if (chatId != null && myUserId != null) {
+        if (kDebugMode) print('🗑️ [PAIRING] Removing my user document from Firestore...');
+
+        await _firestore
+            .collection('families')
+            .doc(chatId)
+            .collection('users')
+            .doc(myUserId)
+            .delete();
+
+        if (kDebugMode) print('✅ [PAIRING] User document removed from Firestore');
+      }
+    } catch (e) {
+      if (kDebugMode) print('⚠️ [PAIRING] Error removing user document: $e');
+      // Continua comunque con il reset locale
+    }
+
+    // Poi elimina i dati locali
     await _storage.delete(key: 'partner_public_key');
 
     _isPaired = false;
     _partnerPublicKey = null;
     notifyListeners();
 
-    if (kDebugMode) print('Pairing reset');
+    if (kDebugMode) print('✅ [PAIRING] Pairing reset completed');
   }
 
   /// Calcola l'ID utente del partner basato sulla sua chiave pubblica

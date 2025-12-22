@@ -106,18 +106,22 @@ class _SettingsScreenState extends State<SettingsScreen> {
       final chatId = await pairingService.getFamilyChatId();
       final myUserId = await pairingService.getMyUserId();
 
+      // Prima fai unpair (rimuove il documento users e notifica il partner)
+      await pairingService.clearPairing();
+
+      // Poi eventualmente elimina i messaggi (ma NON la foto di coppia)
       if (deleteMessages) {
         if (chatId != null) {
-          await chatService.deleteFamily(chatId);
+          // Elimina SOLO i messaggi, NON la famiglia intera (preserva foto)
+          await chatService.deleteAllMessages(chatId);
         }
       } else {
+        // Rimuovi solo il token FCM se non elimini i messaggi
         if (chatId != null && myUserId != null && mounted) {
           final notificationService = Provider.of<NotificationService>(context, listen: false);
           await notificationService.deleteTokenFromFirestore(chatId, myUserId);
         }
       }
-
-      await pairingService.clearPairing();
       chatService.stopListening();
       chatService.clearMessages();
 
