@@ -31,18 +31,34 @@ class PairingService extends ChangeNotifier {
     }
 
     if (partnerPubKey != null) {
-      // NON impostare _isPaired = true subito! Verrà impostato dal listener
       _partnerPublicKey = partnerPubKey;
-      notifyListeners();
 
       if (kDebugMode) {
         print('✅ [PAIRING] Partner public key trovata nello storage');
         print('   Partner public key: ${partnerPubKey.substring(0, 20)}...');
-        print('   _isPaired sarà true se userCount >= 2');
       }
 
-      // UNPAIR SYNC: Avvia listener SEMPRE quando c'è una chiave partner
-      // Il listener imposterà _isPaired = true solo se userCount >= 2
+      // Controlla SUBITO lo stato della famiglia per impostare _isPaired correttamente
+      final chatId = await getFamilyChatId();
+      if (chatId != null) {
+        final familySnapshot = await _firestore
+            .collection('families')
+            .doc(chatId)
+            .collection('users')
+            .get();
+
+        final userCount = familySnapshot.docs.length;
+        _isPaired = userCount >= 2;
+
+        if (kDebugMode) {
+          print('   userCount: $userCount');
+          print('   _isPaired: $_isPaired');
+        }
+      }
+
+      notifyListeners();
+
+      // UNPAIR SYNC: Avvia listener per monitorare cambiamenti
       _startBackgroundUnpairListener();
     } else {
       if (kDebugMode) {
@@ -117,19 +133,20 @@ class PairingService extends ChangeNotifier {
         print('   _isPaired sarà true quando entrambi avranno completato il pairing');
       }
 
-      // Crea il documento users nella famiglia per segnalare che ho scansionato il partner
-      final myUserId = await getMyUserId();
+      // Crea il documento del PARTNER nella famiglia per segnalare "ho letto il tuo QR"
+      // Questo farà sparire il QR al partner!
+      final partnerId = await getPartnerId();
       final familyChatId = await getFamilyChatId();
-      if (myUserId != null && familyChatId != null) {
+      if (partnerId != null && familyChatId != null) {
         await _firestore
             .collection('families')
             .doc(familyChatId)
             .collection('users')
-            .doc(myUserId)
+            .doc(partnerId)  // documento del PARTNER, non mio!
             .set({
           'paired_at': FieldValue.serverTimestamp(),
         });
-        if (kDebugMode) print('✅ [PAIRING] Created user document in family: $myUserId');
+        if (kDebugMode) print('✅ [PAIRING] Created partner document in family: $partnerId');
       }
 
       // Avvia il listener per monitorare lo stato della famiglia
