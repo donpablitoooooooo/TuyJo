@@ -256,7 +256,8 @@ class _PairingWizardScreenState extends State<PairingWizardScreen> {
                             isCompleted: _step1Completed,
                             child: Column(
                               children: [
-                                if (_myQrData != null) ...[
+                                // Mostra il QR solo se non è stato ancora scansionato il QR del partner
+                                if (_myQrData != null && !_step2Completed) ...[
                                   Center(
                                     child: Container(
                                       padding: const EdgeInsets.all(16),
@@ -285,6 +286,37 @@ class _PairingWizardScreenState extends State<PairingWizardScreen> {
                                           color: Color(0xFF667eea),
                                         ),
                                       ),
+                                    ),
+                                  ),
+                                ] else if (_step2Completed) ...[
+                                  Container(
+                                    padding: const EdgeInsets.all(16),
+                                    decoration: BoxDecoration(
+                                      color: const Color(0xFF667eea).withOpacity(0.1),
+                                      borderRadius: BorderRadius.circular(12),
+                                      border: Border.all(
+                                        color: const Color(0xFF667eea),
+                                      ),
+                                    ),
+                                    child: const Row(
+                                      children: [
+                                        Icon(
+                                          Icons.check_circle,
+                                          color: Color(0xFF667eea),
+                                          size: 32,
+                                        ),
+                                        SizedBox(width: 12),
+                                        Expanded(
+                                          child: Text(
+                                            'QR scansionato dal tuo amore!',
+                                            style: TextStyle(
+                                              color: Color(0xFF667eea),
+                                              fontWeight: FontWeight.w600,
+                                              fontSize: 14,
+                                            ),
+                                          ),
+                                        ),
+                                      ],
                                     ),
                                   ),
                                 ],

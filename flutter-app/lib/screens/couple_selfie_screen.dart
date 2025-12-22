@@ -1,10 +1,13 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:image_cropper/image_cropper.dart';
 import 'package:provider/provider.dart';
 import '../services/couple_selfie_service.dart';
 import '../services/pairing_service.dart';
+import '../services/chat_service.dart';
+import '../services/attachment_service.dart';
 
 /// Schermo per selezionare e croppare la foto di coppia
 class CoupleSelfieScreen extends StatefulWidget {
@@ -267,6 +270,9 @@ class _CoupleSelfieScreenState extends State<CoupleSelfieScreen> {
 
       if (mounted) {
         if (success) {
+          // Invia messaggio in chat con la nuova foto
+          await _sendPhotoChangeMessage(File(croppedFile.path), familyChatId);
+
           _showSnackBar('Foto di coppia salvata!');
           // Return to previous screen
           Future.delayed(const Duration(milliseconds: 500), () {
@@ -286,6 +292,61 @@ class _CoupleSelfieScreenState extends State<CoupleSelfieScreen> {
       if (mounted) {
         setState(() => _isProcessing = false);
       }
+    }
+  }
+
+  /// Invia un messaggio in chat con la nuova foto di coppia
+  Future<void> _sendPhotoChangeMessage(File photoFile, String familyChatId) async {
+    try {
+      if (kDebugMode) print('📤 [COUPLE_SELFIE_SCREEN] Sending photo change message...');
+
+      final chatService = Provider.of<ChatService>(context, listen: false);
+      final attachmentService = Provider.of<AttachmentService>(context, listen: false);
+      final pairingService = Provider.of<PairingService>(context, listen: false);
+
+      // Ottieni le chiavi e gli ID necessari
+      final senderId = await pairingService.getMyUserId();
+      final senderPublicKey = await pairingService.getMyPublicKey();
+      final recipientPublicKey = pairingService.partnerPublicKey;
+
+      if (senderId == null || senderPublicKey == null || recipientPublicKey == null) {
+        if (kDebugMode) print('❌ [COUPLE_SELFIE_SCREEN] Missing keys or IDs');
+        return;
+      }
+
+      // Upload della foto come allegato cifrato
+      final attachment = await attachmentService.uploadAttachment(
+        photoFile,
+        familyChatId,
+        senderId,
+        senderPublicKey,
+        recipientPublicKey,
+      );
+
+      if (attachment == null) {
+        if (kDebugMode) print('❌ [COUPLE_SELFIE_SCREEN] Failed to upload attachment');
+        return;
+      }
+
+      // Invia il messaggio con l'allegato
+      final messageSent = await chatService.sendMessage(
+        'nuova foto profilo',
+        familyChatId,
+        senderId,
+        senderPublicKey,
+        recipientPublicKey,
+        attachments: [attachment],
+      );
+
+      if (kDebugMode) {
+        if (messageSent) {
+          print('✅ [COUPLE_SELFIE_SCREEN] Photo change message sent');
+        } else {
+          print('❌ [COUPLE_SELFIE_SCREEN] Failed to send message');
+        }
+      }
+    } catch (e) {
+      if (kDebugMode) print('❌ [COUPLE_SELFIE_SCREEN] Error sending photo change message: $e');
     }
   }
 

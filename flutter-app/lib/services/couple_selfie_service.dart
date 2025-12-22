@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'dart:typed_data';
+import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -16,6 +17,7 @@ class CoupleSelfieService extends ChangeNotifier {
   bool _isLoading = false;
   Uint8List? _cachedSelfieBytes; // Cache in memoria
   File? _cacheFile; // File cache su disco
+  StreamSubscription<String?>? _selfieSubscription; // Listener real-time
 
   String? get selfieUrl => _selfieUrl;
   bool get isLoading => _isLoading;
@@ -107,6 +109,14 @@ class CoupleSelfieService extends ChangeNotifier {
 
         notifyListeners();
       }
+
+      // 🔥 IMPORTANTE: Attiva il listener real-time per sincronizzare tra dispositivi
+      _selfieSubscription?.cancel(); // Cancella listener precedente se esiste
+      _selfieSubscription = watchCoupleSelfie(familyChatId).listen((_) {
+        if (kDebugMode) print('🔄 [COUPLE_SELFIE] Real-time update received');
+      });
+
+      if (kDebugMode) print('✅ [COUPLE_SELFIE] Real-time listener activated');
     } catch (e) {
       if (kDebugMode) print('❌ [COUPLE_SELFIE] Error loading selfie: $e');
     }
@@ -220,9 +230,21 @@ class CoupleSelfieService extends ChangeNotifier {
         final oldUrl = _selfieUrl;
         _selfieUrl = url;
 
-        // Se l'URL è cambiato e non abbiamo cache, scarica la nuova foto
-        if (url != null && url != oldUrl) {
-          _downloadAndCacheSelfie(url);
+        // Se l'URL è cambiato
+        if (url != oldUrl) {
+          if (url != null) {
+            // Nuova foto - scaricala
+            _downloadAndCacheSelfie(url);
+          } else {
+            // Foto eliminata - pulisci cache
+            _cachedSelfieBytes = null;
+            _getCacheFile().then((cacheFile) async {
+              if (await cacheFile.exists()) {
+                await cacheFile.delete();
+                if (kDebugMode) print('🗑️ [COUPLE_SELFIE] Cache cleared (photo deleted)');
+              }
+            });
+          }
         }
 
         notifyListeners();
@@ -231,5 +253,11 @@ class CoupleSelfieService extends ChangeNotifier {
       }
       return null;
     });
+  }
+
+  @override
+  void dispose() {
+    _selfieSubscription?.cancel();
+    super.dispose();
   }
 }
