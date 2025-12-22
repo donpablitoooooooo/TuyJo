@@ -1,7 +1,7 @@
 name: private_messaging
 description: App di messaggistica privata con crittografia E2E
 publish_to: 'none'
-version: 1.9.0+10
+version: 1.8.0+9
 
 
 environment:

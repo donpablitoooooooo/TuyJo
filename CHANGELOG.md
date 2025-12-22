@@ -2,6 +2,132 @@
 
 All notable changes to YouAndMe app will be documented in this file.
 
+## [1.8.0] - 2025-12-22
+
+### 🔄 Unpair Logic Redesign + Smart Cache Cleanup
+
+#### 🗑️ Added - Three Unpair Options
+
+- **Elimina Tutti i Messaggi**: Cancella messaggi e foto dal server Firestore (per entrambi gli utenti)
+  - Cleanup completo del server + cache locale
+  - Entrambi i dispositivi perdono tutti i dati
+  - Irreversibile
+
+- **Elimina i Miei Messaggi**: Cancella solo cache locale (scenario Cambio Telefono)
+  - Il partner mantiene tutti i suoi dati
+  - Utile quando cambi telefono ma partner resta sullo stesso
+  - Server intatto
+
+- **Elimina Messaggi del Partner**: Triggera pulizia cache remota
+  - Scrive flag `delete_cache_requested` in Firestore
+  - Partner riceve richiesta al prossimo accesso
+  - Utile quando partner ha cambiato telefono senza fare unpair
+
+#### 🧹 Added - Auto Cache Cleanup
+
+- **Smart Detection**: Sistema automatico di pulizia cache quando partner fa "Elimina Tutti"
+  - Telefono A elimina tutto → telefono B rileva e pulisce automaticamente
+  - Controllo intelligente: verifica esistenza messaggi su server
+  - Distingue tra "Cambio Telefono" (messaggi presenti) vs "Elimina Tutto" (messaggi assenti)
+
+- **Callback System**: Architettura basata su callback per pulizia
+  - `onPartnerDeletedAll` configurato in `main.dart`
+  - Pulizia automatica cache messaggi (ChatService)
+  - Pulizia automatica foto coppia (CoupleSelfieService)
+
+#### 📱 Added - Remote Cache Deletion
+
+- **Firestore Flag**: Comunicazione tra dispositivi via flag
+  - Flag `delete_cache_requested: true` scritto nel documento partner
+  - Timestamp `delete_cache_requested_at` per tracking
+  - Listener real-time in `PairingService` rileva flag
+
+- **Auto Execution**: Pulizia automatica quando rilevato
+  - Unpair automatico + pulizia cache completa
+  - Rimozione flag dopo completamento
+  - Log dettagliati per debugging
+
+### 🛡️ Fixed - Robust Pairing Logic
+
+- **Auto-unpair Cleanup**: Ora elimina documento `users` da Firestore (non solo cache locale)
+  - Previene documenti residui che causavano loop "famiglia corrotta"
+  - Secondo pairing funziona sempre senza errori
+  - Family state completamente pulito dopo unpair
+
+- **Graceful Error Handling**: Gestione NOT_FOUND quando documento famiglia non esiste
+  - Try-catch in `deleteMessagesAndCoupleSelfie()`
+  - Log informativi invece di errori fatali
+  - Scopo raggiunto anche se documento assente
+
+### 🔧 Technical Changes
+
+#### Settings Screen
+- Redesign `_deletePairing()` con parametro `mode` ('all'|'mine'|'partner')
+- Dialog aggiornato con 3 opzioni chiare e distinte
+- Messaggi di conferma specifici per ogni modalità
+- Import `cloud_firestore` aggiunto per accesso diretto Firestore
+
+#### Pairing Service
+- Callback `onPartnerDeletedAll` per notifiche di pulizia
+- Listener per flag `delete_cache_requested` nel documento partner
+- Controllo esistenza messaggi server per distinguere tipi di unpair
+- Auto-cleanup documento Firestore durante auto-unpair (linea 464-475)
+
+#### Chat Service
+- Fix gestione graceful quando documento famiglia non esiste
+- Try-catch per errore NOT_FOUND di Firestore (linea 1112-1118)
+- Log dettagliati per debugging
+
+#### Main App
+- Configurazione callback `onPartnerDeletedAll` per pulizia automatica (linea 34-45)
+- ChatService e CoupleSelfieService passati via constructor
+- ChangeNotifierProvider.value invece di create per servizi pre-inizializzati
+
+### 📝 Files Modified
+
+- `flutter-app/lib/screens/settings_screen.dart`
+  - Redesign `_deletePairing()` con 3 modalità
+  - Dialog con 3 opzioni (Tutti / I Miei / Del Partner)
+  - Logic flag `delete_cache_requested` su Firestore
+  - Import cloud_firestore
+
+- `flutter-app/lib/services/pairing_service.dart`
+  - Callback `onPartnerDeletedAll`
+  - Listener flag `delete_cache_requested`
+  - Auto-cleanup documento users in auto-unpair
+  - Controllo messaggi server per smart detection
+
+- `flutter-app/lib/services/chat_service.dart`
+  - Fix NOT_FOUND in `deleteMessagesAndCoupleSelfie()`
+  - Try-catch graceful error handling
+
+- `flutter-app/lib/main.dart`
+  - Configurazione callback pulizia cache
+  - Dependency injection ChatService e CoupleSelfieService
+
+- `flutter-app/pubspec.yaml` (version 1.7.0+8 → 1.8.0+9)
+- `README.md` (documentation v1.8.0)
+- `CHANGELOG.md` (this file)
+
+### 🎯 UX Flow - "Elimina Messaggi del Partner"
+
+1. 📱 Telefono A seleziona "Elimina Messaggi del Partner"
+2. 🔥 Scrive flag `delete_cache_requested: true` nel documento di B su Firestore
+3. ⏳ A fa unpair completo + pulisce la sua cache
+4. 📲 Telefono B apre app → listener rileva flag
+5. 🗑️ B automaticamente: unpair + pulisce cache messaggi + pulisce foto coppia
+6. ✅ Flag rimosso, B pronto per nuovo pairing pulito
+
+### 🐛 Bug Fixes
+
+- ✅ Fix: auto-unpair elimina documento Firestore (non solo cache)
+- ✅ Fix: gestione NOT_FOUND quando documento famiglia non esiste
+- ✅ Fix: nessun loop "famiglia corrotta" durante re-pairing
+- ✅ Fix: cache sempre sincronizzata tra i due dispositivi
+- ✅ Fix: documenti residui in Firestore dopo unpair
+
+---
+
 ## [1.5.0] - 2025-12-19
 
 ### 🎨 Added - Complete Todo System Redesign
