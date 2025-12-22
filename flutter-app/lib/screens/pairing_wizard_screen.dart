@@ -256,8 +256,8 @@ class _PairingWizardScreenState extends State<PairingWizardScreen> {
                             isCompleted: _step1Completed,
                             child: Column(
                               children: [
-                                // Mostra il QR solo se non è stato ancora scansionato il QR del partner
-                                if (_myQrData != null && !_step2Completed) ...[
+                                // Mostra il QR finché il partner non lo ha scansionato (bothPaired)
+                                if (_myQrData != null && !_bothPaired) ...[
                                   Center(
                                     child: Container(
                                       padding: const EdgeInsets.all(16),
@@ -288,7 +288,7 @@ class _PairingWizardScreenState extends State<PairingWizardScreen> {
                                       ),
                                     ),
                                   ),
-                                ] else if (_step2Completed) ...[
+                                ] else if (_bothPaired) ...[
                                   Container(
                                     padding: const EdgeInsets.all(16),
                                     decoration: BoxDecoration(
