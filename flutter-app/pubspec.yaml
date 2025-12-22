@@ -24,7 +24,7 @@ dependencies:
   path: ^1.9.1
 
   # Encryption
-  pointycastle: ^4.0.0
+  pointycastle: ^3.9.1
   crypto: ^3.0.7
   encrypt: ^5.0.3
   asn1lib: ^1.6.5
