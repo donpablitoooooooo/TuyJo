@@ -120,20 +120,19 @@ class PairingService extends ChangeNotifier {
         print('   _isPaired sarà true quando entrambi avranno completato il pairing');
       }
 
-      // Crea il documento del PARTNER nella famiglia per segnalare "ho letto il tuo QR"
-      // Questo farà sparire il QR al partner!
-      final partnerId = await getPartnerId();
+      // Crea il MIO documento nella famiglia per segnalare "io sono nella famiglia"
+      final myUserId = await getMyUserId();
       final familyChatId = await getFamilyChatId();
-      if (partnerId != null && familyChatId != null) {
+      if (myUserId != null && familyChatId != null) {
         await _firestore
             .collection('families')
             .doc(familyChatId)
             .collection('users')
-            .doc(partnerId)  // documento del PARTNER, non mio!
+            .doc(myUserId)  // documento MIO!
             .set({
           'paired_at': FieldValue.serverTimestamp(),
         });
-        if (kDebugMode) print('✅ [PAIRING] Created partner document in family: $partnerId');
+        if (kDebugMode) print('✅ [PAIRING] Created my user document in family: $myUserId');
       }
 
       // Avvia il listener per monitorare lo stato della famiglia
