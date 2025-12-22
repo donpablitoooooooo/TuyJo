@@ -19,20 +19,10 @@ class SettingsScreen extends StatefulWidget {
 class _SettingsScreenState extends State<SettingsScreen> {
   final _storage = const FlutterSecureStorage();
   bool _isLoading = false;
-  bool _isPaired = false;
 
   @override
   void initState() {
     super.initState();
-    _checkPairingStatus();
-  }
-
-  Future<void> _checkPairingStatus() async {
-    final pairingService = Provider.of<PairingService>(context, listen: false);
-    final isPaired = pairingService.isPaired;
-    setState(() {
-      _isPaired = isPaired;
-    });
   }
 
   Future<void> _copyPrivateKey() async {
@@ -126,7 +116,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
       chatService.clearMessages();
 
       if (!mounted) return;
-      setState(() => _isPaired = false);
 
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -452,6 +441,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // Leggi lo stato pairing dal PairingService (con listen: true per auto-aggiornamento)
+    final pairingService = Provider.of<PairingService>(context);
+    final isPaired = pairingService.isPaired;
+
     if (_isLoading) {
       return const Center(
         child: CircularProgressIndicator(
@@ -504,7 +497,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           icon: Icons.favorite,
           iconColor: const Color(0xFF667eea),
           children: [
-            if (_isPaired) ...[
+            if (isPaired) ...[
               // Paired: mostra status e backup
               Container(
                 padding: const EdgeInsets.all(16),
@@ -563,7 +556,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
         ),
 
         // Delete Section (only if paired)
-        if (_isPaired) ...[
+        if (isPaired) ...[
           const SizedBox(height: 24),
           _SettingsSection(
             title: 'Zona Pericolosa',
