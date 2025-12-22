@@ -120,17 +120,46 @@ class PairingService extends ChangeNotifier {
         print('   _isPaired sarà true quando entrambi avranno completato il pairing');
       }
 
-      // Crea il MIO documento nella famiglia per segnalare "io sono nella famiglia"
-      // Salvo anche la chiave del partner per verificare che abbiamo le chiavi giuste
+      // IMPORTANTE: Prima di creare il mio documento, elimina eventuali documenti vecchi
+      // Questo garantisce che ogni pairing parta pulito, senza documenti corrotti dal pairing precedente
       final myUserId = await getMyUserId();
       final myPublicKey = await _storage.read(key: 'rsa_public_key');
       final familyChatId = await getFamilyChatId();
+
       if (myUserId != null && familyChatId != null && myPublicKey != null) {
+        // Controlla se ci sono documenti vecchi nella famiglia
+        final existingDocs = await _firestore
+            .collection('families')
+            .doc(familyChatId)
+            .collection('users')
+            .get();
+
+        if (existingDocs.docs.isNotEmpty) {
+          if (kDebugMode) {
+            print('⚠️ [PAIRING] Trovati ${existingDocs.docs.length} documenti vecchi nella famiglia');
+            print('   Elimino tutti i documenti vecchi prima di creare quello nuovo...');
+          }
+
+          // Elimina tutti i documenti vecchi
+          for (var doc in existingDocs.docs) {
+            await _firestore
+                .collection('families')
+                .doc(familyChatId)
+                .collection('users')
+                .doc(doc.id)
+                .delete();
+            if (kDebugMode) print('   🗑️ Eliminato documento vecchio: ${doc.id.substring(0, 10)}...');
+          }
+
+          if (kDebugMode) print('   ✅ Documenti vecchi eliminati, famiglia pulita');
+        }
+
+        // Ora crea il MIO documento pulito
         await _firestore
             .collection('families')
             .doc(familyChatId)
             .collection('users')
-            .doc(myUserId)  // documento MIO!
+            .doc(myUserId)
             .set({
           'paired_at': FieldValue.serverTimestamp(),
           'my_public_key': myPublicKey,
