@@ -32,33 +32,20 @@ class PairingService extends ChangeNotifier {
 
     if (partnerPubKey != null) {
       _partnerPublicKey = partnerPubKey;
+      // Ottimistico: se c'è la chiave partner, assume paired
+      // Il listener correggerà lo stato se userCount < 2
+      _isPaired = true;
 
       if (kDebugMode) {
         print('✅ [PAIRING] Partner public key trovata nello storage');
         print('   Partner public key: ${partnerPubKey.substring(0, 20)}...');
-      }
-
-      // Controlla SUBITO lo stato della famiglia per impostare _isPaired correttamente
-      final chatId = await getFamilyChatId();
-      if (chatId != null) {
-        final familySnapshot = await _firestore
-            .collection('families')
-            .doc(chatId)
-            .collection('users')
-            .get();
-
-        final userCount = familySnapshot.docs.length;
-        _isPaired = userCount >= 2;
-
-        if (kDebugMode) {
-          print('   userCount: $userCount');
-          print('   _isPaired: $_isPaired');
-        }
+        print('   _isPaired = true (ottimistico, listener correggerà se necessario)');
       }
 
       notifyListeners();
 
       // UNPAIR SYNC: Avvia listener per monitorare cambiamenti
+      // Il listener imposterà _isPaired = false se userCount < 2
       _startBackgroundUnpairListener();
     } else {
       if (kDebugMode) {
