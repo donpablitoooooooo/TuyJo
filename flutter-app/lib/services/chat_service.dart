@@ -283,12 +283,25 @@ class ChatService extends ChangeNotifier {
                 change.doc.data()!,
               );
 
+              // Decrypt SUBITO per poter confrontare il contenuto
+              if (_myDeviceId != null) {
+                _decryptAndPopulateMessage(message, _myDeviceId!);
+              }
+
+              // 🔥 RIMUOVI pending message con stesso contenuto (optimistic update cleanup)
+              // Questo previene duplicati visivi quando il messaggio reale arriva da Firebase
+              final removed = _messages.removeWhere((m) =>
+                m.isPending == true &&
+                m.decryptedContent == message.decryptedContent &&
+                m.senderId == message.senderId
+              );
+
+              if (kDebugMode && removed > 0) {
+                print('🔥 [OPTIMISTIC] Removed $removed pending message(s) - real message arrived');
+              }
+
               // Aggiungi solo se non esiste già
               if (!_messages.any((m) => m.id == message.id)) {
-                // Decrypt e popola i campi
-                if (_myDeviceId != null) {
-                  _decryptAndPopulateMessage(message, _myDeviceId!);
-                }
 
                 // 🔔 REMINDER TIMESTAMP UPDATE
                 // Se questo è un reminder appena diventato visibile, aggiorna il timestamp
