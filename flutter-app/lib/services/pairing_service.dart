@@ -285,10 +285,10 @@ class PairingService extends ChangeNotifier {
 
       // LOGICA ROBUSTA: isPaired = true SOLO se:
       // 1. userCount == 2
-      // 2. Ho la chiave del partner
+      // 2. Ho la chiave del partner (recuperata da cache o Firestore)
       // 3. Il mio documento ha la chiave del partner corretta
       bool keysAreValid = false;
-      if (userCount >= 2 && _partnerPublicKey != null) {
+      if (userCount >= 2) {
         try {
           // Verifica che il mio documento abbia la chiave partner corretta
           final myDocList = snapshot.docs.where((doc) => doc.id == myUserId).toList();
@@ -296,12 +296,22 @@ class PairingService extends ChangeNotifier {
             final myDoc = myDocList.first;
             final myDocPartnerKey = myDoc.data()?['partner_public_key'] as String?;
 
-            keysAreValid = myDocPartnerKey == _partnerPublicKey;
+            // Se non ho la chiave partner in cache ma è nel documento, recuperala!
+            if (_partnerPublicKey == null && myDocPartnerKey != null) {
+              if (kDebugMode) print('   🔄 Recupero partner_public_key dal documento Firestore');
+              _partnerPublicKey = myDocPartnerKey;
+              // Salva anche in secure storage
+              await _storage.write(key: 'partner_public_key', value: myDocPartnerKey);
+              if (kDebugMode) print('   ✅ partner_public_key recuperata e salvata in cache');
+            }
+
+            keysAreValid = myDocPartnerKey != null && myDocPartnerKey == _partnerPublicKey;
 
             if (kDebugMode) {
               print('   Verifico chiavi:');
               print('     - myDoc ha partner_public_key: ${myDocPartnerKey != null ? "YES" : "NO"}');
-              print('     - Corrisponde a _partnerPublicKey: $keysAreValid');
+              print('     - _partnerPublicKey in cache: ${_partnerPublicKey != null ? "YES" : "NO"}');
+              print('     - Corrisponde: $keysAreValid');
             }
           } else {
             if (kDebugMode) print('   ⚠️ My document not found in family users');
