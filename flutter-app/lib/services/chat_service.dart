@@ -1102,13 +1102,23 @@ class ChatService extends ChangeNotifier {
       // STEP 1: Elimina tutti i messaggi (subcollection) + cache
       await deleteAllMessages(familyChatId);
 
-      // STEP 2: Elimina la foto di coppia dal documento famiglia
-      await _firestore.collection('families').doc(familyChatId).update({
-        'couple_selfie_url': FieldValue.delete(),
-        'couple_selfie_updated_at': FieldValue.delete(),
-      });
+      // STEP 2: Elimina la foto di coppia dal documento famiglia (se esiste)
+      try {
+        await _firestore.collection('families').doc(familyChatId).update({
+          'couple_selfie_url': FieldValue.delete(),
+          'couple_selfie_updated_at': FieldValue.delete(),
+        });
+        if (kDebugMode) print('✅ Couple selfie fields deleted from family document');
+      } on FirebaseException catch (e) {
+        // Se il documento non esiste, non è un problema (lo scopo è raggiunto)
+        if (e.code == 'not-found') {
+          if (kDebugMode) print('ℹ️ Family document not found (already deleted or never existed)');
+        } else {
+          rethrow;
+        }
+      }
 
-      if (kDebugMode) print('✅ Messages and couple selfie deleted from Firestore');
+      if (kDebugMode) print('✅ Messages and couple selfie cleanup complete');
     } catch (e) {
       if (kDebugMode) print('❌ Error deleting messages and selfie: $e');
       rethrow;
