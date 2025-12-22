@@ -1093,6 +1093,28 @@ class ChatService extends ChangeNotifier {
     }
   }
 
+  /// Elimina messaggi + foto di coppia (NON users - quello è gestito da unpair)
+  /// Usato quando si fa "unpair + elimina messaggi"
+  Future<void> deleteMessagesAndCoupleSelfie(String familyChatId) async {
+    try {
+      if (kDebugMode) print('🗑️ Deleting messages and couple selfie: $familyChatId');
+
+      // STEP 1: Elimina tutti i messaggi (subcollection) + cache
+      await deleteAllMessages(familyChatId);
+
+      // STEP 2: Elimina la foto di coppia dal documento famiglia
+      await _firestore.collection('families').doc(familyChatId).update({
+        'couple_selfie_url': FieldValue.delete(),
+        'couple_selfie_updated_at': FieldValue.delete(),
+      });
+
+      if (kDebugMode) print('✅ Messages and couple selfie deleted from Firestore');
+    } catch (e) {
+      if (kDebugMode) print('❌ Error deleting messages and selfie: $e');
+      rethrow;
+    }
+  }
+
   /// Elimina completamente la famiglia da Firestore (messaggi + documento)
   /// Usato quando si vuole fare un reset completo (pairing + messaggi)
   Future<void> deleteFamily(String familyChatId) async {

@@ -109,18 +109,18 @@ class _SettingsScreenState extends State<SettingsScreen> {
       // Prima fai unpair (rimuove il documento users e notifica il partner)
       await pairingService.clearPairing();
 
-      // Poi eventualmente elimina i messaggi (ma NON la foto di coppia)
-      if (deleteMessages) {
-        if (chatId != null) {
-          // Elimina SOLO i messaggi, NON la famiglia intera (preserva foto)
-          await chatService.deleteAllMessages(chatId);
-        }
-      } else {
-        // Rimuovi solo il token FCM se non elimini i messaggi
-        if (chatId != null && myUserId != null && mounted) {
-          final notificationService = Provider.of<NotificationService>(context, listen: false);
-          await notificationService.deleteTokenFromFirestore(chatId, myUserId);
-        }
+      // Poi eventualmente elimina messaggi e foto
+      if (deleteMessages && chatId != null && mounted) {
+        // Elimina messaggi + foto di coppia
+        await chatService.deleteMessagesAndCoupleSelfie(chatId);
+
+        // Pulisci anche la cache locale della foto
+        final coupleSelfieService = Provider.of<CoupleSelfieService>(context, listen: false);
+        await coupleSelfieService.removeCoupleSelfie(chatId);
+      } else if (!deleteMessages && chatId != null && myUserId != null && mounted) {
+        // Solo unpair: rimuovi solo il token FCM
+        final notificationService = Provider.of<NotificationService>(context, listen: false);
+        await notificationService.deleteTokenFromFirestore(chatId, myUserId);
       }
       chatService.stopListening();
       chatService.clearMessages();
