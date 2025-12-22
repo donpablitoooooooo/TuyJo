@@ -6,6 +6,7 @@ import '../services/pairing_service.dart';
 import '../services/encryption_service.dart';
 import '../services/chat_service.dart';
 import '../services/notification_service.dart';
+import '../services/couple_selfie_service.dart';
 import 'pairing_wizard_screen.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
@@ -379,7 +380,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
         builder: (context) => const PairingWizardScreen(),
       ),
     );
-    _checkPairingStatus();
+    // Non serve più _checkPairingStatus() - il build() si aggiorna automaticamente via Provider
   }
 
   void _showDeleteDialog() {
