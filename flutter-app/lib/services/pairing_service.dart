@@ -285,40 +285,106 @@ class PairingService extends ChangeNotifier {
 
       // LOGICA ROBUSTA: isPaired = true SOLO se:
       // 1. userCount == 2
-      // 2. Ho la chiave del partner (recuperata da cache o Firestore)
-      // 3. Il mio documento ha la chiave del partner corretta
+      // 2. Entrambi i documenti hanno chiavi valide che si corrispondono
       bool keysAreValid = false;
+      bool familyIsCorrupted = false;
+
       if (userCount >= 2) {
         try {
-          // Verifica che il mio documento abbia la chiave partner corretta
           final myDocList = snapshot.docs.where((doc) => doc.id == myUserId).toList();
+
           if (myDocList.isNotEmpty) {
             final myDoc = myDocList.first;
-            final myDocPartnerKey = myDoc.data()?['partner_public_key'] as String?;
+            final myDocData = myDoc.data();
+            final myDocPartnerKey = myDocData?['partner_public_key'] as String?;
+            final myDocPublicKey = myDocData?['my_public_key'] as String?;
 
-            // Se non ho la chiave partner in cache ma è nel documento, recuperala!
-            if (_partnerPublicKey == null && myDocPartnerKey != null) {
-              if (kDebugMode) print('   🔄 Recupero partner_public_key dal documento Firestore');
-              _partnerPublicKey = myDocPartnerKey;
-              // Salva anche in secure storage
-              await _storage.write(key: 'partner_public_key', value: myDocPartnerKey);
-              if (kDebugMode) print('   ✅ partner_public_key recuperata e salvata in cache');
-            }
+            // Trova il documento del partner
+            final partnerDocs = snapshot.docs.where((doc) => doc.id != myUserId).toList();
 
-            keysAreValid = myDocPartnerKey != null && myDocPartnerKey == _partnerPublicKey;
+            if (partnerDocs.isNotEmpty) {
+              final partnerDoc = partnerDocs.first;
+              final partnerDocData = partnerDoc.data();
+              final partnerDocPartnerKey = partnerDocData?['partner_public_key'] as String?;
+              final partnerDocPublicKey = partnerDocData?['my_public_key'] as String?;
 
-            if (kDebugMode) {
-              print('   Verifico chiavi:');
-              print('     - myDoc ha partner_public_key: ${myDocPartnerKey != null ? "YES" : "NO"}');
-              print('     - _partnerPublicKey in cache: ${_partnerPublicKey != null ? "YES" : "NO"}');
-              print('     - Corrisponde: $keysAreValid');
+              if (kDebugMode) {
+                print('   Verifico chiavi incrociate:');
+                print('     - Mio doc ha partner_public_key: ${myDocPartnerKey != null ? "YES" : "NO"}');
+                print('     - Partner doc ha partner_public_key: ${partnerDocPartnerKey != null ? "YES" : "NO"}');
+                print('     - _partnerPublicKey in cache: ${_partnerPublicKey != null ? "YES" : "NO"}');
+              }
+
+              // Verifica che le chiavi si corrispondano
+              // La mia partner_key deve corrispondere alla public_key del partner
+              // La partner_key del partner deve corrispondere alla mia public_key
+              final myKeysMatch = myDocPartnerKey != null &&
+                                   myDocPartnerKey == partnerDocPublicKey;
+
+              final partnerKeysMatch = partnerDocPartnerKey != null &&
+                                        partnerDocPartnerKey == myDocPublicKey;
+
+              // Verifica anche con la cache locale
+              final cacheMatches = _partnerPublicKey != null &&
+                                    _partnerPublicKey == partnerDocPublicKey;
+
+              keysAreValid = myKeysMatch && partnerKeysMatch && cacheMatches;
+
+              // Se mancano chiavi O non corrispondono, la famiglia è corrotta
+              if (!keysAreValid) {
+                familyIsCorrupted = true;
+                if (kDebugMode) {
+                  print('   ⚠️ FAMIGLIA CORROTTA RILEVATA:');
+                  print('     - Mie chiavi corrispondono: $myKeysMatch');
+                  print('     - Chiavi partner corrispondono: $partnerKeysMatch');
+                  print('     - Cache corrisponde: $cacheMatches');
+                }
+              }
+
+              if (kDebugMode) print('     - Famiglia valida: $keysAreValid');
+            } else {
+              if (kDebugMode) print('   ⚠️ Partner document not found');
+              familyIsCorrupted = true;
             }
           } else {
             if (kDebugMode) print('   ⚠️ My document not found in family users');
+            familyIsCorrupted = true;
           }
         } catch (e) {
           if (kDebugMode) print('   ⚠️ Error checking keys: $e');
+          familyIsCorrupted = true;
         }
+      }
+
+      // Se la famiglia è corrotta, puliscila completamente
+      if (familyIsCorrupted && userCount >= 2) {
+        if (kDebugMode) print('   🗑️ Pulizia famiglia corrotta in corso...');
+
+        try {
+          // Elimina TUTTI i documenti users
+          for (var doc in snapshot.docs) {
+            await _firestore
+                .collection('families')
+                .doc(chatId)
+                .collection('users')
+                .doc(doc.id)
+                .delete();
+            if (kDebugMode) print('     - Eliminato documento: ${doc.id.substring(0, 10)}...');
+          }
+
+          // Elimina la chiave partner locale
+          await _storage.delete(key: 'partner_public_key');
+          _partnerPublicKey = null;
+          _isPaired = false;
+          _familyWasComplete = false;
+          notifyListeners();
+
+          if (kDebugMode) print('   ✅ Famiglia corrotta pulita, entrambi i telefoni ora unpaired');
+        } catch (e) {
+          if (kDebugMode) print('   ❌ Errore durante pulizia: $e');
+        }
+
+        return; // Esci dal listener
       }
 
       final shouldBePaired = userCount >= 2 && _partnerPublicKey != null && keysAreValid;
