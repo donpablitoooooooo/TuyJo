@@ -40,28 +40,48 @@ class _PairingWizardScreenState extends State<PairingWizardScreen> {
     super.dispose();
   }
 
-  /// Inizia ad ascoltare quando entrambi i dispositivi hanno completato il pairing
+  /// Inizia ad ascoltare quando il partner scansiona il mio QR
   void _startListeningForBothPaired() async {
     final pairingService = Provider.of<PairingService>(context, listen: false);
-    final familyChatId = await pairingService.getFamilyChatId();
     final myUserId = await pairingService.getMyUserId();
 
-    if (familyChatId == null || myUserId == null) return;
+    if (myUserId == null) return;
 
+    // Usa collectionGroup per ascoltare TUTTE le famiglie dove esiste il mio documento
+    // Questo funziona anche se non ho ancora scansionato il partner
     _pairingStatusSubscription = FirebaseFirestore.instance
-        .collection('families')
-        .doc(familyChatId)
-        .collection('users')
+        .collectionGroup('users')
+        .where(FieldPath.documentId, isEqualTo: myUserId)
         .snapshots()
-        .listen((snapshot) {
-      final userCount = snapshot.docs.length;
-      // Controlla se esiste un documento con il mio userId (il partner mi ha scansionato)
-      final myDocExists = snapshot.docs.any((doc) => doc.id == myUserId);
+        .listen((snapshot) async {
+      if (snapshot.docs.isEmpty) {
+        // Nessuno mi ha ancora scansionato
+        if (mounted) {
+          setState(() {
+            _myQrScannedByPartner = false;
+            _bothPaired = false;
+          });
+        }
+        return;
+      }
+
+      // Qualcuno mi ha scansionato! Ottieni il familyChatId dal path
+      final docRef = snapshot.docs.first.reference;
+      final familyChatId = docRef.parent.parent!.id;
+
+      // Controlla quanti utenti ci sono in questa famiglia
+      final familySnapshot = await FirebaseFirestore.instance
+          .collection('families')
+          .doc(familyChatId)
+          .collection('users')
+          .get();
+
+      final userCount = familySnapshot.docs.length;
 
       if (mounted) {
         setState(() {
-          _myQrScannedByPartner = myDocExists;
-          _bothPaired = userCount >= 2;
+          _myQrScannedByPartner = userCount >= 1; // Il partner mi ha scansionato
+          _bothPaired = userCount >= 2; // Entrambi paired
         });
       }
     });

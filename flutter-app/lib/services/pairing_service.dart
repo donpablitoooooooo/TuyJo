@@ -31,18 +31,18 @@ class PairingService extends ChangeNotifier {
     }
 
     if (partnerPubKey != null) {
-      _isPaired = true;
+      // NON impostare _isPaired = true subito! Verrà impostato dal listener
       _partnerPublicKey = partnerPubKey;
       notifyListeners();
 
       if (kDebugMode) {
-        print('✅ [PAIRING] Pairing initialized successfully');
+        print('✅ [PAIRING] Partner public key trovata nello storage');
         print('   Partner public key: ${partnerPubKey.substring(0, 20)}...');
-        print('   _isPaired = true');
+        print('   _isPaired sarà true se userCount >= 2');
       }
 
-      // UNPAIR SYNC: Avvia listener SEMPRE quando c'è un pairing
-      // Non aspettare che ChatScreen venga aperta
+      // UNPAIR SYNC: Avvia listener SEMPRE quando c'è una chiave partner
+      // Il listener imposterà _isPaired = true solo se userCount >= 2
       _startBackgroundUnpairListener();
     } else {
       if (kDebugMode) {
@@ -107,16 +107,33 @@ class PairingService extends ChangeNotifier {
       stopListeningToPairingStatus();
       _familyWasComplete = false; // Reset per il nuovo pairing
 
-      _isPaired = true;
+      // NON impostare _isPaired = true qui! Verrà impostato dal listener quando userCount >= 2
       _partnerPublicKey = partnerPublicKey;
       notifyListeners();
 
       if (kDebugMode) {
         print('✅ [PAIRING] Partner public key imported successfully');
         print('   Partner key: ${partnerPublicKey.substring(0, 20)}...');
-        print('   _isPaired = true');
-        print('   UI should now show chat screen');
+        print('   _isPaired sarà true quando entrambi avranno completato il pairing');
       }
+
+      // Crea il documento users nella famiglia per segnalare che ho scansionato il partner
+      final myUserId = await getMyUserId();
+      final familyChatId = await getFamilyChatId();
+      if (myUserId != null && familyChatId != null) {
+        await _firestore
+            .collection('families')
+            .doc(familyChatId)
+            .collection('users')
+            .doc(myUserId)
+            .set({
+          'paired_at': FieldValue.serverTimestamp(),
+        });
+        if (kDebugMode) print('✅ [PAIRING] Created user document in family: $myUserId');
+      }
+
+      // Avvia il listener per monitorare lo stato della famiglia
+      _startBackgroundUnpairListener();
 
       return true;
     } catch (e) {
@@ -253,6 +270,15 @@ class PairingService extends ChangeNotifier {
 
       if (kDebugMode) print('👥 Family users count: $userCount');
 
+      // LOGICA ROBUSTA: isPaired = true SOLO se userCount >= 2
+      final shouldBePaired = userCount >= 2 && _partnerPublicKey != null;
+
+      if (_isPaired != shouldBePaired) {
+        _isPaired = shouldBePaired;
+        notifyListeners();
+        if (kDebugMode) print('🔄 isPaired aggiornato a: $_isPaired (userCount: $userCount)');
+      }
+
       // Traccia quando la famiglia diventa completa (2 users)
       if (userCount == 2) {
         if (!_familyWasComplete) {
@@ -261,8 +287,8 @@ class PairingService extends ChangeNotifier {
         }
       }
 
-      // Fai unpair SOLO se la famiglia era completa (2 users) e ora non lo è più
-      if (userCount < 2 && _isPaired && _familyWasComplete) {
+      // Fai unpair completo (rimuovi chiave partner) SOLO se eravamo completi e ora non lo siamo più
+      if (userCount < 2 && _partnerPublicKey != null && _familyWasComplete) {
         // Verifica che IO sia ancora presente (potrei essere l'unico rimasto)
         final iAmPresent = snapshot.docs.any((doc) => doc.id == myUserId);
 
