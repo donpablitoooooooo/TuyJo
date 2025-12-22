@@ -740,6 +740,12 @@ class ChatService extends ChangeNotifier {
     String senderId,
     List<Attachment>? attachments,
   ) {
+    if (kDebugMode) {
+      print('🔄 [OPTIMISTIC] addPendingMessage called');
+      print('   Content: $content');
+      print('   Current messages count: ${_messages.length}');
+    }
+
     final tempId = 'pending_${DateTime.now().millisecondsSinceEpoch}';
     final message = Message(
       id: tempId,
@@ -752,6 +758,12 @@ class ChatService extends ChangeNotifier {
     );
 
     _messages.insert(0, message); // Aggiungi in cima (messaggi recenti)
+
+    if (kDebugMode) {
+      print('   Message added with tempId: $tempId');
+      print('   New messages count: ${_messages.length}');
+    }
+
     notifyListeners();
 
     return tempId;
