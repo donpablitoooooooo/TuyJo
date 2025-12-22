@@ -8,6 +8,7 @@ import '../services/couple_selfie_service.dart';
 import '../services/pairing_service.dart';
 import '../services/chat_service.dart';
 import '../services/attachment_service.dart';
+import '../services/encryption_service.dart';
 
 /// Schermo per selezionare e croppare la foto di coppia
 class CoupleSelfieScreen extends StatefulWidget {
@@ -303,10 +304,11 @@ class _CoupleSelfieScreenState extends State<CoupleSelfieScreen> {
       final chatService = Provider.of<ChatService>(context, listen: false);
       final attachmentService = Provider.of<AttachmentService>(context, listen: false);
       final pairingService = Provider.of<PairingService>(context, listen: false);
+      final encryptionService = Provider.of<EncryptionService>(context, listen: false);
 
       // Ottieni le chiavi e gli ID necessari
       final senderId = await pairingService.getMyUserId();
-      final senderPublicKey = await pairingService.getMyPublicKey();
+      final senderPublicKey = await encryptionService.getPublicKey();
       final recipientPublicKey = pairingService.partnerPublicKey;
 
       if (senderId == null || senderPublicKey == null || recipientPublicKey == null) {
