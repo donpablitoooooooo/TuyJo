@@ -461,6 +461,19 @@ class PairingService extends ChangeNotifier {
             print('   Triggering auto-unpair...');
           }
 
+          // Elimina anche il MIO documento users da Firestore
+          try {
+            await _firestore
+                .collection('families')
+                .doc(chatId)
+                .collection('users')
+                .doc(myUserId)
+                .delete();
+            if (kDebugMode) print('🗑️ [PAIRING] Removed my user document from Firestore');
+          } catch (e) {
+            if (kDebugMode) print('⚠️ [PAIRING] Error removing my document: $e');
+          }
+
           // Fai unpair locale
           await _storage.delete(key: 'partner_public_key');
           _isPaired = false;
