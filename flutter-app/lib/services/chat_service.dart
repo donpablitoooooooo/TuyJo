@@ -288,22 +288,29 @@ class ChatService extends ChangeNotifier {
                 _decryptAndPopulateMessage(message, _myDeviceId!);
               }
 
-              // 🔥 RIMUOVI pending message con stesso contenuto (optimistic update cleanup)
-              // Questo previene duplicati visivi quando il messaggio reale arriva da Firebase
-              final countBefore = _messages.length;
-              _messages.removeWhere((m) =>
+              // 🔄 SOSTITUISCI pending message con messaggio reale (optimistic update)
+              // Invece di rimuovere e aggiungere, sostituiamo in-place per evitare refresh visivo
+              final pendingIndex = _messages.indexWhere((m) =>
                 m.isPending == true &&
                 m.decryptedContent == message.decryptedContent &&
                 m.senderId == message.senderId
               );
-              final removed = countBefore - _messages.length;
 
-              if (kDebugMode && removed > 0) {
-                print('🔥 [OPTIMISTIC] Removed $removed pending message(s) - real message arrived');
-              }
+              if (pendingIndex != -1) {
+                // Trovato pending message - sostituiscilo con quello reale
+                _messages[pendingIndex] = message;
 
-              // Aggiungi solo se non esiste già
-              if (!_messages.any((m) => m.id == message.id)) {
+                // 💾 SALVA NELLA CACHE SQLITE
+                try {
+                  await _cacheService.saveMessage(message, familyChatId);
+                  if (kDebugMode) {
+                    print('🔄 [OPTIMISTIC] Replaced pending at index $pendingIndex with real message: ${message.id.substring(0, 8)}');
+                  }
+                } catch (e) {
+                  if (kDebugMode) print('❌ Error caching message: $e');
+                }
+              } else if (!_messages.any((m) => m.id == message.id)) {
+                // Nessun pending trovato E messaggio non esiste già - aggiungilo normalmente
 
                 // 🔔 REMINDER TIMESTAMP UPDATE
                 // Se questo è un reminder appena diventato visibile, aggiorna il timestamp

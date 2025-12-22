@@ -1057,7 +1057,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                               final decryptedContent = message.decryptedContent ?? '[Messaggio non decifrabile]';
 
                               return _MessageBubble(
-                                key: ValueKey('${message.id}_${message.read}_${message.isPending}'),
+                                key: ValueKey('${message.senderId}_${message.timestamp.millisecondsSinceEpoch}_${message.read}'),
                                 message: decryptedContent,
                                 timestamp: message.timestamp,
                                 isMe: isMe,
