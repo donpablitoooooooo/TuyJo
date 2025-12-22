@@ -271,15 +271,27 @@ class PairingService extends ChangeNotifier {
       (snapshot) async {
       final userCount = snapshot.docs.length;
 
-      if (kDebugMode) print('👥 Family users count: $userCount');
+      if (kDebugMode) {
+        print('👥 [PAIRING] Family users count: $userCount');
+        print('   chatId: ${chatId.substring(0, 10)}...');
+        print('   myUserId: ${myUserId.substring(0, 10)}...');
+        print('   _partnerPublicKey: ${_partnerPublicKey != null ? "YES" : "NULL"}');
+        print('   Current _isPaired: $_isPaired');
+      }
 
       // LOGICA ROBUSTA: isPaired = true SOLO se userCount >= 2
       final shouldBePaired = userCount >= 2 && _partnerPublicKey != null;
 
+      if (kDebugMode) {
+        print('   shouldBePaired: $shouldBePaired (userCount >= 2: ${userCount >= 2}, has partner key: ${_partnerPublicKey != null})');
+      }
+
       if (_isPaired != shouldBePaired) {
         _isPaired = shouldBePaired;
         notifyListeners();
-        if (kDebugMode) print('🔄 isPaired aggiornato a: $_isPaired (userCount: $userCount)');
+        if (kDebugMode) print('🔄 [PAIRING] isPaired aggiornato da ${!shouldBePaired} a $shouldBePaired → notifyListeners() chiamato');
+      } else {
+        if (kDebugMode) print('   isPaired già corretto ($_isPaired), nessun cambio');
       }
 
       // Traccia quando la famiglia diventa completa (2 users)
