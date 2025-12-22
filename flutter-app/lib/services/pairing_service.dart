@@ -353,14 +353,18 @@ class PairingService extends ChangeNotifier {
                     .update({'delete_cache_requested': FieldValue.delete()});
 
                 // Triggera pulizia: unpair + cache locale
-                // Nota: la cache viene pulita dal chiamante (es. ChatService)
-                // per ora facciamo solo unpair
                 await _storage.delete(key: 'partner_public_key');
                 _isPaired = false;
                 _partnerPublicKey = null;
                 _familyWasComplete = false;
                 stopListeningToPairingStatus();
                 notifyListeners();
+
+                // Invoca il callback per pulire la cache (messaggi + foto)
+                if (onPartnerDeletedAll != null) {
+                  if (kDebugMode) print('🧹 [PAIRING] Invoking onPartnerDeletedAll callback...');
+                  onPartnerDeletedAll!(chatId);
+                }
 
                 if (kDebugMode) print('✅ [PAIRING] Cache deletion completed (triggered by partner)');
                 return; // Esci dal listener
