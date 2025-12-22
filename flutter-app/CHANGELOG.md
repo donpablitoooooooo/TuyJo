@@ -2,6 +2,33 @@
 
 Tutte le modifiche notevoli a questo progetto saranno documentate in questo file.
 
+## [1.8.0] - 2024-12-22
+
+### 🍎 Supporto iOS
+
+#### Nuova Piattaforma
+- ✅ **Supporto completo iOS 15.0+**
+- Build e deployment su dispositivi iOS e simulatore
+- Configurazione Xcode con code signing automatico
+- Firebase configurato per iOS (Authentication, Firestore, Storage, Messaging)
+- CocoaPods setup con deployment target iOS 15.0
+
+#### Configurazione
+- Podfile configurato con iOS 15.0 minimum deployment
+- Info.plist con permessi camera, foto libreria, notifiche
+- Support for URL schemes (http, https)
+- Document types per immagini, video e PDF
+
+#### Documentazione
+- BUILD_NOTES.md aggiornato con istruzioni complete iOS
+- README.md aggiornato con requisiti e setup iOS
+- Istruzioni per build release e distribuzione TestFlight
+
+### 📦 Infrastruttura
+- Incrementata versione a 1.8.0 (Build 9)
+- Configurazione multi-piattaforma Android + iOS
+- Setup Firebase per entrambe le piattaforme
+
 ## [1.7.0] - 2024-12-21
 
 ### ✨ Nuove Funzionalità

@@ -23,7 +23,7 @@ App di messaggistica privata end-to-end criptata progettata per coppie. Comunica
 - **Share intent**: Condividi file da qualsiasi app direttamente in Private Messaging
 - **Supporto formati**: Immagini, video, PDF e documenti
 - **Condivisione multipla**: Condividi più file contemporaneamente
-- Disponibile su Android (iOS supporto base)
+- Disponibile su Android e iOS
 
 ### ✅ Todo e Reminder
 - **Todo list integrata**: Crea todo condivisi con il partner
@@ -58,8 +58,10 @@ App di messaggistica privata end-to-end criptata progettata per coppie. Comunica
 - **JDK**: 17
 
 ### iOS
-- **Minimo**: iOS 12.0+
+- **Minimo**: iOS 15.0+
 - **Xcode**: 14.0+
+- **macOS**: 12.0+ (Monterey)
+- **CocoaPods**: Richiesto per dipendenze native
 
 ## 🛠️ Setup Sviluppo
 
@@ -102,6 +104,22 @@ flutter build appbundle --release
 ```
 
 #### iOS
+
+**Setup iniziale** (solo prima volta):
+```bash
+# Genera struttura iOS
+flutter create --platforms=ios .
+
+# Installa pods
+cd ios
+pod install
+cd ..
+
+# Apri in Xcode per configurare signing
+open ios/Runner.xcworkspace
+```
+
+**Build**:
 ```bash
 # Debug
 flutter run
@@ -109,6 +127,12 @@ flutter run
 # Release
 flutter build ios --release
 ```
+
+**Note iOS**:
+- Richiede macOS con Xcode installato
+- Configura Team e Bundle ID in Xcode
+- Aggiungi `GoogleService-Info.plist` da Firebase Console
+- Per dettagli completi vedi [BUILD_NOTES.md](BUILD_NOTES.md)
 
 ## 📦 Dipendenze Principali
 

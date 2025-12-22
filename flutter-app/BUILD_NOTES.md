@@ -1,12 +1,13 @@
 # Build e Deploy - Firebase App Distribution
 
-Istruzioni per il build e deploy dell'app su Firebase App Distribution.
+Istruzioni per il build e deploy dell'app Android e iOS su Firebase App Distribution.
 
 ## 📋 Pre-requisiti
 
 ### Tools Necessari
 - Flutter SDK 3.x+
-- Android Studio con SDK Android
+- **Android**: Android Studio con SDK Android
+- **iOS**: macOS con Xcode 14+, CocoaPods
 - Firebase CLI: `npm install -g firebase-tools`
 - Account Firebase configurato
 
@@ -19,7 +20,7 @@ firebase login
 firebase projects:list
 ```
 
-## 🔨 Build APK per Firebase Distribution
+## 🔨 Build Android APK per Firebase Distribution
 
 ### 1. Clean e Preparazione
 ```bash
@@ -46,7 +47,76 @@ flutter build appbundle --release
 # build/app/outputs/bundle/release/app-release.aab
 ```
 
-## 🚀 Deploy su Firebase App Distribution
+## 🍎 Build iOS IPA per Firebase Distribution
+
+### 1. Setup iOS (solo prima volta)
+
+```bash
+cd flutter-app
+
+# Genera struttura iOS
+flutter create --platforms=ios .
+
+# Installa dipendenze
+flutter pub get
+
+# Installa pods
+cd ios
+pod install
+cd ..
+```
+
+### 2. Configurazione Xcode
+
+1. Apri il workspace: `open ios/Runner.xcworkspace`
+2. Seleziona target **Runner** → **Signing & Capabilities**
+3. Configura Team:
+   - ✅ Abilita "Automatically manage signing"
+   - Seleziona il tuo Apple ID come Team
+4. Cambia **Bundle Identifier** a qualcosa di unico (es. `com.tuonome.privatemessaging`)
+5. Aggiungi **GoogleService-Info.plist**:
+   - Scarica da Firebase Console (iOS app)
+   - Drag & drop in cartella Runner
+   - ✅ Seleziona "Copy items if needed" e target "Runner"
+
+### 3. Build Release IPA
+
+#### Via Xcode (Consigliato)
+
+1. In Xcode: **Product** → **Scheme** → **Edit Scheme...**
+2. Seleziona **Run** → Tab **Info**
+3. Cambia **Build Configuration** da Debug a **Release**
+4. Click Close
+5. Connetti dispositivo iOS (o seleziona "Any iOS Device")
+6. **Product** → **Archive**
+7. In **Organizer**, seleziona l'archivio → **Distribute App**
+8. Seleziona **Ad Hoc** o **Development** per testing
+9. Esporta IPA
+
+#### Via Command Line
+
+```bash
+# Build per dispositivo
+flutter build ios --release
+
+# IPA si trova in:
+# build/ios/iphoneos/Runner.app
+```
+
+**Nota**: Per creare IPA, serve Xcode Archive (metodo sopra).
+
+### 4. Deploy iOS su Firebase
+
+```bash
+# Deploy IPA
+firebase appdistribution:distribute \
+  path/to/Runner.ipa \
+  --app YOUR_FIREBASE_IOS_APP_ID \
+  --release-notes "v1.8.0: Supporto iOS, bug fix" \
+  --groups "testers"
+```
+
+## 🚀 Deploy su Firebase App Distribution (Android)
 
 ### Via Firebase CLI
 
@@ -154,14 +224,23 @@ flutter install --release
 
 ## 📊 Info Build Corrente
 
-**Versione**: 1.7.0 (Build 8)
-**Data Build**: 2024-12-21
+**Versione**: 1.8.0 (Build 9)
+**Data Build**: 2024-12-22
+**Piattaforme**: Android + iOS ✅
 **Flutter Version**: 3.x
+
+### Android
 **Kotlin Version**: 2.1.0
 **Gradle Version**: 8.9.1
 **Min SDK**: 23 (Android 6.0)
 **Target SDK**: 36 (Android 14)
 **Compile SDK**: 36
+
+### iOS
+**Deployment Target**: 15.0
+**Xcode**: 14+
+**CocoaPods**: Required
+**Firebase SDK**: 12.6.0
 
 ## 🐛 Troubleshooting Build
 
