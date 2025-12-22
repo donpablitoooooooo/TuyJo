@@ -16,6 +16,10 @@ class PairingService extends ChangeNotifier {
   String? _partnerPublicKey;
   bool _familyWasComplete = false; // Traccia se abbiamo mai visto 2 users
 
+  /// Callback invocato quando il partner fa "Elimina Tutto"
+  /// Permette al codice chiamante di pulire la cache locale (messaggi + foto)
+  Function(String familyChatId)? onPartnerDeletedAll;
+
   bool get isPaired => _isPaired;
   String? get partnerPublicKey => _partnerPublicKey;
 
@@ -461,6 +465,29 @@ class PairingService extends ChangeNotifier {
             print('   Triggering auto-unpair...');
           }
 
+          // Verifica se il partner ha fatto "Elimina Tutto" controllando i messaggi
+          bool partnerDeletedAll = false;
+          try {
+            final messagesSnapshot = await _firestore
+                .collection('families')
+                .doc(chatId)
+                .collection('messages')
+                .limit(1)
+                .get();
+
+            partnerDeletedAll = messagesSnapshot.docs.isEmpty;
+
+            if (kDebugMode) {
+              if (partnerDeletedAll) {
+                print('🗑️ [PAIRING] Partner deleted all messages (Elimina Tutto)');
+              } else {
+                print('💾 [PAIRING] Messages still exist (Cambio Telefono)');
+              }
+            }
+          } catch (e) {
+            if (kDebugMode) print('⚠️ [PAIRING] Error checking messages: $e');
+          }
+
           // Elimina anche il MIO documento users da Firestore
           try {
             await _firestore
@@ -485,6 +512,12 @@ class PairingService extends ChangeNotifier {
 
           // Notifica i listener (Provider)
           notifyListeners();
+
+          // Se il partner ha fatto "Elimina Tutto", invoca il callback per pulire cache
+          if (partnerDeletedAll && onPartnerDeletedAll != null) {
+            if (kDebugMode) print('🧹 [PAIRING] Invoking onPartnerDeletedAll callback...');
+            onPartnerDeletedAll!(chatId);
+          }
 
           if (kDebugMode) print('✅ [PAIRING] Auto-unpair completed (partner left)');
         } else if (!iAmPresent && userCount == 0) {
