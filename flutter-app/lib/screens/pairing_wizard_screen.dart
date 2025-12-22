@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:qr_flutter/qr_flutter.dart';
@@ -24,7 +25,6 @@ class _PairingWizardScreenState extends State<PairingWizardScreen> {
   bool _isGeneratingQR = true;
   bool _showScanner = false;
   bool _isProcessingQR = false;
-  bool _myQrScannedByPartner = false; // Il partner ha scansionato il mio QR
   bool _bothPaired = false; // Entrambi i dispositivi hanno completato il pairing
   StreamSubscription<QuerySnapshot>? _pairingStatusSubscription;
 
@@ -40,48 +40,32 @@ class _PairingWizardScreenState extends State<PairingWizardScreen> {
     super.dispose();
   }
 
-  /// Inizia ad ascoltare quando il partner scansiona il mio QR
+  /// Inizia ad ascoltare quando entrambi completano il pairing
   void _startListeningForBothPaired() async {
     final pairingService = Provider.of<PairingService>(context, listen: false);
-    final myUserId = await pairingService.getMyUserId();
+    final familyChatId = await pairingService.getFamilyChatId();
 
-    if (myUserId == null) return;
+    if (familyChatId == null) {
+      if (kDebugMode) print('⚠️ No familyChatId yet, cannot listen');
+      return;
+    }
 
-    // Usa collectionGroup per ascoltare TUTTE le famiglie dove esiste il mio documento
-    // Questo funziona anche se non ho ancora scansionato il partner
+    if (kDebugMode) print('🎧 Starting listener for both paired on family: ${familyChatId.substring(0, 10)}...');
+
+    // Ascolta la famiglia per vedere quando userCount >= 2
     _pairingStatusSubscription = FirebaseFirestore.instance
-        .collectionGroup('users')
-        .where(FieldPath.documentId, isEqualTo: myUserId)
+        .collection('families')
+        .doc(familyChatId)
+        .collection('users')
         .snapshots()
-        .listen((snapshot) async {
-      if (snapshot.docs.isEmpty) {
-        // Nessuno mi ha ancora scansionato
-        if (mounted) {
-          setState(() {
-            _myQrScannedByPartner = false;
-            _bothPaired = false;
-          });
-        }
-        return;
-      }
+        .listen((snapshot) {
+      final userCount = snapshot.docs.length;
 
-      // Qualcuno mi ha scansionato! Ottieni il familyChatId dal path
-      final docRef = snapshot.docs.first.reference;
-      final familyChatId = docRef.parent.parent!.id;
-
-      // Controlla quanti utenti ci sono in questa famiglia
-      final familySnapshot = await FirebaseFirestore.instance
-          .collection('families')
-          .doc(familyChatId)
-          .collection('users')
-          .get();
-
-      final userCount = familySnapshot.docs.length;
+      if (kDebugMode) print('👥 Wizard family users count: $userCount');
 
       if (mounted) {
         setState(() {
-          _myQrScannedByPartner = userCount >= 1; // Il partner mi ha scansionato
-          _bothPaired = userCount >= 2; // Entrambi paired
+          _bothPaired = userCount >= 2;
         });
       }
     });
@@ -112,9 +96,6 @@ class _PairingWizardScreenState extends State<PairingWizardScreen> {
         _isGeneratingQR = false;
         _step1Completed = true; // Step 1 completato automaticamente quando il QR è generato
       });
-
-      // Inizia subito ad ascoltare per vedere se il partner scansiona il mio QR
-      _startListeningForBothPaired();
     } catch (e) {
       if (mounted) {
         _showFloatingSnackBar('Errore generazione QR: $e', isError: true);
@@ -284,8 +265,8 @@ class _PairingWizardScreenState extends State<PairingWizardScreen> {
                             isCompleted: _step1Completed,
                             child: Column(
                               children: [
-                                // Mostra il QR finché il partner non lo ha scansionato
-                                if (_myQrData != null && !_myQrScannedByPartner) ...[
+                                // Mostra il QR finché non scansiono il partner (step 2)
+                                if (_myQrData != null && !_step2Completed) ...[
                                   Center(
                                     child: Container(
                                       padding: const EdgeInsets.all(16),
@@ -316,7 +297,7 @@ class _PairingWizardScreenState extends State<PairingWizardScreen> {
                                       ),
                                     ),
                                   ),
-                                ] else if (_myQrScannedByPartner) ...[
+                                ] else if (_step2Completed) ...[
                                   Container(
                                     padding: const EdgeInsets.all(16),
                                     decoration: BoxDecoration(
@@ -336,7 +317,7 @@ class _PairingWizardScreenState extends State<PairingWizardScreen> {
                                         SizedBox(width: 12),
                                         Expanded(
                                           child: Text(
-                                            'QR scansionato dal tuo amore!',
+                                            'QR non più necessario!',
                                             style: TextStyle(
                                               color: Color(0xFF667eea),
                                               fontWeight: FontWeight.w600,
