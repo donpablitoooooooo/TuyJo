@@ -124,10 +124,14 @@ class CoupleSelfieService extends ChangeNotifier {
 
   /// Carica una nuova foto di coppia
   /// Questa funzione:
-  /// 1. Carica la foto su Firebase Storage
-  /// 2. Salva l'URL nel documento Firestore della famiglia
-  /// 3. Salva in cache locale
-  /// 4. Notifica tutti i listener
+  /// 1. Elimina la vecchia foto da Storage se esiste
+  /// 2. Carica la nuova foto con nome fisso 'couple_selfie.jpg'
+  /// 3. Salva l'URL nel documento Firestore della famiglia
+  /// 4. Salva in cache locale
+  /// 5. Notifica tutti i listener
+  ///
+  /// IMPORTANTE: C'è sempre e solo UNA foto sul server.
+  /// Ogni nuovo upload sovrascrive la precedente.
   Future<bool> uploadCoupleSelfie(File imageFile, String familyChatId) async {
     if (_isLoading) return false;
 
@@ -137,11 +141,25 @@ class CoupleSelfieService extends ChangeNotifier {
     try {
       if (kDebugMode) print('📤 [COUPLE_SELFIE] Uploading selfie for family: $familyChatId');
 
-      // 1. Leggi i bytes dell'immagine
+      // 1. Elimina la vecchia foto da Storage se esiste
+      if (_selfieUrl != null && _selfieUrl!.isNotEmpty) {
+        try {
+          if (kDebugMode) print('🗑️ [COUPLE_SELFIE] Deleting old photo from Storage...');
+          final oldRef = _storage.refFromURL(_selfieUrl!);
+          await oldRef.delete();
+          if (kDebugMode) print('✅ [COUPLE_SELFIE] Old photo deleted');
+        } catch (e) {
+          if (kDebugMode) print('⚠️ [COUPLE_SELFIE] Could not delete old photo: $e');
+          // Non bloccare l'upload se la cancellazione fallisce
+        }
+      }
+
+      // 2. Leggi i bytes dell'immagine
       final imageBytes = await imageFile.readAsBytes();
 
-      // 2. Upload file to Firebase Storage
-      final fileName = 'couple_selfie_${DateTime.now().millisecondsSinceEpoch}${path.extension(imageFile.path)}';
+      // 3. Upload file to Firebase Storage con NOME FISSO
+      // Questo sovrascrive la foto precedente invece di crearne una nuova
+      const fileName = 'couple_selfie.jpg';
       final storageRef = _storage.ref().child('families/$familyChatId/$fileName');
 
       final uploadTask = await storageRef.putFile(
@@ -149,19 +167,19 @@ class CoupleSelfieService extends ChangeNotifier {
         SettableMetadata(contentType: 'image/jpeg'),
       );
 
-      // 3. Get download URL
+      // 4. Get download URL
       final downloadUrl = await uploadTask.ref.getDownloadURL();
 
       if (kDebugMode) print('✅ [COUPLE_SELFIE] Upload complete: $downloadUrl');
 
-      // 4. Save URL to Firestore
+      // 5. Save URL to Firestore
       final docRef = _firestore.collection('families').doc(familyChatId);
       await docRef.set({
         'couple_selfie_url': downloadUrl,
         'couple_selfie_updated_at': FieldValue.serverTimestamp(),
       }, SetOptions(merge: true));
 
-      // 5. Update local state and cache
+      // 6. Update local state and cache
       _selfieUrl = downloadUrl;
       _cachedSelfieBytes = imageBytes;
 
@@ -184,26 +202,54 @@ class CoupleSelfieService extends ChangeNotifier {
   }
 
   /// Rimuove la foto di coppia
-  Future<bool> removeCoupleSelfie(String familyChatId) async {
+  ///
+  /// Se [deleteFromServer] è true, elimina sia dal server che dalla cache locale.
+  /// Se false, elimina solo dalla cache locale (utile per cambio telefono).
+  /// Se [deleteStorageFile] è true, elimina anche il file da Firebase Storage.
+  Future<bool> removeCoupleSelfie(
+    String familyChatId, {
+    bool deleteFromServer = true,
+    bool deleteStorageFile = false,
+  }) async {
     try {
-      if (kDebugMode) print('🗑️ [COUPLE_SELFIE] Removing selfie for family: $familyChatId');
+      if (kDebugMode) {
+        print('🗑️ [COUPLE_SELFIE] Removing selfie for family: $familyChatId');
+        print('   deleteFromServer: $deleteFromServer, deleteStorageFile: $deleteStorageFile');
+      }
 
-      // 1. Remove from Firestore
-      final docRef = _firestore.collection('families').doc(familyChatId);
-      await docRef.update({
-        'couple_selfie_url': FieldValue.delete(),
-        'couple_selfie_updated_at': FieldValue.delete(),
-      });
+      // 1. Elimina il file da Firebase Storage se richiesto
+      if (deleteStorageFile && _selfieUrl != null) {
+        try {
+          final storageRef = _storage.refFromURL(_selfieUrl!);
+          await storageRef.delete();
+          if (kDebugMode) print('✅ [COUPLE_SELFIE] Storage file deleted');
+        } catch (e) {
+          if (kDebugMode) print('⚠️ [COUPLE_SELFIE] Could not delete storage file: $e');
+          // Non lanciare errore - il file potrebbe già essere stato eliminato
+        }
+      }
 
-      // 2. Remove from cache
+      // 2. Remove from Firestore (solo se richiesto)
+      if (deleteFromServer) {
+        final docRef = _firestore.collection('families').doc(familyChatId);
+        await docRef.update({
+          'couple_selfie_url': FieldValue.delete(),
+          'couple_selfie_updated_at': FieldValue.delete(),
+        });
+        if (kDebugMode) print('✅ [COUPLE_SELFIE] Firestore metadata deleted');
+      }
+
+      // 3. Remove from local cache (sempre)
       _cachedSelfieBytes = null;
       _cacheFile = await _getCacheFile();
       if (await _cacheFile!.exists()) {
         await _cacheFile!.delete();
       }
 
-      // 3. Update local state
-      _selfieUrl = null;
+      // 4. Update local state
+      if (deleteFromServer) {
+        _selfieUrl = null;
+      }
       notifyListeners();
 
       if (kDebugMode) print('✅ [COUPLE_SELFIE] Selfie removed successfully');

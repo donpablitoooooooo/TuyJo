@@ -206,7 +206,31 @@ Il package `pdfx` richiede JVM 11+. La configurazione è già impostata per gest
 
 ## 📝 Note di Versione
 
-### v1.1.0 (Corrente)
+### v1.10.0 (Corrente)
+**Nuove Funzionalità:**
+- ✨ Sincronizzazione foto profilo coppia: una sola foto condivisa tra i dispositivi
+- 🔄 Messaggio automatico quando si cambia la foto profilo
+- 💔 Icona cuore grigia quando non si è in pairing
+- 🔧 Ricaricamento automatico foto dopo re-pairing
+
+**Miglioramenti:**
+- Sistema di crop foto con fallback manuale per casi edge
+- Gestione robusta di tutti i tipi di unpair (completo/solo mio/partner)
+- Sincronizzazione real-time della foto tra i dispositivi
+- Cache locale allineata con lo stato del server
+
+**Bug Fix:**
+- Risolto problema foto multiple sul server (ora solo una foto)
+- Risolto unpair "partner" che eliminava i propri messaggi
+- Risolto problema foto non impostata se non si modifica il crop
+- Risolto problema icona profilo che non diventava grigia dopo unpair
+- Risolto errore compilazione localizzazioni ARB
+- Risolto provider AttachmentService mancante
+
+**Breaking Changes:**
+- La foto profilo ora usa sempre il nome fisso `couple_selfie.jpg` (sovrascrive la precedente)
+
+### v1.1.0
 **Nuove Funzionalità:**
 - ✨ URL e indirizzi cliccabili nei messaggi
 - 📤 Condivisione file da altre app (Android)

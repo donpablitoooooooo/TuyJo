@@ -31,6 +31,7 @@ void main() async {
   final notificationService = NotificationService();
   final chatService = ChatService(encryptionService, notificationService);
   final coupleSelfieService = CoupleSelfieService();
+  final attachmentService = AttachmentService(encryptionService: encryptionService);
 
   // Configura callback per pulizia cache quando il partner richiede la cancellazione
   pairingService.onPartnerDeletedAll = (String familyChatId) async {
@@ -40,8 +41,11 @@ void main() async {
     chatService.stopListening();
     chatService.clearMessages();
 
-    // Pulisci cache foto
-    await coupleSelfieService.removeCoupleSelfie(familyChatId);
+    // Pulisci SOLO cache locale foto (mantieni sul server)
+    await coupleSelfieService.removeCoupleSelfie(
+      familyChatId,
+      deleteFromServer: false,
+    );
 
     print('✅ [MAIN] Cache cleanup completed');
   };
@@ -60,6 +64,7 @@ void main() async {
     notificationService: notificationService,
     chatService: chatService,
     coupleSelfieService: coupleSelfieService,
+    attachmentService: attachmentService,
   ));
 }
 
@@ -69,6 +74,7 @@ class MyApp extends StatelessWidget {
   final NotificationService notificationService;
   final ChatService chatService;
   final CoupleSelfieService coupleSelfieService;
+  final AttachmentService attachmentService;
 
   const MyApp({
     super.key,
@@ -77,6 +83,7 @@ class MyApp extends StatelessWidget {
     required this.notificationService,
     required this.chatService,
     required this.coupleSelfieService,
+    required this.attachmentService,
   });
 
   @override
@@ -89,6 +96,7 @@ class MyApp extends StatelessWidget {
         ChangeNotifierProvider.value(value: coupleSelfieService),
         Provider.value(value: encryptionService),
         Provider.value(value: notificationService),
+        Provider.value(value: attachmentService),
       ],
       child: MaterialApp(
         onGenerateTitle: (context) => AppLocalizations.of(context)!.appTitle,

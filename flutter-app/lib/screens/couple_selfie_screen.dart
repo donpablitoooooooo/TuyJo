@@ -249,9 +249,15 @@ class _CoupleSelfieScreenState extends State<CoupleSelfieScreen> {
         ],
       );
 
-      if (croppedFile == null) {
-        setState(() => _isProcessing = false);
-        return;
+      // Se croppedFile è null, il cropper potrebbe aver fallito o l'utente
+      // potrebbe aver premuto OK senza modificare (bug di image_cropper).
+      // In questo caso, croppiamo manualmente l'immagine a square
+      File imageToUpload;
+      if (croppedFile != null) {
+        imageToUpload = File(croppedFile.path);
+      } else {
+        if (kDebugMode) print('⚠️ Cropper returned null, manually cropping to square...');
+        imageToUpload = await _cropImageToSquare(File(pickedFile.path));
       }
 
       // 3. Upload to Firebase
@@ -268,8 +274,9 @@ class _CoupleSelfieScreenState extends State<CoupleSelfieScreen> {
         return;
       }
 
+      // Carica la foto come couple selfie
       final success = await coupleSelfieService.uploadCoupleSelfie(
-        File(croppedFile.path),
+        imageToUpload,
         familyChatId,
       );
 
@@ -277,9 +284,22 @@ class _CoupleSelfieScreenState extends State<CoupleSelfieScreen> {
         final l10n = AppLocalizations.of(context)!;
         if (success) {
           // Invia messaggio in chat con la nuova foto
-          await _sendPhotoChangeMessage(File(croppedFile.path), familyChatId);
+          // IMPORTANTE: Questo carica la foto una seconda volta come allegato cifrato
+          // La foto di coppia e l'allegato del messaggio sono due file separati:
+          // - Foto di coppia: pubblica, sincronizzata automaticamente tra i dispositivi
+          // - Allegato: cifrato end-to-end, parte del messaggio in chat
+          try {
+            await _sendPhotoChangeMessage(imageToUpload, familyChatId);
+            _showSnackBar(l10n.coupleSelfieSaveSuccess);
+          } catch (e) {
+            // Foto caricata ma messaggio fallito - avvisa l'utente
+            if (kDebugMode) print('⚠️ Photo uploaded but message failed: $e');
+            _showSnackBar(
+              '${l10n.coupleSelfieSaveSuccess}\n⚠️ Could not send message: ${e.toString()}',
+              isError: false, // Non è un errore grave - la foto è stata caricata
+            );
+          }
 
-          _showSnackBar(l10n.coupleSelfieSaveSuccess);
           // Return to previous screen
           Future.delayed(const Duration(milliseconds: 500), () {
             if (mounted) {
@@ -303,59 +323,107 @@ class _CoupleSelfieScreenState extends State<CoupleSelfieScreen> {
   }
 
   /// Invia un messaggio in chat con la nuova foto di coppia
-  Future<void> _sendPhotoChangeMessage(File photoFile, String familyChatId) async {
-    try {
-      if (kDebugMode) print('📤 [COUPLE_SELFIE_SCREEN] Sending photo change message...');
+  /// Restituisce true se il messaggio è stato inviato con successo, false altrimenti
+  Future<bool> _sendPhotoChangeMessage(File photoFile, String familyChatId) async {
+    if (kDebugMode) print('📤 [COUPLE_SELFIE_SCREEN] Sending photo change message...');
 
-      final chatService = Provider.of<ChatService>(context, listen: false);
-      final attachmentService = Provider.of<AttachmentService>(context, listen: false);
-      final pairingService = Provider.of<PairingService>(context, listen: false);
-      final encryptionService = Provider.of<EncryptionService>(context, listen: false);
+    final chatService = Provider.of<ChatService>(context, listen: false);
+    final attachmentService = Provider.of<AttachmentService>(context, listen: false);
+    final pairingService = Provider.of<PairingService>(context, listen: false);
+    final encryptionService = Provider.of<EncryptionService>(context, listen: false);
 
-      // Ottieni le chiavi e gli ID necessari
-      final senderId = await pairingService.getMyUserId();
-      final senderPublicKey = await encryptionService.getPublicKey();
-      final recipientPublicKey = pairingService.partnerPublicKey;
+    // Ottieni le chiavi e gli ID necessari
+    final senderId = await pairingService.getMyUserId();
+    final senderPublicKey = await encryptionService.getPublicKey();
+    final recipientPublicKey = pairingService.partnerPublicKey;
 
-      if (senderId == null || senderPublicKey == null || recipientPublicKey == null) {
-        if (kDebugMode) print('❌ [COUPLE_SELFIE_SCREEN] Missing keys or IDs');
-        return;
-      }
-
-      // Upload della foto come allegato cifrato
-      final attachment = await attachmentService.uploadAttachment(
-        photoFile,
-        familyChatId,
-        senderId,
-        senderPublicKey,
-        recipientPublicKey,
-      );
-
-      if (attachment == null) {
-        if (kDebugMode) print('❌ [COUPLE_SELFIE_SCREEN] Failed to upload attachment');
-        return;
-      }
-
-      // Invia il messaggio con l'allegato
-      final l10n = AppLocalizations.of(context)!;
-      final messageSent = await chatService.sendMessage(
-        l10n.coupleSelfieNewProfilePictureMessage,
-        familyChatId,
-        senderId,
-        senderPublicKey,
-        recipientPublicKey,
-        attachments: [attachment],
-      );
-
+    if (senderId == null || senderPublicKey == null || recipientPublicKey == null) {
       if (kDebugMode) {
-        if (messageSent) {
-          print('✅ [COUPLE_SELFIE_SCREEN] Photo change message sent');
-        } else {
-          print('❌ [COUPLE_SELFIE_SCREEN] Failed to send message');
-        }
+        print('❌ [COUPLE_SELFIE_SCREEN] Missing keys or IDs:');
+        print('   senderId: $senderId');
+        print('   senderPublicKey: ${senderPublicKey != null ? "present" : "null"}');
+        print('   recipientPublicKey: ${recipientPublicKey != null ? "present" : "null"}');
       }
+      throw Exception('Cannot send message: pairing keys not available. Please try again.');
+    }
+
+    // Upload della foto come allegato cifrato
+    final attachment = await attachmentService.uploadAttachment(
+      photoFile,
+      familyChatId,
+      senderId,
+      senderPublicKey,
+      recipientPublicKey,
+    );
+
+    if (attachment == null) {
+      if (kDebugMode) print('❌ [COUPLE_SELFIE_SCREEN] Failed to upload attachment');
+      throw Exception('Failed to upload photo attachment. Please try again.');
+    }
+
+    // Invia il messaggio con l'allegato
+    final l10n = AppLocalizations.of(context)!;
+    final messageSent = await chatService.sendMessage(
+      l10n.coupleSelfieNewProfilePictureMessage,
+      familyChatId,
+      senderId,
+      senderPublicKey,
+      recipientPublicKey,
+      attachments: [attachment],
+    );
+
+    if (kDebugMode) {
+      if (messageSent) {
+        print('✅ [COUPLE_SELFIE_SCREEN] Photo change message sent');
+      } else {
+        print('❌ [COUPLE_SELFIE_SCREEN] Failed to send message');
+      }
+    }
+
+    if (!messageSent) {
+      throw Exception('Failed to send photo change message. Please try again.');
+    }
+
+    return true;
+  }
+
+  /// Croppa manualmente un'immagine a formato square (1:1)
+  /// Prende la dimensione più piccola e croppa dal centro
+  Future<File> _cropImageToSquare(File imageFile) async {
+    try {
+      // Leggi l'immagine
+      final bytes = await imageFile.readAsBytes();
+      img.Image? image = img.decodeImage(bytes);
+
+      if (image == null) {
+        throw Exception('Failed to decode image');
+      }
+
+      // Calcola le dimensioni per il crop square
+      final size = image.width < image.height ? image.width : image.height;
+      final offsetX = (image.width - size) ~/ 2;
+      final offsetY = (image.height - size) ~/ 2;
+
+      // Croppa l'immagine
+      final croppedImage = img.copyCrop(
+        image,
+        x: offsetX,
+        y: offsetY,
+        width: size,
+        height: size,
+      );
+
+      // Salva il file croppato
+      final tempDir = await getTemporaryDirectory();
+      final croppedFile = File('${tempDir.path}/cropped_${DateTime.now().millisecondsSinceEpoch}.jpg');
+      await croppedFile.writeAsBytes(img.encodeJpg(croppedImage, quality: 95));
+
+      if (kDebugMode) print('✅ Image manually cropped to ${size}x${size}');
+
+      return croppedFile;
     } catch (e) {
-      if (kDebugMode) print('❌ [COUPLE_SELFIE_SCREEN] Error sending photo change message: $e');
+      if (kDebugMode) print('❌ Error manually cropping image: $e');
+      rethrow;
     }
   }
 

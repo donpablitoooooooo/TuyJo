@@ -109,8 +109,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
       final myUserId = await pairingService.getMyUserId();
 
       if (mode == 'all') {
-        // OPZIONE 1: Elimina tutti i messaggi dal server (per entrambi)
+        // OPZIONE 1: Elimina tutti i messaggi + foto dal server (per entrambi)
         if (chatId != null && mounted) {
+          // Elimina messaggi + foto da Firestore e Storage
           await chatService.deleteMessagesAndCoupleSelfie(chatId);
         }
 
@@ -119,15 +120,24 @@ class _SettingsScreenState extends State<SettingsScreen> {
         chatService.stopListening();
         chatService.clearMessages();
         if (chatId != null) {
-          await coupleSelfieService.removeCoupleSelfie(chatId);
+          // Pulisci SOLO cache locale (il server è già stato pulito da deleteMessagesAndCoupleSelfie)
+          await coupleSelfieService.removeCoupleSelfie(
+            chatId,
+            deleteFromServer: false,
+          );
         }
       } else if (mode == 'mine') {
         // OPZIONE 2: Elimina solo cache locale (Cambio Telefono)
+        // NON eliminare dal server - il partner deve mantenerla!
         await pairingService.clearPairing();
         chatService.stopListening();
         chatService.clearMessages();
         if (chatId != null) {
-          await coupleSelfieService.removeCoupleSelfie(chatId);
+          // Pulisci SOLO cache locale, mantieni sul server
+          await coupleSelfieService.removeCoupleSelfie(
+            chatId,
+            deleteFromServer: false,
+          );
         }
       } else if (mode == 'partner') {
         // OPZIONE 3: Triggera pulizia cache del partner (ha cambiato telefono senza unpair)
@@ -147,13 +157,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
           }
         }
 
-        // Unpair + pulisci cache locale
+        // Unpair locale (i messaggi rimangono sul dispositivo corrente)
         await pairingService.clearPairing();
-        chatService.stopListening();
-        chatService.clearMessages();
-        if (chatId != null) {
-          await coupleSelfieService.removeCoupleSelfie(chatId);
-        }
+        // NON chiamare chatService.clearMessages() - vogliamo mantenere i nostri messaggi
+        // Solo il partner pulirà la sua cache quando riceverà il flag
       }
 
       // Sempre: rimuovi token FCM
