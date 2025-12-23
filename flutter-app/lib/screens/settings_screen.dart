@@ -157,17 +157,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
           }
         }
 
-        // Unpair + pulisci cache locale
+        // Unpair locale (i messaggi rimangono sul dispositivo corrente)
         await pairingService.clearPairing();
-        chatService.stopListening();
-        chatService.clearMessages();
-        if (chatId != null) {
-          // Pulisci SOLO cache locale, mantieni sul server
-          await coupleSelfieService.removeCoupleSelfie(
-            chatId,
-            deleteFromServer: false,
-          );
-        }
+        // NON chiamare chatService.clearMessages() - vogliamo mantenere i nostri messaggi
+        // Solo il partner pulirà la sua cache quando riceverà il flag
       }
 
       // Sempre: rimuovi token FCM

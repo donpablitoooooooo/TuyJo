@@ -4,6 +4,8 @@ import 'package:flutter/foundation.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:image_cropper/image_cropper.dart';
 import 'package:provider/provider.dart';
+import 'package:image/image.dart' as img;
+import 'package:path_provider/path_provider.dart';
 import 'package:private_messaging/generated/l10n/app_localizations.dart';
 import '../services/couple_selfie_service.dart';
 import '../services/pairing_service.dart';
@@ -249,9 +251,15 @@ class _CoupleSelfieScreenState extends State<CoupleSelfieScreen> {
         ],
       );
 
-      if (croppedFile == null) {
-        setState(() => _isProcessing = false);
-        return;
+      // Se croppedFile è null, il cropper potrebbe aver fallito o l'utente
+      // potrebbe aver premuto OK senza modificare (bug di image_cropper).
+      // In questo caso, croppiamo manualmente l'immagine a square
+      File imageToUpload;
+      if (croppedFile != null) {
+        imageToUpload = File(croppedFile.path);
+      } else {
+        if (kDebugMode) print('⚠️ Cropper returned null, manually cropping to square...');
+        imageToUpload = await _cropImageToSquare(File(pickedFile.path));
       }
 
       // 3. Upload to Firebase
@@ -270,7 +278,7 @@ class _CoupleSelfieScreenState extends State<CoupleSelfieScreen> {
 
       // Carica la foto come couple selfie
       final success = await coupleSelfieService.uploadCoupleSelfie(
-        File(croppedFile.path),
+        imageToUpload,
         familyChatId,
       );
 
@@ -283,7 +291,7 @@ class _CoupleSelfieScreenState extends State<CoupleSelfieScreen> {
           // - Foto di coppia: pubblica, sincronizzata automaticamente tra i dispositivi
           // - Allegato: cifrato end-to-end, parte del messaggio in chat
           try {
-            await _sendPhotoChangeMessage(File(croppedFile.path), familyChatId);
+            await _sendPhotoChangeMessage(imageToUpload, familyChatId);
             _showSnackBar(l10n.coupleSelfieSaveSuccess);
           } catch (e) {
             // Foto caricata ma messaggio fallito - avvisa l'utente
@@ -379,6 +387,46 @@ class _CoupleSelfieScreenState extends State<CoupleSelfieScreen> {
     }
 
     return true;
+  }
+
+  /// Croppa manualmente un'immagine a formato square (1:1)
+  /// Prende la dimensione più piccola e croppa dal centro
+  Future<File> _cropImageToSquare(File imageFile) async {
+    try {
+      // Leggi l'immagine
+      final bytes = await imageFile.readAsBytes();
+      img.Image? image = img.decodeImage(bytes);
+
+      if (image == null) {
+        throw Exception('Failed to decode image');
+      }
+
+      // Calcola le dimensioni per il crop square
+      final size = image.width < image.height ? image.width : image.height;
+      final offsetX = (image.width - size) ~/ 2;
+      final offsetY = (image.height - size) ~/ 2;
+
+      // Croppa l'immagine
+      final croppedImage = img.copyCrop(
+        image,
+        x: offsetX,
+        y: offsetY,
+        width: size,
+        height: size,
+      );
+
+      // Salva il file croppato
+      final tempDir = await getTemporaryDirectory();
+      final croppedFile = File('${tempDir.path}/cropped_${DateTime.now().millisecondsSinceEpoch}.jpg');
+      await croppedFile.writeAsBytes(img.encodeJpg(croppedImage, quality: 95));
+
+      if (kDebugMode) print('✅ Image manually cropped to ${size}x${size}');
+
+      return croppedFile;
+    } catch (e) {
+      if (kDebugMode) print('❌ Error manually cropping image: $e');
+      rethrow;
+    }
   }
 
   void _showSnackBar(String message, {bool isError = false}) {
