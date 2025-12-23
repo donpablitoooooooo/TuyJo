@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter_gen/gen_l10n/app_localizations.dart';
 import '../services/pairing_service.dart';
 import '../services/encryption_service.dart';
 
@@ -104,7 +105,8 @@ class _PairingWizardScreenState extends State<PairingWizardScreen> {
       }
     } catch (e) {
       if (mounted) {
-        _showFloatingSnackBar('Errore generazione QR: $e', isError: true);
+        final l10n = AppLocalizations.of(context)!;
+        _showFloatingSnackBar(l10n.pairingWizardQRGenerationError(e.toString()), isError: true);
       }
     }
   }
@@ -145,13 +147,14 @@ class _PairingWizardScreenState extends State<PairingWizardScreen> {
       final success = await pairingService.importPartnerPublicKeyFromQR(qrData);
 
       if (mounted) {
+        final l10n = AppLocalizations.of(context)!;
         if (success) {
           setState(() {
             _step2Completed = true;
             _showScanner = false;
           });
 
-          _showFloatingSnackBar('QR del partner scansionato con successo!');
+          _showFloatingSnackBar(l10n.pairingWizardQRScannedPartnerSuccess);
 
           // Inizia ad ascoltare quando entrambi hanno completato
           _startListeningForBothPaired();
@@ -159,12 +162,13 @@ class _PairingWizardScreenState extends State<PairingWizardScreen> {
           // NON navigare automaticamente - lascia che l'utente prema il pulsante
           // quando il partner ha completato il suo pairing
         } else {
-          _showFloatingSnackBar('QR Code non valido', isError: true);
+          _showFloatingSnackBar(l10n.pairingWizardInvalidQRCode, isError: true);
         }
       }
     } catch (e) {
       if (mounted) {
-        _showFloatingSnackBar('Errore: $e', isError: true);
+        final l10n = AppLocalizations.of(context)!;
+        _showFloatingSnackBar(l10n.error(e.toString()), isError: true);
       }
     } finally {
       setState(() {
@@ -221,17 +225,17 @@ class _PairingWizardScreenState extends State<PairingWizardScreen> {
             // Main content
             SafeArea(
               child: _isGeneratingQR
-                  ? const Center(
+                  ? Center(
                       child: Column(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          CircularProgressIndicator(
+                          const CircularProgressIndicator(
                             valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
                           ),
-                          SizedBox(height: 16),
+                          const SizedBox(height: 16),
                           Text(
-                            'Preparazione pairing...',
-                            style: TextStyle(
+                            AppLocalizations.of(context)!.pairingWizardPreparingPairing,
+                            style: const TextStyle(
                               color: Colors.white,
                               fontSize: 16,
                             ),
@@ -239,36 +243,40 @@ class _PairingWizardScreenState extends State<PairingWizardScreen> {
                         ],
                       ),
                     )
-                  : SingleChildScrollView(
-                      padding: const EdgeInsets.fromLTRB(24, 80, 24, 24),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          // Header
-                          const Text(
-                            'Pairing con il tuo amore',
-                            style: TextStyle(
-                              fontSize: 28,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.white,
-                            ),
-                          ),
-                          const SizedBox(height: 8),
-                          const Text(
-                            'Completa entrambi i passaggi per accoppiare i dispositivi',
-                            style: TextStyle(
-                              fontSize: 14,
-                              color: Colors.white70,
-                            ),
-                          ),
-                          const SizedBox(height: 32),
+                  : Builder(
+                      builder: (context) {
+                        final l10n = AppLocalizations.of(context)!;
+                        return SingleChildScrollView(
+                          padding: const EdgeInsets.fromLTRB(24, 80, 24, 24),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              // Header
+                              Text(
+                                l10n.pairingWizardTitle,
+                                style: const TextStyle(
+                                  fontSize: 28,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.white,
+                                ),
+                              ),
+                              const SizedBox(height: 8),
+                              Text(
+                                l10n.pairingWizardSubtitle,
+                                style: const TextStyle(
+                                  fontSize: 14,
+                                  color: Colors.white70,
+                                ),
+                              ),
+                              const SizedBox(height: 32),
 
-                          // STEP 1: Mostra il tuo QR
-                          _buildStepCard(
-                            stepNumber: 1,
-                            title: 'Mostra il tuo QR',
-                            description: 'Fai scansionare questo QR al tuo amore',
-                            isCompleted: _step1Completed,
+                              // STEP 1: Mostra il tuo QR
+                              _buildStepCard(
+                                context: context,
+                                stepNumber: 1,
+                                title: l10n.pairingWizardStep1Title,
+                                description: l10n.pairingWizardStep1Description,
+                                isCompleted: _step1Completed,
                             child: Column(
                               children: [
                                 // Mostra il QR finché non siamo entrambi paired
@@ -313,18 +321,18 @@ class _PairingWizardScreenState extends State<PairingWizardScreen> {
                                         color: const Color(0xFF667eea),
                                       ),
                                     ),
-                                    child: const Row(
+                                    child: Row(
                                       children: [
-                                        Icon(
+                                        const Icon(
                                           Icons.check_circle,
                                           color: Color(0xFF667eea),
                                           size: 32,
                                         ),
-                                        SizedBox(width: 12),
+                                        const SizedBox(width: 12),
                                         Expanded(
                                           child: Text(
-                                            'Pairing completato!',
-                                            style: TextStyle(
+                                            l10n.pairingWizardPairingCompleted,
+                                            style: const TextStyle(
                                               color: Color(0xFF667eea),
                                               fontWeight: FontWeight.w600,
                                               fontSize: 14,
@@ -343,9 +351,10 @@ class _PairingWizardScreenState extends State<PairingWizardScreen> {
 
                           // STEP 2: Scansiona QR partner
                           _buildStepCard(
+                            context: context,
                             stepNumber: 2,
-                            title: 'Leggi il QR del tuo amore',
-                            description: 'Scansiona il QR mostrato dal tuo amore',
+                            title: l10n.pairingWizardStep2Title,
+                            description: l10n.pairingWizardStep2Description,
                             isCompleted: _step2Completed,
                             child: Column(
                               children: [
@@ -380,17 +389,17 @@ class _PairingWizardScreenState extends State<PairingWizardScreen> {
                                           },
                                           child: Container(
                                             padding: const EdgeInsets.symmetric(vertical: 16),
-                                            child: const Row(
+                                            child: Row(
                                               mainAxisAlignment: MainAxisAlignment.center,
                                               children: [
-                                                Icon(
+                                                const Icon(
                                                   Icons.qr_code_scanner,
                                                   color: Colors.white,
                                                 ),
-                                                SizedBox(width: 12),
+                                                const SizedBox(width: 12),
                                                 Text(
-                                                  'Scansiona QR',
-                                                  style: TextStyle(
+                                                  l10n.pairingWizardScanQRButton,
+                                                  style: const TextStyle(
                                                     color: Colors.white,
                                                     fontSize: 16,
                                                     fontWeight: FontWeight.w600,
@@ -413,18 +422,18 @@ class _PairingWizardScreenState extends State<PairingWizardScreen> {
                                         color: const Color(0xFF667eea),
                                       ),
                                     ),
-                                    child: const Row(
+                                    child: Row(
                                       children: [
-                                        Icon(
+                                        const Icon(
                                           Icons.check_circle,
                                           color: Color(0xFF667eea),
                                           size: 32,
                                         ),
-                                        SizedBox(width: 12),
+                                        const SizedBox(width: 12),
                                         Expanded(
                                           child: Text(
-                                            'QR scansionato con successo!',
-                                            style: TextStyle(
+                                            l10n.pairingWizardQRScannedSuccess,
+                                            style: const TextStyle(
                                               color: Color(0xFF667eea),
                                               fontWeight: FontWeight.w600,
                                               fontSize: 14,
@@ -467,8 +476,8 @@ class _PairingWizardScreenState extends State<PairingWizardScreen> {
                                   const SizedBox(height: 12),
                                   Text(
                                     _bothPaired
-                                        ? 'Pairing completato!'
-                                        : 'Hai completato il pairing!',
+                                        ? l10n.pairingWizardPairingCompleted
+                                        : l10n.pairingWizardYouCompletedPairing,
                                     style: const TextStyle(
                                       color: Color(0xFF667eea),
                                       fontWeight: FontWeight.bold,
@@ -478,8 +487,8 @@ class _PairingWizardScreenState extends State<PairingWizardScreen> {
                                   const SizedBox(height: 8),
                                   Text(
                                     _bothPaired
-                                        ? 'Entrambi siete pronti!\nPremi "Vai alla Chat" per iniziare 💜'
-                                        : 'Attendi che il tuo amore completi\nentrambi gli step...',
+                                        ? l10n.pairingWizardBothReadyMessage
+                                        : l10n.pairingWizardWaitingForPartner,
                                     style: const TextStyle(
                                       color: Colors.grey,
                                       fontSize: 14,
@@ -534,7 +543,7 @@ class _PairingWizardScreenState extends State<PairingWizardScreen> {
                                           ),
                                           const SizedBox(width: 12),
                                           Text(
-                                            _bothPaired ? 'Vai alla Chat' : 'In attesa...',
+                                            _bothPaired ? l10n.pairingWizardGoToChatButton : l10n.pairingWizardWaitingButton,
                                             style: TextStyle(
                                               color: _bothPaired ? Colors.white : Colors.grey.shade500,
                                               fontSize: 16,
@@ -550,8 +559,9 @@ class _PairingWizardScreenState extends State<PairingWizardScreen> {
                             ),
                           ],
                         ],
-                      ),
-                    ),
+                      );
+                    },
+                  ),
             ),
           ],
         ),
@@ -560,6 +570,7 @@ class _PairingWizardScreenState extends State<PairingWizardScreen> {
   }
 
   Widget _buildStepCard({
+    required BuildContext context,
     required int stepNumber,
     required String title,
     required String description,
@@ -764,9 +775,9 @@ class _PairingWizardScreenState extends State<PairingWizardScreen> {
                     ),
                   ],
                 ),
-                child: const Text(
-                  'Inquadra il QR Code del tuo amore',
-                  style: TextStyle(
+                child: Text(
+                  AppLocalizations.of(context)!.pairingWizardScanInstructions,
+                  style: const TextStyle(
                     color: Color(0xFF2d3436),
                     fontSize: 16,
                     fontWeight: FontWeight.w600,
@@ -802,17 +813,17 @@ class _PairingWizardScreenState extends State<PairingWizardScreen> {
             if (_isProcessingQR)
               Container(
                 color: Colors.black.withOpacity(0.8),
-                child: const Center(
+                child: Center(
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      CircularProgressIndicator(
+                      const CircularProgressIndicator(
                         valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
                       ),
-                      SizedBox(height: 16),
+                      const SizedBox(height: 16),
                       Text(
-                        'Importazione chiave...',
-                        style: TextStyle(
+                        AppLocalizations.of(context)!.pairingWizardImportingKey,
+                        style: const TextStyle(
                           color: Colors.white,
                           fontSize: 16,
                           fontWeight: FontWeight.w500,

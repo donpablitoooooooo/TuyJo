@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter_gen/gen_l10n/app_localizations.dart';
 import '../services/pairing_service.dart';
 import '../services/encryption_service.dart';
 import '../services/chat_service.dart';
@@ -34,13 +35,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
       if (privateKey == null) {
         if (!mounted) return;
+        final l10n = AppLocalizations.of(context)!;
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: const Row(
+            content: Row(
               children: [
-                Icon(Icons.warning_amber, color: Colors.white),
-                SizedBox(width: 12),
-                Expanded(child: Text('Nessuna chiave privata trovata')),
+                const Icon(Icons.warning_amber, color: Colors.white),
+                const SizedBox(width: 12),
+                Expanded(child: Text(l10n.settingsPrivateKeyNotFound)),
               ],
             ),
             backgroundColor: Colors.orange[700],
@@ -54,13 +56,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
       await Clipboard.setData(ClipboardData(text: privateKey));
 
       if (!mounted) return;
+      final l10n = AppLocalizations.of(context)!;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: const Row(
+          content: Row(
             children: [
-              Icon(Icons.check_circle, color: Colors.white),
-              SizedBox(width: 12),
-              Expanded(child: Text('Chiave privata copiata!')),
+              const Icon(Icons.check_circle, color: Colors.white),
+              const SizedBox(width: 12),
+              Expanded(child: Text(l10n.settingsPrivateKeyCopied)),
             ],
           ),
           backgroundColor: Colors.green[600],
@@ -70,13 +73,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
       );
     } catch (e) {
       if (!mounted) return;
+      final l10n = AppLocalizations.of(context)!;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Row(
             children: [
               const Icon(Icons.error, color: Colors.white),
               const SizedBox(width: 12),
-              Expanded(child: Text('Errore: $e')),
+              Expanded(child: Text(l10n.error(e.toString()))),
             ],
           ),
           backgroundColor: Colors.red[600],
@@ -159,11 +163,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
       if (!mounted) return;
 
+      final l10n = AppLocalizations.of(context)!;
       final message = mode == 'all'
-          ? 'Tutti i messaggi eliminati (server)'
+          ? l10n.settingsDeleteAllMessagesSuccess
           : mode == 'mine'
-              ? 'Pairing eliminato (solo cache locale)'
-              : 'Richiesta pulizia cache partner inviata';
+              ? l10n.settingsDeleteLocalCacheSuccess
+              : l10n.settingsDeletePartnerCacheSuccess;
 
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -181,13 +186,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
       );
     } catch (e) {
       if (!mounted) return;
+      final l10n = AppLocalizations.of(context)!;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Row(
             children: [
               const Icon(Icons.error, color: Colors.white),
               const SizedBox(width: 12),
-              Expanded(child: Text('Errore: $e')),
+              Expanded(child: Text(l10n.error(e.toString()))),
             ],
           ),
           backgroundColor: Colors.red[600],
@@ -201,36 +207,37 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   void _showNewPairingDialog() {
+    final l10n = AppLocalizations.of(context)!;
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         title: Row(
-          children: const [
-            Icon(Icons.favorite, color: Color(0xFF667eea)),
-            SizedBox(width: 12),
-            Text('Nuovo Pairing'),
+          children: [
+            const Icon(Icons.favorite, color: Color(0xFF667eea)),
+            const SizedBox(width: 12),
+            Text(l10n.settingsNewPairingDialogTitle),
           ],
         ),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
-          children: const [
+          children: [
             Text(
-              'Stai per creare un nuovo pairing.',
-              style: TextStyle(fontSize: 16),
+              l10n.settingsNewPairingDialogContent,
+              style: const TextStyle(fontSize: 16),
             ),
-            SizedBox(height: 16),
+            const SizedBox(height: 16),
             Text(
-              '💡 Consiglio: salva la chiave privata prima di procedere, così potrai recuperare l\'account in caso di perdita del dispositivo.',
-              style: TextStyle(fontSize: 13, color: Colors.grey),
+              l10n.settingsNewPairingDialogTip,
+              style: const TextStyle(fontSize: 13, color: Colors.grey),
             ),
           ],
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('Annulla'),
+            child: Text(l10n.cancel),
           ),
           TextButton(
             onPressed: () async {
@@ -239,7 +246,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
               _showSaveKeyDialog();
             },
             style: TextButton.styleFrom(foregroundColor: const Color(0xFF667eea)),
-            child: const Text('Continua'),
+            child: Text(l10n.continue_),
           ),
         ],
       ),
@@ -247,19 +254,20 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   void _showSaveKeyDialog() {
+    final l10n = AppLocalizations.of(context)!;
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         title: Row(
-          children: const [
-            Icon(Icons.backup, color: Color(0xFF667eea)),
-            SizedBox(width: 12),
-            Text('Salva Chiave'),
+          children: [
+            const Icon(Icons.backup, color: Color(0xFF667eea)),
+            const SizedBox(width: 12),
+            Text(l10n.settingsSaveKeyDialogTitle),
           ],
         ),
-        content: const Text(
-          'Vuoi salvare ora la tua chiave privata?\n\nPotrai farlo anche dopo dal menu Backup.',
+        content: Text(
+          l10n.settingsSaveKeyDialogContent,
         ),
         actions: [
           TextButton(
@@ -268,7 +276,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
               // Vai direttamente al wizard
               _startPairingWizard();
             },
-            child: const Text('Più tardi'),
+            child: Text(l10n.settingsSaveKeyLater),
           ),
           TextButton(
             onPressed: () async {
@@ -278,7 +286,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
               _startPairingWizard();
             },
             style: TextButton.styleFrom(foregroundColor: const Color(0xFF667eea)),
-            child: const Text('Salva ora'),
+            child: Text(l10n.settingsSaveKeyNow),
           ),
         ],
       ),
@@ -287,28 +295,29 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   void _showRestoreDialog() {
     final keyController = TextEditingController();
+    final l10n = AppLocalizations.of(context)!;
 
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         title: Row(
-          children: const [
-            Icon(Icons.restore, color: Color(0xFF667eea)),
-            SizedBox(width: 12),
-            Text('Ripristino'),
+          children: [
+            const Icon(Icons.restore, color: Color(0xFF667eea)),
+            const SizedBox(width: 12),
+            Text(l10n.settingsRestoreDialogTitle),
           ],
         ),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text('Incolla qui la tua chiave privata:'),
+            Text(l10n.settingsRestoreDialogPrompt),
             const SizedBox(height: 16),
             TextField(
               controller: keyController,
               decoration: InputDecoration(
-                hintText: 'Chiave privata...',
+                hintText: l10n.settingsRestoreKeyHint,
                 filled: true,
                 fillColor: Colors.grey[50],
                 border: OutlineInputBorder(
@@ -329,7 +338,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
               keyController.dispose();
               Navigator.pop(context);
             },
-            child: const Text('Annulla'),
+            child: Text(l10n.cancel),
           ),
           TextButton(
             onPressed: () async {
@@ -337,14 +346,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
               keyController.dispose();
               Navigator.pop(context);
 
+              final l10n2 = AppLocalizations.of(context)!;
               if (key.isEmpty) {
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(
-                    content: const Row(
+                    content: Row(
                       children: [
-                        Icon(Icons.warning_amber, color: Colors.white),
-                        SizedBox(width: 12),
-                        Expanded(child: Text('Chiave privata vuota')),
+                        const Icon(Icons.warning_amber, color: Colors.white),
+                        const SizedBox(width: 12),
+                        Expanded(child: Text(l10n2.settingsRestoreEmptyKeyError)),
                       ],
                     ),
                     backgroundColor: Colors.orange[700],
@@ -372,13 +382,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 await pairingService.saveMyPublicKey(publicKey);
 
                 if (!mounted) return;
+                final l10n3 = AppLocalizations.of(context)!;
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(
-                    content: const Row(
+                    content: Row(
                       children: [
-                        Icon(Icons.check_circle, color: Colors.white),
-                        SizedBox(width: 12),
-                        Expanded(child: Text('Chiave ripristinata! Ora fai il pairing.')),
+                        const Icon(Icons.check_circle, color: Colors.white),
+                        const SizedBox(width: 12),
+                        Expanded(child: Text(l10n3.settingsRestoreSuccess)),
                       ],
                     ),
                     backgroundColor: Colors.green[600],
@@ -392,13 +403,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 _startPairingWizard();
               } catch (e) {
                 if (!mounted) return;
+                final l10n4 = AppLocalizations.of(context)!;
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(
                     content: Row(
                       children: [
                         const Icon(Icons.error, color: Colors.white),
                         const SizedBox(width: 12),
-                        Expanded(child: Text('Errore: $e')),
+                        Expanded(child: Text(l10n4.error(e.toString()))),
                       ],
                     ),
                     backgroundColor: Colors.red[600],
@@ -411,7 +423,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
               }
             },
             style: TextButton.styleFrom(foregroundColor: const Color(0xFF667eea)),
-            child: const Text('Ripristina'),
+            child: Text(l10n.settingsRestoreButton),
           ),
         ],
       ),
@@ -429,47 +441,48 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   void _showDeleteDialog() {
+    final l10n = AppLocalizations.of(context)!;
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         title: Row(
-          children: const [
-            Icon(Icons.warning_amber, color: Colors.red),
-            SizedBox(width: 12),
-            Text('Reset Pairing'),
+          children: [
+            const Icon(Icons.warning_amber, color: Colors.red),
+            const SizedBox(width: 12),
+            Text(l10n.settingsResetPairingDialogTitle),
           ],
         ),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
-          children: const [
-            Text('Scegli come procedere:'),
-            SizedBox(height: 20),
+          children: [
+            Text(l10n.settingsResetPairingDialogPrompt),
+            const SizedBox(height: 20),
             _DeleteOption(
               icon: Icons.delete_forever,
-              title: 'Elimina Tutti i Messaggi',
-              description: 'Elimina messaggi e foto dal server (per entrambi)',
+              title: l10n.settingsDeleteAllMessagesTitle,
+              description: l10n.settingsDeleteAllMessagesDescription,
               isDestructive: true,
             ),
-            SizedBox(height: 12),
+            const SizedBox(height: 12),
             _DeleteOption(
               icon: Icons.phone_android,
-              title: 'Elimina i Miei Messaggi',
-              description: 'Elimina solo la mia cache locale (Cambio Telefono)',
+              title: l10n.settingsDeleteMyMessagesTitle,
+              description: l10n.settingsDeleteMyMessagesDescription,
             ),
-            SizedBox(height: 12),
+            const SizedBox(height: 12),
             _DeleteOption(
               icon: Icons.phonelink_erase,
-              title: 'Elimina Messaggi del Partner',
-              description: 'Utile quando il partner ha cambiato telefono senza unpair',
+              title: l10n.settingsDeletePartnerMessagesTitle,
+              description: l10n.settingsDeletePartnerMessagesDescription,
             ),
           ],
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('Annulla'),
+            child: Text(l10n.cancel),
           ),
           TextButton(
             onPressed: () {
@@ -477,21 +490,21 @@ class _SettingsScreenState extends State<SettingsScreen> {
               _deletePairing(mode: 'all');
             },
             style: TextButton.styleFrom(foregroundColor: Colors.red),
-            child: const Text('Tutti'),
+            child: Text(l10n.settingsDeleteAllButton),
           ),
           TextButton(
             onPressed: () {
               Navigator.pop(context);
               _deletePairing(mode: 'mine');
             },
-            child: const Text('I Miei'),
+            child: Text(l10n.settingsDeleteMineButton),
           ),
           TextButton(
             onPressed: () {
               Navigator.pop(context);
               _deletePairing(mode: 'partner');
             },
-            child: const Text('Del Partner'),
+            child: Text(l10n.settingsDeletePartnerButton),
           ),
         ],
       ),
@@ -537,9 +550,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 child: const Icon(Icons.settings, color: Colors.white, size: 40),
               ),
               const SizedBox(height: 16),
-              const Text(
-                'Impostazioni',
-                style: TextStyle(
+              Text(
+                AppLocalizations.of(context)!.settingsTitle,
+                style: const TextStyle(
                   fontSize: 28,
                   fontWeight: FontWeight.bold,
                   color: Color(0xFF667eea),
@@ -552,7 +565,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
         // Pairing Section
         _SettingsSection(
-          title: 'Pairing',
+          title: AppLocalizations.of(context)!.settingsSectionPairing,
           icon: Icons.favorite,
           iconColor: const Color(0xFF667eea),
           children: [
@@ -569,10 +582,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   children: [
                     Icon(Icons.check_circle, color: Colors.green[600]),
                     const SizedBox(width: 12),
-                    const Expanded(
+                    Expanded(
                       child: Text(
-                        'Dispositivi accoppiati ❤️',
-                        style: TextStyle(
+                        AppLocalizations.of(context)!.settingsPairedStatus,
+                        style: const TextStyle(
                           fontWeight: FontWeight.bold,
                           color: Colors.green,
                         ),
@@ -582,33 +595,33 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 ),
               ),
               const SizedBox(height: 16),
-              const Text(
-                'Salva la tua chiave privata se non l\'hai fatto',
-                style: TextStyle(color: Colors.grey, fontSize: 14),
+              Text(
+                AppLocalizations.of(context)!.settingsSavePrivateKeyReminder,
+                style: const TextStyle(color: Colors.grey, fontSize: 14),
               ),
               const SizedBox(height: 12),
               _OutlineButton(
                 onPressed: _copyPrivateKey,
                 icon: Icons.backup,
-                label: 'Backup Chiave',
+                label: AppLocalizations.of(context)!.settingsBackupKeyButton,
               ),
             ] else ...[
               // Unpaired: mostra scelta Nuovo vs Ripristino
-              const Text(
-                'Scegli come procedere:',
-                style: TextStyle(color: Colors.grey, fontSize: 14),
+              Text(
+                AppLocalizations.of(context)!.settingsChooseAction,
+                style: const TextStyle(color: Colors.grey, fontSize: 14),
               ),
               const SizedBox(height: 16),
               _PurpleButton(
                 onPressed: _showNewPairingDialog,
                 icon: Icons.favorite,
-                label: 'Nuovo Pairing',
+                label: AppLocalizations.of(context)!.settingsNewPairingButton,
               ),
               const SizedBox(height: 12),
               _OutlineButton(
                 onPressed: _showRestoreDialog,
                 icon: Icons.restore,
-                label: 'Ripristino da Backup',
+                label: AppLocalizations.of(context)!.settingsRestoreFromBackupButton,
               ),
             ],
           ],
@@ -618,19 +631,19 @@ class _SettingsScreenState extends State<SettingsScreen> {
         if (isPaired) ...[
           const SizedBox(height: 24),
           _SettingsSection(
-            title: 'Zona Pericolosa',
+            title: AppLocalizations.of(context)!.settingsSectionDangerZone,
             icon: Icons.warning,
             iconColor: Colors.red,
             children: [
-              const Text(
-                'Elimina il pairing con il dispositivo accoppiato',
-                style: TextStyle(color: Colors.grey, fontSize: 14),
+              Text(
+                AppLocalizations.of(context)!.settingsUnpairWarning,
+                style: const TextStyle(color: Colors.grey, fontSize: 14),
               ),
               const SizedBox(height: 16),
               _OutlineButton(
                 onPressed: _showDeleteDialog,
                 icon: Icons.delete_outline,
-                label: 'Reset Pairing',
+                label: AppLocalizations.of(context)!.settingsResetPairingButton,
                 color: Colors.red,
               ),
             ],

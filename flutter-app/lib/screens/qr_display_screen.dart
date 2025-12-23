@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_gen/gen_l10n/app_localizations.dart';
 import 'package:provider/provider.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 import '../services/pairing_service.dart';
@@ -49,8 +50,9 @@ class _QRDisplayScreenState extends State<QRDisplayScreen> {
       });
     } catch (e) {
       if (mounted) {
+        final l10n = AppLocalizations.of(context)!;
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Errore nella generazione QR: $e')),
+          SnackBar(content: Text(l10n.qrDisplayGenerationError(e.toString()))),
         );
         Navigator.pop(context);
       }
@@ -59,19 +61,21 @@ class _QRDisplayScreenState extends State<QRDisplayScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
+
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Mostra QR Code'),
+        title: Text(l10n.qrDisplayTitle),
         centerTitle: true,
       ),
       body: _isGenerating
-          ? const Center(
+          ? Center(
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  CircularProgressIndicator(),
-                  SizedBox(height: 16),
-                  Text('Generazione chiave famiglia...'),
+                  const CircularProgressIndicator(),
+                  const SizedBox(height: 16),
+                  Text(l10n.qrDisplayGenerating),
                 ],
               ),
             )
@@ -86,18 +90,18 @@ class _QRDisplayScreenState extends State<QRDisplayScreen> {
                     color: Colors.blue,
                   ),
                   const SizedBox(height: 24),
-                  const Text(
-                    'Fai scansionare questo QR Code',
-                    style: TextStyle(
+                  Text(
+                    l10n.qrDisplayInstructions,
+                    style: const TextStyle(
                       fontSize: 20,
                       fontWeight: FontWeight.bold,
                     ),
                     textAlign: TextAlign.center,
                   ),
                   const SizedBox(height: 16),
-                  const Text(
-                    'Il tuo partner dovrà selezionare "Leggo la chiave famiglia" e scansionare questo codice',
-                    style: TextStyle(
+                  Text(
+                    l10n.qrDisplayDescription,
+                    style: const TextStyle(
                       fontSize: 14,
                       color: Colors.grey,
                     ),
@@ -135,18 +139,18 @@ class _QRDisplayScreenState extends State<QRDisplayScreen> {
 
                   const SizedBox(height: 40),
 
-                  const Card(
+                  Card(
                     color: Colors.blue,
                     child: Padding(
-                      padding: EdgeInsets.all(16.0),
+                      padding: const EdgeInsets.all(16.0),
                       child: Row(
                         children: [
-                          Icon(Icons.info_outline, color: Colors.white),
-                          SizedBox(width: 12),
+                          const Icon(Icons.info_outline, color: Colors.white),
+                          const SizedBox(width: 12),
                           Expanded(
                             child: Text(
-                              'Dopo la scansione, il pairing sarà completo e potrete iniziare a chattare in modo sicuro',
-                              style: TextStyle(color: Colors.white),
+                              l10n.qrDisplayInfoMessage,
+                              style: const TextStyle(color: Colors.white),
                             ),
                           ),
                         ],
@@ -163,7 +167,7 @@ class _QRDisplayScreenState extends State<QRDisplayScreen> {
                       Navigator.of(context).popUntil((route) => route.isFirst);
                     },
                     icon: const Icon(Icons.check),
-                    label: const Text('Fatto'),
+                    label: Text(l10n.done),
                     style: ElevatedButton.styleFrom(
                       padding: const EdgeInsets.symmetric(
                         horizontal: 32,

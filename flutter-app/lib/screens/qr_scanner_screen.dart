@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
+import 'package:flutter_gen/gen_l10n/app_localizations.dart';
 import '../services/pairing_service.dart';
 import '../services/encryption_service.dart';
 
@@ -44,11 +45,12 @@ class _QRScannerScreenState extends State<QRScannerScreen> {
       final success = await pairingService.importFamilyKeyFromQR(qrData);
 
       if (mounted) {
+        final l10n = AppLocalizations.of(context)!;
         if (success) {
           // Pairing completato
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('✅ Pairing completato con successo!'),
+            SnackBar(
+              content: Text(l10n.qrScannerPairingSuccess),
               backgroundColor: Colors.green,
             ),
           );
@@ -58,8 +60,8 @@ class _QRScannerScreenState extends State<QRScannerScreen> {
         } else {
           // Errore nel pairing
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('❌ QR Code non valido'),
+            SnackBar(
+              content: Text(l10n.qrScannerInvalidQRCode),
               backgroundColor: Colors.red,
             ),
           );
@@ -71,9 +73,10 @@ class _QRScannerScreenState extends State<QRScannerScreen> {
       }
     } catch (e) {
       if (mounted) {
+        final l10n = AppLocalizations.of(context)!;
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Errore: $e'),
+            content: Text(l10n.error(e.toString())),
             backgroundColor: Colors.red,
           ),
         );
@@ -93,9 +96,10 @@ class _QRScannerScreenState extends State<QRScannerScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Scansiona QR Code'),
+        title: Text(l10n.qrScannerTitle),
         centerTitle: true,
         actions: [
           IconButton(
@@ -142,11 +146,11 @@ class _QRScannerScreenState extends State<QRScannerScreen> {
             right: 20,
             child: Card(
               color: Colors.black.withOpacity(0.7),
-              child: const Padding(
-                padding: EdgeInsets.all(16.0),
+              child: Padding(
+                padding: const EdgeInsets.all(16.0),
                 child: Text(
-                  'Inquadra il QR Code mostrato dall\'altro dispositivo',
-                  style: TextStyle(
+                  l10n.qrScannerInstructions,
+                  style: const TextStyle(
                     color: Colors.white,
                     fontSize: 16,
                   ),
@@ -175,17 +179,17 @@ class _QRScannerScreenState extends State<QRScannerScreen> {
           if (_isProcessing)
             Container(
               color: Colors.black.withOpacity(0.7),
-              child: const Center(
+              child: Center(
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    CircularProgressIndicator(
+                    const CircularProgressIndicator(
                       valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
                     ),
-                    SizedBox(height: 16),
+                    const SizedBox(height: 16),
                     Text(
-                      'Importazione chiave famiglia...',
-                      style: TextStyle(
+                      l10n.qrScannerImporting,
+                      style: const TextStyle(
                         color: Colors.white,
                         fontSize: 16,
                       ),

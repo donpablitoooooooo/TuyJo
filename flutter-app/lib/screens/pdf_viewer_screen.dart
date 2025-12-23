@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 import 'package:pdfx/pdfx.dart';
 import 'package:path_provider/path_provider.dart';
+import 'package:flutter_gen/gen_l10n/app_localizations.dart';
 import '../models/message.dart';
 import '../services/attachment_service.dart';
 
@@ -86,10 +87,13 @@ class _PdfViewerScreenState extends State<PdfViewerScreen> {
       if (kDebugMode) print('✅ [PDF_VIEWER] PDF loaded successfully: $_totalPages pages');
     } catch (e) {
       if (kDebugMode) print('❌ [PDF_VIEWER] Error loading PDF: $e');
-      setState(() {
-        _isLoading = false;
-        _errorMessage = 'Errore caricamento PDF: ${e.toString()}';
-      });
+      if (mounted) {
+        final l10n = AppLocalizations.of(context)!;
+        setState(() {
+          _isLoading = false;
+          _errorMessage = l10n.pdfViewerLoadError(e.toString());
+        });
+      }
     }
   }
 
@@ -101,6 +105,7 @@ class _PdfViewerScreenState extends State<PdfViewerScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     return Scaffold(
       backgroundColor: Colors.black,
       appBar: AppBar(
@@ -139,22 +144,22 @@ class _PdfViewerScreenState extends State<PdfViewerScreen> {
               showDialog(
                 context: context,
                 builder: (context) => AlertDialog(
-                  title: const Text('Info Documento'),
+                  title: Text(l10n.pdfViewerDocumentInfoTitle),
                   content: Column(
                     mainAxisSize: MainAxisSize.min,
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text('Nome: ${widget.attachment.fileName}'),
+                      Text(l10n.pdfViewerDocumentName(widget.attachment.fileName)),
                       const SizedBox(height: 8),
-                      Text('Dimensione: ${_formatFileSize(widget.attachment.fileSize)}'),
+                      Text(l10n.pdfViewerDocumentSize(_formatFileSize(widget.attachment.fileSize))),
                       const SizedBox(height: 8),
-                      Text('Pagine: $_totalPages'),
+                      Text(l10n.pdfViewerDocumentPages(_totalPages.toString())),
                       const SizedBox(height: 8),
-                      const Row(
+                      Row(
                         children: [
-                          Icon(Icons.lock, size: 16, color: Colors.green),
-                          SizedBox(width: 4),
-                          Text('Cifrato E2E'),
+                          const Icon(Icons.lock, size: 16, color: Colors.green),
+                          const SizedBox(width: 4),
+                          Text(l10n.pdfViewerEncrypted),
                         ],
                       ),
                     ],
@@ -162,7 +167,7 @@ class _PdfViewerScreenState extends State<PdfViewerScreen> {
                   actions: [
                     TextButton(
                       onPressed: () => Navigator.of(context).pop(),
-                      child: const Text('Chiudi'),
+                      child: Text(l10n.close),
                     ),
                   ],
                 ),
@@ -176,16 +181,17 @@ class _PdfViewerScreenState extends State<PdfViewerScreen> {
   }
 
   Widget _buildBody() {
+    final l10n = AppLocalizations.of(context)!;
     if (_isLoading) {
-      return const Center(
+      return Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            CircularProgressIndicator(color: Colors.white),
-            SizedBox(height: 16),
+            const CircularProgressIndicator(color: Colors.white),
+            const SizedBox(height: 16),
             Text(
-              'Caricamento PDF...',
-              style: TextStyle(color: Colors.white70),
+              l10n.pdfViewerLoading,
+              style: const TextStyle(color: Colors.white70),
             ),
           ],
         ),
@@ -207,7 +213,7 @@ class _PdfViewerScreenState extends State<PdfViewerScreen> {
             const SizedBox(height: 24),
             ElevatedButton(
               onPressed: _loadPdf,
-              child: const Text('Riprova'),
+              child: Text(l10n.retry),
             ),
           ],
         ),
@@ -215,10 +221,10 @@ class _PdfViewerScreenState extends State<PdfViewerScreen> {
     }
 
     if (_pdfController == null) {
-      return const Center(
+      return Center(
         child: Text(
-          'Impossibile caricare il PDF',
-          style: TextStyle(color: Colors.white70),
+          l10n.pdfViewerCannotLoad,
+          style: const TextStyle(color: Colors.white70),
         ),
       );
     }
@@ -235,8 +241,9 @@ class _PdfViewerScreenState extends State<PdfViewerScreen> {
       },
       onDocumentError: (error) {
         if (kDebugMode) print('❌ [PDF_VIEWER] Document error: $error');
+        final l10n = AppLocalizations.of(context)!;
         setState(() {
-          _errorMessage = 'Errore: $error';
+          _errorMessage = l10n.pdfViewerError(error.toString());
         });
       },
     );

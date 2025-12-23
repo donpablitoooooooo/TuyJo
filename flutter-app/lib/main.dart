@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:provider/provider.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'screens/main_screen.dart';
@@ -9,6 +10,7 @@ import 'services/notification_service.dart';
 import 'services/pairing_service.dart';
 import 'services/message_cache_service.dart';
 import 'services/couple_selfie_service.dart';
+import 'package:flutter_gen/gen_l10n/app_localizations.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -89,7 +91,17 @@ class MyApp extends StatelessWidget {
         Provider.value(value: notificationService),
       ],
       child: MaterialApp(
-        title: 'Private Messaging',
+        onGenerateTitle: (context) => AppLocalizations.of(context)!.appTitle,
+        localizationsDelegates: const [
+          AppLocalizations.delegate,
+          GlobalMaterialLocalizations.delegate,
+          GlobalWidgetsLocalizations.delegate,
+          GlobalCupertinoLocalizations.delegate,
+        ],
+        supportedLocales: const [
+          Locale('it', ''),
+          Locale('en', ''),
+        ],
         theme: ThemeData(
           colorScheme: ColorScheme.fromSeed(
             seedColor: const Color(0xFF667eea),

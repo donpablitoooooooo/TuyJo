@@ -11,6 +11,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:flutter_linkify/flutter_linkify.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:receive_sharing_intent/receive_sharing_intent.dart';
+import 'package:flutter_gen/gen_l10n/app_localizations.dart';
 import '../services/pairing_service.dart';
 import '../services/chat_service.dart';
 import '../services/encryption_service.dart';
@@ -377,6 +378,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
 
   /// Mostra il bottom sheet per selezionare il tipo di allegato
   void _showAttachmentPicker() async {
+    final l10n = AppLocalizations.of(context)!;
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
@@ -406,10 +408,10 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                         onPressed: () => Navigator.pop(context),
                         icon: const Icon(Icons.close, color: Colors.white, size: 28),
                       ),
-                      const Expanded(
+                      Expanded(
                         child: Text(
-                          'Seleziona allegato',
-                          style: TextStyle(
+                          l10n.chatAttachmentPickerTitle,
+                          style: const TextStyle(
                             fontSize: 20,
                             fontWeight: FontWeight.bold,
                             color: Colors.white,
@@ -424,7 +426,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                 const SizedBox(height: 8),
               _AttachmentOption(
                 icon: Icons.photo_library,
-                label: 'Foto da galleria',
+                label: l10n.chatAttachmentPhotoFromGallery,
                 color: Colors.blue,
                 onTap: () async {
                   Navigator.pop(context);
@@ -438,7 +440,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
               ),
               _AttachmentOption(
                 icon: Icons.camera_alt,
-                label: 'Scatta foto',
+                label: l10n.chatAttachmentTakePhoto,
                 color: Colors.purple,
                 onTap: () async {
                   Navigator.pop(context);
@@ -452,7 +454,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
               ),
               _AttachmentOption(
                 icon: Icons.insert_drive_file,
-                label: 'Documento',
+                label: l10n.chatAttachmentDocument,
                 color: Colors.green,
                 onTap: () async {
                   Navigator.pop(context);
@@ -474,6 +476,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   } // Chiude _showAttachmentPicker
 
   void _showDateTimePicker() async {
+    final l10n = AppLocalizations.of(context)!;
     // Sentinella per segnalare cancellazione
     final clearDate = DateTime(1970);
 
@@ -658,7 +661,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                             Navigator.pop(context, dueDate);
                           },
                           icon: const Icon(Icons.check_circle, color: Colors.white, size: 36),
-                          tooltip: 'Conferma',
+                          tooltip: l10n.chatConfirm,
                         ),
                       ),
                     ],
@@ -725,14 +728,12 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     // BLOCCO INVIO: Verifica che siamo in pairing
     final pairingService = Provider.of<PairingService>(context, listen: false);
     if (!pairingService.isPaired) {
+      final l10n = AppLocalizations.of(context)!;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text(
-            '⚠️ Non sei più in pairing!\n'
-            'Vai nelle impostazioni e rifare il pairing per chattare.',
-          ),
+        SnackBar(
+          content: Text(l10n.chatNotPairedWarning),
           backgroundColor: Colors.orange,
-          duration: Duration(seconds: 4),
+          duration: const Duration(seconds: 4),
         ),
       );
       return;
@@ -740,9 +741,10 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
 
     if (_familyChatId == null || _myDeviceId == null || _partnerPublicKey == null) {
       print('❌ Missing data - familyChatId: $_familyChatId, myDeviceId: $_myDeviceId, partnerPublicKey: ${_partnerPublicKey?.substring(0, 20)}');
+      final l10n = AppLocalizations.of(context)!;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Errore: dati pairing mancanti. Riprova il pairing.'),
+        SnackBar(
+          content: Text(l10n.chatPairingDataMissingError),
           backgroundColor: Colors.red,
         ),
       );
@@ -756,8 +758,9 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     final myPublicKey = await encryptionService.getPublicKey();
     if (myPublicKey == null) {
       print('❌ My public key is null');
+      final l10n = AppLocalizations.of(context)!;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Errore: chiave pubblica non trovata'), backgroundColor: Colors.red),
+        SnackBar(content: Text(l10n.chatPublicKeyNotFoundError), backgroundColor: Colors.red),
       );
       return;
     }
@@ -835,9 +838,10 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
             chatService.removePendingMessage(pendingMessageId);
           }
           setState(() => _isUploadingAttachments = false);
+          final l10n = AppLocalizations.of(context)!;
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Errore caricamento allegati'),
+            SnackBar(
+              content: Text(l10n.chatAttachmentUploadError),
               backgroundColor: Colors.red,
             ),
           );
@@ -875,9 +879,10 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       WidgetsBinding.instance.addPostFrameCallback((_) => _scrollToBottom());
     } else {
       print('❌ Send failed');
+      final l10n = AppLocalizations.of(context)!;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(todoDate != null ? 'Errore invio todo' : 'Errore invio messaggio'),
+          content: Text(todoDate != null ? l10n.chatSendTodoError : l10n.chatSendMessageError),
           backgroundColor: Colors.red,
         ),
       );
@@ -972,16 +977,18 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       );
     }
 
+    final l10n = AppLocalizations.of(context)!;
+
     return Scaffold(
       body: Column(
         children: [
           Expanded(
             child: chatService.messages.isEmpty
-                ? const Center(
+                ? Center(
                     child: Text(
-                      'Nessun messaggio.\nInvia il primo!',
+                      l10n.chatEmptyMessage,
                       textAlign: TextAlign.center,
-                      style: TextStyle(color: Colors.grey),
+                      style: const TextStyle(color: Colors.grey),
                     ),
                   )
                 : Column(
@@ -990,18 +997,18 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                       if (_isLoadingOlderMessages)
                         Container(
                           padding: const EdgeInsets.all(8),
-                          child: const Row(
+                          child: Row(
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
-                              SizedBox(
+                              const SizedBox(
                                 width: 16,
                                 height: 16,
                                 child: CircularProgressIndicator(strokeWidth: 2),
                               ),
-                              SizedBox(width: 8),
+                              const SizedBox(width: 8),
                               Text(
-                                'Caricamento messaggi...',
-                                style: TextStyle(color: Colors.grey, fontSize: 12),
+                                l10n.chatLoadingMessages,
+                                style: const TextStyle(color: Colors.grey, fontSize: 12),
                               ),
                             ],
                           ),
@@ -1088,7 +1095,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                               ),
                               const SizedBox(width: 8),
                               Text(
-                                'Sta scrivendo...',
+                                l10n.chatTypingIndicator,
                                 style: TextStyle(
                                   color: Colors.grey[600],
                                   fontSize: 13,
@@ -1159,7 +1166,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                         color: _selectedAttachments.isNotEmpty
                             ? const Color(0xFF667eea)
                             : Colors.grey[600],
-                        tooltip: 'Allegati',
+                        tooltip: l10n.chatAttachmentsTooltip,
                         iconSize: 28,
                       ),
                       const SizedBox(width: 4),
@@ -1173,8 +1180,8 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                         controller: _messageController,
                         decoration: InputDecoration(
                           hintText: _selectedTodoDate != null
-                              ? 'Todo...'
-                              : 'Scrivi...',
+                              ? l10n.chatTodoPlaceholder
+                              : l10n.chatWritePlaceholder,
                           hintStyle: TextStyle(color: Colors.grey[500]),
                           border: InputBorder.none,
                           contentPadding: const EdgeInsets.symmetric(
@@ -1191,7 +1198,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                                   : Colors.grey[600],
                             ),
                             onPressed: _showDateTimePicker,
-                            tooltip: 'Imposta data/ora',
+                            tooltip: l10n.chatSetDateTimeTooltip,
                           ),
                         ),
                         maxLines: null,
@@ -1661,6 +1668,7 @@ class _AttachmentImage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     // Se URL è vuoto, l'allegato è in upload - mostra placeholder
     if (attachment.url.isEmpty) {
       return ClipRRect(
@@ -1670,15 +1678,15 @@ class _AttachmentImage extends StatelessWidget {
           height: 200,
           child: Container(
             color: isMe ? Colors.white.withOpacity(0.1) : Colors.grey[200],
-            child: const Center(
+            child: Center(
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  CircularProgressIndicator(),
-                  SizedBox(height: 8),
+                  const CircularProgressIndicator(),
+                  const SizedBox(height: 8),
                   Text(
-                    'Caricamento...',
-                    style: TextStyle(fontSize: 12, color: Colors.grey),
+                    l10n.chatLoadingAttachment,
+                    style: const TextStyle(fontSize: 12, color: Colors.grey),
                   ),
                 ],
               ),
@@ -1772,14 +1780,15 @@ class _AttachmentVideo extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     // Per i video cifrati, mostriamo solo un placeholder
     // TODO: Implementare video player per video cifrati
     return GestureDetector(
       onTap: () {
         // TODO: Scaricare, decifrare e aprire video player
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Player video cifrati in sviluppo'),
+          SnackBar(
+            content: Text(l10n.chatVideoPlayerInDevelopment),
           ),
         );
       },
@@ -1908,9 +1917,10 @@ class _AttachmentDocumentState extends State<_AttachmentDocument> {
       final result = await OpenFilex.open(file.path);
 
       if (result.type != ResultType.done && mounted) {
+        final l10n = AppLocalizations.of(context)!;
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Impossibile aprire: ${result.message}'),
+            content: Text(l10n.chatFileOpenError(result.message)),
             backgroundColor: Colors.red,
           ),
         );
@@ -1918,9 +1928,10 @@ class _AttachmentDocumentState extends State<_AttachmentDocument> {
     } catch (e) {
       if (kDebugMode) print('❌ Error opening document: $e');
       if (mounted) {
+        final l10n = AppLocalizations.of(context)!;
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Errore: ${e.toString()}'),
+            content: Text(l10n.error(e.toString())),
             backgroundColor: Colors.red,
           ),
         );
@@ -1934,6 +1945,7 @@ class _AttachmentDocumentState extends State<_AttachmentDocument> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     return GestureDetector(
       onTap: _openDocument,
       child: Container(
@@ -1982,7 +1994,7 @@ class _AttachmentDocumentState extends State<_AttachmentDocument> {
                   ),
                   Text(
                     widget.attachment.url.isEmpty
-                        ? 'Caricamento...'
+                        ? l10n.chatLoadingAttachment
                         : widget.attachmentService.formatFileSize(widget.attachment.fileSize),
                     style: TextStyle(
                       color: widget.isMe ? Colors.white70 : Colors.black54,
@@ -2034,6 +2046,7 @@ class _FullscreenImageViewerState extends State<_FullscreenImageViewer> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     return Scaffold(
       backgroundColor: Colors.black,
       body: GestureDetector(
@@ -2052,14 +2065,14 @@ class _FullscreenImageViewerState extends State<_FullscreenImageViewer> {
                 builder: (context, snapshot) {
                   if (snapshot.connectionState == ConnectionState.waiting) {
                     // Loading
-                    return const Column(
+                    return Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        CircularProgressIndicator(color: Colors.white),
-                        SizedBox(height: 16),
+                        const CircularProgressIndicator(color: Colors.white),
+                        const SizedBox(height: 16),
                         Text(
-                          'Caricamento immagine...',
-                          style: TextStyle(color: Colors.white70),
+                          l10n.chatLoadingImage,
+                          style: const TextStyle(color: Colors.white70),
                         ),
                       ],
                     );
@@ -2073,8 +2086,8 @@ class _FullscreenImageViewerState extends State<_FullscreenImageViewer> {
                         const Icon(Icons.error, color: Colors.red, size: 64),
                         const SizedBox(height: 16),
                         Text(
-                          'Errore caricamento immagine',
-                          style: TextStyle(color: Colors.white70),
+                          l10n.chatImageLoadError,
+                          style: const TextStyle(color: Colors.white70),
                         ),
                       ],
                     );
@@ -2190,6 +2203,7 @@ class _TodoMessageBubble extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     final bool isPastDue = message.dueDate != null && message.dueDate!.isBefore(DateTime.now());
 
     return Padding(
@@ -2252,7 +2266,7 @@ class _TodoMessageBubble extends StatelessWidget {
                     // Testo del todo (mostra "Todo" se vuoto)
                     (message.decryptedContent?.isEmpty ?? true)
                         ? Text(
-                            'Todo',
+                            l10n.chatTodoDefault,
                             style: TextStyle(
                               color: isMe ? Colors.white : Colors.black87,
                               fontSize: 15,
@@ -2365,7 +2379,7 @@ class _TodoMessageBubble extends StatelessWidget {
                     if (!isCompleted) ...[
                       const SizedBox(height: 6),
                       Text(
-                        'Tieni premuto per completare',
+                        l10n.chatLongPressToComplete,
                         style: TextStyle(
                           fontSize: 10,
                           color: isMe
