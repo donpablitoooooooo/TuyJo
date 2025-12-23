@@ -283,12 +283,34 @@ class ChatService extends ChangeNotifier {
                 change.doc.data()!,
               );
 
-              // Aggiungi solo se non esiste già
-              if (!_messages.any((m) => m.id == message.id)) {
-                // Decrypt e popola i campi
-                if (_myDeviceId != null) {
-                  _decryptAndPopulateMessage(message, _myDeviceId!);
+              // Decrypt SUBITO per poter confrontare il contenuto
+              if (_myDeviceId != null) {
+                _decryptAndPopulateMessage(message, _myDeviceId!);
+              }
+
+              // 🔄 SOSTITUISCI pending message con messaggio reale (optimistic update)
+              // Invece di rimuovere e aggiungere, sostituiamo in-place per evitare refresh visivo
+              final pendingIndex = _messages.indexWhere((m) =>
+                m.isPending == true &&
+                m.decryptedContent == message.decryptedContent &&
+                m.senderId == message.senderId
+              );
+
+              if (pendingIndex != -1) {
+                // Trovato pending message - sostituiscilo con quello reale
+                _messages[pendingIndex] = message;
+
+                // 💾 SALVA NELLA CACHE SQLITE
+                try {
+                  await _cacheService.saveMessage(message, familyChatId);
+                  if (kDebugMode) {
+                    print('🔄 [OPTIMISTIC] Replaced pending at index $pendingIndex with real message: ${message.id.substring(0, 8)}');
+                  }
+                } catch (e) {
+                  if (kDebugMode) print('❌ Error caching message: $e');
                 }
+              } else if (!_messages.any((m) => m.id == message.id)) {
+                // Nessun pending trovato E messaggio non esiste già - aggiungilo normalmente
 
                 // 🔔 REMINDER TIMESTAMP UPDATE
                 // Se questo è un reminder appena diventato visibile, aggiorna il timestamp
@@ -740,6 +762,12 @@ class ChatService extends ChangeNotifier {
     String senderId,
     List<Attachment>? attachments,
   ) {
+    if (kDebugMode) {
+      print('🔄 [OPTIMISTIC] addPendingMessage called');
+      print('   Content: $content');
+      print('   Current messages count: ${_messages.length}');
+    }
+
     final tempId = 'pending_${DateTime.now().millisecondsSinceEpoch}';
     final message = Message(
       id: tempId,
@@ -752,6 +780,12 @@ class ChatService extends ChangeNotifier {
     );
 
     _messages.insert(0, message); // Aggiungi in cima (messaggi recenti)
+
+    if (kDebugMode) {
+      print('   Message added with tempId: $tempId');
+      print('   New messages count: ${_messages.length}');
+    }
+
     notifyListeners();
 
     return tempId;
@@ -1055,6 +1089,38 @@ class ChatService extends ChangeNotifier {
       if (kDebugMode) print('✅ All messages deleted from Firestore and SQLite cache');
     } catch (e) {
       if (kDebugMode) print('❌ Error deleting messages: $e');
+      rethrow;
+    }
+  }
+
+  /// Elimina messaggi + foto di coppia (NON users - quello è gestito da unpair)
+  /// Usato quando si fa "unpair + elimina messaggi"
+  Future<void> deleteMessagesAndCoupleSelfie(String familyChatId) async {
+    try {
+      if (kDebugMode) print('🗑️ Deleting messages and couple selfie: $familyChatId');
+
+      // STEP 1: Elimina tutti i messaggi (subcollection) + cache
+      await deleteAllMessages(familyChatId);
+
+      // STEP 2: Elimina la foto di coppia dal documento famiglia (se esiste)
+      try {
+        await _firestore.collection('families').doc(familyChatId).update({
+          'couple_selfie_url': FieldValue.delete(),
+          'couple_selfie_updated_at': FieldValue.delete(),
+        });
+        if (kDebugMode) print('✅ Couple selfie fields deleted from family document');
+      } on FirebaseException catch (e) {
+        // Se il documento non esiste, non è un problema (lo scopo è raggiunto)
+        if (e.code == 'not-found') {
+          if (kDebugMode) print('ℹ️ Family document not found (already deleted or never existed)');
+        } else {
+          rethrow;
+        }
+      }
+
+      if (kDebugMode) print('✅ Messages and couple selfie cleanup complete');
+    } catch (e) {
+      if (kDebugMode) print('❌ Error deleting messages and selfie: $e');
       rethrow;
     }
   }

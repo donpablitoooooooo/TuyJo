@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:qr_flutter/qr_flutter.dart';
@@ -39,13 +40,19 @@ class _PairingWizardScreenState extends State<PairingWizardScreen> {
     super.dispose();
   }
 
-  /// Inizia ad ascoltare quando entrambi i dispositivi hanno completato il pairing
+  /// Inizia ad ascoltare quando entrambi completano il pairing
   void _startListeningForBothPaired() async {
     final pairingService = Provider.of<PairingService>(context, listen: false);
     final familyChatId = await pairingService.getFamilyChatId();
 
-    if (familyChatId == null) return;
+    if (familyChatId == null) {
+      if (kDebugMode) print('⚠️ No familyChatId yet, cannot listen');
+      return;
+    }
 
+    if (kDebugMode) print('🎧 Starting listener for both paired on family: ${familyChatId.substring(0, 10)}...');
+
+    // Ascolta la famiglia per vedere quando userCount >= 2
     _pairingStatusSubscription = FirebaseFirestore.instance
         .collection('families')
         .doc(familyChatId)
@@ -53,6 +60,8 @@ class _PairingWizardScreenState extends State<PairingWizardScreen> {
         .snapshots()
         .listen((snapshot) {
       final userCount = snapshot.docs.length;
+
+      if (kDebugMode) print('👥 Wizard family users count: $userCount');
 
       if (mounted) {
         setState(() {
@@ -87,6 +96,12 @@ class _PairingWizardScreenState extends State<PairingWizardScreen> {
         _isGeneratingQR = false;
         _step1Completed = true; // Step 1 completato automaticamente quando il QR è generato
       });
+
+      // Se ho già la chiave partner (riapro wizard dopo aver fatto pairing),
+      // avvia subito il listener
+      if (pairingService.partnerPublicKey != null) {
+        _startListeningForBothPaired();
+      }
     } catch (e) {
       if (mounted) {
         _showFloatingSnackBar('Errore generazione QR: $e', isError: true);
@@ -256,7 +271,8 @@ class _PairingWizardScreenState extends State<PairingWizardScreen> {
                             isCompleted: _step1Completed,
                             child: Column(
                               children: [
-                                if (_myQrData != null) ...[
+                                // Mostra il QR finché non siamo entrambi paired
+                                if (_myQrData != null && !_bothPaired) ...[
                                   Center(
                                     child: Container(
                                       padding: const EdgeInsets.all(16),
@@ -285,6 +301,37 @@ class _PairingWizardScreenState extends State<PairingWizardScreen> {
                                           color: Color(0xFF667eea),
                                         ),
                                       ),
+                                    ),
+                                  ),
+                                ] else if (_bothPaired) ...[
+                                  Container(
+                                    padding: const EdgeInsets.all(16),
+                                    decoration: BoxDecoration(
+                                      color: const Color(0xFF667eea).withOpacity(0.1),
+                                      borderRadius: BorderRadius.circular(12),
+                                      border: Border.all(
+                                        color: const Color(0xFF667eea),
+                                      ),
+                                    ),
+                                    child: const Row(
+                                      children: [
+                                        Icon(
+                                          Icons.check_circle,
+                                          color: Color(0xFF667eea),
+                                          size: 32,
+                                        ),
+                                        SizedBox(width: 12),
+                                        Expanded(
+                                          child: Text(
+                                            'Pairing completato!',
+                                            style: TextStyle(
+                                              color: Color(0xFF667eea),
+                                              fontWeight: FontWeight.w600,
+                                              fontSize: 14,
+                                            ),
+                                          ),
+                                        ),
+                                      ],
                                     ),
                                   ),
                                 ],

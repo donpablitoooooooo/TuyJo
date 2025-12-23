@@ -16,6 +16,10 @@ class PairingService extends ChangeNotifier {
   String? _partnerPublicKey;
   bool _familyWasComplete = false; // Traccia se abbiamo mai visto 2 users
 
+  /// Callback invocato quando il partner fa "Elimina Tutto"
+  /// Permette al codice chiamante di pulire la cache locale (messaggi + foto)
+  Function(String familyChatId)? onPartnerDeletedAll;
+
   bool get isPaired => _isPaired;
   String? get partnerPublicKey => _partnerPublicKey;
 
@@ -31,18 +35,21 @@ class PairingService extends ChangeNotifier {
     }
 
     if (partnerPubKey != null) {
-      _isPaired = true;
       _partnerPublicKey = partnerPubKey;
-      notifyListeners();
+      // Ottimistico: se c'è la chiave partner, assume paired
+      // Il listener correggerà lo stato se userCount < 2
+      _isPaired = true;
 
       if (kDebugMode) {
-        print('✅ [PAIRING] Pairing initialized successfully');
+        print('✅ [PAIRING] Partner public key trovata nello storage');
         print('   Partner public key: ${partnerPubKey.substring(0, 20)}...');
-        print('   _isPaired = true');
+        print('   _isPaired = true (ottimistico, listener correggerà se necessario)');
       }
 
-      // UNPAIR SYNC: Avvia listener SEMPRE quando c'è un pairing
-      // Non aspettare che ChatScreen venga aperta
+      notifyListeners();
+
+      // UNPAIR SYNC: Avvia listener per monitorare cambiamenti
+      // Il listener imposterà _isPaired = false se userCount < 2
       _startBackgroundUnpairListener();
     } else {
       if (kDebugMode) {
@@ -107,16 +114,69 @@ class PairingService extends ChangeNotifier {
       stopListeningToPairingStatus();
       _familyWasComplete = false; // Reset per il nuovo pairing
 
-      _isPaired = true;
+      // NON impostare _isPaired = true qui! Verrà impostato dal listener quando userCount >= 2
       _partnerPublicKey = partnerPublicKey;
       notifyListeners();
 
       if (kDebugMode) {
         print('✅ [PAIRING] Partner public key imported successfully');
         print('   Partner key: ${partnerPublicKey.substring(0, 20)}...');
-        print('   _isPaired = true');
-        print('   UI should now show chat screen');
+        print('   _isPaired sarà true quando entrambi avranno completato il pairing');
       }
+
+      // IMPORTANTE: Prima di creare il mio documento, pulisci solo le famiglie COMPLETE dal pairing precedente
+      // Se userCount == 1, potrebbe essere il partner che sta facendo pairing contemporaneamente, NON eliminare!
+      final myUserId = await getMyUserId();
+      final myPublicKey = await _storage.read(key: 'rsa_public_key');
+      final familyChatId = await getFamilyChatId();
+
+      if (myUserId != null && familyChatId != null && myPublicKey != null) {
+        // Controlla se ci sono documenti vecchi nella famiglia
+        final existingDocs = await _firestore
+            .collection('families')
+            .doc(familyChatId)
+            .collection('users')
+            .get();
+
+        // Elimina SOLO se userCount >= 2 (famiglia completa dal pairing precedente)
+        if (existingDocs.docs.length >= 2) {
+          if (kDebugMode) {
+            print('⚠️ [PAIRING] Trovata famiglia completa vecchia (${existingDocs.docs.length} documenti)');
+            print('   Elimino famiglia vecchia prima di creare nuovo pairing...');
+          }
+
+          // Elimina tutti i documenti vecchi
+          for (var doc in existingDocs.docs) {
+            await _firestore
+                .collection('families')
+                .doc(familyChatId)
+                .collection('users')
+                .doc(doc.id)
+                .delete();
+            if (kDebugMode) print('   🗑️ Eliminato documento vecchio: ${doc.id.substring(0, 10)}...');
+          }
+
+          if (kDebugMode) print('   ✅ Famiglia vecchia eliminata, pairing pulito');
+        } else if (existingDocs.docs.length == 1) {
+          if (kDebugMode) print('   ℹ️ [PAIRING] Trovato 1 documento (probabilmente il partner sta facendo pairing), lo tengo');
+        }
+
+        // Ora crea il MIO documento pulito
+        await _firestore
+            .collection('families')
+            .doc(familyChatId)
+            .collection('users')
+            .doc(myUserId)
+            .set({
+          'paired_at': FieldValue.serverTimestamp(),
+          'my_public_key': myPublicKey,
+          'partner_public_key': partnerPublicKey,
+        });
+        if (kDebugMode) print('✅ [PAIRING] Created my user document in family: $myUserId');
+      }
+
+      // Avvia il listener per monitorare lo stato della famiglia
+      _startBackgroundUnpairListener();
 
       return true;
     } catch (e) {
@@ -126,14 +186,39 @@ class PairingService extends ChangeNotifier {
   }
 
   /// Reset del pairing (elimina partner)
+  /// Rimuove anche il documento dalla collezione users su Firestore
+  /// così l'altro telefono vede il cambiamento e fa auto-unpair
   Future<void> resetPairing() async {
+    try {
+      // Prima rimuovi il documento users da Firestore se esiste
+      final chatId = await getFamilyChatId();
+      final myUserId = await getMyUserId();
+
+      if (chatId != null && myUserId != null) {
+        if (kDebugMode) print('🗑️ [PAIRING] Removing my user document from Firestore...');
+
+        await _firestore
+            .collection('families')
+            .doc(chatId)
+            .collection('users')
+            .doc(myUserId)
+            .delete();
+
+        if (kDebugMode) print('✅ [PAIRING] User document removed from Firestore');
+      }
+    } catch (e) {
+      if (kDebugMode) print('⚠️ [PAIRING] Error removing user document: $e');
+      // Continua comunque con il reset locale
+    }
+
+    // Poi elimina i dati locali
     await _storage.delete(key: 'partner_public_key');
 
     _isPaired = false;
     _partnerPublicKey = null;
     notifyListeners();
 
-    if (kDebugMode) print('Pairing reset');
+    if (kDebugMode) print('✅ [PAIRING] Pairing reset completed');
   }
 
   /// Calcola l'ID utente del partner basato sulla sua chiave pubblica
@@ -226,7 +311,174 @@ class PairingService extends ChangeNotifier {
       (snapshot) async {
       final userCount = snapshot.docs.length;
 
-      if (kDebugMode) print('👥 Family users count: $userCount');
+      if (kDebugMode) {
+        print('👥 [PAIRING] Family users count: $userCount');
+        print('   chatId: ${chatId.substring(0, 10)}...');
+        print('   myUserId: ${myUserId.substring(0, 10)}...');
+        print('   _partnerPublicKey: ${_partnerPublicKey != null ? "YES" : "NULL"}');
+        print('   Current _isPaired: $_isPaired');
+      }
+
+      // LOGICA ROBUSTA: isPaired = true SOLO se:
+      // 1. userCount == 2
+      // 2. Entrambi i documenti hanno chiavi valide che si corrispondono
+      bool keysAreValid = false;
+      bool familyIsCorrupted = false;
+
+      // Verifica le chiavi SOLO se userCount >= 2
+      if (userCount >= 2) {
+        try {
+          final myDocList = snapshot.docs.where((doc) => doc.id == myUserId).toList();
+
+          if (myDocList.isNotEmpty) {
+            final myDoc = myDocList.first;
+            final myDocData = myDoc.data();
+            final myDocPartnerKey = myDocData?['partner_public_key'] as String?;
+            final myDocPublicKey = myDocData?['my_public_key'] as String?;
+
+            // Controlla se il partner ha richiesto la cancellazione della cache
+            final deleteCacheRequested = myDocData?['delete_cache_requested'] as bool?;
+            if (deleteCacheRequested == true) {
+              if (kDebugMode) print('🗑️ [PAIRING] Partner requested cache deletion, cleaning up...');
+
+              // Importa i servizi necessari (assumendo che siano disponibili via Provider o altro)
+              // Per ora triggeriamo unpair completo che include pulizia cache
+              try {
+                // Rimuovi il flag
+                await _firestore
+                    .collection('families')
+                    .doc(chatId)
+                    .collection('users')
+                    .doc(myUserId)
+                    .update({'delete_cache_requested': FieldValue.delete()});
+
+                // Triggera pulizia: unpair + cache locale
+                await _storage.delete(key: 'partner_public_key');
+                _isPaired = false;
+                _partnerPublicKey = null;
+                _familyWasComplete = false;
+                stopListeningToPairingStatus();
+                notifyListeners();
+
+                // Invoca il callback per pulire la cache (messaggi + foto)
+                if (onPartnerDeletedAll != null) {
+                  if (kDebugMode) print('🧹 [PAIRING] Invoking onPartnerDeletedAll callback...');
+                  onPartnerDeletedAll!(chatId);
+                }
+
+                if (kDebugMode) print('✅ [PAIRING] Cache deletion completed (triggered by partner)');
+                return; // Esci dal listener
+              } catch (e) {
+                if (kDebugMode) print('❌ [PAIRING] Error processing cache deletion: $e');
+              }
+            }
+
+            // Trova il documento del partner
+            final partnerDocs = snapshot.docs.where((doc) => doc.id != myUserId).toList();
+
+            if (partnerDocs.isNotEmpty) {
+              final partnerDoc = partnerDocs.first;
+              final partnerDocData = partnerDoc.data();
+              final partnerDocPartnerKey = partnerDocData?['partner_public_key'] as String?;
+              final partnerDocPublicKey = partnerDocData?['my_public_key'] as String?;
+
+              if (kDebugMode) {
+                print('   Verifico chiavi incrociate:');
+                print('     - Mio doc ha partner_public_key: ${myDocPartnerKey != null ? "YES" : "NO"}');
+                print('     - Partner doc ha partner_public_key: ${partnerDocPartnerKey != null ? "YES" : "NO"}');
+                print('     - _partnerPublicKey in cache: ${_partnerPublicKey != null ? "YES" : "NO"}');
+              }
+
+              // Verifica che le chiavi si corrispondano
+              final myKeysMatch = myDocPartnerKey != null &&
+                                   myDocPartnerKey == partnerDocPublicKey;
+
+              final partnerKeysMatch = partnerDocPartnerKey != null &&
+                                        partnerDocPartnerKey == myDocPublicKey;
+
+              final cacheMatches = _partnerPublicKey != null &&
+                                    _partnerPublicKey == partnerDocPublicKey;
+
+              keysAreValid = myKeysMatch && partnerKeysMatch && cacheMatches;
+
+              if (!keysAreValid) {
+                familyIsCorrupted = true;
+                if (kDebugMode) {
+                  print('   ⚠️ FAMIGLIA CORROTTA RILEVATA:');
+                  print('     - Mie chiavi corrispondono: $myKeysMatch');
+                  print('     - Chiavi partner corrispondono: $partnerKeysMatch');
+                  print('     - Cache corrisponde: $cacheMatches');
+                }
+              }
+
+              if (kDebugMode) print('     - Famiglia valida: $keysAreValid');
+            } else {
+              if (kDebugMode) print('   ⚠️ Partner document not found (userCount=2 ma solo 1 doc?)');
+              familyIsCorrupted = true;
+            }
+          } else {
+            if (kDebugMode) print('   ⚠️ My document not found in family users');
+            familyIsCorrupted = true;
+          }
+        } catch (e) {
+          if (kDebugMode) print('   ⚠️ Error checking keys: $e');
+          familyIsCorrupted = true;
+        }
+      } else {
+        // userCount < 2: pairing iniziale in corso, non verificare le chiavi
+        if (kDebugMode && _partnerPublicKey != null) {
+          print('   ⏳ Pairing in corso, chiavi non verificate (aspettando partner...)');
+        }
+      }
+
+      // Se la famiglia è corrotta, puliscila completamente
+      if (familyIsCorrupted && userCount >= 2) {
+        if (kDebugMode) print('   🗑️ Pulizia famiglia corrotta in corso...');
+
+        try {
+          // Elimina TUTTI i documenti users
+          for (var doc in snapshot.docs) {
+            await _firestore
+                .collection('families')
+                .doc(chatId)
+                .collection('users')
+                .doc(doc.id)
+                .delete();
+            if (kDebugMode) print('     - Eliminato documento: ${doc.id.substring(0, 10)}...');
+          }
+
+          // Elimina la chiave partner locale
+          await _storage.delete(key: 'partner_public_key');
+          _partnerPublicKey = null;
+          _isPaired = false;
+          _familyWasComplete = false;
+          notifyListeners();
+
+          if (kDebugMode) print('   ✅ Famiglia corrotta pulita, entrambi i telefoni ora unpaired');
+        } catch (e) {
+          if (kDebugMode) print('   ❌ Errore durante pulizia: $e');
+        }
+
+        return; // Esci dal listener
+      }
+
+      final shouldBePaired = userCount >= 2 && _partnerPublicKey != null && keysAreValid;
+
+      if (kDebugMode) {
+        if (userCount < 2) {
+          print('   shouldBePaired: $shouldBePaired (aspettando partner, userCount: $userCount/2)');
+        } else {
+          print('   shouldBePaired: $shouldBePaired (userCount: 2, has partner key: ${_partnerPublicKey != null}, keys valid: $keysAreValid)');
+        }
+      }
+
+      if (_isPaired != shouldBePaired) {
+        _isPaired = shouldBePaired;
+        notifyListeners();
+        if (kDebugMode) print('🔄 [PAIRING] isPaired aggiornato da ${!shouldBePaired} a $shouldBePaired → notifyListeners() chiamato');
+      } else {
+        if (kDebugMode) print('   isPaired già corretto ($_isPaired), nessun cambio');
+      }
 
       // Traccia quando la famiglia diventa completa (2 users)
       if (userCount == 2) {
@@ -236,8 +488,8 @@ class PairingService extends ChangeNotifier {
         }
       }
 
-      // Fai unpair SOLO se la famiglia era completa (2 users) e ora non lo è più
-      if (userCount < 2 && _isPaired && _familyWasComplete) {
+      // Fai unpair completo (rimuovi chiave partner) SOLO se eravamo completi e ora non lo siamo più
+      if (userCount < 2 && _partnerPublicKey != null && _familyWasComplete) {
         // Verifica che IO sia ancora presente (potrei essere l'unico rimasto)
         final iAmPresent = snapshot.docs.any((doc) => doc.id == myUserId);
 
@@ -248,6 +500,42 @@ class PairingService extends ChangeNotifier {
             print('   User count: $userCount (only me)');
             print('   Family was complete: $_familyWasComplete');
             print('   Triggering auto-unpair...');
+          }
+
+          // Verifica se il partner ha fatto "Elimina Tutto" controllando i messaggi
+          bool partnerDeletedAll = false;
+          try {
+            final messagesSnapshot = await _firestore
+                .collection('families')
+                .doc(chatId)
+                .collection('messages')
+                .limit(1)
+                .get();
+
+            partnerDeletedAll = messagesSnapshot.docs.isEmpty;
+
+            if (kDebugMode) {
+              if (partnerDeletedAll) {
+                print('🗑️ [PAIRING] Partner deleted all messages (Elimina Tutto)');
+              } else {
+                print('💾 [PAIRING] Messages still exist (Cambio Telefono)');
+              }
+            }
+          } catch (e) {
+            if (kDebugMode) print('⚠️ [PAIRING] Error checking messages: $e');
+          }
+
+          // Elimina anche il MIO documento users da Firestore
+          try {
+            await _firestore
+                .collection('families')
+                .doc(chatId)
+                .collection('users')
+                .doc(myUserId)
+                .delete();
+            if (kDebugMode) print('🗑️ [PAIRING] Removed my user document from Firestore');
+          } catch (e) {
+            if (kDebugMode) print('⚠️ [PAIRING] Error removing my document: $e');
           }
 
           // Fai unpair locale
@@ -261,6 +549,12 @@ class PairingService extends ChangeNotifier {
 
           // Notifica i listener (Provider)
           notifyListeners();
+
+          // Se il partner ha fatto "Elimina Tutto", invoca il callback per pulire cache
+          if (partnerDeletedAll && onPartnerDeletedAll != null) {
+            if (kDebugMode) print('🧹 [PAIRING] Invoking onPartnerDeletedAll callback...');
+            onPartnerDeletedAll!(chatId);
+          }
 
           if (kDebugMode) print('✅ [PAIRING] Auto-unpair completed (partner left)');
         } else if (!iAmPresent && userCount == 0) {

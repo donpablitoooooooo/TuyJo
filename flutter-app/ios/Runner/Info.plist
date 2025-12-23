@@ -52,6 +52,10 @@
 	<string>Per inviare foto nella chat</string>
 	<key>NSCameraUsageDescription</key>
 	<string>Per scattare foto nella chat</string>
+	<key>UISupportsDocumentBrowser</key>
+	<true/>
+	<key>LSSupportsOpeningDocumentsInPlace</key>
+	<true/>
 	<key>CADisableMinimumFrameDurationOnPhone</key>
 	<true/>
 	<key>UIApplicationSupportsIndirectInputEvents</key>

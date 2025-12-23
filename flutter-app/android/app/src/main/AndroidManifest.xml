@@ -1,4 +1,5 @@
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    package="com.privatemessaging.private_messaging">
 
     <!-- Queries per url_launcher - permette di aprire browser e app esterne -->
     <queries>
@@ -16,6 +17,13 @@
             <action android:name="android.intent.action.VIEW" />
             <category android:name="android.intent.category.BROWSABLE" />
             <data android:scheme="https" />
+        </intent>
+        <!-- Query per file_picker - permette di aprire document picker -->
+        <intent>
+            <action android:name="android.intent.action.GET_CONTENT" />
+        </intent>
+        <intent>
+            <action android:name="android.intent.action.OPEN_DOCUMENT" />
         </intent>
     </queries>
 
@@ -44,7 +52,8 @@
     <application
         android:label="Private Messaging"
         android:name="${applicationName}"
-        android:icon="@mipmap/ic_launcher">
+        android:icon="@mipmap/ic_launcher"
+        android:allowTaskReparenting="false">
 
         <activity
             android:name=".MainActivity"

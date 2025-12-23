@@ -27,6 +27,22 @@ void main() async {
   final encryptionService = EncryptionService();
   final pairingService = PairingService();
   final notificationService = NotificationService();
+  final chatService = ChatService(encryptionService, notificationService);
+  final coupleSelfieService = CoupleSelfieService();
+
+  // Configura callback per pulizia cache quando il partner richiede la cancellazione
+  pairingService.onPartnerDeletedAll = (String familyChatId) async {
+    print('🧹 [MAIN] Partner requested cache deletion, cleaning up...');
+
+    // Pulisci cache messaggi
+    chatService.stopListening();
+    chatService.clearMessages();
+
+    // Pulisci cache foto
+    await coupleSelfieService.removeCoupleSelfie(familyChatId);
+
+    print('✅ [MAIN] Cache cleanup completed');
+  };
 
   // Inizializza in background (non blocca lo startup)
   encryptionService.generateAndStoreKeyPair(); // No await
@@ -40,6 +56,8 @@ void main() async {
     encryptionService: encryptionService,
     pairingService: pairingService,
     notificationService: notificationService,
+    chatService: chatService,
+    coupleSelfieService: coupleSelfieService,
   ));
 }
 
@@ -47,12 +65,16 @@ class MyApp extends StatelessWidget {
   final EncryptionService encryptionService;
   final PairingService pairingService;
   final NotificationService notificationService;
+  final ChatService chatService;
+  final CoupleSelfieService coupleSelfieService;
 
   const MyApp({
     super.key,
     required this.encryptionService,
     required this.pairingService,
     required this.notificationService,
+    required this.chatService,
+    required this.coupleSelfieService,
   });
 
   @override
@@ -60,9 +82,9 @@ class MyApp extends StatelessWidget {
     return MultiProvider(
       providers: [
         ChangeNotifierProvider(create: (_) => AuthService()),
-        ChangeNotifierProvider(create: (_) => ChatService(encryptionService, notificationService)),
+        ChangeNotifierProvider.value(value: chatService),
         ChangeNotifierProvider.value(value: pairingService),
-        ChangeNotifierProvider(create: (_) => CoupleSelfieService()),
+        ChangeNotifierProvider.value(value: coupleSelfieService),
         Provider.value(value: encryptionService),
         Provider.value(value: notificationService),
       ],

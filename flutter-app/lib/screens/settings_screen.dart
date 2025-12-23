@@ -2,10 +2,12 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import '../services/pairing_service.dart';
 import '../services/encryption_service.dart';
 import '../services/chat_service.dart';
 import '../services/notification_service.dart';
+import '../services/couple_selfie_service.dart';
 import 'pairing_wizard_screen.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
@@ -19,20 +21,10 @@ class SettingsScreen extends StatefulWidget {
 class _SettingsScreenState extends State<SettingsScreen> {
   final _storage = const FlutterSecureStorage();
   bool _isLoading = false;
-  bool _isPaired = false;
 
   @override
   void initState() {
     super.initState();
-    _checkPairingStatus();
-  }
-
-  Future<void> _checkPairingStatus() async {
-    final pairingService = Provider.of<PairingService>(context, listen: false);
-    final isPaired = pairingService.isPaired;
-    setState(() {
-      _isPaired = isPaired;
-    });
   }
 
   Future<void> _copyPrivateKey() async {
@@ -97,32 +89,81 @@ class _SettingsScreenState extends State<SettingsScreen> {
     }
   }
 
-  Future<void> _deletePairing(bool deleteMessages) async {
+  /// Elimina il pairing con 3 modalità:
+  /// - 'all': Elimina tutti i messaggi (server per entrambi)
+  /// - 'mine': Elimina solo i miei (cache locale)
+  /// - 'partner': Elimina quelli del partner (quando ha cambiato telefono senza unpair)
+  Future<void> _deletePairing({required String mode}) async {
     setState(() => _isLoading = true);
     try {
       final pairingService = Provider.of<PairingService>(context, listen: false);
       final chatService = Provider.of<ChatService>(context, listen: false);
+      final coupleSelfieService = Provider.of<CoupleSelfieService>(context, listen: false);
+      final notificationService = Provider.of<NotificationService>(context, listen: false);
 
       final chatId = await pairingService.getFamilyChatId();
       final myUserId = await pairingService.getMyUserId();
 
-      if (deleteMessages) {
-        if (chatId != null) {
-          await chatService.deleteFamily(chatId);
+      if (mode == 'all') {
+        // OPZIONE 1: Elimina tutti i messaggi dal server (per entrambi)
+        if (chatId != null && mounted) {
+          await chatService.deleteMessagesAndCoupleSelfie(chatId);
         }
-      } else {
-        if (chatId != null && myUserId != null && mounted) {
-          final notificationService = Provider.of<NotificationService>(context, listen: false);
-          await notificationService.deleteTokenFromFirestore(chatId, myUserId);
+
+        // Unpair + pulisci cache locale
+        await pairingService.clearPairing();
+        chatService.stopListening();
+        chatService.clearMessages();
+        if (chatId != null) {
+          await coupleSelfieService.removeCoupleSelfie(chatId);
+        }
+      } else if (mode == 'mine') {
+        // OPZIONE 2: Elimina solo cache locale (Cambio Telefono)
+        await pairingService.clearPairing();
+        chatService.stopListening();
+        chatService.clearMessages();
+        if (chatId != null) {
+          await coupleSelfieService.removeCoupleSelfie(chatId);
+        }
+      } else if (mode == 'partner') {
+        // OPZIONE 3: Triggera pulizia cache del partner (ha cambiato telefono senza unpair)
+        if (chatId != null && myUserId != null) {
+          // Scrivi flag in Firestore per notificare il partner di pulire la cache
+          final partnerId = await pairingService.getPartnerId();
+          if (partnerId != null) {
+            await FirebaseFirestore.instance
+                .collection('families')
+                .doc(chatId)
+                .collection('users')
+                .doc(partnerId)
+                .update({
+              'delete_cache_requested': true,
+              'delete_cache_requested_at': FieldValue.serverTimestamp(),
+            });
+          }
+        }
+
+        // Unpair + pulisci cache locale
+        await pairingService.clearPairing();
+        chatService.stopListening();
+        chatService.clearMessages();
+        if (chatId != null) {
+          await coupleSelfieService.removeCoupleSelfie(chatId);
         }
       }
 
-      await pairingService.clearPairing();
-      chatService.stopListening();
-      chatService.clearMessages();
+      // Sempre: rimuovi token FCM
+      if (chatId != null && myUserId != null && mounted) {
+        await notificationService.deleteTokenFromFirestore(chatId, myUserId);
+      }
 
       if (!mounted) return;
-      setState(() => _isPaired = false);
+
+      final message = mode == 'all'
+          ? 'Tutti i messaggi eliminati (server)'
+          : mode == 'mine'
+              ? 'Pairing eliminato (solo cache locale)'
+              : 'Richiesta pulizia cache partner inviata';
 
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -130,9 +171,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
             children: [
               const Icon(Icons.check_circle, color: Colors.white),
               const SizedBox(width: 12),
-              Expanded(
-                child: Text(deleteMessages ? 'Tutto eliminato' : 'Pairing eliminato'),
-              ),
+              Expanded(child: Text(message)),
             ],
           ),
           backgroundColor: Colors.green[600],
@@ -386,7 +425,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
         builder: (context) => const PairingWizardScreen(),
       ),
     );
-    _checkPairingStatus();
+    // Non serve più _checkPairingStatus() - il build() si aggiorna automaticamente via Provider
   }
 
   void _showDeleteDialog() {
@@ -405,19 +444,25 @@ class _SettingsScreenState extends State<SettingsScreen> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: const [
-            Text('Scegli come resettare:'),
+            Text('Scegli come procedere:'),
             SizedBox(height: 20),
             _DeleteOption(
-              icon: Icons.link_off,
-              title: 'Solo Pairing',
-              description: 'I messaggi restano (ma illeggibili)',
+              icon: Icons.delete_forever,
+              title: 'Elimina Tutti i Messaggi',
+              description: 'Elimina messaggi e foto dal server (per entrambi)',
+              isDestructive: true,
             ),
             SizedBox(height: 12),
             _DeleteOption(
-              icon: Icons.delete_forever,
-              title: 'Pairing e Messaggi',
-              description: 'Elimina tutto (irreversibile)',
-              isDestructive: true,
+              icon: Icons.phone_android,
+              title: 'Elimina i Miei Messaggi',
+              description: 'Elimina solo la mia cache locale (Cambio Telefono)',
+            ),
+            SizedBox(height: 12),
+            _DeleteOption(
+              icon: Icons.phonelink_erase,
+              title: 'Elimina Messaggi del Partner',
+              description: 'Utile quando il partner ha cambiato telefono senza unpair',
             ),
           ],
         ),
@@ -429,17 +474,24 @@ class _SettingsScreenState extends State<SettingsScreen> {
           TextButton(
             onPressed: () {
               Navigator.pop(context);
-              _deletePairing(false);
+              _deletePairing(mode: 'all');
             },
-            child: const Text('Solo Pairing'),
+            style: TextButton.styleFrom(foregroundColor: Colors.red),
+            child: const Text('Tutti'),
           ),
           TextButton(
             onPressed: () {
               Navigator.pop(context);
-              _deletePairing(true);
+              _deletePairing(mode: 'mine');
             },
-            style: TextButton.styleFrom(foregroundColor: Colors.red),
-            child: const Text('Tutto'),
+            child: const Text('I Miei'),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.pop(context);
+              _deletePairing(mode: 'partner');
+            },
+            child: const Text('Del Partner'),
           ),
         ],
       ),
@@ -448,6 +500,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // Leggi lo stato pairing dal PairingService (con listen: true per auto-aggiornamento)
+    final pairingService = Provider.of<PairingService>(context);
+    final isPaired = pairingService.isPaired;
+
     if (_isLoading) {
       return const Center(
         child: CircularProgressIndicator(
@@ -500,7 +556,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           icon: Icons.favorite,
           iconColor: const Color(0xFF667eea),
           children: [
-            if (_isPaired) ...[
+            if (isPaired) ...[
               // Paired: mostra status e backup
               Container(
                 padding: const EdgeInsets.all(16),
@@ -559,7 +615,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
         ),
 
         // Delete Section (only if paired)
-        if (_isPaired) ...[
+        if (isPaired) ...[
           const SizedBox(height: 24),
           _SettingsSection(
             title: 'Zona Pericolosa',

@@ -2,7 +2,7 @@
 
 App di messaggistica privata per due persone con crittografia end-to-end e pairing tramite QR code.
 
-[![Status](https://img.shields.io/badge/status-v1.6.0--stable-success)](./README.md)
+[![Status](https://img.shields.io/badge/status-v1.8.0--stable-success)](./README.md)
 [![Flutter](https://img.shields.io/badge/Flutter-3.x-blue)](https://flutter.dev)
 [![Firebase](https://img.shields.io/badge/Firebase-Firestore-orange)](https://firebase.google.com)
 
@@ -59,6 +59,70 @@ App di messaggistica privata per due persone con crittografia end-to-end e pairi
 ---
 
 ## 📦 Aggiornamenti Recenti (Dicembre 2025)
+
+### 🔄 v1.8.0 - Unpair Logic Redesign + Smart Cache Cleanup (22 Dicembre 2025)
+
+**Nuove Feature:**
+
+1. **🗑️ Tre Opzioni Unpair**
+   - **Elimina Tutti i Messaggi**: cancella messaggi e foto dal server Firestore (per entrambi)
+   - **Elimina i Miei Messaggi**: cancella solo cache locale (Cambio Telefono scenario)
+   - **Elimina Messaggi del Partner**: triggera pulizia cache remota quando partner cambia telefono
+
+2. **🧹 Auto Cache Cleanup**
+   - Quando telefono A fa "Elimina Tutti", telefono B rileva e pulisce automaticamente la sua cache
+   - Controllo smart: verifica presenza messaggi su server per distinguere tra "Cambio Telefono" vs "Elimina Tutto"
+   - Callback `onPartnerDeletedAll` configurato in `main.dart` per pulizia automatica
+
+3. **📱 Remote Cache Deletion**
+   - Flag `delete_cache_requested` in Firestore per comunicare tra dispositivi
+   - Listener real-time in `PairingService` per rilevare richiesta e agire
+   - Utile quando partner ha cambiato telefono senza fare unpair
+
+4. **🛡️ Robust Pairing Logic**
+   - Fix: auto-unpair ora elimina anche documento `users` da Firestore (non solo cache locale)
+   - Fix: gestione graceful quando documento famiglia non esiste durante unpair
+   - Previene loop "famiglia corrotta" durante secondo pairing
+
+**Miglioramenti UX:**
+
+- ✅ Dialog con 3 opzioni chiare (Tutti / I Miei / Del Partner)
+- ✅ Messaggi di conferma specifici per ogni modalità
+- ✅ Pulizia cache automatica quando partner elimina tutto
+- ✅ Nessun documento residuo dopo unpair
+- ✅ Secondo pairing funziona senza errori
+
+**File Modificati:**
+- `settings_screen.dart`:
+  - Redesign `_deletePairing()` con parametro `mode` ('all'|'mine'|'partner')
+  - Dialog aggiornato con 3 opzioni distinte
+  - Logic per scrivere flag `delete_cache_requested` su Firestore
+- `pairing_service.dart`:
+  - Callback `onPartnerDeletedAll` per pulizia cache
+  - Listener per flag `delete_cache_requested` nel documento partner
+  - Auto-unpair ora elimina documento users da Firestore
+  - Fix: controllo messaggi server per distinguere "Elimina Tutto" vs "Cambio Telefono"
+- `chat_service.dart`:
+  - Fix: `deleteMessagesAndCoupleSelfie()` gestisce gracefully documento mancante
+  - Try-catch per errore NOT_FOUND di Firestore
+- `main.dart`:
+  - Configurazione callback `onPartnerDeletedAll`
+  - Cleanup automatico cache messaggi + foto quando partner elimina tutto
+
+**UX Flow "Elimina Messaggi del Partner":**
+- 📱 Telefono A fa "Elimina Messaggi del Partner"
+- 🔥 Scrive flag `delete_cache_requested: true` nel documento di B su Firestore
+- 📲 Telefono B apre app → listener rileva flag
+- 🗑️ B automaticamente: unpair + pulisce cache messaggi + pulisce foto coppia
+- ✅ Flag rimosso, B pronto per nuovo pairing pulito
+
+**Bug Fix:**
+- ✅ Auto-unpair ora elimina documento Firestore (non solo cache)
+- ✅ Gestione NOT_FOUND quando documento famiglia non esiste
+- ✅ Nessun loop "famiglia corrotta" durante re-pairing
+- ✅ Cache sempre sincronizzata tra i due dispositivi
+
+---
 
 ### 🎨 v1.7.0 - UI Redesign Purple/White + Couple Selfie (21 Dicembre 2025)
 
@@ -926,6 +990,9 @@ Aggiorna le security rules come indicato nella sezione Setup.
 - [x] **Thumbnail System** (150px con cache locale)
 - [x] **Fullscreen Viewer** (zoom + tap-to-toggle overlay)
 - [x] **Attachment Cache** (memoria + disco, two-tier)
+- [x] **Unpair Logic Redesign** (3 opzioni: Tutti/Miei/Partner)
+- [x] **Auto Cache Cleanup** (quando partner fa "Elimina Tutto")
+- [x] **Remote Cache Deletion** (triggera pulizia su altro dispositivo)
 
 ### 🚧 Roadmap Future
 - [ ] Autenticazione anonima Firebase + regole DB/Storage aggiornate
@@ -978,10 +1045,11 @@ Per problemi o domande:
 
 ---
 
-**Versione:** 1.7.0+8
-**Ultima modifica:** 2025-12-21
-**Architettura:** RSA-only + Dual Encryption + SQLite Cache + Smart Reminders + Real-time Indicators + E2E Attachments + Couple Selfie Sync
-**Performance:** ⚡ Instant load (< 100ms) + Zero visual glitches + Scalable to 1000+ messages + Real-time updates "a razzo" 🚀 + Thumbnail caching + Multi-architecture (32/64-bit)
-**UX:** 🎨 Purple/White Modern Design + Hamburger Menu + Floating Icons + Smart Pairing Button + Couple Selfie with Circular Crop + WhatsApp-style indicators + Dynamic Timestamps + Fullscreen viewer
-**Security:** 🔐 AES-256 + RSA-2048 dual encryption for messages AND files + Firebase Storage with encrypted binaries + Compartmentalized security rules
+**Versione:** 1.8.0+9
+**Ultima modifica:** 2025-12-22
+**Architettura:** RSA-only + Dual Encryption + SQLite Cache + Smart Reminders + Real-time Indicators + E2E Attachments + Couple Selfie Sync + Smart Unpair System
+**Performance:** ⚡ Instant load (< 100ms) + Zero visual glitches + Scalable to 1000+ messages + Real-time updates "a razzo" 🚀 + Thumbnail caching + Multi-architecture (32/64-bit) + Auto cache sync
+**UX:** 🎨 Purple/White Modern Design + Hamburger Menu + Floating Icons + Smart Pairing Button + Couple Selfie with Circular Crop + WhatsApp-style indicators + Dynamic Timestamps + Fullscreen viewer + 3-way Unpair Options
+**Security:** 🔐 AES-256 + RSA-2048 dual encryption for messages AND files + Firebase Storage with encrypted binaries + Compartmentalized security rules + Robust pairing validation
 **Dependencies:** ✅ Updated to latest stable versions (Dec 2025) + image_cropper for circular crop
+**Reliability:** 🛡️ Graceful error handling + Auto cleanup on unpair + No corrupted families + Second pairing always works

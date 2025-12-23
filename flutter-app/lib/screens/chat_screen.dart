@@ -1016,6 +1016,10 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                             final message = chatService.messages[index];
                             final isMe = message.senderId == _myDeviceId;
 
+                            if (kDebugMode && message.isPending == true) {
+                              print('🎨 [RENDER] Building pending message at index $index, id: ${message.id}');
+                            }
+
                             // Verifica se è un messaggio di completamento todo
                             if (message.messageType == 'todo_completed') {
                               // Non mostrare i messaggi di completamento
@@ -1053,7 +1057,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                               final decryptedContent = message.decryptedContent ?? '[Messaggio non decifrabile]';
 
                               return _MessageBubble(
-                                key: ValueKey('${message.id}_${message.read}'),
+                                key: ValueKey('${message.senderId}_${message.timestamp.millisecondsSinceEpoch}_${message.read}'),
                                 message: decryptedContent,
                                 timestamp: message.timestamp,
                                 isMe: isMe,
