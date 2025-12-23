@@ -184,26 +184,54 @@ class CoupleSelfieService extends ChangeNotifier {
   }
 
   /// Rimuove la foto di coppia
-  Future<bool> removeCoupleSelfie(String familyChatId) async {
+  ///
+  /// Se [deleteFromServer] è true, elimina sia dal server che dalla cache locale.
+  /// Se false, elimina solo dalla cache locale (utile per cambio telefono).
+  /// Se [deleteStorageFile] è true, elimina anche il file da Firebase Storage.
+  Future<bool> removeCoupleSelfie(
+    String familyChatId, {
+    bool deleteFromServer = true,
+    bool deleteStorageFile = false,
+  }) async {
     try {
-      if (kDebugMode) print('🗑️ [COUPLE_SELFIE] Removing selfie for family: $familyChatId');
+      if (kDebugMode) {
+        print('🗑️ [COUPLE_SELFIE] Removing selfie for family: $familyChatId');
+        print('   deleteFromServer: $deleteFromServer, deleteStorageFile: $deleteStorageFile');
+      }
 
-      // 1. Remove from Firestore
-      final docRef = _firestore.collection('families').doc(familyChatId);
-      await docRef.update({
-        'couple_selfie_url': FieldValue.delete(),
-        'couple_selfie_updated_at': FieldValue.delete(),
-      });
+      // 1. Elimina il file da Firebase Storage se richiesto
+      if (deleteStorageFile && _selfieUrl != null) {
+        try {
+          final storageRef = _storage.refFromURL(_selfieUrl!);
+          await storageRef.delete();
+          if (kDebugMode) print('✅ [COUPLE_SELFIE] Storage file deleted');
+        } catch (e) {
+          if (kDebugMode) print('⚠️ [COUPLE_SELFIE] Could not delete storage file: $e');
+          // Non lanciare errore - il file potrebbe già essere stato eliminato
+        }
+      }
 
-      // 2. Remove from cache
+      // 2. Remove from Firestore (solo se richiesto)
+      if (deleteFromServer) {
+        final docRef = _firestore.collection('families').doc(familyChatId);
+        await docRef.update({
+          'couple_selfie_url': FieldValue.delete(),
+          'couple_selfie_updated_at': FieldValue.delete(),
+        });
+        if (kDebugMode) print('✅ [COUPLE_SELFIE] Firestore metadata deleted');
+      }
+
+      // 3. Remove from local cache (sempre)
       _cachedSelfieBytes = null;
       _cacheFile = await _getCacheFile();
       if (await _cacheFile!.exists()) {
         await _cacheFile!.delete();
       }
 
-      // 3. Update local state
-      _selfieUrl = null;
+      // 4. Update local state
+      if (deleteFromServer) {
+        _selfieUrl = null;
+      }
       notifyListeners();
 
       if (kDebugMode) print('✅ [COUPLE_SELFIE] Selfie removed successfully');

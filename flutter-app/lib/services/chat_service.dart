@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_storage/firebase_storage.dart';
 import '../models/message.dart';
 import 'encryption_service.dart';
 import 'notification_service.dart';
@@ -1102,7 +1103,31 @@ class ChatService extends ChangeNotifier {
       // STEP 1: Elimina tutti i messaggi (subcollection) + cache
       await deleteAllMessages(familyChatId);
 
-      // STEP 2: Elimina la foto di coppia dal documento famiglia (se esiste)
+      // STEP 2: Leggi l'URL della foto prima di eliminarla
+      String? selfieUrl;
+      try {
+        final familyDoc = await _firestore.collection('families').doc(familyChatId).get();
+        if (familyDoc.exists) {
+          final data = familyDoc.data();
+          selfieUrl = data?['couple_selfie_url'] as String?;
+        }
+      } catch (e) {
+        if (kDebugMode) print('⚠️ Could not read couple selfie URL: $e');
+      }
+
+      // STEP 3: Elimina il file da Firebase Storage (se esiste)
+      if (selfieUrl != null && selfieUrl.isNotEmpty) {
+        try {
+          final storageRef = FirebaseStorage.instance.refFromURL(selfieUrl);
+          await storageRef.delete();
+          if (kDebugMode) print('✅ Couple selfie file deleted from Storage');
+        } catch (e) {
+          if (kDebugMode) print('⚠️ Could not delete storage file: $e');
+          // Non lanciare errore - il file potrebbe già essere stato eliminato
+        }
+      }
+
+      // STEP 4: Elimina i metadati della foto dal documento famiglia
       try {
         await _firestore.collection('families').doc(familyChatId).update({
           'couple_selfie_url': FieldValue.delete(),

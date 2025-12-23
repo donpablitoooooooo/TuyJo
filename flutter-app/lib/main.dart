@@ -40,8 +40,11 @@ void main() async {
     chatService.stopListening();
     chatService.clearMessages();
 
-    // Pulisci cache foto
-    await coupleSelfieService.removeCoupleSelfie(familyChatId);
+    // Pulisci SOLO cache locale foto (mantieni sul server)
+    await coupleSelfieService.removeCoupleSelfie(
+      familyChatId,
+      deleteFromServer: false,
+    );
 
     print('✅ [MAIN] Cache cleanup completed');
   };
