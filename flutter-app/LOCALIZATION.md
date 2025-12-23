@@ -5,8 +5,10 @@
 L'app ora supporta completamente la localizzazione tramite Flutter's `flutter_localizations` e file ARB (Application Resource Bundle) compatibili con **OneSkyApp**.
 
 **Lingue supportate:**
-- 🇮🇹 Italiano (it) - Lingua base
-- 🇬🇧 Inglese (en)
+- 🇬🇧 Inglese (en) - Lingua base/template
+- 🇮🇹 Italiano (it)
+- 🇪🇸 Spagnolo (es)
+- Català (ca)
 
 **Totale stringhe localizzate:** ~180+ chiavi
 
@@ -19,15 +21,19 @@ flutter-app/
 ├── l10n.yaml                           # Configurazione generazione localizzazioni
 ├── lib/
 │   ├── l10n/
-│   │   ├── app_it.arb                 # Stringhe italiane (template)
-│   │   └── app_en.arb                 # Stringhe inglesi
+│   │   ├── app_en.arb                 # English (template)
+│   │   ├── app_it.arb                 # Italiano
+│   │   ├── app_es.arb                 # Español
+│   │   └── app_ca.arb                 # Català
 │   └── [screens]/                     # Tutte le schermate localizzate
 ├── .dart_tool/
 │   └── flutter_gen/
 │       └── gen_l10n/
 │           ├── app_localizations.dart  # Classe generata automaticamente
+│           ├── app_localizations_en.dart
 │           ├── app_localizations_it.dart
-│           └── app_localizations_en.dart
+│           ├── app_localizations_es.dart
+│           └── app_localizations_ca.dart
 ```
 
 ---
@@ -271,10 +277,10 @@ Tutti i seguenti file sono stati localizzati:
 
 ## 📊 Statistiche
 
-- **File ARB:** 2 (it, en)
+- **File ARB:** 4 (en, it, es, ca)
 - **Chiavi totali:** ~180+
 - **Schermate localizzate:** 12
-- **Lingue supportate:** 2 (espandibile)
+- **Lingue supportate:** 4
 - **Stringhe con parametri:** ~15
 - **Compatibilità:** OneSkyApp, Crowdin, Lokalise, POEditor
 
