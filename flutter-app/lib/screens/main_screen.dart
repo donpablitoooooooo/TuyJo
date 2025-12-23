@@ -18,11 +18,55 @@ class MainScreen extends StatefulWidget {
 class _MainScreenState extends State<MainScreen> {
   int _selectedIndex = 0;
   bool _isInitialized = false;
+  bool _wasPaired = false; // Traccia lo stato precedente per rilevare i cambiamenti
 
   @override
   void initState() {
     super.initState();
     _initializeTab();
+
+    // Aggiungi listener per rilevare quando il pairing cambia
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final pairingService = Provider.of<PairingService>(context, listen: false);
+      pairingService.addListener(_onPairingChanged);
+    });
+  }
+
+  @override
+  void dispose() {
+    // Rimuovi listener
+    final pairingService = Provider.of<PairingService>(context, listen: false);
+    pairingService.removeListener(_onPairingChanged);
+    super.dispose();
+  }
+
+  /// Chiamato quando lo stato del pairing cambia
+  void _onPairingChanged() {
+    final pairingService = Provider.of<PairingService>(context, listen: false);
+    final isPaired = pairingService.isPaired;
+
+    // Se il pairing è appena diventato attivo (da false a true)
+    if (isPaired && !_wasPaired) {
+      print('🔄 [MAIN_SCREEN] Pairing appena completato, reinizializzo CoupleSelfieService...');
+
+      // Reinizializza il CoupleSelfieService per caricare la foto dal server
+      final coupleSelfieService = Provider.of<CoupleSelfieService>(context, listen: false);
+      pairingService.getFamilyChatId().then((familyChatId) {
+        if (familyChatId != null) {
+          coupleSelfieService.initialize(familyChatId);
+        }
+      });
+
+      // Cambia tab a Chat
+      if (mounted) {
+        setState(() {
+          _selectedIndex = 0;
+        });
+      }
+    }
+
+    // Aggiorna lo stato precedente
+    _wasPaired = isPaired;
   }
 
   Future<void> _initializeTab() async {
@@ -47,6 +91,7 @@ class _MainScreenState extends State<MainScreen> {
         // Se paired, mostra Chat (index 0), altrimenti Impostazioni (index 2)
         _selectedIndex = pairingService.isPaired ? 0 : 2;
         _isInitialized = true;
+        _wasPaired = pairingService.isPaired; // Inizializza lo stato precedente
       });
 
       // Se paired, inizializza anche il CoupleSelfieService
@@ -227,7 +272,9 @@ class _MainScreenState extends State<MainScreen> {
                       ],
                     ),
                     child: ClipOval(
-                      child: hasSelfie && cachedSelfieBytes != null
+                      // IMPORTANTE: mostra la foto SOLO se paired
+                      // Se unpaired, mostra sempre cuore grigio
+                      child: isPaired && hasSelfie && cachedSelfieBytes != null
                           ? Image.memory(
                               cachedSelfieBytes,
                               fit: BoxFit.cover,
