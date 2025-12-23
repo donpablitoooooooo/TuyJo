@@ -268,6 +268,7 @@ class _CoupleSelfieScreenState extends State<CoupleSelfieScreen> {
         return;
       }
 
+      // Carica la foto come couple selfie
       final success = await coupleSelfieService.uploadCoupleSelfie(
         File(croppedFile.path),
         familyChatId,
@@ -277,9 +278,22 @@ class _CoupleSelfieScreenState extends State<CoupleSelfieScreen> {
         final l10n = AppLocalizations.of(context)!;
         if (success) {
           // Invia messaggio in chat con la nuova foto
-          await _sendPhotoChangeMessage(File(croppedFile.path), familyChatId);
+          // IMPORTANTE: Questo carica la foto una seconda volta come allegato cifrato
+          // La foto di coppia e l'allegato del messaggio sono due file separati:
+          // - Foto di coppia: pubblica, sincronizzata automaticamente tra i dispositivi
+          // - Allegato: cifrato end-to-end, parte del messaggio in chat
+          try {
+            await _sendPhotoChangeMessage(File(croppedFile.path), familyChatId);
+            _showSnackBar(l10n.coupleSelfieSaveSuccess);
+          } catch (e) {
+            // Foto caricata ma messaggio fallito - avvisa l'utente
+            if (kDebugMode) print('⚠️ Photo uploaded but message failed: $e');
+            _showSnackBar(
+              '${l10n.coupleSelfieSaveSuccess}\n⚠️ Could not send message: ${e.toString()}',
+              isError: false, // Non è un errore grave - la foto è stata caricata
+            );
+          }
 
-          _showSnackBar(l10n.coupleSelfieSaveSuccess);
           // Return to previous screen
           Future.delayed(const Duration(milliseconds: 500), () {
             if (mounted) {
@@ -303,60 +317,68 @@ class _CoupleSelfieScreenState extends State<CoupleSelfieScreen> {
   }
 
   /// Invia un messaggio in chat con la nuova foto di coppia
-  Future<void> _sendPhotoChangeMessage(File photoFile, String familyChatId) async {
-    try {
-      if (kDebugMode) print('📤 [COUPLE_SELFIE_SCREEN] Sending photo change message...');
+  /// Restituisce true se il messaggio è stato inviato con successo, false altrimenti
+  Future<bool> _sendPhotoChangeMessage(File photoFile, String familyChatId) async {
+    if (kDebugMode) print('📤 [COUPLE_SELFIE_SCREEN] Sending photo change message...');
 
-      final chatService = Provider.of<ChatService>(context, listen: false);
-      final attachmentService = Provider.of<AttachmentService>(context, listen: false);
-      final pairingService = Provider.of<PairingService>(context, listen: false);
-      final encryptionService = Provider.of<EncryptionService>(context, listen: false);
+    final chatService = Provider.of<ChatService>(context, listen: false);
+    final attachmentService = Provider.of<AttachmentService>(context, listen: false);
+    final pairingService = Provider.of<PairingService>(context, listen: false);
+    final encryptionService = Provider.of<EncryptionService>(context, listen: false);
 
-      // Ottieni le chiavi e gli ID necessari
-      final senderId = await pairingService.getMyUserId();
-      final senderPublicKey = await encryptionService.getPublicKey();
-      final recipientPublicKey = pairingService.partnerPublicKey;
+    // Ottieni le chiavi e gli ID necessari
+    final senderId = await pairingService.getMyUserId();
+    final senderPublicKey = await encryptionService.getPublicKey();
+    final recipientPublicKey = pairingService.partnerPublicKey;
 
-      if (senderId == null || senderPublicKey == null || recipientPublicKey == null) {
-        if (kDebugMode) print('❌ [COUPLE_SELFIE_SCREEN] Missing keys or IDs');
-        return;
-      }
-
-      // Upload della foto come allegato cifrato
-      final attachment = await attachmentService.uploadAttachment(
-        photoFile,
-        familyChatId,
-        senderId,
-        senderPublicKey,
-        recipientPublicKey,
-      );
-
-      if (attachment == null) {
-        if (kDebugMode) print('❌ [COUPLE_SELFIE_SCREEN] Failed to upload attachment');
-        return;
-      }
-
-      // Invia il messaggio con l'allegato
-      final l10n = AppLocalizations.of(context)!;
-      final messageSent = await chatService.sendMessage(
-        l10n.coupleSelfieNewProfilePictureMessage,
-        familyChatId,
-        senderId,
-        senderPublicKey,
-        recipientPublicKey,
-        attachments: [attachment],
-      );
-
+    if (senderId == null || senderPublicKey == null || recipientPublicKey == null) {
       if (kDebugMode) {
-        if (messageSent) {
-          print('✅ [COUPLE_SELFIE_SCREEN] Photo change message sent');
-        } else {
-          print('❌ [COUPLE_SELFIE_SCREEN] Failed to send message');
-        }
+        print('❌ [COUPLE_SELFIE_SCREEN] Missing keys or IDs:');
+        print('   senderId: $senderId');
+        print('   senderPublicKey: ${senderPublicKey != null ? "present" : "null"}');
+        print('   recipientPublicKey: ${recipientPublicKey != null ? "present" : "null"}');
       }
-    } catch (e) {
-      if (kDebugMode) print('❌ [COUPLE_SELFIE_SCREEN] Error sending photo change message: $e');
+      throw Exception('Cannot send message: pairing keys not available. Please try again.');
     }
+
+    // Upload della foto come allegato cifrato
+    final attachment = await attachmentService.uploadAttachment(
+      photoFile,
+      familyChatId,
+      senderId,
+      senderPublicKey,
+      recipientPublicKey,
+    );
+
+    if (attachment == null) {
+      if (kDebugMode) print('❌ [COUPLE_SELFIE_SCREEN] Failed to upload attachment');
+      throw Exception('Failed to upload photo attachment. Please try again.');
+    }
+
+    // Invia il messaggio con l'allegato
+    final l10n = AppLocalizations.of(context)!;
+    final messageSent = await chatService.sendMessage(
+      l10n.coupleSelfieNewProfilePictureMessage,
+      familyChatId,
+      senderId,
+      senderPublicKey,
+      recipientPublicKey,
+      attachments: [attachment],
+    );
+
+    if (kDebugMode) {
+      if (messageSent) {
+        print('✅ [COUPLE_SELFIE_SCREEN] Photo change message sent');
+      } else {
+        print('❌ [COUPLE_SELFIE_SCREEN] Failed to send message');
+      }
+    }
+
+    if (!messageSent) {
+      throw Exception('Failed to send photo change message. Please try again.');
+    }
+
+    return true;
   }
 
   void _showSnackBar(String message, {bool isError = false}) {
