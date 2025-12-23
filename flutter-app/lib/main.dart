@@ -32,7 +32,7 @@ void main() async {
   final notificationService = NotificationService();
   final chatService = ChatService(encryptionService, notificationService);
   final coupleSelfieService = CoupleSelfieService();
-  final attachmentService = AttachmentService();
+  final attachmentService = AttachmentService(encryptionService: encryptionService);
 
   // Configura callback per pulizia cache quando il partner richiede la cancellazione
   pairingService.onPartnerDeletedAll = (String familyChatId) async {
