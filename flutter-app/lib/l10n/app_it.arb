@@ -9,13 +9,6 @@
   "close": "Chiudi",
   "retry": "Riprova",
   "error": "Errore: {error}",
-  "@error": {
-    "placeholders": {
-      "error": {
-        "type": "String"
-      }
-    }
-  },
 
   "loginTitle": "Messaggistica Privata",
   "loginSubtitle": "Con crittografia end-to-end",
@@ -97,13 +90,6 @@
   "pairingWizardScanInstructions": "Inquadra il QR Code del tuo amore",
   "pairingWizardImportingKey": "Importazione chiave...",
   "pairingWizardQRGenerationError": "Errore generazione QR: {error}",
-  "@pairingWizardQRGenerationError": {
-    "placeholders": {
-      "error": {
-        "type": "String"
-      }
-    }
-  },
   "pairingWizardQRScannedPartnerSuccess": "QR del partner scansionato con successo!",
   "pairingWizardInvalidQRCode": "QR Code non valido",
 
@@ -113,13 +99,6 @@
   "qrDisplayDescription": "Il tuo partner dovrà selezionare \"Leggo la chiave famiglia\" e scansionare questo codice",
   "qrDisplayInfoMessage": "Dopo la scansione, il pairing sarà completo e potrete iniziare a chattare in modo sicuro",
   "qrDisplayGenerationError": "Errore nella generazione QR: {error}",
-  "@qrDisplayGenerationError": {
-    "placeholders": {
-      "error": {
-        "type": "String"
-      }
-    }
-  },
 
   "qrScannerTitle": "Scansiona QR Code",
   "qrScannerInstructions": "Inquadra il QR Code mostrato dall'altro dispositivo",
@@ -154,13 +133,6 @@
   "chatMessagePlaceholder": "Scrivi un messaggio...",
   "chatVideoPlayerInDevelopment": "Player video cifrati in sviluppo",
   "chatFileOpenError": "Impossibile aprire: {message}",
-  "@chatFileOpenError": {
-    "placeholders": {
-      "message": {
-        "type": "String"
-      }
-    }
-  },
   "chatTodoPlaceholder": "Todo...",
   "chatWritePlaceholder": "Scrivi...",
   "chatSetDateTimeTooltip": "Imposta data/ora",
@@ -185,46 +157,11 @@
 
   "pdfViewerDocumentInfoTitle": "Info Documento",
   "pdfViewerDocumentName": "Nome: {name}",
-  "@pdfViewerDocumentName": {
-    "placeholders": {
-      "name": {
-        "type": "String"
-      }
-    }
-  },
   "pdfViewerDocumentSize": "Dimensione: {size}",
-  "@pdfViewerDocumentSize": {
-    "placeholders": {
-      "size": {
-        "type": "String"
-      }
-    }
-  },
   "pdfViewerDocumentPages": "Pagine: {pages}",
-  "@pdfViewerDocumentPages": {
-    "placeholders": {
-      "pages": {
-        "type": "String"
-      }
-    }
-  },
   "pdfViewerEncrypted": "Cifrato E2E",
   "pdfViewerLoading": "Caricamento PDF...",
   "pdfViewerLoadError": "Errore caricamento PDF: {error}",
-  "@pdfViewerLoadError": {
-    "placeholders": {
-      "error": {
-        "type": "String"
-      }
-    }
-  },
   "pdfViewerCannotLoad": "Impossibile caricare il PDF",
-  "pdfViewerError": "Errore: {error}",
-  "@pdfViewerError": {
-    "placeholders": {
-      "error": {
-        "type": "String"
-      }
-    }
-  }
+  "pdfViewerError": "Errore: {error}"
 }
