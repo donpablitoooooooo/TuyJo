@@ -2,6 +2,7 @@ import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
+import 'package:flutter_gen/gen_l10n/app_localizations.dart';
 import '../services/chat_service.dart';
 import '../services/pairing_service.dart';
 import '../services/attachment_service.dart';
@@ -61,6 +62,7 @@ class _MediaScreenState extends State<MediaScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     final chatService = Provider.of<ChatService>(context);
     final messages = chatService.messages;
 
@@ -79,7 +81,7 @@ class _MediaScreenState extends State<MediaScreen> {
                   ),
                   const SizedBox(height: 16),
                   Text(
-                    'Nessun media',
+                    l10n.mediaNoMedia,
                     style: TextStyle(
                       fontSize: 18,
                       color: Colors.grey[600],
@@ -88,7 +90,7 @@ class _MediaScreenState extends State<MediaScreen> {
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    'I media condivisi appariranno qui',
+                    l10n.mediaNoMediaDescription,
                     style: TextStyle(
                       fontSize: 14,
                       color: Colors.grey[500],
@@ -183,6 +185,7 @@ class _MediaGrid extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     if (items.isEmpty) {
       return Center(
         child: Column(
@@ -195,7 +198,7 @@ class _MediaGrid extends StatelessWidget {
             ),
             const SizedBox(height: 16),
             Text(
-              type == 'photo' ? 'Nessuna foto' : 'Nessun video',
+              type == 'photo' ? l10n.mediaNoPhotos : l10n.mediaNoVideos,
               style: TextStyle(
                 fontSize: 18,
                 color: Colors.grey[600],
@@ -204,7 +207,7 @@ class _MediaGrid extends StatelessWidget {
             ),
             const SizedBox(height: 8),
             Text(
-              'Le foto e i video condivisi appariranno qui',
+              l10n.mediaNoPhotosDescription,
               style: TextStyle(
                 fontSize: 14,
                 color: Colors.grey[500],
@@ -421,9 +424,10 @@ class _DocumentGridItem extends StatelessWidget {
           );
         } else {
           // For non-PDF documents, show a message
+          final l10n = AppLocalizations.of(context)!;
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Apri il documento dalla chat per visualizzarlo'),
+            SnackBar(
+              content: Text(l10n.mediaDocumentOpenHint),
             ),
           );
         }
@@ -504,6 +508,7 @@ class _MediaList extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     if (items.isEmpty) {
       return Center(
         child: Column(
@@ -516,7 +521,7 @@ class _MediaList extends StatelessWidget {
             ),
             const SizedBox(height: 16),
             Text(
-              'Nessun documento',
+              l10n.mediaNoDocuments,
               style: TextStyle(
                 fontSize: 18,
                 color: Colors.grey[600],
@@ -525,7 +530,7 @@ class _MediaList extends StatelessWidget {
             ),
             const SizedBox(height: 8),
             Text(
-              'I documenti condivisi appariranno qui',
+              l10n.mediaNoDocumentsDescription,
               style: TextStyle(
                 fontSize: 14,
                 color: Colors.grey[500],
@@ -731,6 +736,7 @@ class _FullscreenImageViewerState extends State<_FullscreenImageViewer> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     return Scaffold(
       backgroundColor: Colors.black,
       body: GestureDetector(
@@ -749,14 +755,14 @@ class _FullscreenImageViewerState extends State<_FullscreenImageViewer> {
                 builder: (context, snapshot) {
                   if (snapshot.connectionState == ConnectionState.waiting) {
                     // Loading
-                    return const Column(
+                    return Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        CircularProgressIndicator(color: Colors.white),
-                        SizedBox(height: 16),
+                        const CircularProgressIndicator(color: Colors.white),
+                        const SizedBox(height: 16),
                         Text(
-                          'Caricamento immagine...',
-                          style: TextStyle(color: Colors.white70),
+                          l10n.mediaLoadingImage,
+                          style: const TextStyle(color: Colors.white70),
                         ),
                       ],
                     );
@@ -770,8 +776,8 @@ class _FullscreenImageViewerState extends State<_FullscreenImageViewer> {
                         const Icon(Icons.error, color: Colors.red, size: 64),
                         const SizedBox(height: 16),
                         Text(
-                          'Errore caricamento immagine',
-                          style: TextStyle(color: Colors.white70),
+                          l10n.mediaImageLoadError,
+                          style: const TextStyle(color: Colors.white70),
                         ),
                       ],
                     );
@@ -850,7 +856,7 @@ class _FullscreenImageViewerState extends State<_FullscreenImageViewer> {
                             const Icon(Icons.lock, color: Colors.white70, size: 14),
                             const SizedBox(width: 4),
                             Text(
-                              'Cifrato E2E • ${_formatFileSize(widget.attachment.fileSize)}',
+                              '${l10n.mediaEncryptedE2E} • ${_formatFileSize(widget.attachment.fileSize)}',
                               style: const TextStyle(
                                 color: Colors.white70,
                                 fontSize: 12,

@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:image_cropper/image_cropper.dart';
 import 'package:provider/provider.dart';
+import 'package:flutter_gen/gen_l10n/app_localizations.dart';
 import '../services/couple_selfie_service.dart';
 import '../services/pairing_service.dart';
 import '../services/chat_service.dart';
@@ -24,6 +25,7 @@ class _CoupleSelfieScreenState extends State<CoupleSelfieScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     return Scaffold(
       body: Container(
         decoration: const BoxDecoration(
@@ -72,18 +74,18 @@ class _CoupleSelfieScreenState extends State<CoupleSelfieScreen> {
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       // Header
-                      const Text(
-                        'Foto di Coppia',
-                        style: TextStyle(
+                      Text(
+                        l10n.coupleSelfieTitle,
+                        style: const TextStyle(
                           fontSize: 32,
                           fontWeight: FontWeight.bold,
                           color: Colors.white,
                         ),
                       ),
                       const SizedBox(height: 16),
-                      const Text(
-                        'Scatta o seleziona una foto che rappresenta voi due',
-                        style: TextStyle(
+                      Text(
+                        l10n.coupleSelfieSubtitle,
+                        style: const TextStyle(
                           fontSize: 16,
                           color: Colors.white70,
                         ),
@@ -118,7 +120,7 @@ class _CoupleSelfieScreenState extends State<CoupleSelfieScreen> {
                       // Camera button
                       _buildActionButton(
                         icon: Icons.camera_alt,
-                        label: 'Scatta Foto',
+                        label: l10n.coupleSelfieTakePhoto,
                         onPressed: _isProcessing ? null : () => _pickImage(ImageSource.camera),
                       ),
 
@@ -127,7 +129,7 @@ class _CoupleSelfieScreenState extends State<CoupleSelfieScreen> {
                       // Gallery button
                       _buildActionButton(
                         icon: Icons.photo_library,
-                        label: 'Scegli dalla Galleria',
+                        label: l10n.coupleSelfieChooseFromGallery,
                         onPressed: _isProcessing ? null : () => _pickImage(ImageSource.gallery),
                       ),
 
@@ -223,12 +225,13 @@ class _CoupleSelfieScreenState extends State<CoupleSelfieScreen> {
       }
 
       // 2. Crop image in square shape (will be displayed as circle)
+      final l10n = AppLocalizations.of(context)!;
       final croppedFile = await ImageCropper().cropImage(
         sourcePath: pickedFile.path,
         aspectRatio: const CropAspectRatio(ratioX: 1, ratioY: 1),
         uiSettings: [
           AndroidUiSettings(
-            toolbarTitle: 'Centra le Facce',
+            toolbarTitle: l10n.coupleSelfieCropTitle,
             toolbarColor: const Color(0xFF667eea),
             toolbarWidgetColor: Colors.white,
             activeControlsWidgetColor: const Color(0xFF667eea),
@@ -238,7 +241,7 @@ class _CoupleSelfieScreenState extends State<CoupleSelfieScreen> {
             backgroundColor: Colors.black,
           ),
           IOSUiSettings(
-            title: 'Centra le Facce',
+            title: l10n.coupleSelfieCropTitle,
             minimumAspectRatio: 1.0,
             aspectRatioLockEnabled: true,
             resetAspectRatioEnabled: false,
@@ -258,7 +261,8 @@ class _CoupleSelfieScreenState extends State<CoupleSelfieScreen> {
 
       if (familyChatId == null) {
         if (mounted) {
-          _showSnackBar('Errore: Family Chat ID non trovato', isError: true);
+          final l10n = AppLocalizations.of(context)!;
+          _showSnackBar(l10n.coupleSelfieFamilyChatIdError, isError: true);
         }
         setState(() => _isProcessing = false);
         return;
@@ -270,11 +274,12 @@ class _CoupleSelfieScreenState extends State<CoupleSelfieScreen> {
       );
 
       if (mounted) {
+        final l10n = AppLocalizations.of(context)!;
         if (success) {
           // Invia messaggio in chat con la nuova foto
           await _sendPhotoChangeMessage(File(croppedFile.path), familyChatId);
 
-          _showSnackBar('Foto di coppia salvata!');
+          _showSnackBar(l10n.coupleSelfieSaveSuccess);
           // Return to previous screen
           Future.delayed(const Duration(milliseconds: 500), () {
             if (mounted) {
@@ -282,12 +287,13 @@ class _CoupleSelfieScreenState extends State<CoupleSelfieScreen> {
             }
           });
         } else {
-          _showSnackBar('Errore nel salvare la foto', isError: true);
+          _showSnackBar(l10n.coupleSelfieSaveError, isError: true);
         }
       }
     } catch (e) {
       if (mounted) {
-        _showSnackBar('Errore: $e', isError: true);
+        final l10n = AppLocalizations.of(context)!;
+        _showSnackBar(l10n.error(e.toString()), isError: true);
       }
     } finally {
       if (mounted) {
@@ -331,8 +337,9 @@ class _CoupleSelfieScreenState extends State<CoupleSelfieScreen> {
       }
 
       // Invia il messaggio con l'allegato
+      final l10n = AppLocalizations.of(context)!;
       final messageSent = await chatService.sendMessage(
-        'nuova foto profilo',
+        l10n.coupleSelfieNewProfilePictureMessage,
         familyChatId,
         senderId,
         senderPublicKey,

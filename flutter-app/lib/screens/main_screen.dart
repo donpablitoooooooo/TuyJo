@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_gen/gen_l10n/app_localizations.dart';
 import 'package:provider/provider.dart';
 import '../services/pairing_service.dart';
 import '../services/couple_selfie_service.dart';
@@ -146,7 +147,7 @@ class _MainScreenState extends State<MainScreen> {
               ),
               ListTile(
                 leading: const Icon(Icons.settings, color: Colors.white),
-                title: const Text('Impostazioni', style: TextStyle(color: Colors.white)),
+                title: Text(AppLocalizations.of(context)!.settings, style: const TextStyle(color: Colors.white)),
                 selected: _selectedIndex == 2,
                 selectedTileColor: Colors.white.withOpacity(0.2),
                 onTap: () {

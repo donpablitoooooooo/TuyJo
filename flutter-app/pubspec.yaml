@@ -10,6 +10,8 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
+  flutter_localizations:
+    sdk: flutter
 
   # State Management
   provider: ^6.1.5+1
@@ -67,3 +69,4 @@ dev_dependencies:
 
 flutter:
   uses-material-design: true
+  generate: true

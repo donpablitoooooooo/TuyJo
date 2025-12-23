@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_gen/gen_l10n/app_localizations.dart';
 import 'qr_display_screen.dart';
 import 'qr_scanner_screen.dart';
 
@@ -10,9 +11,11 @@ class PairingChoiceScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
+
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Configurazione Famiglia'),
+        title: Text(l10n.pairingChoiceTitle),
         centerTitle: true,
       ),
       body: Padding(
@@ -27,18 +30,18 @@ class PairingChoiceScreen extends StatelessWidget {
               color: Colors.blue,
             ),
             const SizedBox(height: 40),
-            const Text(
-              'Benvenuto in Family Chat',
-              style: TextStyle(
+            Text(
+              l10n.pairingChoiceWelcome,
+              style: const TextStyle(
                 fontSize: 24,
                 fontWeight: FontWeight.bold,
               ),
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 16),
-            const Text(
-              'Scegli come configurare il pairing con il tuo partner:',
-              style: TextStyle(
+            Text(
+              l10n.pairingChoiceInstructions,
+              style: const TextStyle(
                 fontSize: 16,
                 color: Colors.grey,
               ),
@@ -57,11 +60,11 @@ class PairingChoiceScreen extends StatelessWidget {
                 );
               },
               icon: const Icon(Icons.qr_code, size: 32),
-              label: const Padding(
-                padding: EdgeInsets.symmetric(vertical: 16.0),
+              label: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 16.0),
                 child: Text(
-                  'Creo io la chiave famiglia\n(Mostra QR Code)',
-                  style: TextStyle(fontSize: 16),
+                  l10n.pairingChoiceCreateKey,
+                  style: const TextStyle(fontSize: 16),
                   textAlign: TextAlign.center,
                 ),
               ),
@@ -84,11 +87,11 @@ class PairingChoiceScreen extends StatelessWidget {
                 );
               },
               icon: const Icon(Icons.qr_code_scanner, size: 32),
-              label: const Padding(
-                padding: EdgeInsets.symmetric(vertical: 16.0),
+              label: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 16.0),
                 child: Text(
-                  'Leggo la chiave famiglia\n(Scansiona QR Code)',
-                  style: TextStyle(fontSize: 16),
+                  l10n.pairingChoiceReadKey,
+                  style: const TextStyle(fontSize: 16),
                   textAlign: TextAlign.center,
                 ),
               ),
@@ -99,9 +102,9 @@ class PairingChoiceScreen extends StatelessWidget {
 
             const SizedBox(height: 40),
 
-            const Text(
-              'ℹ️ Su un telefono seleziona "Creo io", sull\'altro "Leggo"',
-              style: TextStyle(
+            Text(
+              l10n.pairingChoiceNote,
+              style: const TextStyle(
                 fontSize: 14,
                 fontStyle: FontStyle.italic,
                 color: Colors.grey,
