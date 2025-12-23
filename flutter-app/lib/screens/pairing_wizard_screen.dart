@@ -558,8 +558,9 @@ class _PairingWizardScreenState extends State<PairingWizardScreen> {
                               ),
                             ),
                           ],
-                        ),
-                      );
+                        ],
+                      ),
+                    );
                     },
                   ),
             ),
