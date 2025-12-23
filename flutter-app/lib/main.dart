@@ -10,6 +10,7 @@ import 'services/notification_service.dart';
 import 'services/pairing_service.dart';
 import 'services/message_cache_service.dart';
 import 'services/couple_selfie_service.dart';
+import 'services/attachment_service.dart';
 import 'package:private_messaging/generated/l10n/app_localizations.dart';
 
 void main() async {
@@ -31,6 +32,7 @@ void main() async {
   final notificationService = NotificationService();
   final chatService = ChatService(encryptionService, notificationService);
   final coupleSelfieService = CoupleSelfieService();
+  final attachmentService = AttachmentService();
 
   // Configura callback per pulizia cache quando il partner richiede la cancellazione
   pairingService.onPartnerDeletedAll = (String familyChatId) async {
@@ -63,6 +65,7 @@ void main() async {
     notificationService: notificationService,
     chatService: chatService,
     coupleSelfieService: coupleSelfieService,
+    attachmentService: attachmentService,
   ));
 }
 
@@ -72,6 +75,7 @@ class MyApp extends StatelessWidget {
   final NotificationService notificationService;
   final ChatService chatService;
   final CoupleSelfieService coupleSelfieService;
+  final AttachmentService attachmentService;
 
   const MyApp({
     super.key,
@@ -80,6 +84,7 @@ class MyApp extends StatelessWidget {
     required this.notificationService,
     required this.chatService,
     required this.coupleSelfieService,
+    required this.attachmentService,
   });
 
   @override
@@ -92,6 +97,7 @@ class MyApp extends StatelessWidget {
         ChangeNotifierProvider.value(value: coupleSelfieService),
         Provider.value(value: encryptionService),
         Provider.value(value: notificationService),
+        Provider.value(value: attachmentService),
       ],
       child: MaterialApp(
         onGenerateTitle: (context) => AppLocalizations.of(context)!.appTitle,
