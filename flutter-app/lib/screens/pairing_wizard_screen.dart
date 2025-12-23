@@ -5,7 +5,7 @@ import 'package:provider/provider.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:flutter_gen/gen_l10n/app_localizations.dart';
+import 'package:private_messaging/generated/l10n/app_localizations.dart';
 import '../services/pairing_service.dart';
 import '../services/encryption_service.dart';
 
@@ -559,7 +559,8 @@ class _PairingWizardScreenState extends State<PairingWizardScreen> {
                             ),
                           ],
                         ],
-                      );
+                      ),
+                    );
                     },
                   ),
             ),

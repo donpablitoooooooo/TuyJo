@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_gen/gen_l10n/app_localizations.dart';
+import 'package:private_messaging/generated/l10n/app_localizations.dart';
 import 'qr_display_screen.dart';
 import 'qr_scanner_screen.dart';
 
