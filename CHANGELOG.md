@@ -2,6 +2,176 @@
 
 All notable changes to YouAndMe app will be documented in this file.
 
+## [1.10.0] - 2025-12-23
+
+### 📸 Couple Profile Photo - Complete Redesign
+
+**Core Philosophy**: ONE photo on server, synchronized across devices
+
+#### 🔧 Fixed - Single Photo Enforcement
+
+- **Problem**: Each upload created new file with timestamp → multiple photos
+  ```
+  Before: couple_selfie_1234567890.jpg + couple_selfie_9876543210.jpg
+  Now:    couple_selfie.jpg (ALWAYS)
+  ```
+- **Solution**: Fixed filename + delete old before upload
+  - Upload always uses `couple_selfie.jpg` (no timestamp)
+  - Delete previous photo from Storage before uploading new one
+  - One photo rule: guaranteed via code architecture
+  - Real-time sync automatically updates local cache
+
+#### 🔧 Fixed - Unpair Photo Logic
+
+- **Mode 'all'** (Delete Everything):
+  - ✅ Deletes photo from Storage + Firestore
+  - ✅ Cleans local cache
+
+- **Mode 'mine'** (Device Change):
+  - ✅ Keeps photo on server (partner needs it)
+  - ✅ Only cleans local cache
+  - ❌ Before: deleted from server (bug)
+
+- **Mode 'partner'** (Partner Changed Device):
+  - ✅ Keeps photo on server
+  - ✅ Only triggers partner cleanup flag
+  - ❌ Before: deleted own messages + photo (bug)
+
+#### 🔧 Fixed - Gray Heart Icon Logic
+
+- **Problem**: Photo showed even when unpaired (cache remained)
+- **Solution**: Check `isPaired` BEFORE showing photo
+  ```dart
+  // Before: showed if cached
+  hasSelfie && cachedSelfieBytes != null
+
+  // Now: show ONLY if paired
+  isPaired && hasSelfie && cachedSelfieBytes != null
+  ```
+- **Result**:
+  - Unpaired → ALWAYS gray heart (even if cached)
+  - Paired + photo → show photo
+  - Paired + no photo → blue heart
+
+#### 🔧 Fixed - Re-pairing Photo Reload
+
+- **Problem**: Photo not reloaded from server after re-pairing
+  - CoupleSelfieService.initialize() called only in initState()
+  - Re-pairing didn't trigger reload
+
+- **Solution**: Listener monitors pairing state changes
+  ```dart
+  void _onPairingChanged() {
+    if (isPaired && !_wasPaired) {
+      // Reinitialize CoupleSelfieService
+      // Load photo from server
+      // Switch to Chat tab
+    }
+  }
+  ```
+- **Result**: Both devices reload photo automatically after pairing
+
+#### 🔧 Fixed - Photo Crop Fallback
+
+- **Problem**: If user presses OK without modifying crop → photo not set
+  - image_cropper returns null when no modifications made
+
+- **Solution**: Manual crop fallback
+  - If cropper returns file: use it
+  - If cropper returns null: auto-crop to square (center)
+  - Function `_cropImageToSquare()`:
+    - Takes smallest dimension (width or height)
+    - Crops from center
+    - Saves as JPEG quality 95
+
+#### 🔧 Fixed - Automatic Photo Message
+
+- **Problem**: Automatic message failed with "Provider<AttachmentService> not found"
+
+- **Solution**: Added AttachmentService to Provider tree
+  - Created instance in main.dart
+  - Added to MultiProvider
+  - Now message with photo attachment sends correctly
+
+#### 🔧 Fixed - Localization Build Errors
+
+- **Problem**: ARB files had invalid keys starting with underscore
+  ```
+  Error: Invalid ARB resource name "_comment_app"
+  ```
+
+- **Solution**: Removed all `_comment_*` keys from ARB files
+  - Cherry-picked fixes from localization branch
+  - Added synthetic-package support
+  - Fixed bracket/syntax errors in screens
+
+### 📝 Files Modified
+
+**Core Photo Logic**:
+- `flutter-app/lib/services/couple_selfie_service.dart`
+  - Single photo enforcement (fixed filename)
+  - Delete old photo before upload
+  - Smart removeCoupleSelfie() with parameters
+
+**Unpair & Icon Logic**:
+- `flutter-app/lib/screens/settings_screen.dart`
+  - Fixed mode 'partner' (no local cleanup)
+  - Correct photo handling per mode
+
+- `flutter-app/lib/screens/main_screen.dart`
+  - Gray heart when unpaired
+  - Listener for re-pairing detection
+  - Auto-reload photo after pairing
+
+**Photo Upload & Crop**:
+- `flutter-app/lib/screens/couple_selfie_screen.dart`
+  - Manual crop fallback
+  - Better error handling
+  - AttachmentService integration
+
+**Provider Setup**:
+- `flutter-app/lib/main.dart`
+  - AttachmentService in Provider tree
+  - Proper dependency injection
+
+**Localization**:
+- `flutter-app/lib/l10n/app_*.arb` (EN, IT, ES, CA)
+  - Removed invalid _comment_ keys
+  - Clean ARB files
+
+**Version**:
+- `flutter-app/pubspec.yaml` (1.9.0+10 → 1.10.0+11)
+
+### 🎯 Scenarios - All Fixed
+
+✅ **Scenario 1**: Upload photo → Both see same photo
+✅ **Scenario 2**: A unpairs (partner mode) → A sees gray heart, messages preserved
+✅ **Scenario 3**: A unpairs (mine mode) → Both see gray heart
+✅ **Scenario 4**: Re-pairing → Both reload photo from server
+✅ **Scenario 5**: Upload without crop changes → Photo still uploads (auto-crop)
+✅ **Scenario 6**: Photo change → Automatic message with attachment sent
+
+### 🏗️ Architecture Improvements
+
+- **Single Source of Truth**: ONE photo on server, period
+- **Idempotent Uploads**: Same filename = overwrite (no duplicates)
+- **Smart Caching**: Cache follows server state
+- **Reactive UI**: Icons update instantly on pairing changes
+- **Graceful Fallbacks**: Manual crop when native cropper fails
+- **Provider Pattern**: All services properly injected
+
+### 🐛 Bug Fixes Summary
+
+- ✅ Multiple photos on server (ONE photo enforcement)
+- ✅ Unpair partner deletes own messages (fixed logic)
+- ✅ Photo shows when unpaired (gray heart check)
+- ✅ Photo not reloaded after re-pairing (listener added)
+- ✅ Crop without changes fails (manual fallback)
+- ✅ Automatic message not sent (Provider fix)
+- ✅ Build errors from ARB files (localization cleanup)
+
+---
+
 ## [1.8.0] - 2025-12-22
 
 ### 🔄 Unpair Logic Redesign + Smart Cache Cleanup
