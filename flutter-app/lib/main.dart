@@ -99,8 +99,10 @@ class MyApp extends StatelessWidget {
           GlobalCupertinoLocalizations.delegate,
         ],
         supportedLocales: const [
-          Locale('it', ''),
-          Locale('en', ''),
+          Locale('en', ''),  // English (default)
+          Locale('it', ''),  // Italiano
+          Locale('es', ''),  // Español
+          Locale('ca', ''),  // Català
         ],
         theme: ThemeData(
           colorScheme: ColorScheme.fromSeed(
