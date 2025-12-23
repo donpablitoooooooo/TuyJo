@@ -1,10 +1,8 @@
 {
   "@@locale": "it",
 
-  "_comment_app": "=== APP GENERALE ===",
   "appTitle": "Private Messaging",
 
-  "_comment_common": "=== COMUNI ===",
   "cancel": "Annulla",
   "continue_": "Continua",
   "done": "Fatto",
@@ -19,7 +17,6 @@
     }
   },
 
-  "_comment_login": "=== LOGIN SCREEN ===",
   "loginTitle": "Messaggistica Privata",
   "loginSubtitle": "Con crittografia end-to-end",
   "username": "Username",
@@ -32,7 +29,6 @@
   "noAccountRegister": "Non hai un account? Registrati",
   "hasAccountLogin": "Hai già un account? Accedi",
 
-  "_comment_pairing_choice": "=== PAIRING CHOICE SCREEN ===",
   "pairingChoiceTitle": "Configurazione Famiglia",
   "pairingChoiceWelcome": "Benvenuto in Family Chat",
   "pairingChoiceInstructions": "Scegli come configurare il pairing con il tuo partner:",
@@ -40,10 +36,8 @@
   "pairingChoiceReadKey": "Leggo la chiave famiglia\n(Scansiona QR Code)",
   "pairingChoiceNote": "ℹ️ Su un telefono seleziona \"Creo io\", sull'altro \"Leggo\"",
 
-  "_comment_main": "=== MAIN SCREEN ===",
   "settings": "Impostazioni",
 
-  "_comment_settings": "=== SETTINGS SCREEN ===",
   "settingsTitle": "Impostazioni",
   "settingsSectionPairing": "Pairing",
   "settingsSectionDangerZone": "Zona Pericolosa",
@@ -85,7 +79,6 @@
   "settingsUnpairWarning": "Elimina il pairing con il dispositivo accoppiato",
   "settingsResetPairingButton": "Reset Pairing",
 
-  "_comment_pairing_wizard": "=== PAIRING WIZARD SCREEN ===",
   "pairingWizardPreparingPairing": "Preparazione pairing...",
   "pairingWizardTitle": "Pairing con il tuo amore",
   "pairingWizardSubtitle": "Completa entrambi i passaggi per accoppiare i dispositivi",
@@ -114,7 +107,6 @@
   "pairingWizardQRScannedPartnerSuccess": "QR del partner scansionato con successo!",
   "pairingWizardInvalidQRCode": "QR Code non valido",
 
-  "_comment_qr_display": "=== QR DISPLAY SCREEN ===",
   "qrDisplayTitle": "Mostra QR Code",
   "qrDisplayGenerating": "Generazione chiave famiglia...",
   "qrDisplayInstructions": "Fai scansionare questo QR Code",
@@ -129,14 +121,12 @@
     }
   },
 
-  "_comment_qr_scanner": "=== QR SCANNER SCREEN ===",
   "qrScannerTitle": "Scansiona QR Code",
   "qrScannerInstructions": "Inquadra il QR Code mostrato dall'altro dispositivo",
   "qrScannerImporting": "Importazione chiave famiglia...",
   "qrScannerPairingSuccess": "✅ Pairing completato con successo!",
   "qrScannerInvalidQRCode": "❌ QR Code non valido",
 
-  "_comment_couple_selfie": "=== COUPLE SELFIE SCREEN ===",
   "coupleSelfieTitle": "Foto di Coppia",
   "coupleSelfieSubtitle": "Scatta o seleziona una foto che rappresenta voi due",
   "coupleSelfieTakePhoto": "Scatta Foto",
@@ -147,7 +137,6 @@
   "coupleSelfieSaveError": "Errore nel salvare la foto",
   "coupleSelfieNewProfilePictureMessage": "nuova foto profilo",
 
-  "_comment_chat": "=== CHAT SCREEN ===",
   "chatAttachmentPickerTitle": "Seleziona allegato",
   "chatAttachmentPhotoFromGallery": "Foto da galleria",
   "chatAttachmentTakePhoto": "Scatta foto",
@@ -182,7 +171,6 @@
   "chatLoadingImage": "Caricamento immagine...",
   "chatImageLoadError": "Errore caricamento immagine",
 
-  "_comment_media": "=== MEDIA SCREEN ===",
   "mediaNoMedia": "Nessun media",
   "mediaNoMediaDescription": "I media condivisi appariranno qui",
   "mediaNoPhotos": "Nessuna foto",
@@ -195,7 +183,6 @@
   "mediaImageLoadError": "Errore caricamento immagine",
   "mediaEncryptedE2E": "Cifrato E2E",
 
-  "_comment_pdf_viewer": "=== PDF VIEWER SCREEN ===",
   "pdfViewerDocumentInfoTitle": "Info Documento",
   "pdfViewerDocumentName": "Nome: {name}",
   "@pdfViewerDocumentName": {
