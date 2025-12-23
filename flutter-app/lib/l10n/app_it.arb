@@ -1,6 +1,6 @@
 {
   "@@locale": "it",
-
+  "welcome_header": "Ciao mondo!",
   "appTitle": "Private Messaging",
 
   "cancel": "Annulla",
