@@ -891,23 +891,45 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
 
   @override
   Widget build(BuildContext context) {
-    final chatService = Provider.of<ChatService>(context);
-    final pairingService = Provider.of<PairingService>(context);
+    // Usa Selector per ascoltare SOLO messages e partnerIsTyping, non tutto chatService
+    // Questo evita rebuild quando cambiano altri campi (es. typing status del partner)
+    return Selector<ChatService, ({List<Message> messages, bool partnerIsTyping})>(
+      selector: (context, chatService) => (
+        messages: chatService.messages,
+        partnerIsTyping: chatService.partnerIsTyping,
+      ),
+      builder: (context, data, child) {
+        final chatService = Provider.of<ChatService>(context, listen: false);
+        final pairingService = Provider.of<PairingService>(context, listen: false);
+
+        return _buildChatContent(context, chatService, data.messages, data.partnerIsTyping);
+      },
+    );
+  }
+
+  Widget _buildChatContent(
+    BuildContext context,
+    ChatService chatService,
+    List<Message> messages,
+    bool partnerIsTyping,
+  ) {
+    // Usa messages invece di chatService.messages per evitare rebuild inutili
+    final pairingService = Provider.of<PairingService>(context, listen: false);
 
     // 🔧 FIX: Con reverse: true, il ListView inizia automaticamente in basso (messaggi nuovi)
     // Non serve più auto-scroll al caricamento iniziale!
     // Scrolliamo SOLO quando arriva un singolo nuovo messaggio (chat attiva)
-    final currentCount = chatService.messages.length;
+    final currentCount = messages.length;
     final isSingleNewMessage = currentCount == _lastMessageCount + 1;
     final hasNewMessages = currentCount != _lastMessageCount;
 
     // Scroll SOLO per nuovi messaggi singoli (quando qualcuno invia un messaggio)
     // MA non scrollare per messaggi di completamento todo (per evitare scroll indesiderato dopo long press)
-    if (isSingleNewMessage && chatService.messages.isNotEmpty) {
+    if (isSingleNewMessage && messages.isNotEmpty) {
       _lastMessageCount = currentCount;
 
       // Controlla se l'ultimo messaggio è un todo_completed (primo perché reverse: true)
-      final lastMessage = chatService.messages.first;
+      final lastMessage = messages.first;
       final shouldScroll = lastMessage.messageType != 'todo_completed';
 
       // ✅ REAL-TIME READ RECEIPTS: Marca come letti i messaggi ricevuti quando la chat è aperta
@@ -943,7 +965,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
 
     // 🔔 REMINDER AUTO-SCROLL: Rileva quando un reminder diventa visibile
     final now = DateTime.now();
-    final currentlyHiddenReminders = chatService.messages
+    final currentlyHiddenReminders = messages
         .where((m) =>
             m.messageType == 'todo' &&
             m.isReminder == true &&
@@ -983,7 +1005,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       body: Column(
         children: [
           Expanded(
-            child: chatService.messages.isEmpty
+            child: messages.isEmpty
                 ? Center(
                     child: Text(
                       l10n.chatEmptyMessage,
@@ -1017,10 +1039,10 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                         child: ListView.builder(
                           controller: _scrollController,
                           padding: const EdgeInsets.fromLTRB(12, 60, 12, 2),
-                          itemCount: chatService.messages.length,
+                          itemCount: messages.length,
                           reverse: true, // 🔧 FIX: reverse per mostrare nuovi messaggi in basso
                           itemBuilder: (context, index) {
-                            final message = chatService.messages[index];
+                            final message = messages[index];
                             final isMe = message.senderId == _myDeviceId;
 
                             if (kDebugMode && message.isPending == true) {
@@ -1045,7 +1067,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                             // Verifica se il todo è stato completato
                             bool isTodoCompleted = false;
                             if (message.messageType == 'todo') {
-                              isTodoCompleted = chatService.messages.any((m) =>
+                              isTodoCompleted = messages.any((m) =>
                                   m.messageType == 'todo_completed' &&
                                   m.originalTodoId == message.id);
                             }
@@ -1080,7 +1102,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                         ),
                       ),
                       // 💬 Indicatore "Sta scrivendo..."
-                      if (chatService.partnerIsTyping)
+                      if (partnerIsTyping)
                         Container(
                           padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
                           child: Row(
