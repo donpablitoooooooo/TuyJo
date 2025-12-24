@@ -891,18 +891,24 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
 
   @override
   Widget build(BuildContext context) {
-    // Usa Selector per ascoltare SOLO messages e partnerIsTyping, non tutto chatService
-    // Questo evita rebuild quando cambiano altri campi (es. typing status del partner)
-    return Selector<ChatService, ({List<Message> messages, bool partnerIsTyping})>(
+    // 🎯 BUBBLE OPTIMIZATION: Version-based Selector
+    // Usa messagesVersion invece di messages reference per evitare rebuild inutili.
+    // messagesVersion cambia SOLO per structural changes (add/remove), NON per
+    // content updates (read status, replace pending→real).
+    // Vedi: flutter-app/docs/BUBBLE_ARCHITECTURE.md
+    return Selector<ChatService, ({int messagesVersion, bool partnerIsTyping})>(
       selector: (context, chatService) => (
-        messages: chatService.messages,
+        messagesVersion: chatService.messagesVersion,
         partnerIsTyping: chatService.partnerIsTyping,
       ),
       builder: (context, data, child) {
         final chatService = Provider.of<ChatService>(context, listen: false);
         final pairingService = Provider.of<PairingService>(context, listen: false);
 
-        return _buildChatContent(context, chatService, data.messages, data.partnerIsTyping);
+        // Leggi messages DOPO - se version non cambia, questo rebuild non succede
+        final messages = chatService.messages;
+
+        return _buildChatContent(context, chatService, messages, data.partnerIsTyping);
       },
     );
   }
@@ -1075,7 +1081,10 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                             // Renderizza il tipo di messaggio appropriato
                             if (message.messageType == 'todo') {
                               return _TodoMessageBubble(
-                                key: ValueKey(message.id),
+                                // 🎯 STABLE KEY: timestamp+sender invece di id
+                                // Quando pending→real, id cambia ma timestamp+sender rimane uguale
+                                // Così Flutter NON ricrea la bubble, evitando animazioni ripetute
+                                key: ValueKey('${message.senderId}_${message.timestamp.millisecondsSinceEpoch}'),
                                 message: message,
                                 isMe: isMe,
                                 isCompleted: isTodoCompleted,
@@ -1086,7 +1095,10 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                               final decryptedContent = message.decryptedContent ?? '[Messaggio non decifrabile]';
 
                               return _MessageBubble(
-                                key: ValueKey(message.id),
+                                // 🎯 STABLE KEY: timestamp+sender invece di id
+                                // Quando pending→real, id cambia ma timestamp+sender rimane uguale
+                                // Così Flutter NON ricrea la bubble, evitando animazioni ripetute
+                                key: ValueKey('${message.senderId}_${message.timestamp.millisecondsSinceEpoch}'),
                                 message: decryptedContent,
                                 timestamp: message.timestamp,
                                 isMe: isMe,

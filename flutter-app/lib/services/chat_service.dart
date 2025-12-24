@@ -13,6 +13,33 @@ class ChatService extends ChangeNotifier {
   static const String baseUrl = 'https://private-messaging-backend-668509120760.europe-west1.run.app';
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final List<Message> _messages = [];
+
+  // ========================================
+  // 🎯 BUBBLE OPTIMIZATION: Version Tracking
+  // ========================================
+  // Questo intero viene incrementato SOLO quando la struttura della lista cambia
+  // (add, remove, clear), ma NON quando cambia solo il contenuto di un messaggio
+  // esistente (read status, replace pending→real, delete content).
+  //
+  // Questo permette a ChatScreen di usare un Selector che rebuilda il ListView
+  // SOLO quando necessario, evitando rebuild completi e animazioni indesiderate.
+  //
+  // QUANDO INCREMENTARE (_incrementVersion):
+  // - Add nuovo messaggio (optimistic o reale)
+  // - Load older messages (batch add)
+  // - Clear messages
+  // - Remove from list (futuro, raro)
+  //
+  // QUANDO NON INCREMENTARE (_notifyContentUpdate):
+  // - Replace pending→real (stessa bubble, solo id cambia)
+  // - Update read/delivered status (solo proprietà)
+  // - Delete message content (bubble rimane, mostra "[Eliminato]")
+  // - Update attachments (foto completata)
+  //
+  // Vedi: flutter-app/docs/BUBBLE_ARCHITECTURE.md per dettagli completi
+  // ========================================
+  int _messagesVersion = 0;
+
   late final EncryptionService _encryptionService;
   late final NotificationService _notificationService;
   final MessageCacheService _cacheService = MessageCacheService();
@@ -33,10 +60,28 @@ class ChatService extends ChangeNotifier {
   }
 
   List<Message> get messages => _messages;
+  int get messagesVersion => _messagesVersion; // ← Per Selector in ChatScreen
   bool get isConnected => _subscription != null;
   bool get isLoadingFromCache => _isLoadingFromCache;
   bool get partnerIsTyping => _partnerIsTyping;
   EncryptionService get encryptionService => _encryptionService;
+
+  // ========================================
+  // 🛠️ HELPER METHODS: Version Management
+  // ========================================
+
+  /// Incrementa version per STRUCTURAL CHANGES (add/remove/clear)
+  /// Causa rebuild del ListView in ChatScreen
+  void _incrementVersion() {
+    _messagesVersion++;
+    if (kDebugMode) print('📊 [VERSION] Incremented to $_messagesVersion (structural change)');
+  }
+
+  /// Notifica che è cambiato solo il CONTENUTO di messaggi esistenti
+  /// NON incrementa version → ListView non rebuilda, solo bubble esistenti si aggiornano
+  void _notifyContentUpdate() {
+    if (kDebugMode) print('🔄 [CONTENT] Update without version change (content only)');
+  }
 
   /// Carica messaggi più vecchi (per infinite scroll)
   Future<void> loadOlderMessages({int limit = 50}) async {
@@ -60,6 +105,7 @@ class ChatService extends ChangeNotifier {
         // Inserisci alla FINE (perché ordine DESC)
         // Ma prima invertiamo per mantenere ordine DESC
         _messages.addAll(olderMessages.reversed);
+        _incrementVersion(); // STRUCTURAL: batch add
         notifyListeners();
         if (kDebugMode) print('✅ Loaded ${olderMessages.length} older messages');
       } else {
@@ -108,6 +154,7 @@ class ChatService extends ChangeNotifier {
           print('   Calling notifyListeners() to update UI...');
         }
 
+        _incrementVersion(); // STRUCTURAL: initial load from cache
         notifyListeners();
 
         if (kDebugMode) print('✅ [CACHE] UI should be updated now with ${_messages.length} messages');
@@ -270,6 +317,7 @@ class ChatService extends ChangeNotifier {
               if (kDebugMode) print('❌ Error batch caching messages: $e');
             }
 
+            _incrementVersion(); // STRUCTURAL: batch add from initial sync
             notifyListeners();
           } else {
             // Nessun nuovo messaggio - la cache era già aggiornata
@@ -277,6 +325,8 @@ class ChatService extends ChangeNotifier {
           }
         } else {
           // SNAPSHOTS SUCCESSIVI: Gestisci i nuovi messaggi normalmente
+          bool hasStructuralChange = false; // Track se c'è stato add/remove (non solo replace/modify)
+
           for (var change in snapshot.docChanges) {
             if (change.type == DocumentChangeType.added) {
               final message = Message.fromFirestore(
@@ -299,6 +349,7 @@ class ChatService extends ChangeNotifier {
 
               if (pendingIndex != -1) {
                 // Trovato pending message - sostituiscilo con quello reale
+                // CONTENT UPDATE: stessa bubble, solo id cambia
                 _messages[pendingIndex] = message;
 
                 // 💾 SALVA NELLA CACHE SQLITE
@@ -310,8 +361,10 @@ class ChatService extends ChangeNotifier {
                 } catch (e) {
                   if (kDebugMode) print('❌ Error caching message: $e');
                 }
+                // NO hasStructuralChange = true → replace non è structural
               } else if (!_messages.any((m) => m.id == message.id)) {
                 // Nessun pending trovato E messaggio non esiste già - aggiungilo normalmente
+                // STRUCTURAL CHANGE: nuova bubble
 
                 // 🔔 REMINDER TIMESTAMP UPDATE
                 // Se questo è un reminder appena diventato visibile, aggiorna il timestamp
@@ -330,6 +383,7 @@ class ChatService extends ChangeNotifier {
                 _messages.add(message);
                 // Ordina DESC (nuovi->vecchi) per ListView.reverse: true
                 _messages.sort((a, b) => b.timestamp.compareTo(a.timestamp));
+                hasStructuralChange = true; // STRUCTURAL: new message added
 
                 // 💾 SALVA NELLA CACHE SQLITE
                 try {
@@ -352,6 +406,7 @@ class ChatService extends ChangeNotifier {
               }
             } else if (change.type == DocumentChangeType.modified) {
               // Gestisci modifiche ai messaggi esistenti (es. timestamp update per reminder o read status)
+              // CONTENT UPDATE: proprietà cambiano, struttura lista uguale
               if (kDebugMode) {
                 print('📝 [MODIFIED EVENT] Received for message: ${change.doc.id.substring(0, 8)}');
               }
@@ -389,10 +444,18 @@ class ChatService extends ChangeNotifier {
                 } catch (e) {
                   if (kDebugMode) print('   ❌ Error updating message in cache: $e');
                 }
+                // NO hasStructuralChange = true → modify è content only
               } else {
                 if (kDebugMode) print('   ⚠️ Message not found in local list!');
               }
             }
+          }
+
+          // Notifica con versioning appropriato
+          if (hasStructuralChange) {
+            _incrementVersion(); // STRUCTURAL: new messages added
+          } else {
+            _notifyContentUpdate(); // CONTENT: only updates/replacements
           }
           notifyListeners();
         }
@@ -470,6 +533,7 @@ class ChatService extends ChangeNotifier {
             }
 
             // Notifica UI immediatamente (non aspettare il salvataggio cache)
+            _notifyContentUpdate(); // CONTENT: only read status changed
             notifyListeners();
 
             // Aggiorna cache in background
@@ -787,6 +851,7 @@ class ChatService extends ChangeNotifier {
       print('   New messages count: ${_messages.length}');
     }
 
+    _incrementVersion(); // STRUCTURAL: optimistic add
     notifyListeners();
 
     return tempId;
@@ -795,6 +860,7 @@ class ChatService extends ChangeNotifier {
   /// Rimuove un messaggio pending quando l'invio è completato
   void removePendingMessage(String tempId) {
     _messages.removeWhere((m) => m.id == tempId);
+    _incrementVersion(); // STRUCTURAL: remove
     notifyListeners();
   }
 
@@ -1059,6 +1125,7 @@ class ChatService extends ChangeNotifier {
       }
     }
 
+    _incrementVersion(); // STRUCTURAL: clear all
     notifyListeners();
   }
 
