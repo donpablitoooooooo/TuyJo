@@ -721,11 +721,10 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       }).toList();
     }
 
-    setState(() {
-      _selectedTodoDate = null; // Reset todo date
-      _selectedAttachments.clear(); // Clear attachments
-      _isUploadingAttachments = true; // Mostra loader
-    });
+    // Reset stato senza setState (non serve rebuild)
+    _selectedTodoDate = null;
+    _selectedAttachments.clear();
+    _isUploadingAttachments = true;
 
     // BLOCCO INVIO: Verifica che siamo in pairing
     final pairingService = Provider.of<PairingService>(context, listen: false);
@@ -839,7 +838,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
           if (pendingMessageId != null) {
             chatService.removePendingMessage(pendingMessageId);
           }
-          setState(() => _isUploadingAttachments = false);
+          _isUploadingAttachments = false; // Reset senza setState
           final l10n = AppLocalizations.of(context)!;
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
@@ -905,6 +904,10 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
         partnerIsTyping: chatService.partnerIsTyping,
       ),
       builder: (context, data, child) {
+        if (kDebugMode) {
+          print('🎨 [SELECTOR BUILDER] Called with messagesVersion=${data.messagesVersion}, typing=${data.partnerIsTyping}');
+        }
+
         final chatService = Provider.of<ChatService>(context, listen: false);
         final pairingService = Provider.of<PairingService>(context, listen: false);
 
