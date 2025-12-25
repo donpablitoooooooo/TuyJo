@@ -57,27 +57,6 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   // Stream subscription per condivisione file da altre app
   StreamSubscription? _intentMediaStreamSubscription;
 
-  void _onPairingServiceChanged() async {
-    // Chiamato quando PairingService chiama notifyListeners()
-    final pairingService = Provider.of<PairingService>(context, listen: false);
-    final currentPairingStatus = pairingService.isPaired;
-    final currentFamilyChatId = await pairingService.getFamilyChatId();
-
-    // Controlla se è davvero cambiato
-    final hasChanged =
-        (currentPairingStatus != _lastPairingStatus) ||
-        (currentFamilyChatId != _lastFamilyChatId);
-
-    if (hasChanged) {
-      if (kDebugMode) {
-        print('🔄 [PAIRING CHANGED] Triggering rebuild');
-        print('   Old: isPaired=$_lastPairingStatus, chatId=${_lastFamilyChatId?.substring(0, 10)}');
-        print('   New: isPaired=$currentPairingStatus, chatId=${currentFamilyChatId?.substring(0, 10)}');
-      }
-      // Solo ora triggera rebuild
-      if (mounted) setState(() {});
-    }
-  }
 
   @override
   void initState() {
@@ -86,13 +65,6 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
 
     // 🔔 Aggiungi observer per lifecycle events (foreground/background)
     WidgetsBinding.instance.addObserver(this);
-
-    // 🎯 Listener manuale per PairingService
-    // Chiamiamo setState() SOLO quando isPaired o familyChatId cambiano davvero
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      final pairingService = Provider.of<PairingService>(context, listen: false);
-      pairingService.addListener(_onPairingServiceChanged);
-    });
 
     // Listen per cambiamenti nel text field
     _messageController.addListener(() {
@@ -330,15 +302,6 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
-
-    // Rimuovi listener manuale di PairingService
-    try {
-      final pairingService = Provider.of<PairingService>(context, listen: false);
-      pairingService.removeListener(_onPairingServiceChanged);
-    } catch (e) {
-      // Ignore se context non più valido
-    }
-
     _messageController.dispose();
     _scrollController.dispose();
     _typingTimer?.cancel();
@@ -805,7 +768,6 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       }
 
       // 🎯 AGGIUNGI PENDING PRIMA DI CLEAR!
-      // Così quando clear() trigghera setState (via listener), il messaggio si vede subito
       if (messageText.isNotEmpty || placeholderAttachments != null) {
         pendingMessageId = chatService.addPendingMessage(
           messageText,
@@ -813,20 +775,21 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
           placeholderAttachments,
         );
         if (kDebugMode) {
-          print('✅ [PENDING] Added pending message BEFORE clear, id: $pendingMessageId');
-        }
-
-        // 🎯 FORZA REBUILD SINCRONO! notifyListeners() è asincrono, ma setState() è sincrono.
-        // Questo garantisce che il pending message sia visibile PRIMA del clear.
-        if (mounted) {
-          setState(() {});
-          if (kDebugMode) print('🔄 [REBUILD] Forced synchronous rebuild to show pending message');
+          print('✅ [PENDING] Added pending message, id: $pendingMessageId');
         }
       }
     }
 
-    // 🎯 ORA possiamo clear senza white screen!
-    _messageController.clear();
+    // 🎯 CLEAR DOPO IL FRAME!
+    // addPostFrameCallback garantisce che clear() avvenga DOPO che il pending message
+    // è stato renderizzato sullo schermo. Questo elimina il white screen perché il
+    // messaggio è visibile PRIMA che il text field venga pulito.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        _messageController.clear();
+        if (kDebugMode) print('🧹 [CLEAR] Text field cleared AFTER frame rendered');
+      }
+    });
 
     // Reset stato senza setState (non serve rebuild)
     _selectedTodoDate = null;
