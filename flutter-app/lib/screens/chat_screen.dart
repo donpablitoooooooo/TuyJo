@@ -700,24 +700,11 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     final messageText = _messageController.text.trim();
     _messageController.clear(); // Clear subito per UX migliore
 
-    // Crea allegati placeholder per invio ottimistico
-    List<Attachment>? placeholderAttachments;
-    if (attachments.isNotEmpty) {
-      placeholderAttachments = attachments.map((file) {
-        final fileName = file.path.split('/').last;
-        return Attachment(
-          id: 'uploading_${DateTime.now().millisecondsSinceEpoch}',
-          type: file.path.endsWith('.pdf') ? 'document' :
-                file.path.contains('video') ? 'video' : 'photo',
-          url: '', // URL vuoto indica che è in upload
-          fileName: fileName,
-          fileSize: 0,
-          encryptedKeyRecipient: '',
-          encryptedKeySender: '',
-          iv: '',
-        );
-      }).toList();
-    }
+    // 🎯 FIX 3: NON creare placeholder attachments
+    // Mostrare solo il testo del messaggio (se presente) in pending.
+    // Quando upload completa, il messaggio reale dal server avrà gli attachments.
+    // Questo evita thumbnail che appaiono/spariscono durante l'upload.
+    List<Attachment>? placeholderAttachments = null;
 
     setState(() {
       _selectedTodoDate = null; // Reset todo date
@@ -858,10 +845,11 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
         attachments: uploadedAttachments,
       );
 
-      // Rimuovi messaggio pending dopo invio (successo o fallimento)
-      if (pendingMessageId != null) {
-        chatService.removePendingMessage(pendingMessageId);
-      }
+      // 🎯 FIX 1: NON rimuovere pending message dopo invio!
+      // Il listener Firestore (chat_service.dart:350-363) sostituisce automaticamente
+      // il messaggio pending con quello reale dal server usando replace in-place.
+      // Chiamare removePendingMessage qui causerebbe un rebuild inutile con version++.
+      // Il pending viene rimosso SOLO in caso di errore (vedi catch sopra).
 
       if (success) {
         print('✅ Message sent successfully with dual encryption');

@@ -341,10 +341,13 @@ class ChatService extends ChangeNotifier {
 
               // 🔄 SOSTITUISCI pending message con messaggio reale (optimistic update)
               // Invece di rimuovere e aggiungere, sostituiamo in-place per evitare refresh visivo
+              // 🎯 FIX 2: Match basato su timestamp invece di content
+              // Più robusto: funziona anche con messaggi vuoti (solo foto) e non dipende da decryption
               final pendingIndex = _messages.indexWhere((m) =>
                 m.isPending == true &&
-                m.decryptedContent == message.decryptedContent &&
-                m.senderId == message.senderId
+                m.senderId == message.senderId &&
+                // Match entro 10 secondi (pending creato poco prima, real dal server)
+                message.timestamp.difference(m.timestamp).inSeconds.abs() < 10
               );
 
               if (pendingIndex != -1) {
