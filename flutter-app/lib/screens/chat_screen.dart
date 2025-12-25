@@ -188,9 +188,8 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   void didChangeDependencies() async {
     super.didChangeDependencies();
 
-    // 🎯 NON ascoltare PairingService per evitare rebuild continui
-    // Usa listen: false e controlliamo noi i cambiamenti
-    final pairingService = Provider.of<PairingService>(context, listen: false);
+    // Controlla se lo stato del pairing è cambiato
+    final pairingService = Provider.of<PairingService>(context);
     final currentPairingStatus = pairingService.isPaired;
 
     // FIX BUG CHAT DIVERSE: Calcola il familyChatId corrente
