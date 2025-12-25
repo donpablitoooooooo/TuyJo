@@ -188,8 +188,9 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   void didChangeDependencies() async {
     super.didChangeDependencies();
 
-    // Controlla se lo stato del pairing è cambiato
-    final pairingService = Provider.of<PairingService>(context);
+    // 🎯 NON ascoltare PairingService per evitare rebuild continui
+    // Usa listen: false e controlliamo noi i cambiamenti
+    final pairingService = Provider.of<PairingService>(context, listen: false);
     final currentPairingStatus = pairingService.isPaired;
 
     // FIX BUG CHAT DIVERSE: Calcola il familyChatId corrente
@@ -898,14 +899,11 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     // messagesVersion cambia SOLO per structural changes (add/remove), NON per
     // content updates (read status, replace pending→real).
     // Vedi: flutter-app/docs/BUBBLE_ARCHITECTURE.md
-    return Selector<ChatService, ({int messagesVersion, bool partnerIsTyping})>(
-      selector: (context, chatService) => (
-        messagesVersion: chatService.messagesVersion,
-        partnerIsTyping: chatService.partnerIsTyping,
-      ),
-      builder: (context, data, child) {
+    return Selector<ChatService, int>(
+      selector: (context, chatService) => chatService.messagesVersion,
+      builder: (context, messagesVersion, child) {
         if (kDebugMode) {
-          print('🎨 [SELECTOR BUILDER] Called with messagesVersion=${data.messagesVersion}, typing=${data.partnerIsTyping}');
+          print('🎨 [SELECTOR BUILDER] Called with messagesVersion=$messagesVersion');
         }
 
         final chatService = Provider.of<ChatService>(context, listen: false);
@@ -913,8 +911,9 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
 
         // Leggi messages DOPO - se version non cambia, questo rebuild non succede
         final messages = chatService.messages;
+        final partnerIsTyping = chatService.partnerIsTyping;
 
-        return _buildChatContent(context, chatService, messages, data.partnerIsTyping);
+        return _buildChatContent(context, chatService, messages, partnerIsTyping);
       },
     );
   }
