@@ -10,10 +10,14 @@ class Attachment {
   final String? thumbnailUrl; // URL thumbnail per video/documenti
   final String? mimeType; // es. 'image/jpeg', 'video/mp4', 'application/pdf'
 
+  // ========== Optimistic UI support ==========
+  final String? localPath; // Path del file locale (solo per pending messages)
+
   // ========== Encryption metadata (dual encryption) ==========
-  final String encryptedKeyRecipient; // Chiave AES cifrata con chiave pubblica destinatario
-  final String encryptedKeySender; // Chiave AES cifrata con chiave pubblica mittente
-  final String iv; // Initialization vector per AES (base64)
+  // Opzionali per supportare placeholder durante optimistic UI
+  final String? encryptedKeyRecipient; // Chiave AES cifrata con chiave pubblica destinatario
+  final String? encryptedKeySender; // Chiave AES cifrata con chiave pubblica mittente
+  final String? iv; // Initialization vector per AES (base64)
 
   Attachment({
     required this.id,
@@ -23,9 +27,10 @@ class Attachment {
     required this.fileSize,
     this.thumbnailUrl,
     this.mimeType,
-    required this.encryptedKeyRecipient,
-    required this.encryptedKeySender,
-    required this.iv,
+    this.localPath,
+    this.encryptedKeyRecipient,
+    this.encryptedKeySender,
+    this.iv,
   });
 
   factory Attachment.fromJson(Map<String, dynamic> json) {
@@ -37,9 +42,10 @@ class Attachment {
       fileSize: json['fileSize'] ?? 0,
       thumbnailUrl: json['thumbnailUrl'],
       mimeType: json['mimeType'],
-      encryptedKeyRecipient: json['encryptedKeyRecipient'] ?? '',
-      encryptedKeySender: json['encryptedKeySender'] ?? '',
-      iv: json['iv'] ?? '',
+      localPath: json['localPath'], // Solo per pending messages locali
+      encryptedKeyRecipient: json['encryptedKeyRecipient'],
+      encryptedKeySender: json['encryptedKeySender'],
+      iv: json['iv'],
     );
   }
 
@@ -52,9 +58,10 @@ class Attachment {
       'fileSize': fileSize,
       if (thumbnailUrl != null) 'thumbnailUrl': thumbnailUrl,
       if (mimeType != null) 'mimeType': mimeType,
-      'encryptedKeyRecipient': encryptedKeyRecipient,
-      'encryptedKeySender': encryptedKeySender,
-      'iv': iv,
+      if (localPath != null) 'localPath': localPath,
+      if (encryptedKeyRecipient != null) 'encryptedKeyRecipient': encryptedKeyRecipient,
+      if (encryptedKeySender != null) 'encryptedKeySender': encryptedKeySender,
+      if (iv != null) 'iv': iv,
     };
   }
 }

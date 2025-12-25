@@ -353,6 +353,36 @@ class ChatService extends ChangeNotifier {
               if (pendingIndex != -1) {
                 // Trovato pending message - sostituiscilo con quello reale
                 // CONTENT UPDATE: stessa bubble, solo id cambia
+
+                // 🎯 PRESERVA localPath dagli attachments pending
+                // Se il mittente ha inviato foto, ha già il file locale in cache.
+                // Non serve scaricare da remoto quando può usare il file locale.
+                final pendingMessage = _messages[pendingIndex];
+                if (pendingMessage.attachments != null && message.attachments != null) {
+                  // Copia localPath dai pending attachments ai real attachments
+                  for (int i = 0; i < message.attachments!.length && i < pendingMessage.attachments!.length; i++) {
+                    final pendingAttachment = pendingMessage.attachments![i];
+                    final realAttachment = message.attachments![i];
+
+                    if (pendingAttachment.localPath != null) {
+                      // Ricrea attachment preservando localPath
+                      message.attachments![i] = Attachment(
+                        id: realAttachment.id,
+                        type: realAttachment.type,
+                        url: realAttachment.url,
+                        fileName: realAttachment.fileName,
+                        fileSize: realAttachment.fileSize,
+                        thumbnailUrl: realAttachment.thumbnailUrl,
+                        mimeType: realAttachment.mimeType,
+                        localPath: pendingAttachment.localPath, // 🎯 Preserva
+                        encryptedKeyRecipient: realAttachment.encryptedKeyRecipient,
+                        encryptedKeySender: realAttachment.encryptedKeySender,
+                        iv: realAttachment.iv,
+                      );
+                    }
+                  }
+                }
+
                 _messages[pendingIndex] = message;
 
                 // 💾 SALVA NELLA CACHE SQLITE

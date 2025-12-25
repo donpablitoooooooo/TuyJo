@@ -700,11 +700,26 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     final messageText = _messageController.text.trim();
     _messageController.clear(); // Clear subito per UX migliore
 
-    // 🎯 FIX 3: NON creare placeholder attachments
-    // Mostrare solo il testo del messaggio (se presente) in pending.
-    // Quando upload completa, il messaggio reale dal server avrà gli attachments.
-    // Questo evita thumbnail che appaiono/spariscono durante l'upload.
-    List<Attachment>? placeholderAttachments = null;
+    // 🎯 OPTIMISTIC UI: Crea placeholder attachments con localPath
+    // Durante pending, la bubble mostra il file locale senza dover scaricare da remoto.
+    // Quando arriva il messaggio reale, preserviamo localPath per evitare download inutile.
+    List<Attachment>? placeholderAttachments;
+    if (attachments.isNotEmpty) {
+      placeholderAttachments = attachments.map((file) {
+        return Attachment(
+          id: 'pending_${DateTime.now().millisecondsSinceEpoch}',
+          type: 'photo', // Per ora supportiamo solo foto
+          url: '', // URL verrà popolato dopo l'upload
+          fileName: file.path.split('/').last,
+          fileSize: file.lengthSync(),
+          localPath: file.path, // 🎯 Riferimento al file locale
+          // Encryption metadata non ancora disponibile (file non ancora cifrato)
+          encryptedKeyRecipient: null,
+          encryptedKeySender: null,
+          iv: null,
+        );
+      }).toList();
+    }
 
     setState(() {
       _selectedTodoDate = null; // Reset todo date
@@ -1754,6 +1769,27 @@ class _AttachmentImage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
+
+    // 🎯 OPTIMISTIC UI: Se c'è localPath, mostra immagine locale
+    if (attachment.localPath != null && attachment.localPath!.isNotEmpty) {
+      return GestureDetector(
+        onTap: () {
+          // Durante pending, non aprire fullscreen (l'immagine è ancora in upload)
+        },
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(12),
+          child: SizedBox(
+            width: double.infinity,
+            height: 200,
+            child: Image.file(
+              File(attachment.localPath!),
+              fit: BoxFit.cover,
+            ),
+          ),
+        ),
+      );
+    }
+
     // Se URL è vuoto, l'allegato è in upload - mostra placeholder
     if (attachment.url.isEmpty) {
       return ClipRRect(
