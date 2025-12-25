@@ -69,6 +69,13 @@ class Attachment {
 class Message {
   final String id;
   final String senderId;
+
+  // 🎯 STABLE ID: Identificatore client-side che segue il messaggio durante tutto il ciclo di vita
+  // Generato quando creiamo pending message, preservato quando diventa real.
+  // Usato per ValueKey per evitare ricreazione widget durante pending→real transition.
+  // NON salvato in Firestore (solo client-side per UI tracking).
+  final String? stableId;
+
   // Dual encryption: due versioni dell'encrypted_key
   final String? encryptedKeyRecipient; // Chiave AES cifrata per il destinatario
   final String? encryptedKeySender; // Chiave AES cifrata per il mittente
@@ -103,6 +110,7 @@ class Message {
   Message({
     required this.id,
     required this.senderId,
+    this.stableId, // Opzionale: solo per pending/tracked messages
     this.encryptedKeyRecipient,
     this.encryptedKeySender,
     this.iv,

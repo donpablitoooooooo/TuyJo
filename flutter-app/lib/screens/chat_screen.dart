@@ -1084,10 +1084,11 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                             // Renderizza il tipo di messaggio appropriato
                             if (message.messageType == 'todo') {
                               return _TodoMessageBubble(
-                                // 🎯 STABLE KEY: timestamp+sender invece di id
-                                // Quando pending→real, id cambia ma timestamp+sender rimane uguale
-                                // Così Flutter NON ricrea la bubble, evitando animazioni ripetute
-                                key: ValueKey('${message.senderId}_${message.timestamp.millisecondsSinceEpoch}'),
+                                // 🎯 STABLE KEY: usa stableId se presente, altrimenti fallback su id
+                                // Lo stableId è generato client-side e segue il messaggio durante
+                                // tutto il ciclo di vita (pending→real→modified).
+                                // Così Flutter NON ricrea MAI la bubble, garantendo zero animazioni ripetute.
+                                key: ValueKey(message.stableId ?? message.id),
                                 message: message,
                                 isMe: isMe,
                                 isCompleted: isTodoCompleted,
@@ -1098,10 +1099,11 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                               final decryptedContent = message.decryptedContent ?? '[Messaggio non decifrabile]';
 
                               return _MessageBubble(
-                                // 🎯 STABLE KEY: timestamp+sender invece di id
-                                // Quando pending→real, id cambia ma timestamp+sender rimane uguale
-                                // Così Flutter NON ricrea la bubble, evitando animazioni ripetute
-                                key: ValueKey('${message.senderId}_${message.timestamp.millisecondsSinceEpoch}'),
+                                // 🎯 STABLE KEY: usa stableId se presente, altrimenti fallback su id
+                                // Lo stableId è generato client-side e segue il messaggio durante
+                                // tutto il ciclo di vita (pending→real→modified).
+                                // Così Flutter NON ricrea MAI la bubble, garantendo zero animazioni ripetute.
+                                key: ValueKey(message.stableId ?? message.id),
                                 message: decryptedContent,
                                 timestamp: message.timestamp,
                                 isMe: isMe,
@@ -1420,17 +1422,16 @@ class _AttachmentPreview extends StatelessWidget {
 }
 
 /// Shell della bubble che gestisce solo l'animazione iniziale e la struttura
-/// Questo widget viene creato UNA VOLTA SOLA e non viene ricreato quando cambia read/delivered
+/// Con stableId, questo widget viene creato UNA VOLTA per messaggio e riusato durante
+/// pending→real transition. L'animazione parte SOLO alla creazione iniziale.
 class _BubbleShell extends StatefulWidget {
   final bool isMe;
   final Widget child;
-  final bool shouldAnimate; // Anima solo se true (per evitare animazioni su messaggi vecchi)
 
   const _BubbleShell({
     super.key,
     required this.isMe,
     required this.child,
-    this.shouldAnimate = true,
   });
 
   @override
@@ -1462,12 +1463,8 @@ class _BubbleShellState extends State<_BubbleShell>
       CurvedAnimation(parent: _controller, curve: Curves.easeOutCubic),
     );
 
-    // 🎯 Anima SOLO se shouldAnimate = true (evita animazioni su messaggi vecchi durante rebuild)
-    if (widget.shouldAnimate) {
-      _controller.forward();
-    } else {
-      _controller.value = 1.0; // Già completamente visibile
-    }
+    // 🎯 Anima sempre alla creazione. Grazie a stableId, questo succede SOLO per messaggi nuovi.
+    _controller.forward();
   }
 
   @override
@@ -1740,15 +1737,11 @@ class _MessageBubble extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // 🎯 Anima SOLO messaggi recenti (creati da meno di 1 secondo)
-    // Questo evita che tutti i messaggi si animino quando rebuildiamo la lista
-    final now = DateTime.now();
-    final messageAge = now.difference(timestamp).inMilliseconds;
-    final shouldAnimate = messageAge < 1000; // Solo messaggi nuovi si animano
-
+    // 🎯 Con stableId, questo widget viene creato SOLO per messaggi veramente nuovi.
+    // Durante pending→real, lo stableId rimane uguale → Flutter riusa il widget esistente.
+    // Quindi possiamo SEMPRE animare: se il widget è creato, è un messaggio nuovo!
     return _BubbleShell(
       isMe: isMe,
-      shouldAnimate: shouldAnimate,
       child: _BubbleContent(
         message: message,
         timestamp: timestamp,

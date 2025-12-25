@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_storage/firebase_storage.dart';
+import 'package:uuid/uuid.dart';
 import '../models/message.dart';
 import 'encryption_service.dart';
 import 'notification_service.dart';
@@ -341,29 +342,42 @@ class ChatService extends ChangeNotifier {
 
               // 🔄 SOSTITUISCI pending message con messaggio reale (optimistic update)
               // Invece di rimuovere e aggiungere, sostituiamo in-place per evitare refresh visivo
-              // 🎯 FIX 2: Match basato su timestamp invece di content
-              // Più robusto: funziona anche con messaggi vuoti (solo foto) e non dipende da decryption
-              final pendingIndex = _messages.indexWhere((m) =>
+              // 🎯 STABLE ID MATCHING: Usa stableId per match preciso, fallback su timestamp
+
+              // Prima: cerca pending con stableId
+              // Il messaggio real da Firestore non ha stableId, ma possiamo matchare
+              // trovando l'unico pending dello stesso sender con timestamp simile
+              final pendingCandidates = _messages.where((m) =>
                 m.isPending == true &&
                 m.senderId == message.senderId &&
-                // Match entro 30 secondi (upload foto può prendere tempo)
                 message.timestamp.difference(m.timestamp).inSeconds.abs() < 30
-              );
+              ).toList();
+
+              int pendingIndex = -1;
+              if (pendingCandidates.length == 1) {
+                // Un solo candidato → match sicuro
+                pendingIndex = _messages.indexOf(pendingCandidates.first);
+              } else if (pendingCandidates.length > 1) {
+                // Multipli candidati → usa quello più recente (più vicino al timestamp)
+                pendingCandidates.sort((a, b) {
+                  final deltaA = (message.timestamp.difference(a.timestamp).inMilliseconds).abs();
+                  final deltaB = (message.timestamp.difference(b.timestamp).inMilliseconds).abs();
+                  return deltaA.compareTo(deltaB);
+                });
+                pendingIndex = _messages.indexOf(pendingCandidates.first);
+              }
 
               if (kDebugMode) {
                 print('🔍 [MATCH] Looking for pending message to replace');
                 print('   Real message: ${message.id}');
                 print('   Sender: ${message.senderId}');
-                print('   Real timestamp: ${message.timestamp}');
-                final pending = _messages.where((m) => m.isPending == true && m.senderId == message.senderId).toList();
-                print('   Pending messages count: ${pending.length}');
-                if (pending.isNotEmpty) {
-                  for (var p in pending) {
-                    final delta = message.timestamp.difference(p.timestamp).inSeconds.abs();
-                    print('   - Pending ${p.id}: timestamp=${p.timestamp}, delta=${delta}s, match=${delta < 30}');
-                  }
+                print('   Timestamp: ${message.timestamp}');
+                print('   Pending candidates found: ${pendingCandidates.length}');
+                for (var p in pendingCandidates) {
+                  final delta = message.timestamp.difference(p.timestamp).inSeconds.abs();
+                  print('   - ${p.id} (stableId: ${p.stableId?.substring(0, 8)}...): delta=${delta}s');
                 }
-                print('   Match result: ${pendingIndex != -1 ? "FOUND at index $pendingIndex" : "NOT FOUND - WILL ADD AS NEW"}');
+                print('   Match result: ${pendingIndex != -1 ? "FOUND at index $pendingIndex" : "NOT FOUND"}');
               }
 
               if (pendingIndex != -1) {
@@ -400,11 +414,12 @@ class ChatService extends ChangeNotifier {
                   }
                 }
 
-                // 🎯 PRESERVA timestamp del pending
-                // La ValueKey è basata su timestamp, quindi preservarlo evita ricreazione widget
-                final messageWithPreservedTimestamp = Message(
+                // 🎯 PRESERVA stableId e timestamp del pending
+                // Lo stableId garantisce che ValueKey rimanga identica, evitando ricreazione widget
+                final messageWithStableId = Message(
                   id: message.id,
                   senderId: message.senderId,
+                  stableId: pendingMessage.stableId, // 🎯 Preserva stableId
                   encryptedKeyRecipient: message.encryptedKeyRecipient,
                   encryptedKeySender: message.encryptedKeySender,
                   iv: message.iv,
@@ -413,7 +428,7 @@ class ChatService extends ChangeNotifier {
                   ciphertext: message.ciphertext,
                   nonce: message.nonce,
                   tag: message.tag,
-                  timestamp: pendingMessage.timestamp, // 🎯 Usa timestamp pending
+                  timestamp: pendingMessage.timestamp, // 🎯 Preserva timestamp
                   decryptedContent: message.decryptedContent,
                   messageType: message.messageType,
                   dueDate: message.dueDate,
@@ -427,13 +442,14 @@ class ChatService extends ChangeNotifier {
                   attachments: message.attachments,
                 );
 
-                _messages[pendingIndex] = messageWithPreservedTimestamp;
+                _messages[pendingIndex] = messageWithStableId;
 
                 // 💾 SALVA NELLA CACHE SQLITE
                 try {
-                  await _cacheService.saveMessage(messageWithPreservedTimestamp, familyChatId);
+                  await _cacheService.saveMessage(messageWithStableId, familyChatId);
                   if (kDebugMode) {
                     print('🔄 [OPTIMISTIC] Replaced pending at index $pendingIndex with real message: ${message.id.substring(0, 8)}');
+                    print('   📌 Preserved stableId: ${pendingMessage.stableId?.substring(0, 8)}...');
                     print('   Preserved timestamp: ${pendingMessage.timestamp}');
                   }
                 } catch (e) {
@@ -911,10 +927,15 @@ class ChatService extends ChangeNotifier {
       print('   Current messages count: ${_messages.length}');
     }
 
+    // 🎯 Genera stableId che seguirà il messaggio durante tutto il ciclo di vita
+    const uuid = Uuid();
+    final stableId = uuid.v4();
     final tempId = 'pending_${DateTime.now().millisecondsSinceEpoch}';
+
     final message = Message(
       id: tempId,
       senderId: senderId,
+      stableId: stableId, // 🎯 ID stabile per tracking UI
       timestamp: DateTime.now(),
       decryptedContent: content,
       messageType: 'text',
@@ -926,6 +947,7 @@ class ChatService extends ChangeNotifier {
 
     if (kDebugMode) {
       print('   Message added with tempId: $tempId');
+      print('   📌 Stable ID: $stableId');
       print('   New messages count: ${_messages.length}');
     }
 
