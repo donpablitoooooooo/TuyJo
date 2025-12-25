@@ -346,9 +346,25 @@ class ChatService extends ChangeNotifier {
               final pendingIndex = _messages.indexWhere((m) =>
                 m.isPending == true &&
                 m.senderId == message.senderId &&
-                // Match entro 10 secondi (pending creato poco prima, real dal server)
-                message.timestamp.difference(m.timestamp).inSeconds.abs() < 10
+                // Match entro 30 secondi (upload foto può prendere tempo)
+                message.timestamp.difference(m.timestamp).inSeconds.abs() < 30
               );
+
+              if (kDebugMode) {
+                print('🔍 [MATCH] Looking for pending message to replace');
+                print('   Real message: ${message.id}');
+                print('   Sender: ${message.senderId}');
+                print('   Real timestamp: ${message.timestamp}');
+                final pending = _messages.where((m) => m.isPending == true && m.senderId == message.senderId).toList();
+                print('   Pending messages count: ${pending.length}');
+                if (pending.isNotEmpty) {
+                  for (var p in pending) {
+                    final delta = message.timestamp.difference(p.timestamp).inSeconds.abs();
+                    print('   - Pending ${p.id}: timestamp=${p.timestamp}, delta=${delta}s, match=${delta < 30}');
+                  }
+                }
+                print('   Match result: ${pendingIndex != -1 ? "FOUND at index $pendingIndex" : "NOT FOUND - WILL ADD AS NEW"}');
+              }
 
               if (pendingIndex != -1) {
                 // Trovato pending message - sostituiscilo con quello reale

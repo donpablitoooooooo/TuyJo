@@ -1424,11 +1424,13 @@ class _AttachmentPreview extends StatelessWidget {
 class _BubbleShell extends StatefulWidget {
   final bool isMe;
   final Widget child;
+  final bool shouldAnimate; // Anima solo se true (per evitare animazioni su messaggi vecchi)
 
   const _BubbleShell({
     super.key,
     required this.isMe,
     required this.child,
+    this.shouldAnimate = true,
   });
 
   @override
@@ -1460,7 +1462,12 @@ class _BubbleShellState extends State<_BubbleShell>
       CurvedAnimation(parent: _controller, curve: Curves.easeOutCubic),
     );
 
-    _controller.forward();
+    // 🎯 Anima SOLO se shouldAnimate = true (evita animazioni su messaggi vecchi durante rebuild)
+    if (widget.shouldAnimate) {
+      _controller.forward();
+    } else {
+      _controller.value = 1.0; // Già completamente visibile
+    }
   }
 
   @override
@@ -1733,8 +1740,15 @@ class _MessageBubble extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // 🎯 Anima SOLO messaggi recenti (creati da meno di 1 secondo)
+    // Questo evita che tutti i messaggi si animino quando rebuildiamo la lista
+    final now = DateTime.now();
+    final messageAge = now.difference(timestamp).inMilliseconds;
+    final shouldAnimate = messageAge < 1000; // Solo messaggi nuovi si animano
+
     return _BubbleShell(
       isMe: isMe,
+      shouldAnimate: shouldAnimate,
       child: _BubbleContent(
         message: message,
         timestamp: timestamp,
