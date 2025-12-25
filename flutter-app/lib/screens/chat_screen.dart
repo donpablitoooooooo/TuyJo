@@ -348,8 +348,8 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     if (animated) {
       _scrollController.animateTo(
         0, // Con reverse: true, 0 è in basso (messaggi nuovi)
-        duration: const Duration(milliseconds: 300),
-        curve: Curves.easeOut,
+        duration: const Duration(milliseconds: 500), // 🎬 Rallentato da 300ms a 500ms
+        curve: Curves.easeInOutCubic, // 🎬 Curva più smooth per scroll più fluido
       );
     } else {
       _scrollController.jumpTo(0);
@@ -785,15 +785,6 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     _hasText = false;
     _messageController.clear();
     if (kDebugMode) print('🧹 [CLEAR] Text field cleared immediately (no setState from listener)');
-
-    // 🔄 SCROLL ESPLICITO dopo clear per assicurarsi che la bubble sia visibile
-    // Questo è necessario perché la tastiera potrebbe nascondere il nuovo messaggio
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted && _scrollController.hasClients) {
-        _scrollToBottom(animated: true);
-        if (kDebugMode) print('📜 [SCROLL] Scrolled to bottom after clear (ensure bubble visible)');
-      }
-    });
 
     // Reset stato senza setState (non serve rebuild)
     _selectedTodoDate = null;
