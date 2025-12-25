@@ -1099,11 +1099,8 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                               final decryptedContent = message.decryptedContent ?? '[Messaggio non decifrabile]';
 
                               return _MessageBubble(
-                                // 🎯 STABLE KEY: usa stableId se presente, altrimenti fallback su id
-                                // Lo stableId è generato client-side e segue il messaggio durante
-                                // tutto il ciclo di vita (pending→real→modified).
-                                // Così Flutter NON ricrea MAI la bubble, garantendo zero animazioni ripetute.
-                                key: ValueKey(message.stableId ?? message.id),
+                                // 🎯 STABLE KEY: passa stableId che verrà usato per la key di _BubbleShell
+                                stableId: message.stableId ?? message.id,
                                 message: decryptedContent,
                                 timestamp: message.timestamp,
                                 isMe: isMe,
@@ -1712,6 +1709,7 @@ class _BubbleContent extends StatelessWidget {
 
 /// Widget per la bubble completa che combina shell e contenuto
 class _MessageBubble extends StatelessWidget {
+  final String stableId; // ID stabile per la key
   final String message;
   final DateTime timestamp;
   final bool isMe;
@@ -1724,6 +1722,7 @@ class _MessageBubble extends StatelessWidget {
 
   const _MessageBubble({
     super.key,
+    required this.stableId,
     required this.message,
     required this.timestamp,
     required this.isMe,
@@ -1740,9 +1739,9 @@ class _MessageBubble extends StatelessWidget {
     // 🎯 La key DEVE essere su _BubbleShell, non su _MessageBubble!
     // Quando _MessageBubble rebuilda, build() viene richiamato e crea un nuovo _BubbleShell.
     // Se _BubbleShell non ha key, Flutter lo vede come nuovo widget → initState() riparte.
-    // Passando la key da _MessageBubble a _BubbleShell, Flutter riusa lo stesso _BubbleShell.
+    // Usando stableId come key di _BubbleShell, Flutter riusa lo stesso _BubbleShell.
     return _BubbleShell(
-      key: widget.key, // 🎯 Passa la key ricevuta da _MessageBubble
+      key: ValueKey(stableId), // 🎯 Key stabile basata su stableId
       isMe: isMe,
       child: _BubbleContent(
         message: message,
