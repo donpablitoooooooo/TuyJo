@@ -786,6 +786,15 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     _messageController.clear();
     if (kDebugMode) print('🧹 [CLEAR] Text field cleared immediately (no setState from listener)');
 
+    // 🔄 SCROLL ESPLICITO dopo clear per assicurarsi che la bubble sia visibile
+    // Questo è necessario perché la tastiera potrebbe nascondere il nuovo messaggio
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted && _scrollController.hasClients) {
+        _scrollToBottom(animated: true);
+        if (kDebugMode) print('📜 [SCROLL] Scrolled to bottom after clear (ensure bubble visible)');
+      }
+    });
+
     // Reset stato senza setState (non serve rebuild)
     _selectedTodoDate = null;
     _selectedAttachments.clear();
