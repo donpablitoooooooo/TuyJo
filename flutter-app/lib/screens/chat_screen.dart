@@ -815,6 +815,13 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
         if (kDebugMode) {
           print('✅ [PENDING] Added pending message BEFORE clear, id: $pendingMessageId');
         }
+
+        // 🎯 FORZA REBUILD SINCRONO! notifyListeners() è asincrono, ma setState() è sincrono.
+        // Questo garantisce che il pending message sia visibile PRIMA del clear.
+        if (mounted) {
+          setState(() {});
+          if (kDebugMode) print('🔄 [REBUILD] Forced synchronous rebuild to show pending message');
+        }
       }
     }
 
