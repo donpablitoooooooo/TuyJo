@@ -737,35 +737,8 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     }
 
     final messageText = _messageController.text.trim();
-    _messageController.clear(); // Clear subito per UX migliore
 
-    // 🎯 OPTIMISTIC UI: Crea placeholder attachments con localPath
-    // Durante pending, la bubble mostra il file locale senza dover scaricare da remoto.
-    // Quando arriva il messaggio reale, preserviamo localPath per evitare download inutile.
-    List<Attachment>? placeholderAttachments;
-    if (attachments.isNotEmpty) {
-      placeholderAttachments = attachments.map((file) {
-        return Attachment(
-          id: 'pending_${DateTime.now().millisecondsSinceEpoch}',
-          type: 'photo', // Per ora supportiamo solo foto
-          url: '', // URL verrà popolato dopo l'upload
-          fileName: file.path.split('/').last,
-          fileSize: file.lengthSync(),
-          localPath: file.path, // 🎯 Riferimento al file locale
-          // Encryption metadata non ancora disponibile (file non ancora cifrato)
-          encryptedKeyRecipient: null,
-          encryptedKeySender: null,
-          iv: null,
-        );
-      }).toList();
-    }
-
-    // Reset stato senza setState (non serve rebuild)
-    _selectedTodoDate = null;
-    _selectedAttachments.clear();
-    _isUploadingAttachments = true;
-
-    // BLOCCO INVIO: Verifica che siamo in pairing
+    // BLOCCO INVIO: Verifica che siamo in pairing (PRIMA di clear per evitare UX cattiva)
     final pairingService = Provider.of<PairingService>(context, listen: false);
     if (!pairingService.isPaired) {
       final l10n = AppLocalizations.of(context)!;
@@ -805,6 +778,54 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       return;
     }
 
+    // 🎯 OPTIMISTIC UI: Per messaggi normali (non todo), aggiungi pending PRIMA di clear
+    // In questo modo, quando il clear trigghera il rebuild (via listener _hasText),
+    // il messaggio pending è GIÀ nella lista e si vede subito.
+    String? pendingMessageId;
+    List<Attachment>? placeholderAttachments;
+
+    if (todoDate == null) {
+      // Solo per messaggi normali (non todo)
+      // Crea placeholder attachments con localPath
+      if (attachments.isNotEmpty) {
+        placeholderAttachments = attachments.map((file) {
+          return Attachment(
+            id: 'pending_${DateTime.now().millisecondsSinceEpoch}',
+            type: 'photo', // Per ora supportiamo solo foto
+            url: '', // URL verrà popolato dopo l'upload
+            fileName: file.path.split('/').last,
+            fileSize: file.lengthSync(),
+            localPath: file.path, // 🎯 Riferimento al file locale
+            // Encryption metadata non ancora disponibile (file non ancora cifrato)
+            encryptedKeyRecipient: null,
+            encryptedKeySender: null,
+            iv: null,
+          );
+        }).toList();
+      }
+
+      // 🎯 AGGIUNGI PENDING PRIMA DI CLEAR!
+      // Così quando clear() trigghera setState (via listener), il messaggio si vede subito
+      if (messageText.isNotEmpty || placeholderAttachments != null) {
+        pendingMessageId = chatService.addPendingMessage(
+          messageText,
+          _myDeviceId!,
+          placeholderAttachments,
+        );
+        if (kDebugMode) {
+          print('✅ [PENDING] Added pending message BEFORE clear, id: $pendingMessageId');
+        }
+      }
+    }
+
+    // 🎯 ORA possiamo clear senza white screen!
+    _messageController.clear();
+
+    // Reset stato senza setState (non serve rebuild)
+    _selectedTodoDate = null;
+    _selectedAttachments.clear();
+    _isUploadingAttachments = true;
+
     bool success;
 
     // Se c'è una data selezionata, invia come todo, altrimenti come messaggio normale
@@ -842,15 +863,8 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       print('   Content: $messageText');
       print('   Attachments: ${attachments.length}');
 
-      // Aggiungi messaggio pending subito (invio ottimistico)
-      String? pendingMessageId;
-      if (messageText.isNotEmpty || placeholderAttachments != null) {
-        pendingMessageId = chatService.addPendingMessage(
-          messageText,
-          _myDeviceId!,
-          placeholderAttachments,
-        );
-      }
+      // 🎯 Il messaggio pending è già stato aggiunto prima del clear (linee 807-818)
+      // per evitare il white screen. Ora procediamo con upload e invio.
 
       // Upload allegati se presenti (con cifratura E2E dual)
       List<Attachment>? uploadedAttachments;
@@ -912,8 +926,8 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       }
     }
 
-    // Reset loading state
-    setState(() => _isUploadingAttachments = false);
+    // Reset loading state senza setState (non serve rebuild)
+    _isUploadingAttachments = false;
 
     if (success) {
       // Scrolla in fondo dopo l'invio
