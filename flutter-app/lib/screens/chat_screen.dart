@@ -780,16 +780,11 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       }
     }
 
-    // 🎯 CLEAR DOPO IL FRAME!
-    // addPostFrameCallback garantisce che clear() avvenga DOPO che il pending message
-    // è stato renderizzato sullo schermo. Questo elimina il white screen perché il
-    // messaggio è visibile PRIMA che il text field venga pulito.
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) {
-        _messageController.clear();
-        if (kDebugMode) print('🧹 [CLEAR] Text field cleared AFTER frame rendered');
-      }
-    });
+    // 🎯 CLEAR IMMEDIATAMENTE ma senza trigger setState()!
+    // Aggiorniamo _hasText manualmente per evitare che il listener chiami setState()
+    _hasText = false;
+    _messageController.clear();
+    if (kDebugMode) print('🧹 [CLEAR] Text field cleared immediately (no setState from listener)');
 
     // Reset stato senza setState (non serve rebuild)
     _selectedTodoDate = null;
