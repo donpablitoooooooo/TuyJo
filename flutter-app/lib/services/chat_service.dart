@@ -354,10 +354,11 @@ class ChatService extends ChangeNotifier {
                 // Trovato pending message - sostituiscilo con quello reale
                 // CONTENT UPDATE: stessa bubble, solo id cambia
 
+                final pendingMessage = _messages[pendingIndex];
+
                 // 🎯 PRESERVA localPath dagli attachments pending
                 // Se il mittente ha inviato foto, ha già il file locale in cache.
                 // Non serve scaricare da remoto quando può usare il file locale.
-                final pendingMessage = _messages[pendingIndex];
                 if (pendingMessage.attachments != null && message.attachments != null) {
                   // Copia localPath dai pending attachments ai real attachments
                   for (int i = 0; i < message.attachments!.length && i < pendingMessage.attachments!.length; i++) {
@@ -383,13 +384,41 @@ class ChatService extends ChangeNotifier {
                   }
                 }
 
-                _messages[pendingIndex] = message;
+                // 🎯 PRESERVA timestamp del pending
+                // La ValueKey è basata su timestamp, quindi preservarlo evita ricreazione widget
+                final messageWithPreservedTimestamp = Message(
+                  id: message.id,
+                  senderId: message.senderId,
+                  encryptedKeyRecipient: message.encryptedKeyRecipient,
+                  encryptedKeySender: message.encryptedKeySender,
+                  iv: message.iv,
+                  encryptedMessage: message.encryptedMessage,
+                  encryptedKey: message.encryptedKey,
+                  ciphertext: message.ciphertext,
+                  nonce: message.nonce,
+                  tag: message.tag,
+                  timestamp: pendingMessage.timestamp, // 🎯 Usa timestamp pending
+                  decryptedContent: message.decryptedContent,
+                  messageType: message.messageType,
+                  dueDate: message.dueDate,
+                  completed: message.completed,
+                  originalTodoId: message.originalTodoId,
+                  isReminder: message.isReminder,
+                  delivered: message.delivered,
+                  read: message.read,
+                  readAt: message.readAt,
+                  isPending: false, // Non è più pending
+                  attachments: message.attachments,
+                );
+
+                _messages[pendingIndex] = messageWithPreservedTimestamp;
 
                 // 💾 SALVA NELLA CACHE SQLITE
                 try {
-                  await _cacheService.saveMessage(message, familyChatId);
+                  await _cacheService.saveMessage(messageWithPreservedTimestamp, familyChatId);
                   if (kDebugMode) {
                     print('🔄 [OPTIMISTIC] Replaced pending at index $pendingIndex with real message: ${message.id.substring(0, 8)}');
+                    print('   Preserved timestamp: ${pendingMessage.timestamp}');
                   }
                 } catch (e) {
                   if (kDebugMode) print('❌ Error caching message: $e');
