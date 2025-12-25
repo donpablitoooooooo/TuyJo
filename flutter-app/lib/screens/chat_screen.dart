@@ -1737,10 +1737,12 @@ class _MessageBubble extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // 🎯 Con stableId, questo widget viene creato SOLO per messaggi veramente nuovi.
-    // Durante pending→real, lo stableId rimane uguale → Flutter riusa il widget esistente.
-    // Quindi possiamo SEMPRE animare: se il widget è creato, è un messaggio nuovo!
+    // 🎯 La key DEVE essere su _BubbleShell, non su _MessageBubble!
+    // Quando _MessageBubble rebuilda, build() viene richiamato e crea un nuovo _BubbleShell.
+    // Se _BubbleShell non ha key, Flutter lo vede come nuovo widget → initState() riparte.
+    // Passando la key da _MessageBubble a _BubbleShell, Flutter riusa lo stesso _BubbleShell.
     return _BubbleShell(
+      key: widget.key, // 🎯 Passa la key ricevuta da _MessageBubble
       isMe: isMe,
       child: _BubbleContent(
         message: message,
