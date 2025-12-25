@@ -378,10 +378,21 @@ class AttachmentService {
         print('🔓 Decrypting file...');
       }
 
+      // 🎯 OPTIMISTIC UI: Se encryption metadata mancante, è un pending attachment
+      // (questo non dovrebbe succedere perché pending usa localPath, ma meglio verificare)
+      if (attachment.encryptedKeySender == null ||
+          attachment.encryptedKeyRecipient == null ||
+          attachment.iv == null) {
+        if (kDebugMode) {
+          print('⚠️ Attachment missing encryption metadata (pending?), cannot decrypt');
+        }
+        return null;
+      }
+
       // Determina quale chiave usare: se sono il sender uso encryptedKeySender, altrimenti encryptedKeyRecipient
       final String encryptedAesKey = (currentUserId == messageSenderId)
-          ? attachment.encryptedKeySender
-          : attachment.encryptedKeyRecipient;
+          ? attachment.encryptedKeySender!
+          : attachment.encryptedKeyRecipient!;
 
       if (kDebugMode) {
         print('   Using ${currentUserId == messageSenderId ? "sender" : "recipient"} key for decryption');
@@ -391,7 +402,7 @@ class AttachmentService {
       final Uint8List decryptedBytes = encryptionService.decryptFile(
         encryptedBytes,
         encryptedAesKey,
-        attachment.iv,
+        attachment.iv!,
       );
 
       if (kDebugMode) {
