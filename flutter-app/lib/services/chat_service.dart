@@ -1136,15 +1136,24 @@ class ChatService extends ChangeNotifier {
 
     // Verifica che sia nel futuro
     if (reminderTime.isAfter(DateTime.now())) {
+      // 🎯 Formatta l'orario del todo (non del reminder!)
+      final todoHour = todoMessage.dueDate!.hour.toString().padLeft(2, '0');
+      final todoMinute = todoMessage.dueDate!.minute.toString().padLeft(2, '0');
+      final todoTime = '$todoHour:$todoMinute';
+
+      final todoContent = todoMessage.decryptedContent ?? 'Evento imminente';
+      final notificationBody = '$todoContent alle $todoTime';
+
       _notificationService.scheduleNotification(
         id: todoMessage.id.hashCode,
         title: '🔔 Nuovo To Do',
-        body: todoMessage.decryptedContent ?? 'Evento imminente',
+        body: notificationBody,
         scheduledDate: reminderTime,
       );
 
       if (kDebugMode) {
         print('🔔 Reminder scheduled for: ${reminderTime.toIso8601String()}');
+        print('   Todo time: $todoTime');
       }
     } else {
       if (kDebugMode) {
