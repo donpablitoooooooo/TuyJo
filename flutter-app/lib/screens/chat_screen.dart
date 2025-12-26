@@ -776,6 +776,14 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
         );
         if (kDebugMode) {
           print('✅ [PENDING] Added pending message, id: $pendingMessageId');
+          print('   Messages count now: ${chatService.messages.length}');
+        }
+
+        // 🎯 FORZA REBUILD IMMEDIATO per mostrare il pending message
+        // Questo è necessario perché notifyListeners() è asincrono
+        if (mounted) {
+          setState(() {});
+          if (kDebugMode) print('🔄 [REBUILD] Forced immediate rebuild to show pending');
         }
       }
     }
