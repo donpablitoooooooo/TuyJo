@@ -776,23 +776,21 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
         );
         if (kDebugMode) {
           print('✅ [PENDING] Added pending message, id: $pendingMessageId');
-          print('   Messages count now: ${chatService.messages.length}');
-        }
-
-        // 🎯 FORZA REBUILD IMMEDIATO per mostrare il pending message
-        // Questo è necessario perché notifyListeners() è asincrono
-        if (mounted) {
-          setState(() {});
-          if (kDebugMode) print('🔄 [REBUILD] Forced immediate rebuild to show pending');
         }
       }
     }
 
-    // 🎯 CLEAR IMMEDIATAMENTE ma senza trigger setState()!
-    // Aggiorniamo _hasText manualmente per evitare che il listener chiami setState()
+    // 🎯 Yield control per permettere rendering del pending message
+    // Future.delayed(Duration.zero) cede il controllo al framework Flutter
+    // permettendo di renderizzare il frame con il pending message PRIMA
+    // di continuare con le pesanti operazioni di encryption
+    await Future.delayed(Duration.zero);
+    if (!mounted) return;
+
+    // 🎯 CLEAR DOPO il frame yield
     _hasText = false;
     _messageController.clear();
-    if (kDebugMode) print('🧹 [CLEAR] Text field cleared immediately (no setState from listener)');
+    if (kDebugMode) print('🧹 [CLEAR] Text field cleared after frame yield');
 
     // Reset stato senza setState (non serve rebuild)
     _selectedTodoDate = null;
