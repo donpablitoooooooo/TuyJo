@@ -1131,6 +1131,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                                 isMe: isMe,
                                 delivered: message.delivered ?? false,
                                 read: message.read ?? false,
+                                isPending: message.isPending ?? false, // 🎯 DEBUG: per test colore
                                 attachments: message.attachments,
                                 senderId: message.senderId,
                                 currentUserId: _myDeviceId,
@@ -1460,50 +1461,14 @@ class _BubbleShell extends StatefulWidget {
   State<_BubbleShell> createState() => _BubbleShellState();
 }
 
-class _BubbleShellState extends State<_BubbleShell>
-    with SingleTickerProviderStateMixin {
-  late AnimationController _controller;
-  late Animation<double> _fadeAnimation;
-  late Animation<Offset> _slideAnimation;
-
-  @override
-  void initState() {
-    super.initState();
-    _controller = AnimationController(
-      duration: const Duration(milliseconds: 300),
-      vsync: this,
-    );
-
-    _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
-      CurvedAnimation(parent: _controller, curve: Curves.easeOut),
-    );
-
-    _slideAnimation = Tween<Offset>(
-      begin: widget.isMe ? const Offset(0.3, 0) : const Offset(-0.3, 0),
-      end: Offset.zero,
-    ).animate(
-      CurvedAnimation(parent: _controller, curve: Curves.easeOutCubic),
-    );
-
-    // 🎯 Anima sempre alla creazione. Grazie a stableId, questo succede SOLO per messaggi nuovi.
-    _controller.forward();
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
+class _BubbleShellState extends State<_BubbleShell> {
+  // 🎯 DEBUG: NESSUNA ANIMAZIONE per test visivo
+  // La bubble appare immediatamente senza slide-in o fade
 
   @override
   Widget build(BuildContext context) {
-    return SlideTransition(
-      position: _slideAnimation,
-      child: FadeTransition(
-        opacity: _fadeAnimation,
-        child: widget.child,
-      ),
-    );
+    // Ritorna direttamente il child senza animazioni
+    return widget.child;
   }
 }
 
@@ -1515,6 +1480,7 @@ class _BubbleContent extends StatelessWidget {
   final bool isMe;
   final bool delivered;
   final bool read;
+  final bool isPending; // 🎯 DEBUG: per test colore
   final List<Attachment>? attachments;
   final String? senderId;
   final String? currentUserId;
@@ -1526,6 +1492,7 @@ class _BubbleContent extends StatelessWidget {
     required this.isMe,
     this.delivered = false,
     this.read = false,
+    this.isPending = false, // 🎯 DEBUG: per test colore
     this.attachments,
     this.senderId,
     this.currentUserId,
@@ -1587,11 +1554,18 @@ class _BubbleContent extends StatelessWidget {
             ),
             decoration: BoxDecoration(
               gradient: isMe
-                  ? const LinearGradient(
-                      colors: [
-                        Color(0xFF667eea), // Purple
-                        Color(0xFF764ba2), // Deep purple
-                      ],
+                  ? LinearGradient(
+                      colors: isPending
+                          ? [
+                              // 🎯 DEBUG: ARANCIONE per messaggi pending
+                              const Color(0xFFFF9800), // Orange
+                              const Color(0xFFFF6F00), // Deep Orange
+                            ]
+                          : [
+                              // Viola normale
+                              const Color(0xFF667eea), // Purple
+                              const Color(0xFF764ba2), // Deep purple
+                            ],
                       begin: Alignment.topLeft,
                       end: Alignment.bottomRight,
                     )
@@ -1740,6 +1714,7 @@ class _MessageBubble extends StatelessWidget {
   final bool isMe;
   final bool delivered;
   final bool read;
+  final bool isPending; // 🎯 DEBUG: per test colore
   final List<Attachment>? attachments;
   final String? senderId;
   final String? currentUserId;
@@ -1753,6 +1728,7 @@ class _MessageBubble extends StatelessWidget {
     required this.isMe,
     this.delivered = false,
     this.read = false,
+    this.isPending = false, // 🎯 DEBUG: per test colore
     this.attachments,
     this.senderId,
     this.currentUserId,
@@ -1774,6 +1750,7 @@ class _MessageBubble extends StatelessWidget {
         isMe: isMe,
         delivered: delivered,
         read: read,
+        isPending: isPending, // 🎯 DEBUG: per test colore
         attachments: attachments,
         senderId: senderId,
         currentUserId: currentUserId,
