@@ -348,8 +348,8 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     if (animated) {
       _scrollController.animateTo(
         0, // Con reverse: true, 0 è in basso (messaggi nuovi)
-        duration: const Duration(milliseconds: 500), // 🎬 Rallentato da 300ms a 500ms
-        curve: Curves.easeInOutCubic, // 🎬 Curva più smooth per scroll più fluido
+        duration: const Duration(milliseconds: 1000), // 🎬 Massima lentezza (1 secondo)
+        curve: Curves.easeInOutQuart, // 🎬 Curva molto smooth e naturale
       );
     } else {
       _scrollController.jumpTo(0);
