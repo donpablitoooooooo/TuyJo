@@ -818,6 +818,7 @@ class ChatService extends ChangeNotifier {
   Future<bool> sendTodoReminder(
     String content,
     DateTime reminderDate,
+    DateTime originalDueDate, // 🎯 Orario originale del todo (es: 10:00)
     String familyChatId,
     String senderId,
     String senderPublicKey,
@@ -831,7 +832,7 @@ class ChatService extends ChangeNotifier {
         'timestamp': reminderDate.millisecondsSinceEpoch ~/ 1000,
         'type': 'todo',
         'body': content,
-        'due_date': reminderDate.toIso8601String(),
+        'due_date': originalDueDate.toIso8601String(), // 🎯 Orario ORIGINALE del todo
         'is_reminder': true,
       });
 

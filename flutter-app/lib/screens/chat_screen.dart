@@ -819,7 +819,8 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
         final reminderDate = todoDate.subtract(const Duration(hours: 1));
         await chatService.sendTodoReminder(
           messageText,
-          reminderDate,
+          reminderDate, // Quando appare il reminder (1 ora prima)
+          todoDate, // 🎯 Orario ORIGINALE del todo
           _familyChatId!,
           _myDeviceId!,
           myPublicKey,
