@@ -517,8 +517,10 @@ class ChatService extends ChangeNotifier {
               // Trova e aggiorna il messaggio esistente
               final index = _messages.indexWhere((m) => m.id == updatedMessage.id);
               if (index != -1) {
+                final oldMessage = _messages[index];
+
                 if (kDebugMode) {
-                  print('   Old status: delivered=${_messages[index].delivered}, read=${_messages[index].read}');
+                  print('   Old status: delivered=${oldMessage.delivered}, read=${oldMessage.read}');
                   print('   New status: delivered=${updatedMessage.delivered}, read=${updatedMessage.read}');
                 }
 
@@ -542,7 +544,15 @@ class ChatService extends ChangeNotifier {
                 } catch (e) {
                   if (kDebugMode) print('   ❌ Error updating message in cache: $e');
                 }
-                // NO hasStructuralChange = true → modify è content only
+
+                // 🎯 Se read status cambia, è un cambio visuale (spunte grigie→blu)
+                // Dobbiamo triggherare rebuild del Selector
+                if (oldMessage.read != updatedMessage.read) {
+                  hasStructuralChange = true;
+                  if (kDebugMode) {
+                    print('   🔄 Read status changed (${oldMessage.read} → ${updatedMessage.read}) - triggering rebuild');
+                  }
+                }
               } else {
                 if (kDebugMode) print('   ⚠️ Message not found in local list!');
               }
