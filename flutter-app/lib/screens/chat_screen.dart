@@ -1548,24 +1548,20 @@ class _BubbleContent extends StatelessWidget {
         mainAxisAlignment:
             isMe ? MainAxisAlignment.end : MainAxisAlignment.start,
         children: [
-          Container(
-            constraints: BoxConstraints(
-              maxWidth: MediaQuery.of(context).size.width * 0.75,
-            ),
-            decoration: BoxDecoration(
+          Opacity(
+            // 🎯 Pending → 75% opacità (25% trasparenza)
+            opacity: isPending ? 0.75 : 1.0,
+            child: Container(
+              constraints: BoxConstraints(
+                maxWidth: MediaQuery.of(context).size.width * 0.75,
+              ),
+              decoration: BoxDecoration(
               gradient: isMe
-                  ? LinearGradient(
-                      colors: isPending
-                          ? [
-                              // 🎯 DEBUG: ARANCIONE per messaggi pending
-                              const Color(0xFFFF9800), // Orange
-                              const Color(0xFFFF6F00), // Deep Orange
-                            ]
-                          : [
-                              // Viola normale
-                              const Color(0xFF667eea), // Purple
-                              const Color(0xFF764ba2), // Deep purple
-                            ],
+                  ? const LinearGradient(
+                      colors: [
+                        Color(0xFF667eea), // Purple
+                        Color(0xFF764ba2), // Deep purple
+                      ],
                       begin: Alignment.topLeft,
                       end: Alignment.bottomRight,
                     )
@@ -1682,11 +1678,15 @@ class _BubbleContent extends StatelessWidget {
                                 if (isMe) ...[
                                   const SizedBox(width: 4),
                                   Icon(
-                                    read ? Icons.done_all : Icons.done,
+                                    // 🎯 Logica spunte:
+                                    // Pending → 1 spunta
+                                    // Delivered (non letto) → 2 spunte
+                                    // Read → 2 spunte
+                                    (isPending || !delivered) ? Icons.done : Icons.done_all,
                                     size: 14,
                                     color: read
-                                        ? Colors.blue[300]
-                                        : Colors.white.withOpacity(0.8),
+                                        ? Colors.blue[300]  // Letto → blu
+                                        : Colors.grey[400], // Non letto/pending → grigio
                                   ),
                                 ],
                               ],
@@ -1700,6 +1700,7 @@ class _BubbleContent extends StatelessWidget {
               ),
             ),
           ),
+          ), // Opacity
         ],
       ),
     );
@@ -2486,11 +2487,17 @@ class _TodoMessageBubble extends StatelessWidget {
                         if (isMe && !isCompleted) ...[
                           const SizedBox(width: 4),
                           Icon(
-                            (message.read ?? false) ? Icons.done_all : Icons.done,
+                            // 🎯 Logica spunte (todo):
+                            // Pending → 1 spunta
+                            // Delivered (non letto) → 2 spunte
+                            // Read → 2 spunte
+                            ((message.isPending ?? false) || !(message.delivered ?? false))
+                                ? Icons.done
+                                : Icons.done_all,
                             size: 14,
                             color: (message.read ?? false)
-                                ? Colors.blue[300]
-                                : Colors.white.withOpacity(0.8),
+                                ? Colors.blue[300]  // Letto → blu
+                                : Colors.grey[400], // Non letto/pending → grigio
                           ),
                         ],
                         if (isCompleted) ...[
