@@ -455,7 +455,11 @@ class ChatService extends ChangeNotifier {
                 } catch (e) {
                   if (kDebugMode) print('❌ Error caching message: $e');
                 }
-                // NO hasStructuralChange = true → replace non è structural
+
+                // 🎯 IMPORTANT: pending→real È un cambio strutturale per la UI!
+                // isPending cambia da true→false, che cambia il colore della bubble.
+                // Dobbiamo incrementare version per triggherare rebuild del Selector.
+                hasStructuralChange = true;
               } else if (!_messages.any((m) => m.id == message.id)) {
                 // Nessun pending trovato E messaggio non esiste già - aggiungilo normalmente
                 // STRUCTURAL CHANGE: nuova bubble
