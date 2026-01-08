@@ -1041,52 +1041,51 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     // Se c'è una data/range selezionato, invia come todo
     if (todoDate != null) {
       if (isRange && rangeStart != null && rangeEnd != null) {
-        // RANGE DI DATE: crea un TODO per ogni giorno (senza ora specifica, default 10:00)
-        print('📅 Sending TODO range...');
+        // RANGE DI DATE: crea UN SOLO TODO con il range scritto nel testo
+        print('📅 Sending TODO with range...');
         print('   Range: ${rangeStart.toString()} to ${rangeEnd.toString()}');
         print('   Content: $messageText');
 
-        // Cicla su tutti i giorni del range
-        DateTime currentDate = rangeStart;
-        int todoCount = 0;
-        while (currentDate.isBefore(rangeEnd.add(const Duration(days: 1)))) {
-          // Crea TODO alle 10:00 per ogni giorno
-          final todoDueDate = DateTime(
-            currentDate.year,
-            currentDate.month,
-            currentDate.day,
-            10, // Default 10:00
-            0,
-          );
+        // Formatta il range di date
+        final startFormatted = DateFormat('d MMMM', 'it').format(rangeStart);
+        final endFormatted = DateFormat('d MMMM', 'it').format(rangeEnd);
+        final rangeText = 'dal $startFormatted al $endFormatted';
 
-          final todoSuccess = await chatService.sendTodo(
-            messageText,
+        // Combina il messaggio con il range
+        final fullMessage = messageText.isEmpty ? rangeText : '$messageText $rangeText';
+
+        // Crea TODO con data = primo giorno del range alle 10:00
+        final todoDueDate = DateTime(
+          rangeStart.year,
+          rangeStart.month,
+          rangeStart.day,
+          10, // Default 10:00
+          0,
+        );
+
+        success = await chatService.sendTodo(
+          fullMessage,
+          todoDueDate,
+          _familyChatId!,
+          _myDeviceId!,
+          myPublicKey,
+          _partnerPublicKey!,
+        );
+
+        if (success && reminderHours != null && reminderHours > 0) {
+          final reminderDate = todoDueDate.subtract(Duration(hours: reminderHours));
+          await chatService.sendTodoReminder(
+            fullMessage,
+            reminderDate,
             todoDueDate,
             _familyChatId!,
             _myDeviceId!,
             myPublicKey,
             _partnerPublicKey!,
           );
-
-          if (todoSuccess && reminderHours != null && reminderHours > 0) {
-            final reminderDate = todoDueDate.subtract(Duration(hours: reminderHours));
-            await chatService.sendTodoReminder(
-              messageText,
-              reminderDate,
-              todoDueDate,
-              _familyChatId!,
-              _myDeviceId!,
-              myPublicKey,
-              _partnerPublicKey!,
-            );
-          }
-
-          success = success && todoSuccess;
-          todoCount++;
-          currentDate = currentDate.add(const Duration(days: 1));
         }
 
-        print('✅ Sent $todoCount TODOs for range');
+        print('✅ Sent TODO with range: $fullMessage');
       } else {
         // DATA SINGOLA CON ORA SPECIFICA
         print('📅 Sending single todo...');
