@@ -11,6 +11,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:flutter_linkify/flutter_linkify.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:receive_sharing_intent/receive_sharing_intent.dart';
+import 'package:table_calendar/table_calendar.dart';
 import 'package:private_messaging/generated/l10n/app_localizations.dart';
 import '../services/pairing_service.dart';
 import '../services/chat_service.dart';
@@ -621,7 +622,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
         builder: (context, setModalState) => ClipRRect(
           borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
           child: Container(
-            height: MediaQuery.of(context).size.height * 0.70,
+            height: MediaQuery.of(context).size.height * 0.80,
             decoration: const BoxDecoration(
               gradient: LinearGradient(
                 begin: Alignment.topCenter,
@@ -631,93 +632,145 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
             ),
             child: Column(
               children: [
-                // Header con solo X (cancella se c'è data selezionata)
+                // Header con X a sinistra e check a destra
                 SafeArea(
                   bottom: false,
                   child: Padding(
-                    padding: const EdgeInsets.only(left: 8, top: 8),
-                    child: Align(
-                      alignment: Alignment.centerLeft,
-                      child: IconButton(
-                        onPressed: () {
-                          // Se c'è una data selezionata, cancellala
-                          if (_selectedTodoDate != null) {
-                            Navigator.pop(context, clearResult);
-                          } else {
-                            Navigator.pop(context);
-                          }
-                        },
-                        icon: const Icon(Icons.close, color: Colors.white, size: 28),
-                      ),
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        IconButton(
+                          onPressed: () {
+                            // Se c'è una data selezionata, cancellala
+                            if (_selectedTodoDate != null) {
+                              Navigator.pop(context, clearResult);
+                            } else {
+                              Navigator.pop(context);
+                            }
+                          },
+                          icon: const Icon(Icons.close, color: Colors.white, size: 28),
+                        ),
+                        IconButton(
+                          onPressed: () {
+                            if (rangeStart != null && rangeEnd != null) {
+                              // Range selezionato: ritorna range senza ora
+                              Navigator.pop(context, {
+                                'isRange': true,
+                                'rangeStart': rangeStart,
+                                'rangeEnd': rangeEnd,
+                                'reminderHours': selectedReminderHours,
+                              });
+                            } else if (rangeStart != null && rangeEnd == null) {
+                              // Data singola: ritorna con ora
+                              final dueDate = DateTime(
+                                selectedDate.year,
+                                selectedDate.month,
+                                selectedDate.day,
+                                selectedHour,
+                                selectedMinute,
+                              );
+                              Navigator.pop(context, {
+                                'isRange': false,
+                                'date': dueDate,
+                                'reminderHours': selectedReminderHours,
+                              });
+                            }
+                          },
+                          icon: const Icon(Icons.check_circle, color: Colors.white, size: 32),
+                          tooltip: l10n.chatConfirm,
+                        ),
+                      ],
                     ),
                   ),
                 ),
-                // Indicatore range selezionato
-                if (rangeStart != null || rangeEnd != null)
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
-                    child: Text(
-                      rangeEnd != null
-                          ? 'Range: ${DateFormat('d MMM').format(rangeStart!)} - ${DateFormat('d MMM').format(rangeEnd!)}'
-                          : 'Inizio: ${DateFormat('d MMM').format(rangeStart!)} (seleziona fine)',
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 13,
-                        fontWeight: FontWeight.w500,
-                      ),
-                      textAlign: TextAlign.center,
-                    ),
-                  ),
                 // Calendar con theme viola
                 Expanded(
-                  child: Theme(
-                    data: ThemeData.light().copyWith(
-                      colorScheme: const ColorScheme.light(
-                        primary: Colors.white,
-                        onPrimary: Color(0xFF667eea),
-                        surface: Colors.transparent,
-                        onSurface: Colors.white,
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    child: TableCalendar(
+                      firstDay: DateTime.now(),
+                      lastDay: DateTime.now().add(const Duration(days: 365)),
+                      focusedDay: selectedDate,
+                      rangeStartDay: rangeStart,
+                      rangeEndDay: rangeEnd,
+                      rangeSelectionMode: RangeSelectionMode.toggledOn,
+                      headerStyle: HeaderStyle(
+                        formatButtonVisible: false,
+                        titleCentered: true,
+                        titleTextStyle: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                        ),
+                        leftChevronIcon: const Icon(Icons.chevron_left, color: Colors.white),
+                        rightChevronIcon: const Icon(Icons.chevron_right, color: Colors.white),
                       ),
-                      textTheme: const TextTheme(
-                        bodyLarge: TextStyle(color: Colors.white),
-                        bodyMedium: TextStyle(color: Colors.white70),
-                        titleMedium: TextStyle(color: Colors.white),
+                      calendarStyle: CalendarStyle(
+                        defaultTextStyle: const TextStyle(color: Colors.white),
+                        weekendTextStyle: const TextStyle(color: Colors.white70),
+                        outsideTextStyle: const TextStyle(color: Colors.white30),
+                        selectedDecoration: BoxDecoration(
+                          color: Colors.white.withOpacity(0.9),
+                          shape: BoxShape.circle,
+                        ),
+                        selectedTextStyle: const TextStyle(color: Color(0xFF667eea), fontWeight: FontWeight.bold),
+                        todayDecoration: BoxDecoration(
+                          color: Colors.white.withOpacity(0.3),
+                          shape: BoxShape.circle,
+                        ),
+                        todayTextStyle: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                        rangeStartDecoration: BoxDecoration(
+                          color: Colors.white.withOpacity(0.9),
+                          shape: BoxShape.circle,
+                        ),
+                        rangeStartTextStyle: const TextStyle(color: Color(0xFF667eea), fontWeight: FontWeight.bold),
+                        rangeEndDecoration: BoxDecoration(
+                          color: Colors.white.withOpacity(0.9),
+                          shape: BoxShape.circle,
+                        ),
+                        rangeEndTextStyle: const TextStyle(color: Color(0xFF667eea), fontWeight: FontWeight.bold),
+                        rangeHighlightColor: Colors.white.withOpacity(0.2),
+                        withinRangeDecoration: BoxDecoration(
+                          color: Colors.white.withOpacity(0.15),
+                          shape: BoxShape.circle,
+                        ),
+                        withinRangeTextStyle: const TextStyle(color: Colors.white),
                       ),
-                    ),
-                    child: CalendarDatePicker(
-                      initialDate: selectedDate,
-                      firstDate: DateTime.now(),
-                      lastDate: DateTime.now().add(const Duration(days: 365)),
-                      onDateChanged: (date) {
+                      daysOfWeekStyle: const DaysOfWeekStyle(
+                        weekdayStyle: TextStyle(color: Colors.white70, fontWeight: FontWeight.bold),
+                        weekendStyle: TextStyle(color: Colors.white70, fontWeight: FontWeight.bold),
+                      ),
+                      onDaySelected: (selectedDay, focusedDay) {
                         setModalState(() {
                           if (rangeStart == null) {
                             // Prima selezione: imposta range start
-                            rangeStart = date;
-                            selectedDate = date;
+                            rangeStart = selectedDay;
+                            rangeEnd = null;
+                            selectedDate = selectedDay;
                           } else if (rangeEnd == null) {
                             // Seconda selezione: imposta range end
-                            if (date.isAfter(rangeStart!) || date.isAtSameMomentAs(rangeStart!)) {
-                              rangeEnd = date;
+                            if (selectedDay.isAfter(rangeStart!) || selectedDay.isAtSameMomentAs(rangeStart!)) {
+                              rangeEnd = selectedDay;
                             } else {
                               // Se la data è prima di start, reset e ricomincia
-                              rangeStart = date;
+                              rangeStart = selectedDay;
                               rangeEnd = null;
                             }
-                            selectedDate = date;
+                            selectedDate = selectedDay;
                           } else {
                             // Range già completo: reset e ricomincia
-                            rangeStart = date;
+                            rangeStart = selectedDay;
                             rangeEnd = null;
-                            selectedDate = date;
+                            selectedDate = selectedDay;
                           }
                         });
                       },
                     ),
                   ),
                 ),
-                // Time picker con dropdown alert e check button (nascosto se range selezionato)
-                if (rangeStart == null || rangeEnd == null)
-                  Container(
+                // Time picker con dropdown alert (time picker nascosto se range selezionato)
+                Container(
                   padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 16),
                   decoration: BoxDecoration(
                     color: const Color(0xFF764ba2).withOpacity(0.3),
@@ -725,6 +778,8 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
+                      // Time picker (nascosto se range completo)
+                      if (rangeStart == null || rangeEnd == null) ...[
                       // Hour picker
                       SizedBox(
                         width: 70,
@@ -807,7 +862,8 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                         ),
                       ),
                       const SizedBox(width: 20),
-                      // Dropdown alert compatto
+                      ], // Fine time picker condizionale
+                      // Dropdown alert compatto (sempre visibile)
                       Column(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
@@ -847,43 +903,6 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                             ),
                           ),
                         ],
-                      ),
-                      const SizedBox(width: 12),
-                      // Check button
-                      Container(
-                        decoration: BoxDecoration(
-                          color: Colors.white.withOpacity(0.2),
-                          shape: BoxShape.circle,
-                        ),
-                        child: IconButton(
-                          onPressed: () {
-                            if (rangeStart != null && rangeEnd != null) {
-                              // Range selezionato: ritorna range senza ora
-                              Navigator.pop(context, {
-                                'isRange': true,
-                                'rangeStart': rangeStart,
-                                'rangeEnd': rangeEnd,
-                                'reminderHours': selectedReminderHours,
-                              });
-                            } else {
-                              // Data singola: ritorna con ora
-                              final dueDate = DateTime(
-                                selectedDate.year,
-                                selectedDate.month,
-                                selectedDate.day,
-                                selectedHour,
-                                selectedMinute,
-                              );
-                              Navigator.pop(context, {
-                                'isRange': false,
-                                'date': dueDate,
-                                'reminderHours': selectedReminderHours,
-                              });
-                            }
-                          },
-                          icon: const Icon(Icons.check_circle, color: Colors.white, size: 36),
-                          tooltip: l10n.chatConfirm,
-                        ),
                       ),
                     ],
                   ),
