@@ -1411,11 +1411,28 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                             }
 
                             // Determina se mostrare il separatore di data
-                            // Confronta con il messaggio successivo (più vecchio)
-                            final nextMessage = index < chatService.messages.length - 1
-                                ? chatService.messages[index + 1]
-                                : null;
-                            final showDateSeparator = _shouldShowDateSeparator(message, nextMessage);
+                            // Trova il prossimo messaggio VISIBILE (salta todo_completed e TODO futuri)
+                            Message? nextVisibleMessage;
+                            for (int i = index + 1; i < chatService.messages.length; i++) {
+                              final candidateMessage = chatService.messages[i];
+
+                              // Salta todo_completed
+                              if (candidateMessage.messageType == 'todo_completed') {
+                                continue;
+                              }
+
+                              // Salta TODO futuri
+                              if (candidateMessage.messageType == 'todo' &&
+                                  candidateMessage.timestamp.isAfter(DateTime.now())) {
+                                continue;
+                              }
+
+                              // Trovato il prossimo messaggio visibile
+                              nextVisibleMessage = candidateMessage;
+                              break;
+                            }
+
+                            final showDateSeparator = _shouldShowDateSeparator(message, nextVisibleMessage);
 
                             // Widget del messaggio
                             Widget messageWidget;

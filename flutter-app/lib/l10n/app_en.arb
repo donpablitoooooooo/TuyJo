@@ -170,5 +170,11 @@
     "reminderNone": "No alert",
     "reminder1Hour": "1 hour before",
     "reminderHours": "{hours} hours before",
-    "reminder2Days": "2 days before"
+    "reminder2Days": "2 days before",
+    "calendar": "Calendar",
+    "calendarTitle": "TODO Calendar",
+    "calendarNoTodos": "No TODOs",
+    "calendarNoTodosDescription": "Your TODOs will appear here",
+    "calendarTodosForDate": "TODOs for {date}",
+    "calendarMarkAsCompleted": "Mark as completed"
 }

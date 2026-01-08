@@ -170,5 +170,11 @@
     "reminderNone": "Sense avís",
     "reminder1Hour": "1 hora abans",
     "reminderHours": "{hours} hores abans",
-    "reminder2Days": "2 dies abans"
+    "reminder2Days": "2 dies abans",
+    "calendar": "Calendari",
+    "calendarTitle": "Calendari TODO",
+    "calendarNoTodos": "Sense TODOs",
+    "calendarNoTodosDescription": "Els teus TODOs apareixeran aquí",
+    "calendarTodosForDate": "TODOs per {date}",
+    "calendarMarkAsCompleted": "Marca com a completat"
 }

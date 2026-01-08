@@ -169,5 +169,11 @@
     "reminderNone": "Nessun avviso",
     "reminder1Hour": "1 ora prima",
     "reminderHours": "{hours} ore prima",
-    "reminder2Days": "2 giorni prima"
+    "reminder2Days": "2 giorni prima",
+    "calendar": "Calendario",
+    "calendarTitle": "Calendario TODO",
+    "calendarNoTodos": "Nessun TODO",
+    "calendarNoTodosDescription": "I tuoi TODO appariranno qui",
+    "calendarTodosForDate": "TODO per {date}",
+    "calendarMarkAsCompleted": "Segna come completato"
 }
