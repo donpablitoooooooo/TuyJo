@@ -164,6 +164,8 @@
     "dateSeparatorFriday": "Friday",
     "dateSeparatorSaturday": "Saturday",
     "dateSeparatorSunday": "Sunday",
+    "dateRangeFrom": "from",
+    "dateRangeTo": "to",
     "reminderLabel": "Alert",
     "reminderNone": "No alert",
     "reminder1Hour": "1 hour before",

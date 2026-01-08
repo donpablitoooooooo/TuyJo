@@ -164,6 +164,8 @@
     "dateSeparatorFriday": "Viernes",
     "dateSeparatorSaturday": "Sábado",
     "dateSeparatorSunday": "Domingo",
+    "dateRangeFrom": "del",
+    "dateRangeTo": "al",
     "reminderLabel": "Aviso",
     "reminderNone": "Sin aviso",
     "reminder1Hour": "1 hora antes",

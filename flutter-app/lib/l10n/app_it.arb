@@ -163,6 +163,8 @@
     "dateSeparatorFriday": "Venerdì",
     "dateSeparatorSaturday": "Sabato",
     "dateSeparatorSunday": "Domenica",
+    "dateRangeFrom": "dal",
+    "dateRangeTo": "al",
     "reminderLabel": "Avviso",
     "reminderNone": "Nessun avviso",
     "reminder1Hour": "1 ora prima",

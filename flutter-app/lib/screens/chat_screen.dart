@@ -480,6 +480,77 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     return DateFormat('d MMMM').format(date);
   }
 
+  /// Formatta una data in modo colloquiale (oggi, domani, giorno settimana, data)
+  /// con ora opzionale
+  String _formatTodoDate(DateTime date, {bool includeTime = true}) {
+    final l10n = AppLocalizations.of(context)!;
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final yesterday = today.subtract(const Duration(days: 1));
+    final tomorrow = today.add(const Duration(days: 1));
+    final messageDate = DateTime(date.year, date.month, date.day);
+
+    String dateLabel;
+
+    // Oggi
+    if (messageDate == today) {
+      dateLabel = l10n.dateSeparatorToday;
+    }
+    // Ieri
+    else if (messageDate == yesterday) {
+      dateLabel = l10n.dateSeparatorYesterday;
+    }
+    // Domani
+    else if (messageDate == tomorrow) {
+      dateLabel = l10n.dateSeparatorTomorrow;
+    }
+    // Giorni della settimana
+    else {
+      final startOfWeek = today.subtract(Duration(days: today.weekday % 7));
+      final endOfWeek = today.add(Duration(days: 7 - (today.weekday % 7)));
+
+      if (messageDate.isAfter(startOfWeek.subtract(const Duration(days: 1))) &&
+          messageDate.isBefore(endOfWeek.add(const Duration(days: 1)))) {
+        // Ritorna il nome del giorno
+        switch (messageDate.weekday) {
+          case DateTime.monday:
+            dateLabel = l10n.dateSeparatorMonday;
+            break;
+          case DateTime.tuesday:
+            dateLabel = l10n.dateSeparatorTuesday;
+            break;
+          case DateTime.wednesday:
+            dateLabel = l10n.dateSeparatorWednesday;
+            break;
+          case DateTime.thursday:
+            dateLabel = l10n.dateSeparatorThursday;
+            break;
+          case DateTime.friday:
+            dateLabel = l10n.dateSeparatorFriday;
+            break;
+          case DateTime.saturday:
+            dateLabel = l10n.dateSeparatorSaturday;
+            break;
+          case DateTime.sunday:
+            dateLabel = l10n.dateSeparatorSunday;
+            break;
+          default:
+            dateLabel = DateFormat('d MMMM').format(date);
+        }
+      } else {
+        // Data senza anno per date oltre la settimana
+        dateLabel = DateFormat('d MMMM').format(date);
+      }
+    }
+
+    if (includeTime) {
+      final timeFormat = DateFormat('HH:mm');
+      return '$dateLabel ${timeFormat.format(date)}';
+    }
+
+    return dateLabel;
+  }
+
   /// Determina se mostrare un separatore di data tra due messaggi
   /// Confronta le date dei messaggi (ignorando l'ora)
   bool _shouldShowDateSeparator(Message currentMessage, Message? nextMessage) {
@@ -689,6 +760,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                   child: Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 16),
                     child: TableCalendar(
+                      locale: Localizations.localeOf(context).toString(),
                       firstDay: DateTime.now(),
                       lastDay: DateTime.now().add(const Duration(days: 365)),
                       focusedDay: selectedDate,
@@ -1046,10 +1118,17 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
         print('   Range: ${rangeStart.toString()} to ${rangeEnd.toString()}');
         print('   Content: $messageText');
 
-        // Formatta il range di date
-        final startFormatted = DateFormat('d MMMM', 'it').format(rangeStart);
-        final endFormatted = DateFormat('d MMMM', 'it').format(rangeEnd);
-        final rangeText = 'dal $startFormatted al $endFormatted';
+        // Formatta il range di date con formato colloquiale
+        final l10n = AppLocalizations.of(context)!;
+        final startFormatted = _formatTodoDate(
+          DateTime(rangeStart.year, rangeStart.month, rangeStart.day, 10, 0),
+          includeTime: false,
+        );
+        final endFormatted = _formatTodoDate(
+          DateTime(rangeEnd.year, rangeEnd.month, rangeEnd.day, 10, 0),
+          includeTime: false,
+        );
+        final rangeText = '${l10n.dateRangeFrom} $startFormatted ${l10n.dateRangeTo} $endFormatted';
 
         // Combina il messaggio con il range
         final fullMessage = messageText.isEmpty ? rangeText : '$messageText $rangeText';
@@ -1351,12 +1430,35 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                             // Widget del messaggio
                             Widget messageWidget;
                             if (message.messageType == 'todo') {
+                              // Formatta la data del TODO
+                              String? formattedDate;
+                              if (message.dueDate != null) {
+                                final l10n = AppLocalizations.of(context)!;
+                                final content = message.decryptedContent ?? '';
+
+                                // Rileva se è un range cercando le stringhe localizzate
+                                final hasRangeFrom = content.contains(l10n.dateRangeFrom);
+                                final hasRangeTo = content.contains(l10n.dateRangeTo);
+
+                                if (hasRangeFrom && hasRangeTo) {
+                                  // È un range, estrai il testo del range dal messaggio
+                                  final fromIndex = content.indexOf(l10n.dateRangeFrom);
+                                  if (fromIndex >= 0) {
+                                    formattedDate = content.substring(fromIndex);
+                                  }
+                                } else {
+                                  // Data singola con ora in formato colloquiale
+                                  formattedDate = _formatTodoDate(message.dueDate!, includeTime: true);
+                                }
+                              }
+
                               messageWidget = _TodoMessageBubble(
                                 key: ValueKey('${message.id}_${message.read}'),
                                 message: message,
                                 isMe: isMe,
                                 isCompleted: isTodoCompleted,
                                 onComplete: () => _completeTodo(message.id),
+                                formattedDate: formattedDate,
                               );
                             } else {
                               // Messaggio normale
@@ -2593,6 +2695,7 @@ class _TodoMessageBubble extends StatelessWidget {
   final bool isMe;
   final bool isCompleted;
   final VoidCallback onComplete;
+  final String? formattedDate;
 
   const _TodoMessageBubble({
     super.key,
@@ -2600,6 +2703,7 @@ class _TodoMessageBubble extends StatelessWidget {
     required this.isMe,
     required this.isCompleted,
     required this.onComplete,
+    this.formattedDate,
   });
 
   @override
@@ -2710,7 +2814,7 @@ class _TodoMessageBubble extends StatelessWidget {
                           ),
 
                     // Data e ora (icona campanello per reminder, calendario per evento)
-                    if (message.dueDate != null) ...[
+                    if (formattedDate != null) ...[
                       const SizedBox(height: 8),
                       Row(
                         mainAxisSize: MainAxisSize.min,
@@ -2725,13 +2829,15 @@ class _TodoMessageBubble extends StatelessWidget {
                                 : Colors.black54,
                           ),
                           const SizedBox(width: 4),
-                          Text(
-                            DateFormat('dd/MM/yyyy HH:mm').format(message.dueDate!),
-                            style: TextStyle(
-                              fontSize: 12,
-                              color: isMe
-                                  ? Colors.white.withOpacity(0.9)
-                                  : Colors.black54,
+                          Flexible(
+                            child: Text(
+                              formattedDate!,
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: isMe
+                                    ? Colors.white.withOpacity(0.9)
+                                    : Colors.black54,
+                              ),
                             ),
                           ),
                         ],
