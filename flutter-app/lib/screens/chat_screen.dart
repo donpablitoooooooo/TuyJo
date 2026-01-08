@@ -427,6 +427,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   /// Ritorna: "Oggi", "Ieri", "Domani", nome giorno, o data senza anno
   String _formatDateSeparator(DateTime date) {
     final l10n = AppLocalizations.of(context)!;
+    final locale = Localizations.localeOf(context).toString();
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
     final yesterday = today.subtract(const Duration(days: 1));
@@ -472,18 +473,19 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
         case DateTime.sunday:
           return l10n.dateSeparatorSunday;
         default:
-          return DateFormat('d MMMM').format(date);
+          return DateFormat('d MMMM', locale).format(date);
       }
     }
 
     // Data senza anno per messaggi più vecchi o futuri oltre la settimana
-    return DateFormat('d MMMM').format(date);
+    return DateFormat('d MMMM', locale).format(date);
   }
 
   /// Formatta una data in modo colloquiale (oggi, domani, giorno settimana, data)
   /// con ora opzionale
   String _formatTodoDate(DateTime date, {bool includeTime = true}) {
     final l10n = AppLocalizations.of(context)!;
+    final locale = Localizations.localeOf(context).toString();
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
     final yesterday = today.subtract(const Duration(days: 1));
@@ -535,11 +537,11 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
             dateLabel = l10n.dateSeparatorSunday;
             break;
           default:
-            dateLabel = DateFormat('d MMMM').format(date);
+            dateLabel = DateFormat('d MMMM', locale).format(date);
         }
       } else {
         // Data senza anno per date oltre la settimana
-        dateLabel = DateFormat('d MMMM').format(date);
+        dateLabel = DateFormat('d MMMM', locale).format(date);
       }
     }
 
@@ -1113,25 +1115,10 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     // Se c'è una data/range selezionato, invia come todo
     if (todoDate != null) {
       if (isRange && rangeStart != null && rangeEnd != null) {
-        // RANGE DI DATE: crea UN SOLO TODO con il range scritto nel testo
+        // RANGE DI DATE: crea UN SOLO TODO con rangeEnd salvato nel database
         print('📅 Sending TODO with range...');
         print('   Range: ${rangeStart.toString()} to ${rangeEnd.toString()}');
         print('   Content: $messageText');
-
-        // Formatta il range di date con formato colloquiale
-        final l10n = AppLocalizations.of(context)!;
-        final startFormatted = _formatTodoDate(
-          DateTime(rangeStart.year, rangeStart.month, rangeStart.day, 10, 0),
-          includeTime: false,
-        );
-        final endFormatted = _formatTodoDate(
-          DateTime(rangeEnd.year, rangeEnd.month, rangeEnd.day, 10, 0),
-          includeTime: false,
-        );
-        final rangeText = '${l10n.dateRangeFrom} $startFormatted ${l10n.dateRangeTo} $endFormatted';
-
-        // Combina il messaggio con il range
-        final fullMessage = messageText.isEmpty ? rangeText : '$messageText $rangeText';
 
         // Crea TODO con data = primo giorno del range alle 10:00
         final todoDueDate = DateTime(
@@ -1142,29 +1129,32 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
           0,
         );
 
+        // Salva rangeEnd come parametro separato (NON nel testo)
         success = await chatService.sendTodo(
-          fullMessage,
+          messageText, // Solo il testo dell'utente, NO range
           todoDueDate,
           _familyChatId!,
           _myDeviceId!,
           myPublicKey,
           _partnerPublicKey!,
+          rangeEnd: rangeEnd, // Passa rangeEnd come parametro
         );
 
         if (success && reminderHours != null && reminderHours > 0) {
           final reminderDate = todoDueDate.subtract(Duration(hours: reminderHours));
           await chatService.sendTodoReminder(
-            fullMessage,
+            messageText, // Solo il testo dell'utente, NO range
             reminderDate,
             todoDueDate,
             _familyChatId!,
             _myDeviceId!,
             myPublicKey,
             _partnerPublicKey!,
+            rangeEnd: rangeEnd, // Passa rangeEnd anche al reminder
           );
         }
 
-        print('✅ Sent TODO with range: $fullMessage');
+        print('✅ Sent TODO with range: $messageText (range: $rangeStart - $rangeEnd)');
       } else {
         // DATA SINGOLA CON ORA SPECIFICA
         print('📅 Sending single todo...');
@@ -1434,18 +1424,12 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                               String? formattedDate;
                               if (message.dueDate != null) {
                                 final l10n = AppLocalizations.of(context)!;
-                                final content = message.decryptedContent ?? '';
 
-                                // Rileva se è un range cercando le stringhe localizzate
-                                final hasRangeFrom = content.contains(l10n.dateRangeFrom);
-                                final hasRangeTo = content.contains(l10n.dateRangeTo);
-
-                                if (hasRangeFrom && hasRangeTo) {
-                                  // È un range, estrai il testo del range dal messaggio
-                                  final fromIndex = content.indexOf(l10n.dateRangeFrom);
-                                  if (fromIndex >= 0) {
-                                    formattedDate = content.substring(fromIndex);
-                                  }
+                                if (message.rangeEnd != null) {
+                                  // È un range: formatta "dal ... al ..."
+                                  final startFormatted = _formatTodoDate(message.dueDate!, includeTime: false);
+                                  final endFormatted = _formatTodoDate(message.rangeEnd!, includeTime: false);
+                                  formattedDate = '${l10n.dateRangeFrom} $startFormatted ${l10n.dateRangeTo} $endFormatted';
                                 } else {
                                   // Data singola con ora in formato colloquiale
                                   formattedDate = _formatTodoDate(message.dueDate!, includeTime: true);
