@@ -715,7 +715,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                                 ...List.generate(23, (i) => i + 2).map((h) =>
                                   DropdownMenuItem(
                                     value: h,
-                                    child: Text(l10n.reminderHours.replaceAll('{hours}', h.toString())),
+                                    child: Text(l10n.reminderHours(h)),
                                   )
                                 ),
                                 DropdownMenuItem(value: 48, child: Text(l10n.reminder2Days)),
