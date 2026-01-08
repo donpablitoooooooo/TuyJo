@@ -49,6 +49,9 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   int _lastMessageCount = 0;
   bool _isLoadingOlderMessages = false; // Track se stiamo caricando messaggi vecchi
   DateTime? _selectedTodoDate; // Data/ora selezionata per todo (null = messaggio normale)
+  bool _isRangeSelection = false; // True se è selezionato un range di date
+  DateTime? _selectedRangeStart; // Data inizio range
+  DateTime? _selectedRangeEnd; // Data fine range
   int? _selectedReminderHours; // Ore prima del todo per l'alert (null = nessun alert)
   List<File> _selectedAttachments = []; // Lista di file selezionati da inviare
   bool _isUploadingAttachments = false; // Stato di upload allegati
@@ -598,9 +601,11 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   void _showDateTimePicker() async {
     final l10n = AppLocalizations.of(context)!;
     // Sentinella per segnalare cancellazione
-    final clearDate = DateTime(1970);
+    final clearResult = {'clear': true};
 
     DateTime selectedDate = DateTime.now().add(const Duration(days: 1));
+    DateTime? rangeStart;
+    DateTime? rangeEnd;
     int selectedHour = 10;
     int selectedMinute = 0;
     int? selectedReminderHours = _selectedReminderHours ?? 1; // Default: 1 ora prima
@@ -608,7 +613,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     final hourController = FixedExtentScrollController(initialItem: selectedHour);
     final minuteController = FixedExtentScrollController(initialItem: selectedMinute);
 
-    final result = await showModalBottomSheet<DateTime>(
+    final result = await showModalBottomSheet<Map<String, dynamic>>(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
@@ -637,7 +642,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                         onPressed: () {
                           // Se c'è una data selezionata, cancellala
                           if (_selectedTodoDate != null) {
-                            Navigator.pop(context, clearDate);
+                            Navigator.pop(context, clearResult);
                           } else {
                             Navigator.pop(context);
                           }
@@ -647,6 +652,22 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                     ),
                   ),
                 ),
+                // Indicatore range selezionato
+                if (rangeStart != null || rangeEnd != null)
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+                    child: Text(
+                      rangeEnd != null
+                          ? 'Range: ${DateFormat('d MMM').format(rangeStart!)} - ${DateFormat('d MMM').format(rangeEnd!)}'
+                          : 'Inizio: ${DateFormat('d MMM').format(rangeStart!)} (seleziona fine)',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w500,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                  ),
                 // Calendar con theme viola
                 Expanded(
                   child: Theme(
@@ -668,13 +689,35 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                       firstDate: DateTime.now(),
                       lastDate: DateTime.now().add(const Duration(days: 365)),
                       onDateChanged: (date) {
-                        setModalState(() => selectedDate = date);
+                        setModalState(() {
+                          if (rangeStart == null) {
+                            // Prima selezione: imposta range start
+                            rangeStart = date;
+                            selectedDate = date;
+                          } else if (rangeEnd == null) {
+                            // Seconda selezione: imposta range end
+                            if (date.isAfter(rangeStart!) || date.isAtSameMomentAs(rangeStart!)) {
+                              rangeEnd = date;
+                            } else {
+                              // Se la data è prima di start, reset e ricomincia
+                              rangeStart = date;
+                              rangeEnd = null;
+                            }
+                            selectedDate = date;
+                          } else {
+                            // Range già completo: reset e ricomincia
+                            rangeStart = date;
+                            rangeEnd = null;
+                            selectedDate = date;
+                          }
+                        });
                       },
                     ),
                   ),
                 ),
-                // Time picker con dropdown alert e check button
-                Container(
+                // Time picker con dropdown alert e check button (nascosto se range selezionato)
+                if (rangeStart == null || rangeEnd == null)
+                  Container(
                   padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 16),
                   decoration: BoxDecoration(
                     color: const Color(0xFF764ba2).withOpacity(0.3),
@@ -814,14 +857,29 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                         ),
                         child: IconButton(
                           onPressed: () {
-                            final dueDate = DateTime(
-                              selectedDate.year,
-                              selectedDate.month,
-                              selectedDate.day,
-                              selectedHour,
-                              selectedMinute,
-                            );
-                            Navigator.pop(context, dueDate);
+                            if (rangeStart != null && rangeEnd != null) {
+                              // Range selezionato: ritorna range senza ora
+                              Navigator.pop(context, {
+                                'isRange': true,
+                                'rangeStart': rangeStart,
+                                'rangeEnd': rangeEnd,
+                                'reminderHours': selectedReminderHours,
+                              });
+                            } else {
+                              // Data singola: ritorna con ora
+                              final dueDate = DateTime(
+                                selectedDate.year,
+                                selectedDate.month,
+                                selectedDate.day,
+                                selectedHour,
+                                selectedMinute,
+                              );
+                              Navigator.pop(context, {
+                                'isRange': false,
+                                'date': dueDate,
+                                'reminderHours': selectedReminderHours,
+                              });
+                            }
                           },
                           icon: const Icon(Icons.check_circle, color: Colors.white, size: 36),
                           tooltip: l10n.chatConfirm,
@@ -840,17 +898,32 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     hourController.dispose();
     minuteController.dispose();
 
-    if (result == clearDate) {
+    if (result != null && result['clear'] == true) {
       // X premuto per cancellare
       setState(() {
         _selectedTodoDate = null;
+        _isRangeSelection = false;
+        _selectedRangeStart = null;
+        _selectedRangeEnd = null;
         _selectedReminderHours = null;
       });
     } else if (result != null) {
-      // Data selezionata e confermata
+      // Data/range selezionato e confermato
       setState(() {
-        _selectedTodoDate = result;
-        _selectedReminderHours = selectedReminderHours;
+        if (result['isRange'] == true) {
+          // Range selezionato
+          _isRangeSelection = true;
+          _selectedRangeStart = result['rangeStart'];
+          _selectedRangeEnd = result['rangeEnd'];
+          _selectedTodoDate = result['rangeStart']; // Per mostrare indicatore
+        } else {
+          // Data singola
+          _isRangeSelection = false;
+          _selectedTodoDate = result['date'];
+          _selectedRangeStart = null;
+          _selectedRangeEnd = null;
+        }
+        _selectedReminderHours = result['reminderHours'];
       });
     }
     // Se result è null, l'utente ha chiuso senza azione (non cambiare niente)
@@ -858,6 +931,9 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
 
   void _sendMessage() async {
     final todoDate = _selectedTodoDate;
+    final isRange = _isRangeSelection;
+    final rangeStart = _selectedRangeStart;
+    final rangeEnd = _selectedRangeEnd;
     final attachments = List<File>.from(_selectedAttachments);
 
     // Permetti invio se c'è testo, una data selezionata o allegati
@@ -893,6 +969,9 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
 
     setState(() {
       _selectedTodoDate = null; // Reset todo date
+      _isRangeSelection = false; // Reset range flag
+      _selectedRangeStart = null; // Reset range start
+      _selectedRangeEnd = null; // Reset range end
       _selectedReminderHours = null; // Reset reminder hours
       _selectedAttachments.clear(); // Clear attachments
       _isUploadingAttachments = true; // Mostra loader
@@ -938,31 +1017,78 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       return;
     }
 
-    bool success;
+    bool success = true;
 
-    // Se c'è una data selezionata, invia come todo, altrimenti come messaggio normale
+    // Se c'è una data/range selezionato, invia come todo
     if (todoDate != null) {
-      print('📅 Sending todo...');
-      print('   Due date: ${todoDate.toIso8601String()}');
-      print('   Content: $messageText');
+      if (isRange && rangeStart != null && rangeEnd != null) {
+        // RANGE DI DATE: crea un TODO per ogni giorno (senza ora specifica, default 10:00)
+        print('📅 Sending TODO range...');
+        print('   Range: ${rangeStart.toString()} to ${rangeEnd.toString()}');
+        print('   Content: $messageText');
 
-      success = await chatService.sendTodo(
-        messageText,
-        todoDate,
-        _familyChatId!,
-        _myDeviceId!,
-        myPublicKey,
-        _partnerPublicKey!,
-      );
+        // Cicla su tutti i giorni del range
+        DateTime currentDate = rangeStart;
+        int todoCount = 0;
+        while (currentDate.isBefore(rangeEnd.add(const Duration(days: 1)))) {
+          // Crea TODO alle 10:00 per ogni giorno
+          final todoDueDate = DateTime(
+            currentDate.year,
+            currentDate.month,
+            currentDate.day,
+            10, // Default 10:00
+            0,
+          );
 
-      if (success) {
-        // Invia il reminder solo se è stato selezionato un orario
-        if (reminderHours != null && reminderHours > 0) {
+          final todoSuccess = await chatService.sendTodo(
+            messageText,
+            todoDueDate,
+            _familyChatId!,
+            _myDeviceId!,
+            myPublicKey,
+            _partnerPublicKey!,
+          );
+
+          if (todoSuccess && reminderHours != null && reminderHours > 0) {
+            final reminderDate = todoDueDate.subtract(Duration(hours: reminderHours));
+            await chatService.sendTodoReminder(
+              messageText,
+              reminderDate,
+              todoDueDate,
+              _familyChatId!,
+              _myDeviceId!,
+              myPublicKey,
+              _partnerPublicKey!,
+            );
+          }
+
+          success = success && todoSuccess;
+          todoCount++;
+          currentDate = currentDate.add(const Duration(days: 1));
+        }
+
+        print('✅ Sent $todoCount TODOs for range');
+      } else {
+        // DATA SINGOLA CON ORA SPECIFICA
+        print('📅 Sending single todo...');
+        print('   Due date: ${todoDate.toIso8601String()}');
+        print('   Content: $messageText');
+
+        success = await chatService.sendTodo(
+          messageText,
+          todoDate,
+          _familyChatId!,
+          _myDeviceId!,
+          myPublicKey,
+          _partnerPublicKey!,
+        );
+
+        if (success && reminderHours != null && reminderHours > 0) {
           final reminderDate = todoDate.subtract(Duration(hours: reminderHours));
           await chatService.sendTodoReminder(
             messageText,
             reminderDate,
-            todoDate, // Data originale del TODO
+            todoDate,
             _familyChatId!,
             _myDeviceId!,
             myPublicKey,
