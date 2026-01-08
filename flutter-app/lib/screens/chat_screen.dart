@@ -326,36 +326,74 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   }
 
   /// Scrolla al primo messaggio non letto
-  /// Se tutti i messaggi sono letti, rimane in fondo (non scrolla ai TODO futuri)
-  void _scrollToFirstUnreadMessage() {
-    if (!_scrollController.hasClients) return;
+  /// Se tutti i messaggi sono letti, rimane in fondo
+  void _scrollToFirstUnreadMessage() async {
+    // Aspetta che il layout sia completo
+    await Future.delayed(const Duration(milliseconds: 300));
+
+    if (!mounted || !_scrollController.hasClients) return;
 
     final chatService = Provider.of<ChatService>(context, listen: false);
 
-    // Trova il primo messaggio non letto (ricevuto, non inviato da me)
-    final firstUnreadIndex = chatService.messages.indexWhere((m) =>
-        m.senderId != _myDeviceId && // Messaggio ricevuto
-        !(m.read ?? false) && // Non letto
-        m.messageType != 'todo_completed'); // Escludi messaggi di completamento
+    // Conta i messaggi visibili (esclusi todo_completed e TODO futuri)
+    final visibleMessages = chatService.messages.where((m) {
+      if (m.messageType == 'todo_completed') return false;
+      if (m.messageType == 'todo' && m.timestamp.isAfter(DateTime.now())) return false;
+      return true;
+    }).toList();
 
-    if (firstUnreadIndex == -1) {
+    // Trova il primo messaggio non letto tra i visibili
+    int unreadCount = 0;
+    for (var m in visibleMessages) {
+      if (m.senderId != _myDeviceId && !(m.read ?? false)) {
+        unreadCount++;
+      } else {
+        break; // Trovato il primo non letto
+      }
+    }
+
+    if (unreadCount == 0) {
       // Tutti i messaggi sono letti, rimani in fondo
-      _scrollToBottom(animated: false);
       if (kDebugMode) print('📜 [SCROLL] All messages read, staying at bottom');
       return;
     }
 
-    // Calcola posizione approssimativa (altezza media ~150px per messaggio)
-    // Con reverse: true, l'indice 0 è in basso, quindi dobbiamo calcolare al contrario
-    final estimatedHeight = 150.0;
-    final position = firstUnreadIndex * estimatedHeight;
+    // Con reverse: true, i messaggi recenti sono in basso (indice 0)
+    // I messaggi non letti sono "sopra" (indice più alto)
+    // Stimiamo l'altezza: messaggi normali ~100px, TODO ~120px
+    double estimatedPosition = 0;
+    for (int i = 0; i < unreadCount && i < visibleMessages.length; i++) {
+      final msg = visibleMessages[i];
+      // Stima altezza in base al tipo
+      if (msg.messageType == 'todo') {
+        estimatedPosition += 140; // TODO sono più alti
+      } else if (msg.attachments != null && msg.attachments!.isNotEmpty) {
+        estimatedPosition += 250; // Messaggi con allegati
+      } else {
+        estimatedPosition += 100; // Messaggi normali
+      }
+    }
 
-    // Limita la posizione al massimo scrollabile
+    // Aggiungi spazio per i separatori di data (~60px ognuno)
+    // Stima: un separatore ogni 3-4 messaggi
+    final estimatedSeparators = (unreadCount / 3.5).ceil();
+    estimatedPosition += estimatedSeparators * 60;
+
+    // Limita al massimo scrollabile
     final maxScroll = _scrollController.position.maxScrollExtent;
-    final targetPosition = position > maxScroll ? maxScroll : position;
+    final targetPosition = estimatedPosition > maxScroll ? maxScroll : estimatedPosition;
 
-    _scrollController.jumpTo(targetPosition);
-    if (kDebugMode) print('📜 [SCROLL] Jumped to first unread message at index $firstUnreadIndex (position: $targetPosition)');
+    if (kDebugMode) {
+      print('📜 [SCROLL] Scrolling to first unread: $unreadCount unread messages');
+      print('📜 [SCROLL] Target position: $targetPosition (max: $maxScroll)');
+    }
+
+    // Scrolla con animazione fluida
+    _scrollController.animateTo(
+      targetPosition,
+      duration: const Duration(milliseconds: 500),
+      curve: Curves.easeInOut,
+    );
   }
 
   void _completeTodo(String todoId) async {
@@ -1082,6 +1120,14 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                             if (message.messageType == 'todo_completed') {
                               // Non mostrare i messaggi di completamento
                               return const SizedBox.shrink();
+                            }
+
+                            // Nascondi TODO/reminder futuri (timestamp futuro)
+                            if (message.messageType == 'todo') {
+                              if (message.timestamp.isAfter(DateTime.now())) {
+                                // TODO futuro, nascondilo
+                                return const SizedBox.shrink();
+                              }
                             }
 
                             // Verifica se il todo è stato completato
