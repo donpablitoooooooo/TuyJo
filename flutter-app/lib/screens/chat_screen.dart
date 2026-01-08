@@ -376,6 +376,74 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     if (kDebugMode) print('✅ Todo marked as completed: $todoId');
   }
 
+  /// Formatta la data in modo colloquiale per il separatore
+  /// Ritorna: "Oggi", "Ieri", nome giorno, o data completa
+  String _formatDateSeparator(DateTime date) {
+    final l10n = AppLocalizations.of(context)!;
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final yesterday = today.subtract(const Duration(days: 1));
+    final messageDate = DateTime(date.year, date.month, date.day);
+
+    // Oggi
+    if (messageDate == today) {
+      return l10n.dateSeparatorToday;
+    }
+
+    // Ieri
+    if (messageDate == yesterday) {
+      return l10n.dateSeparatorYesterday;
+    }
+
+    // Giorni della settimana corrente (da domenica scorsa a oggi)
+    final startOfWeek = today.subtract(Duration(days: today.weekday % 7));
+    if (messageDate.isAfter(startOfWeek.subtract(const Duration(days: 1))) &&
+        messageDate.isBefore(today)) {
+      // Ritorna il nome del giorno
+      switch (messageDate.weekday) {
+        case DateTime.monday:
+          return l10n.dateSeparatorMonday;
+        case DateTime.tuesday:
+          return l10n.dateSeparatorTuesday;
+        case DateTime.wednesday:
+          return l10n.dateSeparatorWednesday;
+        case DateTime.thursday:
+          return l10n.dateSeparatorThursday;
+        case DateTime.friday:
+          return l10n.dateSeparatorFriday;
+        case DateTime.saturday:
+          return l10n.dateSeparatorSaturday;
+        case DateTime.sunday:
+          return l10n.dateSeparatorSunday;
+        default:
+          return DateFormat('d MMMM yyyy').format(date);
+      }
+    }
+
+    // Data completa per messaggi più vecchi
+    return DateFormat('d MMMM yyyy').format(date);
+  }
+
+  /// Determina se mostrare un separatore di data tra due messaggi
+  /// Confronta le date dei messaggi (ignorando l'ora)
+  bool _shouldShowDateSeparator(Message currentMessage, Message? nextMessage) {
+    if (nextMessage == null) return true; // Mostra sempre separatore per l'ultimo messaggio
+
+    final currentDate = DateTime(
+      currentMessage.timestamp.year,
+      currentMessage.timestamp.month,
+      currentMessage.timestamp.day,
+    );
+
+    final nextDate = DateTime(
+      nextMessage.timestamp.year,
+      nextMessage.timestamp.month,
+      nextMessage.timestamp.day,
+    );
+
+    return currentDate != nextDate;
+  }
+
   /// Mostra il bottom sheet per selezionare il tipo di allegato
   void _showAttachmentPicker() async {
     final l10n = AppLocalizations.of(context)!;
@@ -1050,9 +1118,17 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                                   m.originalTodoId == message.id);
                             }
 
-                            // Renderizza il tipo di messaggio appropriato
+                            // Determina se mostrare il separatore di data
+                            // Confronta con il messaggio successivo (più vecchio)
+                            final nextMessage = index < chatService.messages.length - 1
+                                ? chatService.messages[index + 1]
+                                : null;
+                            final showDateSeparator = _shouldShowDateSeparator(message, nextMessage);
+
+                            // Widget del messaggio
+                            Widget messageWidget;
                             if (message.messageType == 'todo') {
-                              return _TodoMessageBubble(
+                              messageWidget = _TodoMessageBubble(
                                 key: ValueKey('${message.id}_${message.read}'),
                                 message: message,
                                 isMe: isMe,
@@ -1063,7 +1139,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                               // Messaggio normale
                               final decryptedContent = message.decryptedContent ?? '[Messaggio non decifrabile]';
 
-                              return _MessageBubble(
+                              messageWidget = _MessageBubble(
                                 key: ValueKey('${message.senderId}_${message.timestamp.millisecondsSinceEpoch}_${message.read}'),
                                 message: decryptedContent,
                                 timestamp: message.timestamp,
@@ -1076,6 +1152,20 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                                 attachmentService: _attachmentService,
                               );
                             }
+
+                            // Se serve un separatore, avvolgi il messaggio in una Column
+                            if (showDateSeparator) {
+                              return Column(
+                                children: [
+                                  messageWidget,
+                                  _DateSeparator(
+                                    dateLabel: _formatDateSeparator(message.timestamp),
+                                  ),
+                                ],
+                              );
+                            }
+
+                            return messageWidget;
                           },
                         ),
                       ),
@@ -2182,6 +2272,94 @@ class _FullscreenImageViewerState extends State<_FullscreenImageViewer> {
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+/// Widget separatore per raggruppare i messaggi per data
+class _DateSeparator extends StatelessWidget {
+  final String dateLabel;
+
+  const _DateSeparator({
+    required this.dateLabel,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 16),
+      child: Row(
+        children: [
+          Expanded(
+            child: Container(
+              height: 1,
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [
+                    Colors.transparent,
+                    Colors.grey[300]!,
+                  ],
+                ),
+              ),
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+              decoration: BoxDecoration(
+                gradient: const LinearGradient(
+                  colors: [
+                    Color(0xFF667eea),
+                    Color(0xFF764ba2),
+                  ],
+                ),
+                borderRadius: BorderRadius.circular(16),
+                boxShadow: [
+                  BoxShadow(
+                    color: const Color(0xFF667eea).withOpacity(0.3),
+                    blurRadius: 8,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(
+                    Icons.flag_rounded,
+                    size: 14,
+                    color: Colors.white,
+                  ),
+                  const SizedBox(width: 6),
+                  Text(
+                    dateLabel,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      letterSpacing: 0.5,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          Expanded(
+            child: Container(
+              height: 1,
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [
+                    Colors.grey[300]!,
+                    Colors.transparent,
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }

@@ -163,5 +163,15 @@
   "pdfViewerLoading": "Caricamento PDF...",
   "pdfViewerLoadError": "Errore caricamento PDF: {error}",
   "pdfViewerCannotLoad": "Impossibile caricare il PDF",
-  "pdfViewerError": "Errore: {error}"
+  "pdfViewerError": "Errore: {error}",
+
+  "dateSeparatorToday": "Oggi",
+  "dateSeparatorYesterday": "Ieri",
+  "dateSeparatorMonday": "Lunedì",
+  "dateSeparatorTuesday": "Martedì",
+  "dateSeparatorWednesday": "Mercoledì",
+  "dateSeparatorThursday": "Giovedì",
+  "dateSeparatorFriday": "Venerdì",
+  "dateSeparatorSaturday": "Sabato",
+  "dateSeparatorSunday": "Domenica"
 }

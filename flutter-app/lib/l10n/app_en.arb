@@ -152,5 +152,15 @@
     "pdfViewerLoading": "Loading PDF...",
     "pdfViewerLoadError": "PDF upload error: {error}",
     "pdfViewerCannotLoad": "Unable to load PDF",
-    "pdfViewerError": "Mistake: {error}"
+    "pdfViewerError": "Mistake: {error}",
+
+    "dateSeparatorToday": "Today",
+    "dateSeparatorYesterday": "Yesterday",
+    "dateSeparatorMonday": "Monday",
+    "dateSeparatorTuesday": "Tuesday",
+    "dateSeparatorWednesday": "Wednesday",
+    "dateSeparatorThursday": "Thursday",
+    "dateSeparatorFriday": "Friday",
+    "dateSeparatorSaturday": "Saturday",
+    "dateSeparatorSunday": "Sunday"
 }

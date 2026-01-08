@@ -152,5 +152,15 @@
     "pdfViewerLoading": "Cargando PDF...",
     "pdfViewerLoadError": "Error al cargar el PDF: {error}",
     "pdfViewerCannotLoad": "No se puede cargar el PDF",
-    "pdfViewerError": "Error: {error}"
+    "pdfViewerError": "Error: {error}",
+
+    "dateSeparatorToday": "Hoy",
+    "dateSeparatorYesterday": "Ayer",
+    "dateSeparatorMonday": "Lunes",
+    "dateSeparatorTuesday": "Martes",
+    "dateSeparatorWednesday": "Miércoles",
+    "dateSeparatorThursday": "Jueves",
+    "dateSeparatorFriday": "Viernes",
+    "dateSeparatorSaturday": "Sábado",
+    "dateSeparatorSunday": "Domingo"
 }

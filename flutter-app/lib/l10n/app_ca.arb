@@ -152,5 +152,15 @@
     "pdfViewerLoading": "S'està carregant el PDF...",
     "pdfViewerLoadError": "Error en la càrrega del PDF: {error}",
     "pdfViewerCannotLoad": "No es pot carregar el PDF",
-    "pdfViewerError": "Error: {error}"
+    "pdfViewerError": "Error: {error}",
+
+    "dateSeparatorToday": "Avui",
+    "dateSeparatorYesterday": "Ahir",
+    "dateSeparatorMonday": "Dilluns",
+    "dateSeparatorTuesday": "Dimarts",
+    "dateSeparatorWednesday": "Dimecres",
+    "dateSeparatorThursday": "Dijous",
+    "dateSeparatorFriday": "Divendres",
+    "dateSeparatorSaturday": "Dissabte",
+    "dateSeparatorSunday": "Diumenge"
 }
