@@ -46,10 +46,8 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   bool _lastPairingStatus = false;
   String? _lastFamilyChatId;
   Timer? _typingTimer;
-  Timer? _reminderCheckTimer; // Timer per controllare reminder visibili
   int _lastMessageCount = 0;
   bool _isLoadingOlderMessages = false; // Track se stiamo caricando messaggi vecchi
-  Set<String> _hiddenReminderIds = {}; // Track reminder nascosti per rilevare quando diventano visibili
   DateTime? _selectedTodoDate; // Data/ora selezionata per todo (null = messaggio normale)
   List<File> _selectedAttachments = []; // Lista di file selezionati da inviare
   bool _isUploadingAttachments = false; // Stato di upload allegati
@@ -267,8 +265,12 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       // Questo garantisce che il prossimo build avrà già i messaggi pronti per lo scroll
       setState(() => _isLoading = false);
 
-      // 🔔 REMINDER CHECK TIMER: Controlla ogni 30 secondi se ci sono reminder da mostrare
-      _startReminderCheckTimer();
+      // 📜 Scrolla al primo messaggio non letto dopo il primo build
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          _scrollToFirstUnreadMessage();
+        }
+      });
 
       // ✅ Marca tutti i messaggi ricevuti come letti quando l'utente apre la chat
       if (_myDeviceId != null) {
@@ -303,39 +305,8 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     _messageController.dispose();
     _scrollController.dispose();
     _typingTimer?.cancel();
-    _reminderCheckTimer?.cancel();
     _intentMediaStreamSubscription?.cancel();
     super.dispose();
-  }
-
-  /// Avvia timer periodico per controllare reminder visibili
-  void _startReminderCheckTimer() {
-    _reminderCheckTimer?.cancel(); // Cancella timer esistente se presente
-
-    _reminderCheckTimer = Timer.periodic(const Duration(seconds: 30), (timer) {
-      if (!mounted) {
-        timer.cancel();
-        return;
-      }
-
-      final chatService = Provider.of<ChatService>(context, listen: false);
-      final now = DateTime.now();
-
-      // Trova reminder che sono diventati visibili (timestamp passato)
-      final hasVisibleReminders = chatService.messages.any((m) =>
-          m.messageType == 'todo' &&
-          m.isReminder == true &&
-          m.timestamp.isBefore(now) &&
-          _hiddenReminderIds.contains(m.id));
-
-      if (hasVisibleReminders) {
-        if (kDebugMode) print('🔔 [REMINDER_TIMER] Found newly visible reminder(s), triggering rebuild');
-        // Trigga rebuild che attiverà la logica di auto-scroll
-        setState(() {});
-      }
-    });
-
-    if (kDebugMode) print('🔔 [REMINDER_TIMER] Started periodic check (every 30s)');
   }
 
   /// Scrolla automaticamente in fondo alla lista (messaggi più recenti)
@@ -352,6 +323,39 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     } else {
       _scrollController.jumpTo(0);
     }
+  }
+
+  /// Scrolla al primo messaggio non letto
+  /// Se tutti i messaggi sono letti, rimane in fondo (non scrolla ai TODO futuri)
+  void _scrollToFirstUnreadMessage() {
+    if (!_scrollController.hasClients) return;
+
+    final chatService = Provider.of<ChatService>(context, listen: false);
+
+    // Trova il primo messaggio non letto (ricevuto, non inviato da me)
+    final firstUnreadIndex = chatService.messages.indexWhere((m) =>
+        m.senderId != _myDeviceId && // Messaggio ricevuto
+        !(m.read ?? false) && // Non letto
+        m.messageType != 'todo_completed'); // Escludi messaggi di completamento
+
+    if (firstUnreadIndex == -1) {
+      // Tutti i messaggi sono letti, rimani in fondo
+      _scrollToBottom(animated: false);
+      if (kDebugMode) print('📜 [SCROLL] All messages read, staying at bottom');
+      return;
+    }
+
+    // Calcola posizione approssimativa (altezza media ~150px per messaggio)
+    // Con reverse: true, l'indice 0 è in basso, quindi dobbiamo calcolare al contrario
+    final estimatedHeight = 150.0;
+    final position = firstUnreadIndex * estimatedHeight;
+
+    // Limita la posizione al massimo scrollabile
+    final maxScroll = _scrollController.position.maxScrollExtent;
+    final targetPosition = position > maxScroll ? maxScroll : position;
+
+    _scrollController.jumpTo(targetPosition);
+    if (kDebugMode) print('📜 [SCROLL] Jumped to first unread message at index $firstUnreadIndex (position: $targetPosition)');
   }
 
   void _completeTodo(String todoId) async {
@@ -377,12 +381,13 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   }
 
   /// Formatta la data in modo colloquiale per il separatore
-  /// Ritorna: "Oggi", "Ieri", nome giorno, o data completa
+  /// Ritorna: "Oggi", "Ieri", "Domani", nome giorno, o data senza anno
   String _formatDateSeparator(DateTime date) {
     final l10n = AppLocalizations.of(context)!;
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
     final yesterday = today.subtract(const Duration(days: 1));
+    final tomorrow = today.add(const Duration(days: 1));
     final messageDate = DateTime(date.year, date.month, date.day);
 
     // Oggi
@@ -395,10 +400,18 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       return l10n.dateSeparatorYesterday;
     }
 
-    // Giorni della settimana corrente (da domenica scorsa a oggi)
+    // Domani
+    if (messageDate == tomorrow) {
+      return l10n.dateSeparatorTomorrow;
+    }
+
+    // Giorni della settimana (passati dalla domenica scorsa, futuri fino alla domenica prossima)
     final startOfWeek = today.subtract(Duration(days: today.weekday % 7));
+    final endOfWeek = today.add(Duration(days: 7 - (today.weekday % 7)));
+
     if (messageDate.isAfter(startOfWeek.subtract(const Duration(days: 1))) &&
-        messageDate.isBefore(today)) {
+        messageDate.isBefore(endOfWeek.add(const Duration(days: 1))) &&
+        messageDate != today && messageDate != yesterday && messageDate != tomorrow) {
       // Ritorna il nome del giorno
       switch (messageDate.weekday) {
         case DateTime.monday:
@@ -416,12 +429,12 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
         case DateTime.sunday:
           return l10n.dateSeparatorSunday;
         default:
-          return DateFormat('d MMMM yyyy').format(date);
+          return DateFormat('d MMMM').format(date);
       }
     }
 
-    // Data completa per messaggi più vecchi
-    return DateFormat('d MMMM yyyy').format(date);
+    // Data senza anno per messaggi più vecchi o futuri oltre la settimana
+    return DateFormat('d MMMM').format(date);
   }
 
   /// Determina se mostrare un separatore di data tra due messaggi
@@ -1009,36 +1022,6 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       if (kDebugMode) print('📜 [SCROLL] Count updated: $_lastMessageCount → $currentCount (no auto-scroll needed)');
     }
 
-    // 🔔 REMINDER AUTO-SCROLL: Rileva quando un reminder diventa visibile
-    final now = DateTime.now();
-    final currentlyHiddenReminders = chatService.messages
-        .where((m) =>
-            m.messageType == 'todo' &&
-            m.isReminder == true &&
-            m.timestamp.isAfter(now))
-        .map((m) => m.id)
-        .toSet();
-
-    // Trova reminder che erano nascosti ma ora sono visibili
-    final newlyVisibleReminders = _hiddenReminderIds.difference(currentlyHiddenReminders);
-
-    if (newlyVisibleReminders.isNotEmpty) {
-      if (kDebugMode) {
-        print('🔔 [REMINDER] ${newlyVisibleReminders.length} reminder(s) became visible');
-      }
-
-      // Scroll verso il basso per mostrare il reminder
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted && _scrollController.hasClients) {
-          _scrollToBottom(animated: true);
-          if (kDebugMode) print('✅ [SCROLL] Scrolled to show new reminder');
-        }
-      });
-    }
-
-    // Aggiorna il tracking dei reminder nascosti
-    _hiddenReminderIds = currentlyHiddenReminders;
-
     if (_isLoading) {
       return const Scaffold(
         body: Center(child: CircularProgressIndicator()),
@@ -1099,15 +1082,6 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                             if (message.messageType == 'todo_completed') {
                               // Non mostrare i messaggi di completamento
                               return const SizedBox.shrink();
-                            }
-
-                            // Nascondi reminder futuri (non ancora scattati)
-                            // Controlliamo il timestamp perché created_at = reminderDate per i reminder
-                            if (message.messageType == 'todo' && message.isReminder == true) {
-                              if (message.timestamp.isAfter(DateTime.now())) {
-                                // Reminder non ancora scattato, nascondilo
-                                return const SizedBox.shrink();
-                              }
                             }
 
                             // Verifica se il todo è stato completato

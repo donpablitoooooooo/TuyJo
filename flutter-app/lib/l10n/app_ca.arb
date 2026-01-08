@@ -156,6 +156,7 @@
 
     "dateSeparatorToday": "Avui",
     "dateSeparatorYesterday": "Ahir",
+    "dateSeparatorTomorrow": "Demà",
     "dateSeparatorMonday": "Dilluns",
     "dateSeparatorTuesday": "Dimarts",
     "dateSeparatorWednesday": "Dimecres",

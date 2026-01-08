@@ -155,6 +155,7 @@
     "pdfViewerError": "Errore: {error}",
     "dateSeparatorToday": "Oggi",
     "dateSeparatorYesterday": "Ieri",
+    "dateSeparatorTomorrow": "Domani",
     "dateSeparatorMonday": "Lunedì",
     "dateSeparatorTuesday": "Martedì",
     "dateSeparatorWednesday": "Mercoledì",
