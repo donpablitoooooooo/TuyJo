@@ -603,7 +603,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     DateTime selectedDate = DateTime.now().add(const Duration(days: 1));
     int selectedHour = 10;
     int selectedMinute = 0;
-    int? selectedReminderHours = _selectedReminderHours; // Mantieni la selezione precedente
+    int? selectedReminderHours = _selectedReminderHours ?? 1; // Default: 1 ora prima
 
     final hourController = FixedExtentScrollController(initialItem: selectedHour);
     final minuteController = FixedExtentScrollController(initialItem: selectedMinute);
@@ -673,64 +673,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                     ),
                   ),
                 ),
-                // Dropdown per selezione alert
-                Container(
-                  padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 20),
-                  decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.1),
-                  ),
-                  child: Row(
-                    children: [
-                      Icon(Icons.notifications_outlined, color: Colors.white.withOpacity(0.9), size: 20),
-                      const SizedBox(width: 12),
-                      Text(
-                        l10n.reminderLabel,
-                        style: TextStyle(
-                          color: Colors.white.withOpacity(0.9),
-                          fontSize: 14,
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                      const SizedBox(width: 16),
-                      Expanded(
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-                          decoration: BoxDecoration(
-                            color: Colors.white.withOpacity(0.2),
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: DropdownButtonHideUnderline(
-                            child: DropdownButton<int?>(
-                              value: selectedReminderHours,
-                              dropdownColor: const Color(0xFF764ba2),
-                              icon: Icon(Icons.arrow_drop_down, color: Colors.white.withOpacity(0.9)),
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 14,
-                                fontWeight: FontWeight.w500,
-                              ),
-                              items: [
-                                DropdownMenuItem(value: null, child: Text(l10n.reminderNone)),
-                                DropdownMenuItem(value: 1, child: Text(l10n.reminder1Hour)),
-                                ...List.generate(23, (i) => i + 2).map((h) =>
-                                  DropdownMenuItem(
-                                    value: h,
-                                    child: Text(l10n.reminderHours(h)),
-                                  )
-                                ),
-                                DropdownMenuItem(value: 48, child: Text(l10n.reminder2Days)),
-                              ],
-                              onChanged: (value) {
-                                setModalState(() => selectedReminderHours = value);
-                              },
-                            ),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                // Time picker con check button a lato
+                // Time picker con dropdown alert e check button
                 Container(
                   padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 16),
                   decoration: BoxDecoration(
@@ -820,8 +763,50 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                           ),
                         ),
                       ),
-                      const SizedBox(width: 16),
-                      // Check button a lato
+                      const SizedBox(width: 20),
+                      // Dropdown alert compatto
+                      Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(Icons.notifications_outlined, color: Colors.white.withOpacity(0.7), size: 18),
+                          const SizedBox(height: 4),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: Colors.white.withOpacity(0.15),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: DropdownButtonHideUnderline(
+                              child: DropdownButton<int?>(
+                                value: selectedReminderHours,
+                                dropdownColor: const Color(0xFF764ba2),
+                                icon: Icon(Icons.arrow_drop_down, color: Colors.white.withOpacity(0.7), size: 16),
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                                items: [
+                                  DropdownMenuItem(value: null, child: Text(l10n.reminderNone)),
+                                  DropdownMenuItem(value: 1, child: Text(l10n.reminder1Hour)),
+                                  ...List.generate(23, (i) => i + 2).map((h) =>
+                                    DropdownMenuItem(
+                                      value: h,
+                                      child: Text(l10n.reminderHours(h)),
+                                    )
+                                  ),
+                                  DropdownMenuItem(value: 48, child: Text(l10n.reminder2Days)),
+                                ],
+                                onChanged: (value) {
+                                  setModalState(() => selectedReminderHours = value);
+                                },
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(width: 12),
+                      // Check button
                       Container(
                         decoration: BoxDecoration(
                           color: Colors.white.withOpacity(0.2),
@@ -977,6 +962,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
           await chatService.sendTodoReminder(
             messageText,
             reminderDate,
+            todoDate, // Data originale del TODO
             _familyChatId!,
             _myDeviceId!,
             myPublicKey,

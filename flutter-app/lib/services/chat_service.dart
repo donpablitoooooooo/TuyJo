@@ -646,20 +646,22 @@ class ChatService extends ChangeNotifier {
   Future<bool> sendTodoReminder(
     String content,
     DateTime reminderDate,
+    DateTime originalTodoDate,
     String familyChatId,
     String senderId,
     String senderPublicKey,
     String recipientPublicKey,
   ) async {
     try {
-      // IMPORTANTE: usa reminderDate come timestamp per cronologia corretta
-      // Il messaggio apparirà cronologicamente quando scatta il reminder
+      // IMPORTANTE:
+      // - reminderDate: quando appare il reminder nella chat (timestamp/created_at)
+      // - originalTodoDate: la data effettiva del TODO (due_date)
       final plaintext = json.encode({
         'sender': senderId,
         'timestamp': reminderDate.millisecondsSinceEpoch ~/ 1000,
         'type': 'todo',
         'body': content,
-        'due_date': reminderDate.toIso8601String(),
+        'due_date': originalTodoDate.toIso8601String(), // Data del TODO originale!
         'is_reminder': true,
       });
 
@@ -691,7 +693,8 @@ class ChatService extends ChangeNotifier {
 
       if (kDebugMode) {
         print('🔔 Todo reminder sent to chat: ${messageRef.id}');
-        print('   Reminder date (created_at): ${reminderDate.toIso8601String()}');
+        print('   Reminder appears at (created_at): ${reminderDate.toIso8601String()}');
+        print('   Original TODO date (due_date): ${originalTodoDate.toIso8601String()}');
         print('   Status: delivered=true, read=false');
       }
       return true;
