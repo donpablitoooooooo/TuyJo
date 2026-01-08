@@ -10,6 +10,7 @@ import 'services/notification_service.dart';
 import 'services/pairing_service.dart';
 import 'services/message_cache_service.dart';
 import 'services/couple_selfie_service.dart';
+import 'services/attachment_service.dart';
 import 'package:private_messaging/generated/l10n/app_localizations.dart';
 
 void main() async {
