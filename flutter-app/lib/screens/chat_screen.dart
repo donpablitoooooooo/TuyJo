@@ -49,6 +49,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   int _lastMessageCount = 0;
   bool _isLoadingOlderMessages = false; // Track se stiamo caricando messaggi vecchi
   DateTime? _selectedTodoDate; // Data/ora selezionata per todo (null = messaggio normale)
+  int? _selectedReminderHours; // Ore prima del todo per l'alert (null = nessun alert)
   List<File> _selectedAttachments = []; // Lista di file selezionati da inviare
   bool _isUploadingAttachments = false; // Stato di upload allegati
 
@@ -602,6 +603,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     DateTime selectedDate = DateTime.now().add(const Duration(days: 1));
     int selectedHour = 10;
     int selectedMinute = 0;
+    int? selectedReminderHours = _selectedReminderHours; // Mantieni la selezione precedente
 
     final hourController = FixedExtentScrollController(initialItem: selectedHour);
     final minuteController = FixedExtentScrollController(initialItem: selectedMinute);
@@ -669,6 +671,63 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                         setModalState(() => selectedDate = date);
                       },
                     ),
+                  ),
+                ),
+                // Dropdown per selezione alert
+                Container(
+                  padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 20),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.1),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(Icons.notifications_outlined, color: Colors.white.withOpacity(0.9), size: 20),
+                      const SizedBox(width: 12),
+                      Text(
+                        l10n.reminderLabel,
+                        style: TextStyle(
+                          color: Colors.white.withOpacity(0.9),
+                          fontSize: 14,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withOpacity(0.2),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: DropdownButtonHideUnderline(
+                            child: DropdownButton<int?>(
+                              value: selectedReminderHours,
+                              dropdownColor: const Color(0xFF764ba2),
+                              icon: Icon(Icons.arrow_drop_down, color: Colors.white.withOpacity(0.9)),
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 14,
+                                fontWeight: FontWeight.w500,
+                              ),
+                              items: [
+                                DropdownMenuItem(value: null, child: Text(l10n.reminderNone)),
+                                DropdownMenuItem(value: 1, child: Text(l10n.reminder1Hour)),
+                                ...List.generate(23, (i) => i + 2).map((h) =>
+                                  DropdownMenuItem(
+                                    value: h,
+                                    child: Text(l10n.reminderHours.replaceAll('{hours}', h.toString())),
+                                  )
+                                ),
+                                DropdownMenuItem(value: 48, child: Text(l10n.reminder2Days)),
+                              ],
+                              onChanged: (value) {
+                                setModalState(() => selectedReminderHours = value);
+                              },
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                 ),
                 // Time picker con check button a lato
@@ -798,10 +857,16 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
 
     if (result == clearDate) {
       // X premuto per cancellare
-      setState(() => _selectedTodoDate = null);
+      setState(() {
+        _selectedTodoDate = null;
+        _selectedReminderHours = null;
+      });
     } else if (result != null) {
       // Data selezionata e confermata
-      setState(() => _selectedTodoDate = result);
+      setState(() {
+        _selectedTodoDate = result;
+        _selectedReminderHours = selectedReminderHours;
+      });
     }
     // Se result è null, l'utente ha chiuso senza azione (non cambiare niente)
   }
@@ -838,8 +903,12 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       }).toList();
     }
 
+    // Salva reminderHours prima di resettare
+    final reminderHours = _selectedReminderHours;
+
     setState(() {
       _selectedTodoDate = null; // Reset todo date
+      _selectedReminderHours = null; // Reset reminder hours
       _selectedAttachments.clear(); // Clear attachments
       _isUploadingAttachments = true; // Mostra loader
     });
@@ -902,17 +971,21 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       );
 
       if (success) {
-        // Invia anche il reminder
-        final reminderDate = todoDate.subtract(const Duration(hours: 1));
-        await chatService.sendTodoReminder(
-          messageText,
-          reminderDate,
-          _familyChatId!,
-          _myDeviceId!,
-          myPublicKey,
-          _partnerPublicKey!,
-        );
-        print('✅ Todo sent successfully');
+        // Invia il reminder solo se è stato selezionato un orario
+        if (reminderHours != null && reminderHours > 0) {
+          final reminderDate = todoDate.subtract(Duration(hours: reminderHours));
+          await chatService.sendTodoReminder(
+            messageText,
+            reminderDate,
+            _familyChatId!,
+            _myDeviceId!,
+            myPublicKey,
+            _partnerPublicKey!,
+          );
+          print('✅ Todo sent with reminder ($reminderHours hours before)');
+        } else {
+          print('✅ Todo sent without reminder');
+        }
       }
     } else {
       print('📤 Sending message...');

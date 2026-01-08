@@ -162,5 +162,10 @@
     "dateSeparatorThursday": "Giovedì",
     "dateSeparatorFriday": "Venerdì",
     "dateSeparatorSaturday": "Sabato",
-    "dateSeparatorSunday": "Domenica"
+    "dateSeparatorSunday": "Domenica",
+    "reminderLabel": "Avviso",
+    "reminderNone": "Nessun avviso",
+    "reminder1Hour": "1 ora prima",
+    "reminderHours": "{hours} ore prima",
+    "reminder2Days": "2 giorni prima"
 }

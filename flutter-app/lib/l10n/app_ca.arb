@@ -163,5 +163,10 @@
     "dateSeparatorThursday": "Dijous",
     "dateSeparatorFriday": "Divendres",
     "dateSeparatorSaturday": "Dissabte",
-    "dateSeparatorSunday": "Diumenge"
+    "dateSeparatorSunday": "Diumenge",
+    "reminderLabel": "Avís",
+    "reminderNone": "Sense avís",
+    "reminder1Hour": "1 hora abans",
+    "reminderHours": "{hours} hores abans",
+    "reminder2Days": "2 dies abans"
 }

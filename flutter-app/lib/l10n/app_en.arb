@@ -163,5 +163,10 @@
     "dateSeparatorThursday": "Thursday",
     "dateSeparatorFriday": "Friday",
     "dateSeparatorSaturday": "Saturday",
-    "dateSeparatorSunday": "Sunday"
+    "dateSeparatorSunday": "Sunday",
+    "reminderLabel": "Alert",
+    "reminderNone": "No alert",
+    "reminder1Hour": "1 hour before",
+    "reminderHours": "{hours} hours before",
+    "reminder2Days": "2 days before"
 }
