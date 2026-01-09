@@ -2,7 +2,7 @@
 
 App di messaggistica privata per due persone con crittografia end-to-end e pairing tramite QR code.
 
-[![Status](https://img.shields.io/badge/status-v1.8.0--stable-success)](./README.md)
+[![Status](https://img.shields.io/badge/status-v1.11.0--stable-success)](./README.md)
 [![Flutter](https://img.shields.io/badge/Flutter-3.x-blue)](https://flutter.dev)
 [![Firebase](https://img.shields.io/badge/Firebase-Firestore-orange)](https://firebase.google.com)
 
@@ -19,8 +19,11 @@ App di messaggistica privata per due persone con crittografia end-to-end e pairi
 - ✓✓ **Read Receipts** - spunte singole/doppie (consegnato/letto) in tempo reale
 - ⌨️ **Typing Indicator** - "Sta scrivendo..." quando il partner digita
 - 📅 **To Do & Reminders** - promemoria cifrati con notifiche schedulate 1h prima
+- 📆 **Calendario TODO Integrato** - vista calendario con range date e marker visivi
+- 📎 **TODO con Allegati** - foto e documenti allegabili ai TODO con E2E encryption
 - 📎 **Message Attachments** - foto, video, documenti cifrati E2E con thumbnail
 - 🖼️ **Fullscreen Viewer** - visualizzatore immagini con zoom e overlay tap-to-toggle
+- 💑 **Couple Selfie** - foto di coppia sincronizzata con crop circolare
 - 💾 **SQLite Cache** - caricamento istantaneo con lazy loading (100 messaggi iniziali)
 - 📜 **Infinite Scroll** - carica automaticamente 50 messaggi vecchi scrollando in alto
 - ⚡ **Performance Ottimizzate** - reverse ListView + ordine DESC per zero lag
@@ -58,7 +61,109 @@ App di messaggistica privata per due persone con crittografia end-to-end e pairi
 
 ---
 
-## 📦 Aggiornamenti Recenti (Dicembre 2025)
+## 📦 Aggiornamenti Recenti (Gennaio 2026)
+
+### 🎯 v1.11.0 - TODO & Calendar Enhancement (9 Gennaio 2026)
+
+**Nuove Feature:**
+
+1. **📆 Calendario TODO Integrato**
+   - Vista calendario dedicata per visualizzare tutti i TODO
+   - Selezione multipla date per TODO a range (es. "dal 25 al 31 gennaio")
+   - Marker visivi per giorni con TODO
+   - TODO a range visualizzati come "linea" su tutte le date del periodo
+   - Filtro automatico: solo TODO (non reminder) visibili nel calendario
+   - TODO completati con grafica differenziata (opacità, grigio, check icon)
+
+2. **📎 Supporto Allegati per TODO**
+   - Possibilità di allegare foto/documenti ai TODO
+   - Thumbnail allegati visualizzati nelle bubble TODO (chat)
+   - Allegati completamente interattivi nel calendario
+   - Click su foto/doc apre visualizzazione a schermo pieno
+   - Cifratura E2E mantenuta per tutti gli allegati
+
+3. **🔧 Widget Riutilizzabili**
+   - `TodoMessageBubble`: widget condiviso tra chat e calendario
+   - `AttachmentImage`, `AttachmentVideo`, `AttachmentDocument`: widget allegati riutilizzabili
+   - Future modifiche ai widget si riflettono automaticamente ovunque
+   - Colori differenziati: viola/blu per i tuoi TODO, grigio per quelli del partner
+
+4. **🎨 UI/UX Improvements**
+   - Separatori data colloquiali: "Oggi", "Ieri", "Lunedì 6 gennaio"
+   - Formato date range intelligente: "dal 25 al 31 gennaio" (no ripetizioni)
+   - Sezione Media con scroll automatico in basso per foto recenti
+   - TODO nel calendario con stessa grafica della chat
+
+**Miglioramenti Tecnici:**
+
+- ✅ Refactoring architetturale con cartella `widgets/` per componenti riutilizzabili
+- ✅ `AttachmentService` inizializzato correttamente con flag `_isInitialized`
+- ✅ `ScrollController` per posizionamento automatico scroll nella sezione Media
+- ✅ Gestione completa TODO range con date normalizzate
+- ✅ Separatori data visibili solo tra messaggi visibili (esclude TODO futuri/completati)
+
+**File Modificati:**
+- `pubspec.yaml`: Version 1.10.0+11 → **1.11.0+12**
+- `CHANGELOG.md`: Documentazione completa release
+- `flutter-app/lib/widgets/`: NUOVA cartella con widget riutilizzabili
+  - `todo_bubble.dart`: TodoMessageBubble condiviso
+  - `attachment_widgets.dart`: AttachmentImage, AttachmentVideo, AttachmentDocument, FullscreenImageViewer
+  - `README.md`: Documentazione tecnica widget
+- `calendar_screen.dart`: Usa TodoMessageBubble, colori differenziati, allegati interattivi
+- `chat_screen.dart`: Separatori data colloquiali, formato range ottimizzato
+- `media_screen.dart`: Ordine invertito (vecchi in alto), scroll automatico in basso
+
+**UX Flow Calendario:**
+- 📅 Apri calendario → vedi tutti i TODO con marker
+- 📆 Tap su data → lista TODO del giorno con bubble colorate
+- 💜 Viola/blu = tuo TODO, grigio = TODO del partner
+- 📎 Click allegato → fullscreen viewer con zoom
+- ⏳ Long press su TODO → completa
+- ✅ TODO completato → grafica grigia con check
+
+---
+
+### 📸 v1.10.0 - Couple Profile Photo Complete Redesign (23 Dicembre 2025)
+
+**Filosofia:** ONE photo on server, synchronized across devices
+
+**Nuove Feature:**
+
+1. **✅ Single Photo Enforcement**
+   - Fixed filename: `couple_selfie.jpg` (nessun timestamp)
+   - Delete old photo prima dell'upload (garantisce una sola foto)
+   - Real-time sync automatico aggiorna cache locale
+   - Problema risolto: niente più foto multiple accumulate
+
+2. **🗑️ Unpair Photo Logic Corretta**
+   - **Mode 'all'**: Elimina foto da Storage + Firestore + cache locale
+   - **Mode 'mine'**: Mantiene foto server, pulisce solo cache locale (Cambio Telefono)
+   - **Mode 'partner'**: Mantiene foto, triggera solo cleanup flag
+   - Fix bug: mode 'mine' e 'partner' non eliminano più foto dal server
+
+3. **💜 Gray Heart Icon Logic**
+   - Check `isPaired` PRIMA di mostrare foto
+   - Soluzione: foto appare solo se paired AND cached
+   - Fix bug: cuore grigio non mostra più foto dopo unpair
+
+**File Modificati:**
+- `couple_selfie_service.dart`:
+  - Delete old photo prima upload
+  - Fixed filename senza timestamp
+  - Check `isPaired` per mostrare foto
+- `settings_screen.dart`:
+  - Mode 'mine' e 'partner' non eliminano foto server
+- `main_screen.dart`:
+  - Check `isPaired` prima di mostrare cached selfie
+- `pubspec.yaml`: Version 1.9.0+10 → **1.10.0+11**
+
+**Bug Fix:**
+- ✅ Una sola foto garantita su server
+- ✅ Foto non eliminata durante "Cambio Telefono"
+- ✅ Cuore grigio non mostra foto se non paired
+- ✅ Real-time sync funziona correttamente
+
+---
 
 ### 🔄 v1.8.0 - Unpair Logic Redesign + Smart Cache Cleanup (22 Dicembre 2025)
 
@@ -993,6 +1098,13 @@ Aggiorna le security rules come indicato nella sezione Setup.
 - [x] **Unpair Logic Redesign** (3 opzioni: Tutti/Miei/Partner)
 - [x] **Auto Cache Cleanup** (quando partner fa "Elimina Tutto")
 - [x] **Remote Cache Deletion** (triggera pulizia su altro dispositivo)
+- [x] **Couple Selfie Redesign** (filename fisso + unpair logic corretta)
+- [x] **Calendario TODO** (vista calendario con range e marker)
+- [x] **TODO con Allegati** (foto/doc allegabili con E2E encryption)
+- [x] **Widget Riutilizzabili** (TodoMessageBubble + AttachmentWidgets)
+- [x] **Separatori Data Colloquiali** (Oggi, Ieri, formato italiano)
+- [x] **Date Range Ottimizzato** (no ripetizioni mese)
+- [x] **Media Scroll Bottom** (scroll automatico alle foto recenti)
 
 ### 🚧 Roadmap Future
 - [ ] Autenticazione anonima Firebase + regole DB/Storage aggiornate
@@ -1045,11 +1157,12 @@ Per problemi o domande:
 
 ---
 
-**Versione:** 1.8.0+9
-**Ultima modifica:** 2025-12-22
-**Architettura:** RSA-only + Dual Encryption + SQLite Cache + Smart Reminders + Real-time Indicators + E2E Attachments + Couple Selfie Sync + Smart Unpair System
-**Performance:** ⚡ Instant load (< 100ms) + Zero visual glitches + Scalable to 1000+ messages + Real-time updates "a razzo" 🚀 + Thumbnail caching + Multi-architecture (32/64-bit) + Auto cache sync
-**UX:** 🎨 Purple/White Modern Design + Hamburger Menu + Floating Icons + Smart Pairing Button + Couple Selfie with Circular Crop + WhatsApp-style indicators + Dynamic Timestamps + Fullscreen viewer + 3-way Unpair Options
-**Security:** 🔐 AES-256 + RSA-2048 dual encryption for messages AND files + Firebase Storage with encrypted binaries + Compartmentalized security rules + Robust pairing validation
-**Dependencies:** ✅ Updated to latest stable versions (Dec 2025) + image_cropper for circular crop
-**Reliability:** 🛡️ Graceful error handling + Auto cleanup on unpair + No corrupted families + Second pairing always works
+**Versione:** 1.11.0+12
+**Ultima modifica:** 2026-01-09
+**Architettura:** RSA-only + Dual Encryption + SQLite Cache + Smart Reminders + Real-time Indicators + E2E Attachments + Couple Selfie Sync + Smart Unpair System + Reusable Widgets
+**Performance:** ⚡ Instant load (< 100ms) + Zero visual glitches + Scalable to 1000+ messages + Real-time updates "a razzo" 🚀 + Thumbnail caching + Multi-architecture (32/64-bit) + Auto cache sync + Auto scroll media
+**UX:** 🎨 Purple/White Modern Design + Hamburger Menu + Floating Icons + Smart Pairing Button + Couple Selfie with Circular Crop + WhatsApp-style indicators + Dynamic Timestamps + Fullscreen viewer + 3-way Unpair Options + Calendario TODO + Colloquial Date Separators + Smart Date Range Format
+**Security:** 🔐 AES-256 + RSA-2048 dual encryption for messages AND files + Firebase Storage with encrypted binaries + Compartmentalized security rules + Robust pairing validation + TODO attachments encrypted E2E
+**Dependencies:** ✅ Updated to latest stable versions (Jan 2026) + image_cropper for circular crop + table_calendar ^3.1.2
+**Reliability:** 🛡️ Graceful error handling + Auto cleanup on unpair + No corrupted families + Second pairing always works + Fixed couple photo logic
+**Widgets:** 🧩 Reusable TodoMessageBubble + AttachmentWidgets (Image/Video/Document) + Shared across chat and calendar + Consistent UI/UX everywhere
