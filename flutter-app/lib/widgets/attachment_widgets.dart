@@ -37,7 +37,31 @@ class _AttachmentImageState extends State<AttachmentImage> {
   void initState() {
     super.initState();
     // Crea il Future solo una volta - non verrà ricreato al rebuild
-    _imageFuture = widget.attachmentService.downloadAndDecryptAttachment(
+    _imageFuture = _loadImage();
+  }
+
+  @override
+  void didUpdateWidget(AttachmentImage oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // Ricrea il Future SOLO se l'URL dell'attachment è cambiato
+    // (es. da vuoto a pieno quando il messaggio passa da pending a reale)
+    if (oldWidget.attachment.url != widget.attachment.url) {
+      if (kDebugMode) {
+        print('📸 [AttachmentImage] URL changed, reloading image');
+        print('   Old URL: ${oldWidget.attachment.url.isEmpty ? "(empty)" : "present"}');
+        print('   New URL: ${widget.attachment.url.isEmpty ? "(empty)" : "present"}');
+      }
+      _imageFuture = _loadImage();
+    }
+  }
+
+  Future<Uint8List?> _loadImage() {
+    // Se URL è vuoto, l'attachment è ancora in upload - ritorna null
+    if (widget.attachment.url.isEmpty) {
+      return Future.value(null);
+    }
+
+    return widget.attachmentService.downloadAndDecryptAttachment(
       widget.attachment,
       widget.currentUserId ?? '',
       widget.senderId ?? '',
