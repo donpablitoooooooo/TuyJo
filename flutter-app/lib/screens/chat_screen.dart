@@ -553,6 +553,36 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     return dateLabel;
   }
 
+  /// Formatta un range di date in modo intelligente
+  /// - Stesso mese: "dal 25 al 31 gennaio"
+  /// - Mesi consecutivi: "dal 25 dicembre al 3"
+  /// - Distanza > 1 mese: "dal 25 dicembre al 3 febbraio"
+  String _formatDateRange(DateTime start, DateTime end) {
+    final l10n = AppLocalizations.of(context)!;
+    final locale = Localizations.localeOf(context).toString();
+
+    // Calcola differenza in mesi
+    final monthsDiff = (end.year - start.year) * 12 + (end.month - start.month);
+
+    if (monthsDiff == 0) {
+      // Stesso mese: "dal 25 al 31 gennaio"
+      final startDay = DateFormat('d', locale).format(start);
+      final endDay = DateFormat('d', locale).format(end);
+      final month = DateFormat('MMMM', locale).format(start);
+      return '${l10n.dateRangeFrom} $startDay ${l10n.dateRangeTo} $endDay $month';
+    } else if (monthsDiff == 1) {
+      // Mesi consecutivi: "dal 25 dicembre al 3"
+      final startFormatted = DateFormat('d MMMM', locale).format(start);
+      final endDay = DateFormat('d', locale).format(end);
+      return '${l10n.dateRangeFrom} $startFormatted ${l10n.dateRangeTo} $endDay';
+    } else {
+      // Distanza > 1 mese: "dal 25 dicembre al 3 febbraio"
+      final startFormatted = DateFormat('d MMMM', locale).format(start);
+      final endFormatted = DateFormat('d MMMM', locale).format(end);
+      return '${l10n.dateRangeFrom} $startFormatted ${l10n.dateRangeTo} $endFormatted';
+    }
+  }
+
   /// Determina se mostrare un separatore di data tra due messaggi
   /// Confronta le date dei messaggi (ignorando l'ora)
   bool _shouldShowDateSeparator(Message currentMessage, Message? nextMessage) {
@@ -1443,10 +1473,8 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                                 final l10n = AppLocalizations.of(context)!;
 
                                 if (message.rangeEnd != null) {
-                                  // È un range: formatta "dal ... al ..."
-                                  final startFormatted = _formatTodoDate(message.dueDate!, includeTime: false);
-                                  final endFormatted = _formatTodoDate(message.rangeEnd!, includeTime: false);
-                                  formattedDate = '${l10n.dateRangeFrom} $startFormatted ${l10n.dateRangeTo} $endFormatted';
+                                  // È un range: formatta in modo intelligente
+                                  formattedDate = _formatDateRange(message.dueDate!, message.rangeEnd!);
                                 } else {
                                   // Data singola con ora in formato colloquiale
                                   formattedDate = _formatTodoDate(message.dueDate!, includeTime: true);

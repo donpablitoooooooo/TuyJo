@@ -82,6 +82,33 @@ class _CalendarScreenState extends State<CalendarScreen> {
     return _todosByDate[normalizedDay] ?? [];
   }
 
+  /// Formatta un range di date in modo intelligente
+  /// - Stesso mese: "dal 25 al 31 gennaio"
+  /// - Mesi consecutivi: "dal 25 dicembre al 3"
+  /// - Distanza > 1 mese: "dal 25 dicembre al 3 febbraio"
+  String _formatDateRange(DateTime start, DateTime end, String locale, AppLocalizations l10n) {
+    // Calcola differenza in mesi
+    final monthsDiff = (end.year - start.year) * 12 + (end.month - start.month);
+
+    if (monthsDiff == 0) {
+      // Stesso mese: "dal 25 al 31 gennaio"
+      final startDay = DateFormat('d', locale).format(start);
+      final endDay = DateFormat('d', locale).format(end);
+      final month = DateFormat('MMMM', locale).format(start);
+      return '${l10n.dateRangeFrom} $startDay ${l10n.dateRangeTo} $endDay $month';
+    } else if (monthsDiff == 1) {
+      // Mesi consecutivi: "dal 25 dicembre al 3"
+      final startFormatted = DateFormat('d MMMM', locale).format(start);
+      final endDay = DateFormat('d', locale).format(end);
+      return '${l10n.dateRangeFrom} $startFormatted ${l10n.dateRangeTo} $endDay';
+    } else {
+      // Distanza > 1 mese: "dal 25 dicembre al 3 febbraio"
+      final startFormatted = DateFormat('d MMMM', locale).format(start);
+      final endFormatted = DateFormat('d MMMM', locale).format(end);
+      return '${l10n.dateRangeFrom} $startFormatted ${l10n.dateRangeTo} $endFormatted';
+    }
+  }
+
   /// Completa un TODO
   Future<void> _completeTodo(String todoId) async {
     final pairingService = Provider.of<PairingService>(context, listen: false);
@@ -360,11 +387,13 @@ class _CalendarScreenState extends State<CalendarScreen> {
                                                     color: Colors.white70,
                                                   ),
                                                   const SizedBox(width: 4),
-                                                  Text(
-                                                    '${l10n.dateRangeFrom} ${DateFormat('d MMM', locale).format(todo.dueDate!)} ${l10n.dateRangeTo} ${DateFormat('d MMM', locale).format(todo.rangeEnd!)}',
-                                                    style: const TextStyle(
-                                                      color: Colors.white70,
-                                                      fontSize: 12,
+                                                  Flexible(
+                                                    child: Text(
+                                                      _formatDateRange(todo.dueDate!, todo.rangeEnd!, locale, l10n),
+                                                      style: const TextStyle(
+                                                        color: Colors.white70,
+                                                        fontSize: 12,
+                                                      ),
                                                     ),
                                                   ),
                                                 ],
