@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
@@ -5,6 +6,8 @@ import 'package:table_calendar/table_calendar.dart';
 import 'package:private_messaging/generated/l10n/app_localizations.dart';
 import '../models/message.dart';
 import '../services/chat_service.dart';
+import '../services/pairing_service.dart';
+import '../services/encryption_service.dart';
 
 class CalendarScreen extends StatefulWidget {
   const CalendarScreen({super.key});
@@ -68,8 +71,30 @@ class _CalendarScreenState extends State<CalendarScreen> {
 
   /// Completa un TODO
   Future<void> _completeTodo(String todoId) async {
+    final pairingService = Provider.of<PairingService>(context, listen: false);
     final chatService = Provider.of<ChatService>(context, listen: false);
-    await chatService.completeTodo(todoId);
+    final encryptionService = Provider.of<EncryptionService>(context, listen: false);
+
+    // Ottieni dati pairing
+    final familyChatId = await pairingService.getFamilyChatId();
+    final myDeviceId = await pairingService.getMyUserId();
+    final partnerPublicKey = pairingService.partnerPublicKey;
+    final myPublicKey = await encryptionService.getPublicKey();
+
+    if (familyChatId == null || myDeviceId == null || partnerPublicKey == null || myPublicKey == null) {
+      if (kDebugMode) print('❌ Cannot complete todo: missing pairing data');
+      return;
+    }
+
+    await chatService.sendTodoCompletion(
+      todoId,
+      familyChatId,
+      myDeviceId,
+      myPublicKey,
+      partnerPublicKey,
+    );
+
+    if (kDebugMode) print('✅ Todo marked as completed: $todoId');
 
     // Ricarica i TODO
     setState(() {
