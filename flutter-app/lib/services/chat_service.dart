@@ -590,6 +590,7 @@ class ChatService extends ChangeNotifier {
     String senderPublicKey,
     String recipientPublicKey, {
     DateTime? rangeEnd, // Parametro opzionale per TODO con range
+    List<Attachment>? attachments, // Allegati opzionali per TODO
   }) async {
     try {
       final timestamp = DateTime.now();
@@ -635,6 +636,8 @@ class ChatService extends ChangeNotifier {
         'message_type': 'todo', // Campo non criptato per la Cloud Function
         'delivered': true, // Messaggio consegnato al server
         'read': false, // Non ancora letto dal destinatario
+        if (attachments != null && attachments.isNotEmpty)
+          'attachments': attachments.map((a) => a.toJson()).toList(),
       });
 
       if (kDebugMode) {
@@ -660,6 +663,7 @@ class ChatService extends ChangeNotifier {
     String senderPublicKey,
     String recipientPublicKey, {
     DateTime? rangeEnd, // Parametro opzionale per TODO con range
+    List<Attachment>? attachments, // Allegati opzionali per TODO
   }) async {
     try {
       // IMPORTANTE:
@@ -705,6 +709,8 @@ class ChatService extends ChangeNotifier {
         'message_type': 'todo', // Campo non criptato per la Cloud Function
         'delivered': true, // Messaggio consegnato al server
         'read': false, // Non ancora letto dal destinatario
+        if (attachments != null && attachments.isNotEmpty)
+          'attachments': attachments.map((a) => a.toJson()).toList(),
       });
 
       if (kDebugMode) {

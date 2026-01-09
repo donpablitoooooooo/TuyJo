@@ -1144,11 +1144,45 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
 
     // Se c'è una data/range selezionato, invia come todo
     if (todoDate != null) {
+      // Upload allegati se presenti (con cifratura E2E dual)
+      List<Attachment>? uploadedAttachments;
+      if (attachments.isNotEmpty) {
+        try {
+          uploadedAttachments = await _attachmentService!.uploadMultipleAttachments(
+            attachments,
+            _familyChatId!,
+            _myDeviceId!,
+            myPublicKey, // Chiave pubblica mittente
+            _partnerPublicKey!, // Chiave pubblica destinatario
+          );
+
+          if (uploadedAttachments.isEmpty) {
+            throw Exception('No attachments uploaded');
+          }
+
+          if (kDebugMode) {
+            print('✅ ${uploadedAttachments.length} attachments uploaded successfully for TODO');
+          }
+        } catch (e) {
+          if (kDebugMode) print('❌ Error uploading TODO attachments: $e');
+          setState(() => _isUploadingAttachments = false);
+          final l10n = AppLocalizations.of(context)!;
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(l10n.chatAttachmentUploadError),
+              backgroundColor: Colors.red,
+            ),
+          );
+          return;
+        }
+      }
+
       if (isRange && rangeStart != null && rangeEnd != null) {
         // RANGE DI DATE: crea UN SOLO TODO con rangeEnd salvato nel database
         print('📅 Sending TODO with range...');
         print('   Range: ${rangeStart.toString()} to ${rangeEnd.toString()}');
         print('   Content: $messageText');
+        print('   Attachments: ${uploadedAttachments?.length ?? 0}');
 
         // Crea TODO con data = primo giorno del range alle 10:00
         final todoDueDate = DateTime(
@@ -1168,6 +1202,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
           myPublicKey,
           _partnerPublicKey!,
           rangeEnd: rangeEnd, // Passa rangeEnd come parametro
+          attachments: uploadedAttachments, // Passa attachments
         );
 
         if (success && reminderHours != null && reminderHours > 0) {
@@ -1181,6 +1216,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
             myPublicKey,
             _partnerPublicKey!,
             rangeEnd: rangeEnd, // Passa rangeEnd anche al reminder
+            attachments: uploadedAttachments, // Passa attachments anche al reminder
           );
         }
 
@@ -1190,6 +1226,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
         print('📅 Sending single todo...');
         print('   Due date: ${todoDate.toIso8601String()}');
         print('   Content: $messageText');
+        print('   Attachments: ${uploadedAttachments?.length ?? 0}');
 
         success = await chatService.sendTodo(
           messageText,
@@ -1198,6 +1235,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
           _myDeviceId!,
           myPublicKey,
           _partnerPublicKey!,
+          attachments: uploadedAttachments, // Passa attachments
         );
 
         if (success && reminderHours != null && reminderHours > 0) {
@@ -1210,6 +1248,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
             _myDeviceId!,
             myPublicKey,
             _partnerPublicKey!,
+            attachments: uploadedAttachments, // Passa attachments anche al reminder
           );
           print('✅ Todo sent with reminder ($reminderHours hours before)');
         } else {
