@@ -2,6 +2,83 @@
 
 All notable changes to YouAndMe app will be documented in this file.
 
+## [1.11.0] - 2026-01-09
+
+### 🎯 TODO & Calendar Enhancement
+
+#### ✨ New Features
+
+- **Calendario TODO Integrato**
+  - Vista calendario dedicata per visualizzare tutti i TODO
+  - Selezione multipla date per TODO a range (es. "dal 25 al 31 gennaio")
+  - Marker visivi per giorni con TODO
+  - TODO a range visualizzati come "linea" su tutte le date del periodo
+  - Filtro automatico: solo TODO (non reminder) visibili nel calendario
+  - TODO completati mostrati con grafica differenziata (opacità, grigio, check icon)
+
+- **Supporto Allegati per TODO**
+  - Possibilità di allegare foto/documenti ai TODO
+  - Thumbnail allegati visualizzati nelle bubble TODO (chat)
+  - Allegati completamente interattivi nel calendario
+  - Click su foto/doc apre visualizzazione a schermo pieno
+  - Cifratura E2E mantenuta per tutti gli allegati
+
+- **Widget Riutilizzabili**
+  - `TodoMessageBubble`: widget condiviso tra chat e calendario
+  - `AttachmentImage`, `AttachmentVideo`, `AttachmentDocument`: widget allegati riutilizzabili
+  - Future modifiche ai widget si riflettono automaticamente ovunque
+  - Colori differenziati: viola/blu per i tuoi TODO, grigio per quelli del partner
+
+#### 🎨 UI/UX Improvements
+
+- **Separatori Data Colloquiali**
+  - Formato italiano naturale: "Oggi", "Ieri", "Lunedì 6 gennaio"
+  - Separatori grafici con icona bandiera e gradient
+  - Separatori mostrati solo tra messaggi visibili (esclude TODO futuri/completati)
+
+- **Ottimizzazione Formato Date Range**
+  - Stesso mese: "dal 25 al 31 gennaio" (non ripete il mese)
+  - Mesi consecutivi: "dal 25 dicembre al 3" (omette secondo mese)
+  - >1 mese distanza: "dal 25 dicembre al 3 febbraio"
+  - Logica applicata sia in chat che nel calendario
+
+- **Sezione Media Migliorata**
+  - Ordine invertito: foto vecchie in alto, recenti in basso
+  - Scroll posizionato automaticamente in basso all'apertura
+  - Accesso immediato alle foto più recenti senza scrollare
+
+#### 🔧 Technical Improvements
+
+- **Refactoring Architetturale**
+  - Creata cartella `widgets/` per componenti riutilizzabili
+  - Separazione concerns: UI components vs business logic
+  - Migliore manutenibilità del codice
+
+- **Gestione State Calendar**
+  - `AttachmentService` inizializzato correttamente con flag `_isInitialized`
+  - `ScrollController` per posizionamento automatico scroll
+  - Gestione completa TODO range con date normalizzate
+
+#### 📱 User Experience
+
+- **Calendar Screen**
+  - Spazio superiore (80px) per non coprire menu e foto profilo
+  - Formattazione intelligente date basata su locale
+  - Long press su TODO per completarlo
+  - Hint visivo: "Tieni premuto per completare"
+
+- **Chat Screen**
+  - TODO bubble con stesso design di messaggi normali
+  - Allegati visualizzati per primi (full width), poi testo
+  - ClipRRect per bordi arrotondati eleganti
+  - Icons differenziati: campanello (reminder) vs calendario (TODO)
+
+#### 🐛 Bug Fixes
+
+- Corretto import `Attachment` in `attachment_widgets.dart` (da `message.dart`)
+- Separatori data non più mostrati "in mezzo ai messaggi"
+- AttachmentService correttamente passato a tutti i widget che ne hanno bisogno
+
 ## [1.10.0] - 2025-12-23
 
 ### 📸 Couple Profile Photo - Complete Redesign
