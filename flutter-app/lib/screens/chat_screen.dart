@@ -1555,10 +1555,10 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                             if (showDateSeparator) {
                               return Column(
                                 children: [
-                                  messageWidget,
                                   _DateSeparator(
                                     dateLabel: _formatDateSeparator(message.timestamp),
                                   ),
+                                  messageWidget,
                                 ],
                               );
                             }
