@@ -8,6 +8,7 @@ import '../models/message.dart';
 import '../services/chat_service.dart';
 import '../services/pairing_service.dart';
 import '../services/encryption_service.dart';
+import '../services/attachment_service.dart';
 
 class CalendarScreen extends StatefulWidget {
   const CalendarScreen({super.key});
@@ -20,17 +21,36 @@ class _CalendarScreenState extends State<CalendarScreen> {
   DateTime _focusedDay = DateTime.now();
   DateTime? _selectedDay;
   final Map<DateTime, List<Message>> _todosByDate = {};
+  AttachmentService? _attachmentService;
+  String? _myDeviceId;
 
   @override
   void initState() {
     super.initState();
     _selectedDay = _focusedDay;
+    _initializeAttachmentService();
   }
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
     _loadTodos();
+  }
+
+  /// Inizializza AttachmentService
+  Future<void> _initializeAttachmentService() async {
+    final pairingService = Provider.of<PairingService>(context, listen: false);
+    final encryptionService = Provider.of<EncryptionService>(context, listen: false);
+
+    _myDeviceId = await pairingService.getMyUserId();
+
+    if (mounted) {
+      setState(() {
+        _attachmentService = AttachmentService(
+          encryptionService: encryptionService,
+        );
+      });
+    }
   }
 
   /// Carica tutti i TODO e li raggruppa per data
@@ -415,6 +435,33 @@ class _CalendarScreenState extends State<CalendarScreen> {
                                                     ),
                                                   ),
                                                 ],
+                                              ),
+                                            ],
+                                            // Mostra allegati se presenti
+                                            if (todo.attachments != null && todo.attachments!.isNotEmpty && _attachmentService != null) ...[
+                                              const SizedBox(height: 6),
+                                              Wrap(
+                                                spacing: 4,
+                                                runSpacing: 4,
+                                                children: todo.attachments!.map((attachment) {
+                                                  return Container(
+                                                    width: 40,
+                                                    height: 40,
+                                                    decoration: BoxDecoration(
+                                                      color: Colors.white.withOpacity(0.2),
+                                                      borderRadius: BorderRadius.circular(6),
+                                                    ),
+                                                    child: Icon(
+                                                      attachment.type == 'photo'
+                                                          ? Icons.image
+                                                          : attachment.type == 'video'
+                                                              ? Icons.videocam
+                                                              : Icons.insert_drive_file,
+                                                      color: Colors.white70,
+                                                      size: 20,
+                                                    ),
+                                                  );
+                                                }).toList(),
                                               ),
                                             ],
                                           ],
