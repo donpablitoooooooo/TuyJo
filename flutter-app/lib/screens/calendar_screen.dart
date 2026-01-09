@@ -24,6 +24,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
   final Map<DateTime, List<Message>> _todosByDate = {};
   AttachmentService? _attachmentService;
   String? _myDeviceId;
+  bool _isInitialized = false;
 
   @override
   void initState() {
@@ -50,6 +51,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
         _attachmentService = AttachmentService(
           encryptionService: encryptionService,
         );
+        _isInitialized = true;
       });
     }
   }
@@ -364,6 +366,15 @@ class _CalendarScreenState extends State<CalendarScreen> {
 
                                   // Determina se è stato creato da me
                                   final isMe = todo.senderId == _myDeviceId;
+
+                                  if (kDebugMode) {
+                                    print('📅 [Calendar] TODO: ${todo.decryptedContent}');
+                                    print('  - senderId: ${todo.senderId}');
+                                    print('  - myDeviceId: $_myDeviceId');
+                                    print('  - isMe: $isMe');
+                                    print('  - attachments: ${todo.attachments?.length ?? 0}');
+                                    print('  - attachmentService: ${_attachmentService != null}');
+                                  }
 
                                   // Formatta la data
                                   String? formattedDate;

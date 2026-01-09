@@ -80,6 +80,16 @@ class AttachmentImage extends StatelessWidget {
             useThumbnail: true, // Usa thumbnail per performance
           ),
           builder: (context, snapshot) {
+            if (kDebugMode) {
+              print('📸 [AttachmentImage] State: ${snapshot.connectionState}');
+              print('  - hasError: ${snapshot.hasError}');
+              print('  - hasData: ${snapshot.hasData}');
+              print('  - data size: ${snapshot.data?.length ?? 0}');
+              if (snapshot.hasError) {
+                print('  - error: ${snapshot.error}');
+              }
+            }
+
             if (snapshot.connectionState == ConnectionState.waiting) {
               // Caricamento
               return SizedBox(

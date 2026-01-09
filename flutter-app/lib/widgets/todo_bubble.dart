@@ -35,12 +35,24 @@ class TodoMessageBubble extends StatelessWidget {
   /// Costruisce i widget per mostrare gli allegati (decifrati)
   List<Widget> _buildAttachments() {
     if (message.attachments == null || message.attachments!.isEmpty) {
+      if (kDebugMode) {
+        print('🔗 [TodoBubble] No attachments for message ${message.id}');
+      }
       return [];
     }
 
     // Se attachmentService non è disponibile, non mostrare allegati
     if (attachmentService == null) {
+      if (kDebugMode) {
+        print('❌ [TodoBubble] AttachmentService is null for message ${message.id}');
+      }
       return [];
+    }
+
+    if (kDebugMode) {
+      print('✅ [TodoBubble] Building ${message.attachments!.length} attachments');
+      print('  - currentUserId: $currentUserId');
+      print('  - senderId: $senderId');
     }
 
     return [
