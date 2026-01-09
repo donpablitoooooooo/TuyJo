@@ -357,6 +357,14 @@ class AttachmentService {
           ? attachment.thumbnailUrl!
           : attachment.url;
 
+      // Se URL è vuoto, l'attachment è ancora in upload - ritorna null
+      if (url.isEmpty) {
+        if (kDebugMode) {
+          print('⏳ Attachment URL is empty - file still uploading');
+        }
+        return null;
+      }
+
       if (kDebugMode) {
         print('📥 Downloading encrypted ${useThumbnail ? "thumbnail" : "full image"}...');
         print('   File: ${attachment.fileName}');
