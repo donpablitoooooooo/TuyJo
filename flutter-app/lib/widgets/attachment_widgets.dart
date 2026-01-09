@@ -5,7 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:open_filex/open_filex.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:private_messaging/generated/l10n/app_localizations.dart';
-import '../models/attachment.dart';
+import '../models/message.dart';
 import '../services/attachment_service.dart';
 import '../screens/pdf_viewer_screen.dart';
 
