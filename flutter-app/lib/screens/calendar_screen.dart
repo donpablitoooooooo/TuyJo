@@ -39,25 +39,38 @@ class _CalendarScreenState extends State<CalendarScreen> {
     _todosByDate.clear();
 
     for (final message in chatService.messages) {
-      // Considera solo i TODO non completati
-      if (message.messageType == 'todo' && message.dueDate != null) {
-        // Verifica se è completato
-        final isCompleted = chatService.messages.any((m) =>
-            m.messageType == 'todo_completed' &&
-            m.originalTodoId == message.id);
+      // Considera solo i TODO (non i reminder)
+      if (message.messageType == 'todo' && message.dueDate != null && message.isReminder != true) {
+        // Normalizza la data (solo giorno, senza ora)
+        final startDate = DateTime(
+          message.dueDate!.year,
+          message.dueDate!.month,
+          message.dueDate!.day,
+        );
 
-        if (!isCompleted) {
-          // Normalizza la data (solo giorno, senza ora)
-          final date = DateTime(
-            message.dueDate!.year,
-            message.dueDate!.month,
-            message.dueDate!.day,
+        // Se ha un range, aggiungilo a tutte le date del range
+        if (message.rangeEnd != null) {
+          final endDate = DateTime(
+            message.rangeEnd!.year,
+            message.rangeEnd!.month,
+            message.rangeEnd!.day,
           );
 
-          if (!_todosByDate.containsKey(date)) {
-            _todosByDate[date] = [];
+          // Aggiungi il TODO a ogni giorno nel range
+          DateTime currentDate = startDate;
+          while (currentDate.isBefore(endDate.add(const Duration(days: 1)))) {
+            if (!_todosByDate.containsKey(currentDate)) {
+              _todosByDate[currentDate] = [];
+            }
+            _todosByDate[currentDate]!.add(message);
+            currentDate = currentDate.add(const Duration(days: 1));
           }
-          _todosByDate[date]!.add(message);
+        } else {
+          // TODO singolo
+          if (!_todosByDate.containsKey(startDate)) {
+            _todosByDate[startDate] = [];
+          }
+          _todosByDate[startDate]!.add(message);
         }
       }
     }
@@ -130,18 +143,8 @@ class _CalendarScreenState extends State<CalendarScreen> {
         child: SafeArea(
           child: Column(
             children: [
-              // Header
-              Padding(
-                padding: const EdgeInsets.all(16),
-                child: Text(
-                  l10n.calendarTitle,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 24,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ),
+              // Spazio superiore per non coprire menu e foto profilo
+              const SizedBox(height: 80),
 
               // Calendario
               Container(
@@ -301,86 +304,105 @@ class _CalendarScreenState extends State<CalendarScreen> {
                                   final todo = todosForSelectedDay[index];
                                   final timeFormat = DateFormat('HH:mm');
 
-                                  return Container(
-                                    decoration: BoxDecoration(
-                                      gradient: const LinearGradient(
-                                        colors: [Color(0xFF667eea), Color(0xFF764ba2)],
-                                      ),
-                                      borderRadius: BorderRadius.circular(12),
-                                      boxShadow: [
-                                        BoxShadow(
-                                          color: const Color(0xFF667eea).withOpacity(0.3),
-                                          blurRadius: 8,
-                                          offset: const Offset(0, 2),
+                                  // Verifica se è completato
+                                  final isCompleted = chatService.messages.any((m) =>
+                                      m.messageType == 'todo_completed' &&
+                                      m.originalTodoId == todo.id);
+
+                                  return Opacity(
+                                    opacity: isCompleted ? 0.5 : 1.0,
+                                    child: Container(
+                                      decoration: BoxDecoration(
+                                        gradient: LinearGradient(
+                                          colors: isCompleted
+                                              ? [Colors.grey[400]!, Colors.grey[500]!]
+                                              : [const Color(0xFF667eea), const Color(0xFF764ba2)],
                                         ),
-                                      ],
-                                    ),
-                                    child: ListTile(
-                                      contentPadding: const EdgeInsets.symmetric(
-                                        horizontal: 16,
-                                        vertical: 8,
-                                      ),
-                                      leading: Icon(
-                                        todo.isReminder == true
-                                            ? Icons.notifications_outlined
-                                            : Icons.event_outlined,
-                                        color: Colors.white,
-                                        size: 24,
-                                      ),
-                                      title: Text(
-                                        todo.decryptedContent ?? l10n.chatTodoDefault,
-                                        style: const TextStyle(
-                                          color: Colors.white,
-                                          fontWeight: FontWeight.w600,
-                                          fontSize: 15,
-                                        ),
-                                      ),
-                                      subtitle: Column(
-                                        crossAxisAlignment: CrossAxisAlignment.start,
-                                        children: [
-                                          const SizedBox(height: 4),
-                                          Row(
-                                            children: [
-                                              const Icon(
-                                                Icons.access_time,
-                                                size: 14,
-                                                color: Colors.white70,
-                                              ),
-                                              const SizedBox(width: 4),
-                                              Text(
-                                                timeFormat.format(todo.dueDate!),
-                                                style: const TextStyle(
-                                                  color: Colors.white70,
-                                                  fontSize: 12,
-                                                ),
-                                              ),
-                                              if (todo.rangeEnd != null) ...[
-                                                const SizedBox(width: 8),
-                                                const Icon(
-                                                  Icons.arrow_forward,
-                                                  size: 14,
-                                                  color: Colors.white70,
-                                                ),
-                                                const SizedBox(width: 4),
-                                                Text(
-                                                  DateFormat('d MMM', locale).format(todo.rangeEnd!),
-                                                  style: const TextStyle(
-                                                    color: Colors.white70,
-                                                    fontSize: 12,
-                                                  ),
-                                                ),
-                                              ],
-                                            ],
+                                        borderRadius: BorderRadius.circular(12),
+                                        boxShadow: [
+                                          BoxShadow(
+                                            color: (isCompleted ? Colors.grey[400]! : const Color(0xFF667eea)).withOpacity(0.3),
+                                            blurRadius: 8,
+                                            offset: const Offset(0, 2),
                                           ),
                                         ],
                                       ),
-                                      trailing: IconButton(
-                                        onPressed: () => _completeTodo(todo.id),
-                                        icon: const Icon(
-                                          Icons.check_circle_outline,
-                                          color: Colors.white,
+                                      child: ListTile(
+                                        contentPadding: const EdgeInsets.symmetric(
+                                          horizontal: 16,
+                                          vertical: 8,
                                         ),
-                                        tooltip: l10n.calendarMarkAsCompleted,
+                                        leading: Icon(
+                                          isCompleted ? Icons.check_circle : Icons.event_outlined,
+                                          color: Colors.white,
+                                          size: 24,
+                                        ),
+                                        title: Text(
+                                          todo.decryptedContent ?? l10n.chatTodoDefault,
+                                          style: TextStyle(
+                                            color: Colors.white,
+                                            fontWeight: FontWeight.w600,
+                                            fontSize: 15,
+                                            decoration: isCompleted ? TextDecoration.lineThrough : null,
+                                          ),
+                                        ),
+                                        subtitle: Column(
+                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          children: [
+                                            const SizedBox(height: 4),
+                                            // Mostra range se presente, altrimenti solo ora
+                                            if (todo.rangeEnd != null) ...[
+                                              Row(
+                                                children: [
+                                                  const Icon(
+                                                    Icons.calendar_today,
+                                                    size: 14,
+                                                    color: Colors.white70,
+                                                  ),
+                                                  const SizedBox(width: 4),
+                                                  Text(
+                                                    '${l10n.dateRangeFrom} ${DateFormat('d MMM', locale).format(todo.dueDate!)} ${l10n.dateRangeTo} ${DateFormat('d MMM', locale).format(todo.rangeEnd!)}',
+                                                    style: const TextStyle(
+                                                      color: Colors.white70,
+                                                      fontSize: 12,
+                                                    ),
+                                                  ),
+                                                ],
+                                              ),
+                                            ] else ...[
+                                              Row(
+                                                children: [
+                                                  const Icon(
+                                                    Icons.access_time,
+                                                    size: 14,
+                                                    color: Colors.white70,
+                                                  ),
+                                                  const SizedBox(width: 4),
+                                                  Text(
+                                                    timeFormat.format(todo.dueDate!),
+                                                    style: const TextStyle(
+                                                      color: Colors.white70,
+                                                      fontSize: 12,
+                                                    ),
+                                                  ),
+                                                ],
+                                              ),
+                                            ],
+                                          ],
+                                        ),
+                                        trailing: isCompleted
+                                            ? const Icon(
+                                                Icons.check_circle,
+                                                color: Colors.white,
+                                              )
+                                            : IconButton(
+                                                onPressed: () => _completeTodo(todo.id),
+                                                icon: const Icon(
+                                                  Icons.check_circle_outline,
+                                                  color: Colors.white,
+                                                ),
+                                                tooltip: l10n.calendarMarkAsCompleted,
+                                              ),
                                       ),
                                     ),
                                   );
