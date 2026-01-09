@@ -9,6 +9,7 @@ import '../services/chat_service.dart';
 import '../services/pairing_service.dart';
 import '../services/encryption_service.dart';
 import '../services/attachment_service.dart';
+import '../widgets/todo_bubble.dart';
 
 class CalendarScreen extends StatefulWidget {
   const CalendarScreen({super.key});
@@ -127,6 +128,12 @@ class _CalendarScreenState extends State<CalendarScreen> {
       final endFormatted = DateFormat('d MMMM', locale).format(end);
       return '${l10n.dateRangeFrom} $startFormatted ${l10n.dateRangeTo} $endFormatted';
     }
+  }
+
+  /// Formatta la data del TODO con ora
+  String _formatTodoDate(DateTime date, String locale) {
+    final timeFormat = DateFormat('HH:mm', locale).format(date);
+    return timeFormat;
   }
 
   /// Completa un TODO
@@ -349,138 +356,36 @@ class _CalendarScreenState extends State<CalendarScreen> {
                                 separatorBuilder: (context, index) => const SizedBox(height: 12),
                                 itemBuilder: (context, index) {
                                   final todo = todosForSelectedDay[index];
-                                  final timeFormat = DateFormat('HH:mm');
 
                                   // Verifica se è completato
                                   final isCompleted = chatService.messages.any((m) =>
                                       m.messageType == 'todo_completed' &&
                                       m.originalTodoId == todo.id);
 
-                                  return Opacity(
-                                    opacity: isCompleted ? 0.5 : 1.0,
-                                    child: Container(
-                                      decoration: BoxDecoration(
-                                        gradient: LinearGradient(
-                                          colors: isCompleted
-                                              ? [Colors.grey[400]!, Colors.grey[500]!]
-                                              : [const Color(0xFF667eea), const Color(0xFF764ba2)],
-                                        ),
-                                        borderRadius: BorderRadius.circular(12),
-                                        boxShadow: [
-                                          BoxShadow(
-                                            color: (isCompleted ? Colors.grey[400]! : const Color(0xFF667eea)).withOpacity(0.3),
-                                            blurRadius: 8,
-                                            offset: const Offset(0, 2),
-                                          ),
-                                        ],
-                                      ),
-                                      child: ListTile(
-                                        contentPadding: const EdgeInsets.symmetric(
-                                          horizontal: 16,
-                                          vertical: 8,
-                                        ),
-                                        leading: Icon(
-                                          isCompleted ? Icons.check_circle : Icons.event_outlined,
-                                          color: Colors.white,
-                                          size: 24,
-                                        ),
-                                        title: Text(
-                                          todo.decryptedContent ?? l10n.chatTodoDefault,
-                                          style: TextStyle(
-                                            color: Colors.white,
-                                            fontWeight: FontWeight.w600,
-                                            fontSize: 15,
-                                            decoration: isCompleted ? TextDecoration.lineThrough : null,
-                                          ),
-                                        ),
-                                        subtitle: Column(
-                                          crossAxisAlignment: CrossAxisAlignment.start,
-                                          children: [
-                                            const SizedBox(height: 4),
-                                            // Mostra range se presente, altrimenti solo ora
-                                            if (todo.rangeEnd != null) ...[
-                                              Row(
-                                                children: [
-                                                  const Icon(
-                                                    Icons.calendar_today,
-                                                    size: 14,
-                                                    color: Colors.white70,
-                                                  ),
-                                                  const SizedBox(width: 4),
-                                                  Flexible(
-                                                    child: Text(
-                                                      _formatDateRange(todo.dueDate!, todo.rangeEnd!, locale, l10n),
-                                                      style: const TextStyle(
-                                                        color: Colors.white70,
-                                                        fontSize: 12,
-                                                      ),
-                                                    ),
-                                                  ),
-                                                ],
-                                              ),
-                                            ] else ...[
-                                              Row(
-                                                children: [
-                                                  const Icon(
-                                                    Icons.access_time,
-                                                    size: 14,
-                                                    color: Colors.white70,
-                                                  ),
-                                                  const SizedBox(width: 4),
-                                                  Text(
-                                                    timeFormat.format(todo.dueDate!),
-                                                    style: const TextStyle(
-                                                      color: Colors.white70,
-                                                      fontSize: 12,
-                                                    ),
-                                                  ),
-                                                ],
-                                              ),
-                                            ],
-                                            // Mostra allegati se presenti
-                                            if (todo.attachments != null && todo.attachments!.isNotEmpty && _attachmentService != null) ...[
-                                              const SizedBox(height: 6),
-                                              Wrap(
-                                                spacing: 4,
-                                                runSpacing: 4,
-                                                children: todo.attachments!.map((attachment) {
-                                                  return Container(
-                                                    width: 40,
-                                                    height: 40,
-                                                    decoration: BoxDecoration(
-                                                      color: Colors.white.withOpacity(0.2),
-                                                      borderRadius: BorderRadius.circular(6),
-                                                    ),
-                                                    child: Icon(
-                                                      attachment.type == 'photo'
-                                                          ? Icons.image
-                                                          : attachment.type == 'video'
-                                                              ? Icons.videocam
-                                                              : Icons.insert_drive_file,
-                                                      color: Colors.white70,
-                                                      size: 20,
-                                                    ),
-                                                  );
-                                                }).toList(),
-                                              ),
-                                            ],
-                                          ],
-                                        ),
-                                        trailing: isCompleted
-                                            ? const Icon(
-                                                Icons.check_circle,
-                                                color: Colors.white,
-                                              )
-                                            : IconButton(
-                                                onPressed: () => _completeTodo(todo.id),
-                                                icon: const Icon(
-                                                  Icons.check_circle_outline,
-                                                  color: Colors.white,
-                                                ),
-                                                tooltip: l10n.calendarMarkAsCompleted,
-                                              ),
-                                      ),
-                                    ),
+                                  // Determina se è stato creato da me
+                                  final isMe = todo.senderId == _myDeviceId;
+
+                                  // Formatta la data
+                                  String? formattedDate;
+                                  if (todo.dueDate != null) {
+                                    if (todo.rangeEnd != null) {
+                                      // È un range: formatta in modo intelligente
+                                      formattedDate = _formatDateRange(todo.dueDate!, todo.rangeEnd!, locale, l10n);
+                                    } else {
+                                      // Data singola con ora
+                                      formattedDate = _formatTodoDate(todo.dueDate!, locale);
+                                    }
+                                  }
+
+                                  return TodoMessageBubble(
+                                    message: todo,
+                                    isMe: isMe,
+                                    isCompleted: isCompleted,
+                                    onComplete: () => _completeTodo(todo.id),
+                                    formattedDate: formattedDate,
+                                    attachmentService: _attachmentService,
+                                    senderId: todo.senderId,
+                                    currentUserId: _myDeviceId,
                                   );
                                 },
                               ),
