@@ -1909,6 +1909,7 @@ class _MessageBubble extends StatelessWidget {
       ...attachments!.map((attachment) {
         if (attachment.type == 'photo') {
           return AttachmentImage(
+            key: ValueKey(attachment.id), // Key stabile per mantenere lo State
             attachment: attachment,
             isMe: isMe,
             currentUserId: currentUserId,
@@ -1917,6 +1918,7 @@ class _MessageBubble extends StatelessWidget {
           );
         } else if (attachment.type == 'video') {
           return AttachmentVideo(
+            key: ValueKey(attachment.id), // Key stabile per mantenere lo State
             attachment: attachment,
             isMe: isMe,
             currentUserId: currentUserId,
@@ -1924,6 +1926,7 @@ class _MessageBubble extends StatelessWidget {
           );
         } else {
           return AttachmentDocument(
+            key: ValueKey(attachment.id), // Key stabile per mantenere lo State
             attachment: attachment,
             isMe: isMe,
             currentUserId: currentUserId,
