@@ -1523,7 +1523,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                               }
 
                               messageWidget = TodoMessageBubble(
-                                key: ValueKey('${message.id}_${message.read}'),
+                                key: ValueKey(message.id), // Key stabile basata solo sull'ID
                                 message: message,
                                 isMe: isMe,
                                 isCompleted: isTodoCompleted,
@@ -1538,7 +1538,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                               final decryptedContent = message.decryptedContent ?? '[Messaggio non decifrabile]';
 
                               messageWidget = _MessageBubble(
-                                key: ValueKey('${message.senderId}_${message.timestamp.millisecondsSinceEpoch}_${message.read}'),
+                                key: ValueKey(message.id), // Key stabile basata solo sull'ID
                                 message: decryptedContent,
                                 timestamp: message.timestamp,
                                 isMe: isMe,
