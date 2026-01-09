@@ -11,6 +11,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:flutter_linkify/flutter_linkify.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:receive_sharing_intent/receive_sharing_intent.dart';
+import 'package:table_calendar/table_calendar.dart';
 import 'package:private_messaging/generated/l10n/app_localizations.dart';
 import '../services/pairing_service.dart';
 import '../services/chat_service.dart';
@@ -18,6 +19,8 @@ import '../services/encryption_service.dart';
 import '../services/notification_service.dart';
 import '../services/attachment_service.dart';
 import '../models/message.dart';
+import '../widgets/todo_bubble.dart';
+import '../widgets/attachment_widgets.dart';
 import 'pdf_viewer_screen.dart';
 
 class ChatScreen extends StatefulWidget {
@@ -46,11 +49,13 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   bool _lastPairingStatus = false;
   String? _lastFamilyChatId;
   Timer? _typingTimer;
-  Timer? _reminderCheckTimer; // Timer per controllare reminder visibili
   int _lastMessageCount = 0;
   bool _isLoadingOlderMessages = false; // Track se stiamo caricando messaggi vecchi
-  Set<String> _hiddenReminderIds = {}; // Track reminder nascosti per rilevare quando diventano visibili
   DateTime? _selectedTodoDate; // Data/ora selezionata per todo (null = messaggio normale)
+  bool _isRangeSelection = false; // True se è selezionato un range di date
+  DateTime? _selectedRangeStart; // Data inizio range
+  DateTime? _selectedRangeEnd; // Data fine range
+  int? _selectedReminderHours; // Ore prima del todo per l'alert (null = nessun alert)
   List<File> _selectedAttachments = []; // Lista di file selezionati da inviare
   bool _isUploadingAttachments = false; // Stato di upload allegati
 
@@ -267,8 +272,12 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       // Questo garantisce che il prossimo build avrà già i messaggi pronti per lo scroll
       setState(() => _isLoading = false);
 
-      // 🔔 REMINDER CHECK TIMER: Controlla ogni 30 secondi se ci sono reminder da mostrare
-      _startReminderCheckTimer();
+      // 📜 Scrolla al primo messaggio non letto dopo il primo build
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          _scrollToFirstUnreadMessage();
+        }
+      });
 
       // ✅ Marca tutti i messaggi ricevuti come letti quando l'utente apre la chat
       if (_myDeviceId != null) {
@@ -303,39 +312,8 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     _messageController.dispose();
     _scrollController.dispose();
     _typingTimer?.cancel();
-    _reminderCheckTimer?.cancel();
     _intentMediaStreamSubscription?.cancel();
     super.dispose();
-  }
-
-  /// Avvia timer periodico per controllare reminder visibili
-  void _startReminderCheckTimer() {
-    _reminderCheckTimer?.cancel(); // Cancella timer esistente se presente
-
-    _reminderCheckTimer = Timer.periodic(const Duration(seconds: 30), (timer) {
-      if (!mounted) {
-        timer.cancel();
-        return;
-      }
-
-      final chatService = Provider.of<ChatService>(context, listen: false);
-      final now = DateTime.now();
-
-      // Trova reminder che sono diventati visibili (timestamp passato)
-      final hasVisibleReminders = chatService.messages.any((m) =>
-          m.messageType == 'todo' &&
-          m.isReminder == true &&
-          m.timestamp.isBefore(now) &&
-          _hiddenReminderIds.contains(m.id));
-
-      if (hasVisibleReminders) {
-        if (kDebugMode) print('🔔 [REMINDER_TIMER] Found newly visible reminder(s), triggering rebuild');
-        // Trigga rebuild che attiverà la logica di auto-scroll
-        setState(() {});
-      }
-    });
-
-    if (kDebugMode) print('🔔 [REMINDER_TIMER] Started periodic check (every 30s)');
   }
 
   /// Scrolla automaticamente in fondo alla lista (messaggi più recenti)
@@ -352,6 +330,77 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     } else {
       _scrollController.jumpTo(0);
     }
+  }
+
+  /// Scrolla al primo messaggio non letto
+  /// Se tutti i messaggi sono letti, rimane in fondo
+  void _scrollToFirstUnreadMessage() async {
+    // Aspetta che il layout sia completo
+    await Future.delayed(const Duration(milliseconds: 300));
+
+    if (!mounted || !_scrollController.hasClients) return;
+
+    final chatService = Provider.of<ChatService>(context, listen: false);
+
+    // Conta i messaggi visibili (esclusi todo_completed e TODO futuri)
+    final visibleMessages = chatService.messages.where((m) {
+      if (m.messageType == 'todo_completed') return false;
+      if (m.messageType == 'todo' && m.timestamp.isAfter(DateTime.now())) return false;
+      return true;
+    }).toList();
+
+    // Trova il primo messaggio non letto tra i visibili
+    int unreadCount = 0;
+    for (var m in visibleMessages) {
+      if (m.senderId != _myDeviceId && !(m.read ?? false)) {
+        unreadCount++;
+      } else {
+        break; // Trovato il primo non letto
+      }
+    }
+
+    if (unreadCount == 0) {
+      // Tutti i messaggi sono letti, rimani in fondo
+      if (kDebugMode) print('📜 [SCROLL] All messages read, staying at bottom');
+      return;
+    }
+
+    // Con reverse: true, i messaggi recenti sono in basso (indice 0)
+    // I messaggi non letti sono "sopra" (indice più alto)
+    // Stimiamo l'altezza: messaggi normali ~100px, TODO ~120px
+    double estimatedPosition = 0;
+    for (int i = 0; i < unreadCount && i < visibleMessages.length; i++) {
+      final msg = visibleMessages[i];
+      // Stima altezza in base al tipo
+      if (msg.messageType == 'todo') {
+        estimatedPosition += 140; // TODO sono più alti
+      } else if (msg.attachments != null && msg.attachments!.isNotEmpty) {
+        estimatedPosition += 250; // Messaggi con allegati
+      } else {
+        estimatedPosition += 100; // Messaggi normali
+      }
+    }
+
+    // Aggiungi spazio per i separatori di data (~60px ognuno)
+    // Stima: un separatore ogni 3-4 messaggi
+    final estimatedSeparators = (unreadCount / 3.5).ceil();
+    estimatedPosition += estimatedSeparators * 60;
+
+    // Limita al massimo scrollabile
+    final maxScroll = _scrollController.position.maxScrollExtent;
+    final targetPosition = estimatedPosition > maxScroll ? maxScroll : estimatedPosition;
+
+    if (kDebugMode) {
+      print('📜 [SCROLL] Scrolling to first unread: $unreadCount unread messages');
+      print('📜 [SCROLL] Target position: $targetPosition (max: $maxScroll)');
+    }
+
+    // Scrolla con animazione fluida
+    _scrollController.animateTo(
+      targetPosition,
+      duration: const Duration(milliseconds: 500),
+      curve: Curves.easeInOut,
+    );
   }
 
   void _completeTodo(String todoId) async {
@@ -374,6 +423,186 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     );
 
     if (kDebugMode) print('✅ Todo marked as completed: $todoId');
+  }
+
+  /// Formatta la data in modo colloquiale per il separatore
+  /// Ritorna: "Oggi", "Ieri", "Domani", nome giorno, o data senza anno
+  String _formatDateSeparator(DateTime date) {
+    final l10n = AppLocalizations.of(context)!;
+    final locale = Localizations.localeOf(context).toString();
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final yesterday = today.subtract(const Duration(days: 1));
+    final tomorrow = today.add(const Duration(days: 1));
+    final messageDate = DateTime(date.year, date.month, date.day);
+
+    // Oggi
+    if (messageDate == today) {
+      return l10n.dateSeparatorToday;
+    }
+
+    // Ieri
+    if (messageDate == yesterday) {
+      return l10n.dateSeparatorYesterday;
+    }
+
+    // Domani
+    if (messageDate == tomorrow) {
+      return l10n.dateSeparatorTomorrow;
+    }
+
+    // Giorni della settimana (passati dalla domenica scorsa, futuri fino alla domenica prossima)
+    final startOfWeek = today.subtract(Duration(days: today.weekday % 7));
+    final endOfWeek = today.add(Duration(days: 7 - (today.weekday % 7)));
+
+    if (messageDate.isAfter(startOfWeek.subtract(const Duration(days: 1))) &&
+        messageDate.isBefore(endOfWeek.add(const Duration(days: 1))) &&
+        messageDate != today && messageDate != yesterday && messageDate != tomorrow) {
+      // Ritorna il nome del giorno
+      switch (messageDate.weekday) {
+        case DateTime.monday:
+          return l10n.dateSeparatorMonday;
+        case DateTime.tuesday:
+          return l10n.dateSeparatorTuesday;
+        case DateTime.wednesday:
+          return l10n.dateSeparatorWednesday;
+        case DateTime.thursday:
+          return l10n.dateSeparatorThursday;
+        case DateTime.friday:
+          return l10n.dateSeparatorFriday;
+        case DateTime.saturday:
+          return l10n.dateSeparatorSaturday;
+        case DateTime.sunday:
+          return l10n.dateSeparatorSunday;
+        default:
+          return DateFormat('d MMMM', locale).format(date);
+      }
+    }
+
+    // Data senza anno per messaggi più vecchi o futuri oltre la settimana
+    return DateFormat('d MMMM', locale).format(date);
+  }
+
+  /// Formatta una data in modo colloquiale (oggi, domani, giorno settimana, data)
+  /// con ora opzionale
+  String _formatTodoDate(DateTime date, {bool includeTime = true}) {
+    final l10n = AppLocalizations.of(context)!;
+    final locale = Localizations.localeOf(context).toString();
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final yesterday = today.subtract(const Duration(days: 1));
+    final tomorrow = today.add(const Duration(days: 1));
+    final messageDate = DateTime(date.year, date.month, date.day);
+
+    String dateLabel;
+
+    // Oggi
+    if (messageDate == today) {
+      dateLabel = l10n.dateSeparatorToday;
+    }
+    // Ieri
+    else if (messageDate == yesterday) {
+      dateLabel = l10n.dateSeparatorYesterday;
+    }
+    // Domani
+    else if (messageDate == tomorrow) {
+      dateLabel = l10n.dateSeparatorTomorrow;
+    }
+    // Giorni della settimana
+    else {
+      final startOfWeek = today.subtract(Duration(days: today.weekday % 7));
+      final endOfWeek = today.add(Duration(days: 7 - (today.weekday % 7)));
+
+      if (messageDate.isAfter(startOfWeek.subtract(const Duration(days: 1))) &&
+          messageDate.isBefore(endOfWeek.add(const Duration(days: 1)))) {
+        // Ritorna il nome del giorno
+        switch (messageDate.weekday) {
+          case DateTime.monday:
+            dateLabel = l10n.dateSeparatorMonday;
+            break;
+          case DateTime.tuesday:
+            dateLabel = l10n.dateSeparatorTuesday;
+            break;
+          case DateTime.wednesday:
+            dateLabel = l10n.dateSeparatorWednesday;
+            break;
+          case DateTime.thursday:
+            dateLabel = l10n.dateSeparatorThursday;
+            break;
+          case DateTime.friday:
+            dateLabel = l10n.dateSeparatorFriday;
+            break;
+          case DateTime.saturday:
+            dateLabel = l10n.dateSeparatorSaturday;
+            break;
+          case DateTime.sunday:
+            dateLabel = l10n.dateSeparatorSunday;
+            break;
+          default:
+            dateLabel = DateFormat('d MMMM', locale).format(date);
+        }
+      } else {
+        // Data senza anno per date oltre la settimana
+        dateLabel = DateFormat('d MMMM', locale).format(date);
+      }
+    }
+
+    if (includeTime) {
+      final timeFormat = DateFormat('HH:mm');
+      return '$dateLabel ${timeFormat.format(date)}';
+    }
+
+    return dateLabel;
+  }
+
+  /// Formatta un range di date in modo intelligente
+  /// - Stesso mese: "dal 25 al 31 gennaio"
+  /// - Mesi consecutivi: "dal 25 dicembre al 3"
+  /// - Distanza > 1 mese: "dal 25 dicembre al 3 febbraio"
+  String _formatDateRange(DateTime start, DateTime end) {
+    final l10n = AppLocalizations.of(context)!;
+    final locale = Localizations.localeOf(context).toString();
+
+    // Calcola differenza in mesi
+    final monthsDiff = (end.year - start.year) * 12 + (end.month - start.month);
+
+    if (monthsDiff == 0) {
+      // Stesso mese: "dal 25 al 31 gennaio"
+      final startDay = DateFormat('d', locale).format(start);
+      final endDay = DateFormat('d', locale).format(end);
+      final month = DateFormat('MMMM', locale).format(start);
+      return '${l10n.dateRangeFrom} $startDay ${l10n.dateRangeTo} $endDay $month';
+    } else if (monthsDiff == 1) {
+      // Mesi consecutivi: "dal 25 dicembre al 3"
+      final startFormatted = DateFormat('d MMMM', locale).format(start);
+      final endDay = DateFormat('d', locale).format(end);
+      return '${l10n.dateRangeFrom} $startFormatted ${l10n.dateRangeTo} $endDay';
+    } else {
+      // Distanza > 1 mese: "dal 25 dicembre al 3 febbraio"
+      final startFormatted = DateFormat('d MMMM', locale).format(start);
+      final endFormatted = DateFormat('d MMMM', locale).format(end);
+      return '${l10n.dateRangeFrom} $startFormatted ${l10n.dateRangeTo} $endFormatted';
+    }
+  }
+
+  /// Determina se mostrare un separatore di data tra due messaggi
+  /// Confronta le date dei messaggi (ignorando l'ora)
+  bool _shouldShowDateSeparator(Message currentMessage, Message? nextMessage) {
+    if (nextMessage == null) return true; // Mostra sempre separatore per l'ultimo messaggio
+
+    final currentDate = DateTime(
+      currentMessage.timestamp.year,
+      currentMessage.timestamp.month,
+      currentMessage.timestamp.day,
+    );
+
+    final nextDate = DateTime(
+      nextMessage.timestamp.year,
+      nextMessage.timestamp.month,
+      nextMessage.timestamp.day,
+    );
+
+    return currentDate != nextDate;
   }
 
   /// Mostra il bottom sheet per selezionare il tipo di allegato
@@ -478,16 +707,19 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   void _showDateTimePicker() async {
     final l10n = AppLocalizations.of(context)!;
     // Sentinella per segnalare cancellazione
-    final clearDate = DateTime(1970);
+    final clearResult = {'clear': true};
 
     DateTime selectedDate = DateTime.now().add(const Duration(days: 1));
+    DateTime? rangeStart;
+    DateTime? rangeEnd;
     int selectedHour = 10;
     int selectedMinute = 0;
+    int? selectedReminderHours = _selectedReminderHours ?? 1; // Default: 1 ora prima
 
     final hourController = FixedExtentScrollController(initialItem: selectedHour);
     final minuteController = FixedExtentScrollController(initialItem: selectedMinute);
 
-    final result = await showModalBottomSheet<DateTime>(
+    final result = await showModalBottomSheet<Map<String, dynamic>>(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
@@ -495,7 +727,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
         builder: (context, setModalState) => ClipRRect(
           borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
           child: Container(
-            height: MediaQuery.of(context).size.height * 0.70,
+            height: MediaQuery.of(context).size.height * 0.80,
             decoration: const BoxDecoration(
               gradient: LinearGradient(
                 begin: Alignment.topCenter,
@@ -505,54 +737,145 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
             ),
             child: Column(
               children: [
-                // Header con solo X (cancella se c'è data selezionata)
+                // Header con X a sinistra e check a destra
                 SafeArea(
                   bottom: false,
                   child: Padding(
-                    padding: const EdgeInsets.only(left: 8, top: 8),
-                    child: Align(
-                      alignment: Alignment.centerLeft,
-                      child: IconButton(
-                        onPressed: () {
-                          // Se c'è una data selezionata, cancellala
-                          if (_selectedTodoDate != null) {
-                            Navigator.pop(context, clearDate);
-                          } else {
-                            Navigator.pop(context);
-                          }
-                        },
-                        icon: const Icon(Icons.close, color: Colors.white, size: 28),
-                      ),
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        IconButton(
+                          onPressed: () {
+                            // Se c'è una data selezionata, cancellala
+                            if (_selectedTodoDate != null) {
+                              Navigator.pop(context, clearResult);
+                            } else {
+                              Navigator.pop(context);
+                            }
+                          },
+                          icon: const Icon(Icons.close, color: Colors.white, size: 28),
+                        ),
+                        IconButton(
+                          onPressed: () {
+                            if (rangeStart != null && rangeEnd != null) {
+                              // Range selezionato: ritorna range senza ora
+                              Navigator.pop(context, {
+                                'isRange': true,
+                                'rangeStart': rangeStart,
+                                'rangeEnd': rangeEnd,
+                                'reminderHours': selectedReminderHours,
+                              });
+                            } else if (rangeStart != null && rangeEnd == null) {
+                              // Data singola: ritorna con ora
+                              final dueDate = DateTime(
+                                selectedDate.year,
+                                selectedDate.month,
+                                selectedDate.day,
+                                selectedHour,
+                                selectedMinute,
+                              );
+                              Navigator.pop(context, {
+                                'isRange': false,
+                                'date': dueDate,
+                                'reminderHours': selectedReminderHours,
+                              });
+                            }
+                          },
+                          icon: const Icon(Icons.check_circle, color: Colors.white, size: 32),
+                          tooltip: l10n.chatConfirm,
+                        ),
+                      ],
                     ),
                   ),
                 ),
                 // Calendar con theme viola
                 Expanded(
-                  child: Theme(
-                    data: ThemeData.light().copyWith(
-                      colorScheme: const ColorScheme.light(
-                        primary: Colors.white,
-                        onPrimary: Color(0xFF667eea),
-                        surface: Colors.transparent,
-                        onSurface: Colors.white,
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    child: TableCalendar(
+                      locale: Localizations.localeOf(context).toString(),
+                      firstDay: DateTime.now(),
+                      lastDay: DateTime.now().add(const Duration(days: 365)),
+                      focusedDay: selectedDate,
+                      rangeStartDay: rangeStart,
+                      rangeEndDay: rangeEnd,
+                      rangeSelectionMode: RangeSelectionMode.toggledOn,
+                      headerStyle: HeaderStyle(
+                        formatButtonVisible: false,
+                        titleCentered: true,
+                        titleTextStyle: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                        ),
+                        leftChevronIcon: const Icon(Icons.chevron_left, color: Colors.white),
+                        rightChevronIcon: const Icon(Icons.chevron_right, color: Colors.white),
                       ),
-                      textTheme: const TextTheme(
-                        bodyLarge: TextStyle(color: Colors.white),
-                        bodyMedium: TextStyle(color: Colors.white70),
-                        titleMedium: TextStyle(color: Colors.white),
+                      calendarStyle: CalendarStyle(
+                        defaultTextStyle: const TextStyle(color: Colors.white),
+                        weekendTextStyle: const TextStyle(color: Colors.white70),
+                        outsideTextStyle: const TextStyle(color: Colors.white30),
+                        selectedDecoration: BoxDecoration(
+                          color: Colors.white.withOpacity(0.9),
+                          shape: BoxShape.circle,
+                        ),
+                        selectedTextStyle: const TextStyle(color: Color(0xFF667eea), fontWeight: FontWeight.bold),
+                        todayDecoration: BoxDecoration(
+                          color: Colors.white.withOpacity(0.3),
+                          shape: BoxShape.circle,
+                        ),
+                        todayTextStyle: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                        rangeStartDecoration: BoxDecoration(
+                          color: Colors.white.withOpacity(0.9),
+                          shape: BoxShape.circle,
+                        ),
+                        rangeStartTextStyle: const TextStyle(color: Color(0xFF667eea), fontWeight: FontWeight.bold),
+                        rangeEndDecoration: BoxDecoration(
+                          color: Colors.white.withOpacity(0.9),
+                          shape: BoxShape.circle,
+                        ),
+                        rangeEndTextStyle: const TextStyle(color: Color(0xFF667eea), fontWeight: FontWeight.bold),
+                        rangeHighlightColor: Colors.white.withOpacity(0.2),
+                        withinRangeDecoration: BoxDecoration(
+                          color: Colors.white.withOpacity(0.15),
+                          shape: BoxShape.circle,
+                        ),
+                        withinRangeTextStyle: const TextStyle(color: Colors.white),
                       ),
-                    ),
-                    child: CalendarDatePicker(
-                      initialDate: selectedDate,
-                      firstDate: DateTime.now(),
-                      lastDate: DateTime.now().add(const Duration(days: 365)),
-                      onDateChanged: (date) {
-                        setModalState(() => selectedDate = date);
+                      daysOfWeekStyle: const DaysOfWeekStyle(
+                        weekdayStyle: TextStyle(color: Colors.white70, fontWeight: FontWeight.bold),
+                        weekendStyle: TextStyle(color: Colors.white70, fontWeight: FontWeight.bold),
+                      ),
+                      onDaySelected: (selectedDay, focusedDay) {
+                        setModalState(() {
+                          if (rangeStart == null) {
+                            // Prima selezione: imposta range start
+                            rangeStart = selectedDay;
+                            rangeEnd = null;
+                            selectedDate = selectedDay;
+                          } else if (rangeEnd == null) {
+                            // Seconda selezione: imposta range end
+                            if (selectedDay.isAfter(rangeStart!) || selectedDay.isAtSameMomentAs(rangeStart!)) {
+                              rangeEnd = selectedDay;
+                            } else {
+                              // Se la data è prima di start, reset e ricomincia
+                              rangeStart = selectedDay;
+                              rangeEnd = null;
+                            }
+                            selectedDate = selectedDay;
+                          } else {
+                            // Range già completo: reset e ricomincia
+                            rangeStart = selectedDay;
+                            rangeEnd = null;
+                            selectedDate = selectedDay;
+                          }
+                        });
                       },
                     ),
                   ),
                 ),
-                // Time picker con check button a lato
+                // Time picker con dropdown alert (time picker nascosto se range selezionato)
                 Container(
                   padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 16),
                   decoration: BoxDecoration(
@@ -561,6 +884,8 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
+                      // Time picker (nascosto se range completo)
+                      if (rangeStart == null || rangeEnd == null) ...[
                       // Hour picker
                       SizedBox(
                         width: 70,
@@ -642,27 +967,48 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                           ),
                         ),
                       ),
-                      const SizedBox(width: 16),
-                      // Check button a lato
-                      Container(
-                        decoration: BoxDecoration(
-                          color: Colors.white.withOpacity(0.2),
-                          shape: BoxShape.circle,
-                        ),
-                        child: IconButton(
-                          onPressed: () {
-                            final dueDate = DateTime(
-                              selectedDate.year,
-                              selectedDate.month,
-                              selectedDate.day,
-                              selectedHour,
-                              selectedMinute,
-                            );
-                            Navigator.pop(context, dueDate);
-                          },
-                          icon: const Icon(Icons.check_circle, color: Colors.white, size: 36),
-                          tooltip: l10n.chatConfirm,
-                        ),
+                      const SizedBox(width: 20),
+                      ], // Fine time picker condizionale
+                      // Dropdown alert compatto (sempre visibile)
+                      Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(Icons.notifications_outlined, color: Colors.white.withOpacity(0.7), size: 18),
+                          const SizedBox(height: 4),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: Colors.white.withOpacity(0.15),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: DropdownButtonHideUnderline(
+                              child: DropdownButton<int?>(
+                                value: selectedReminderHours,
+                                dropdownColor: const Color(0xFF764ba2),
+                                icon: Icon(Icons.arrow_drop_down, color: Colors.white.withOpacity(0.7), size: 16),
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                                items: [
+                                  DropdownMenuItem(value: null, child: Text(l10n.reminderNone)),
+                                  DropdownMenuItem(value: 1, child: Text(l10n.reminder1Hour)),
+                                  ...List.generate(23, (i) => i + 2).map((h) =>
+                                    DropdownMenuItem(
+                                      value: h,
+                                      child: Text(l10n.reminderHours(h)),
+                                    )
+                                  ),
+                                  DropdownMenuItem(value: 48, child: Text(l10n.reminder2Days)),
+                                ],
+                                onChanged: (value) {
+                                  setModalState(() => selectedReminderHours = value);
+                                },
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
                     ],
                   ),
@@ -677,18 +1023,42 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     hourController.dispose();
     minuteController.dispose();
 
-    if (result == clearDate) {
+    if (result != null && result['clear'] == true) {
       // X premuto per cancellare
-      setState(() => _selectedTodoDate = null);
+      setState(() {
+        _selectedTodoDate = null;
+        _isRangeSelection = false;
+        _selectedRangeStart = null;
+        _selectedRangeEnd = null;
+        _selectedReminderHours = null;
+      });
     } else if (result != null) {
-      // Data selezionata e confermata
-      setState(() => _selectedTodoDate = result);
+      // Data/range selezionato e confermato
+      setState(() {
+        if (result['isRange'] == true) {
+          // Range selezionato
+          _isRangeSelection = true;
+          _selectedRangeStart = result['rangeStart'];
+          _selectedRangeEnd = result['rangeEnd'];
+          _selectedTodoDate = result['rangeStart']; // Per mostrare indicatore
+        } else {
+          // Data singola
+          _isRangeSelection = false;
+          _selectedTodoDate = result['date'];
+          _selectedRangeStart = null;
+          _selectedRangeEnd = null;
+        }
+        _selectedReminderHours = result['reminderHours'];
+      });
     }
     // Se result è null, l'utente ha chiuso senza azione (non cambiare niente)
   }
 
   void _sendMessage() async {
     final todoDate = _selectedTodoDate;
+    final isRange = _isRangeSelection;
+    final rangeStart = _selectedRangeStart;
+    final rangeEnd = _selectedRangeEnd;
     final attachments = List<File>.from(_selectedAttachments);
 
     // Permetti invio se c'è testo, una data selezionata o allegati
@@ -719,8 +1089,15 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       }).toList();
     }
 
+    // Salva reminderHours prima di resettare
+    final reminderHours = _selectedReminderHours;
+
     setState(() {
       _selectedTodoDate = null; // Reset todo date
+      _isRangeSelection = false; // Reset range flag
+      _selectedRangeStart = null; // Reset range start
+      _selectedRangeEnd = null; // Reset range end
+      _selectedReminderHours = null; // Reset reminder hours
       _selectedAttachments.clear(); // Clear attachments
       _isUploadingAttachments = true; // Mostra loader
     });
@@ -765,35 +1142,120 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       return;
     }
 
-    bool success;
+    bool success = true;
 
-    // Se c'è una data selezionata, invia come todo, altrimenti come messaggio normale
+    // Se c'è una data/range selezionato, invia come todo
     if (todoDate != null) {
-      print('📅 Sending todo...');
-      print('   Due date: ${todoDate.toIso8601String()}');
-      print('   Content: $messageText');
+      // Upload allegati se presenti (con cifratura E2E dual)
+      List<Attachment>? uploadedAttachments;
+      if (attachments.isNotEmpty) {
+        try {
+          uploadedAttachments = await _attachmentService!.uploadMultipleAttachments(
+            attachments,
+            _familyChatId!,
+            _myDeviceId!,
+            myPublicKey, // Chiave pubblica mittente
+            _partnerPublicKey!, // Chiave pubblica destinatario
+          );
 
-      success = await chatService.sendTodo(
-        messageText,
-        todoDate,
-        _familyChatId!,
-        _myDeviceId!,
-        myPublicKey,
-        _partnerPublicKey!,
-      );
+          if (uploadedAttachments.isEmpty) {
+            throw Exception('No attachments uploaded');
+          }
 
-      if (success) {
-        // Invia anche il reminder
-        final reminderDate = todoDate.subtract(const Duration(hours: 1));
-        await chatService.sendTodoReminder(
-          messageText,
-          reminderDate,
+          if (kDebugMode) {
+            print('✅ ${uploadedAttachments.length} attachments uploaded successfully for TODO');
+          }
+        } catch (e) {
+          if (kDebugMode) print('❌ Error uploading TODO attachments: $e');
+          setState(() => _isUploadingAttachments = false);
+          final l10n = AppLocalizations.of(context)!;
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(l10n.chatAttachmentUploadError),
+              backgroundColor: Colors.red,
+            ),
+          );
+          return;
+        }
+      }
+
+      if (isRange && rangeStart != null && rangeEnd != null) {
+        // RANGE DI DATE: crea UN SOLO TODO con rangeEnd salvato nel database
+        print('📅 Sending TODO with range...');
+        print('   Range: ${rangeStart.toString()} to ${rangeEnd.toString()}');
+        print('   Content: $messageText');
+        print('   Attachments: ${uploadedAttachments?.length ?? 0}');
+
+        // Crea TODO con data = primo giorno del range alle 10:00
+        final todoDueDate = DateTime(
+          rangeStart.year,
+          rangeStart.month,
+          rangeStart.day,
+          10, // Default 10:00
+          0,
+        );
+
+        // Salva rangeEnd come parametro separato (NON nel testo)
+        success = await chatService.sendTodo(
+          messageText, // Solo il testo dell'utente, NO range
+          todoDueDate,
           _familyChatId!,
           _myDeviceId!,
           myPublicKey,
           _partnerPublicKey!,
+          rangeEnd: rangeEnd, // Passa rangeEnd come parametro
+          attachments: uploadedAttachments, // Passa attachments
         );
-        print('✅ Todo sent successfully');
+
+        if (success && reminderHours != null && reminderHours > 0) {
+          final reminderDate = todoDueDate.subtract(Duration(hours: reminderHours));
+          await chatService.sendTodoReminder(
+            messageText, // Solo il testo dell'utente, NO range
+            reminderDate,
+            todoDueDate,
+            _familyChatId!,
+            _myDeviceId!,
+            myPublicKey,
+            _partnerPublicKey!,
+            rangeEnd: rangeEnd, // Passa rangeEnd anche al reminder
+            attachments: uploadedAttachments, // Passa attachments anche al reminder
+          );
+        }
+
+        print('✅ Sent TODO with range: $messageText (range: $rangeStart - $rangeEnd)');
+      } else {
+        // DATA SINGOLA CON ORA SPECIFICA
+        print('📅 Sending single todo...');
+        print('   Due date: ${todoDate.toIso8601String()}');
+        print('   Content: $messageText');
+        print('   Attachments: ${uploadedAttachments?.length ?? 0}');
+
+        success = await chatService.sendTodo(
+          messageText,
+          todoDate,
+          _familyChatId!,
+          _myDeviceId!,
+          myPublicKey,
+          _partnerPublicKey!,
+          attachments: uploadedAttachments, // Passa attachments
+        );
+
+        if (success && reminderHours != null && reminderHours > 0) {
+          final reminderDate = todoDate.subtract(Duration(hours: reminderHours));
+          await chatService.sendTodoReminder(
+            messageText,
+            reminderDate,
+            todoDate,
+            _familyChatId!,
+            _myDeviceId!,
+            myPublicKey,
+            _partnerPublicKey!,
+            attachments: uploadedAttachments, // Passa attachments anche al reminder
+          );
+          print('✅ Todo sent with reminder ($reminderHours hours before)');
+        } else {
+          print('✅ Todo sent without reminder');
+        }
       }
     } else {
       print('📤 Sending message...');
@@ -941,36 +1403,6 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       if (kDebugMode) print('📜 [SCROLL] Count updated: $_lastMessageCount → $currentCount (no auto-scroll needed)');
     }
 
-    // 🔔 REMINDER AUTO-SCROLL: Rileva quando un reminder diventa visibile
-    final now = DateTime.now();
-    final currentlyHiddenReminders = chatService.messages
-        .where((m) =>
-            m.messageType == 'todo' &&
-            m.isReminder == true &&
-            m.timestamp.isAfter(now))
-        .map((m) => m.id)
-        .toSet();
-
-    // Trova reminder che erano nascosti ma ora sono visibili
-    final newlyVisibleReminders = _hiddenReminderIds.difference(currentlyHiddenReminders);
-
-    if (newlyVisibleReminders.isNotEmpty) {
-      if (kDebugMode) {
-        print('🔔 [REMINDER] ${newlyVisibleReminders.length} reminder(s) became visible');
-      }
-
-      // Scroll verso il basso per mostrare il reminder
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted && _scrollController.hasClients) {
-          _scrollToBottom(animated: true);
-          if (kDebugMode) print('✅ [SCROLL] Scrolled to show new reminder');
-        }
-      });
-    }
-
-    // Aggiorna il tracking dei reminder nascosti
-    _hiddenReminderIds = currentlyHiddenReminders;
-
     if (_isLoading) {
       return const Scaffold(
         body: Center(child: CircularProgressIndicator()),
@@ -1033,11 +1465,10 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                               return const SizedBox.shrink();
                             }
 
-                            // Nascondi reminder futuri (non ancora scattati)
-                            // Controlliamo il timestamp perché created_at = reminderDate per i reminder
-                            if (message.messageType == 'todo' && message.isReminder == true) {
+                            // Nascondi TODO/reminder futuri (timestamp futuro)
+                            if (message.messageType == 'todo') {
                               if (message.timestamp.isAfter(DateTime.now())) {
-                                // Reminder non ancora scattato, nascondilo
+                                // TODO futuro, nascondilo
                                 return const SizedBox.shrink();
                               }
                             }
@@ -1050,20 +1481,63 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                                   m.originalTodoId == message.id);
                             }
 
-                            // Renderizza il tipo di messaggio appropriato
+                            // Determina se mostrare il separatore di data
+                            // Trova il prossimo messaggio VISIBILE (salta todo_completed e TODO futuri)
+                            Message? nextVisibleMessage;
+                            for (int i = index + 1; i < chatService.messages.length; i++) {
+                              final candidateMessage = chatService.messages[i];
+
+                              // Salta todo_completed
+                              if (candidateMessage.messageType == 'todo_completed') {
+                                continue;
+                              }
+
+                              // Salta TODO futuri
+                              if (candidateMessage.messageType == 'todo' &&
+                                  candidateMessage.timestamp.isAfter(DateTime.now())) {
+                                continue;
+                              }
+
+                              // Trovato il prossimo messaggio visibile
+                              nextVisibleMessage = candidateMessage;
+                              break;
+                            }
+
+                            final showDateSeparator = _shouldShowDateSeparator(message, nextVisibleMessage);
+
+                            // Widget del messaggio
+                            Widget messageWidget;
                             if (message.messageType == 'todo') {
-                              return _TodoMessageBubble(
+                              // Formatta la data del TODO
+                              String? formattedDate;
+                              if (message.dueDate != null) {
+                                final l10n = AppLocalizations.of(context)!;
+
+                                if (message.rangeEnd != null) {
+                                  // È un range: formatta in modo intelligente
+                                  formattedDate = _formatDateRange(message.dueDate!, message.rangeEnd!);
+                                } else {
+                                  // Data singola con ora in formato colloquiale
+                                  formattedDate = _formatTodoDate(message.dueDate!, includeTime: true);
+                                }
+                              }
+
+                              messageWidget = TodoMessageBubble(
                                 key: ValueKey('${message.id}_${message.read}'),
                                 message: message,
                                 isMe: isMe,
                                 isCompleted: isTodoCompleted,
                                 onComplete: () => _completeTodo(message.id),
+                                formattedDate: formattedDate,
+                                attachmentService: _attachmentService,
+                                senderId: message.senderId,
+                                currentUserId: _myDeviceId,
                               );
                             } else {
                               // Messaggio normale
                               final decryptedContent = message.decryptedContent ?? '[Messaggio non decifrabile]';
 
-                              return _MessageBubble(
+                              messageWidget = _MessageBubble(
                                 key: ValueKey('${message.senderId}_${message.timestamp.millisecondsSinceEpoch}_${message.read}'),
                                 message: decryptedContent,
                                 timestamp: message.timestamp,
@@ -1076,6 +1550,20 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                                 attachmentService: _attachmentService,
                               );
                             }
+
+                            // Se serve un separatore, avvolgi il messaggio in una Column
+                            if (showDateSeparator) {
+                              return Column(
+                                children: [
+                                  messageWidget,
+                                  _DateSeparator(
+                                    dateLabel: _formatDateSeparator(message.timestamp),
+                                  ),
+                                ],
+                              );
+                            }
+
+                            return messageWidget;
                           },
                         ),
                       ),
@@ -1458,7 +1946,7 @@ class _MessageBubbleState extends State<_MessageBubble>
     return [
       ...widget.attachments!.map((attachment) {
         if (attachment.type == 'photo') {
-          return _AttachmentImage(
+          return AttachmentImage(
             attachment: attachment,
             isMe: widget.isMe,
             currentUserId: widget.currentUserId,
@@ -1466,14 +1954,14 @@ class _MessageBubbleState extends State<_MessageBubble>
             attachmentService: widget.attachmentService!,
           );
         } else if (attachment.type == 'video') {
-          return _AttachmentVideo(
+          return AttachmentVideo(
             attachment: attachment,
             isMe: widget.isMe,
             currentUserId: widget.currentUserId,
             senderId: widget.senderId,
           );
         } else {
-          return _AttachmentDocument(
+          return AttachmentDocument(
             attachment: attachment,
             isMe: widget.isMe,
             currentUserId: widget.currentUserId,
@@ -1649,746 +2137,82 @@ class _MessageBubbleState extends State<_MessageBubble>
     );
   }
 }
+class _DateSeparator extends StatelessWidget {
+  final String dateLabel;
 
-/// Widget per visualizzare allegati immagine (decifrato)
-class _AttachmentImage extends StatelessWidget {
-  final Attachment attachment;
-  final bool isMe;
-  final String? currentUserId;
-  final String? senderId;
-  final AttachmentService attachmentService;
-
-  const _AttachmentImage({
-    required this.attachment,
-    required this.isMe,
-    this.currentUserId,
-    this.senderId,
-    required this.attachmentService,
+  const _DateSeparator({
+    required this.dateLabel,
   });
 
   @override
   Widget build(BuildContext context) {
-    final l10n = AppLocalizations.of(context)!;
-    // Se URL è vuoto, l'allegato è in upload - mostra placeholder
-    if (attachment.url.isEmpty) {
-      return ClipRRect(
-        borderRadius: BorderRadius.circular(12),
-        child: SizedBox(
-          width: double.infinity,
-          height: 200,
-          child: Container(
-            color: isMe ? Colors.white.withOpacity(0.1) : Colors.grey[200],
-            child: Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  const CircularProgressIndicator(),
-                  const SizedBox(height: 8),
-                  Text(
-                    l10n.chatLoadingAttachment,
-                    style: const TextStyle(fontSize: 12, color: Colors.grey),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ),
-      );
-    }
-
-    return GestureDetector(
-      onTap: () {
-        // Apri fullscreen image viewer
-        Navigator.of(context).push(
-          MaterialPageRoute(
-            builder: (context) => _FullscreenImageViewer(
-              attachment: attachment,
-              attachmentService: attachmentService,
-              currentUserId: currentUserId,
-              senderId: senderId,
-            ),
-          ),
-        );
-      },
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(12),
-        child: FutureBuilder<Uint8List?>(
-          future: attachmentService.downloadAndDecryptAttachment(
-            attachment,
-            currentUserId ?? '',
-            senderId ?? '',
-            useThumbnail: true, // Usa thumbnail per performance
-          ),
-          builder: (context, snapshot) {
-            if (snapshot.connectionState == ConnectionState.waiting) {
-              // Caricamento
-              return SizedBox(
-                width: double.infinity,
-                height: 200,
-                child: Container(
-                  color: isMe ? Colors.white.withOpacity(0.1) : Colors.grey[200],
-                  child: const Center(
-                    child: CircularProgressIndicator(),
-                  ),
-                ),
-              );
-            }
-
-            if (snapshot.hasError || !snapshot.hasData || snapshot.data == null) {
-              // Errore decifratura
-              return SizedBox(
-                width: double.infinity,
-                height: 200,
-                child: Container(
-                  color: Colors.red.withOpacity(0.1),
-                  child: const Center(
-                    child: Icon(Icons.error, color: Colors.red),
-                  ),
-                ),
-              );
-            }
-
-            // Immagine decifrata visualizzata - usa tutta la larghezza della bubble
-            return SizedBox(
-              width: double.infinity,
-              height: 200,
-              child: Image.memory(
-                snapshot.data!,
-                fit: BoxFit.cover, // Taglia per riempire tutta l'area
-              ),
-            );
-          },
-        ),
-      ),
-    );
-  }
-}
-
-/// Widget per visualizzare allegati video (cifrato - placeholder)
-class _AttachmentVideo extends StatelessWidget {
-  final Attachment attachment;
-  final bool isMe;
-  final String? currentUserId;
-  final String? senderId;
-
-  const _AttachmentVideo({
-    required this.attachment,
-    required this.isMe,
-    this.currentUserId,
-    this.senderId,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final l10n = AppLocalizations.of(context)!;
-    // Per i video cifrati, mostriamo solo un placeholder
-    // TODO: Implementare video player per video cifrati
-    return GestureDetector(
-      onTap: () {
-        // TODO: Scaricare, decifrare e aprire video player
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(l10n.chatVideoPlayerInDevelopment),
-          ),
-        );
-      },
-      child: Container(
-        width: 200,
-        height: 150,
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(12),
-          color: isMe ? Colors.white.withOpacity(0.1) : Colors.grey[200],
-        ),
-        child: Stack(
-          alignment: Alignment.center,
-          children: [
-            Container(
-              width: 50,
-              height: 50,
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 16),
+      child: Row(
+        children: [
+          Expanded(
+            child: Container(
+              height: 1,
               decoration: BoxDecoration(
-                color: Colors.black.withOpacity(0.5),
-                shape: BoxShape.circle,
-              ),
-              child: const Icon(
-                Icons.play_arrow,
-                color: Colors.white,
-                size: 32,
-              ),
-            ),
-            Positioned(
-              bottom: 8,
-              right: 8,
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                decoration: BoxDecoration(
-                  color: Colors.black.withOpacity(0.6),
-                  borderRadius: BorderRadius.circular(4),
-                ),
-                child: Row(
-                  children: [
-                    const Icon(Icons.videocam, color: Colors.white, size: 14),
-                    const SizedBox(width: 4),
-                    Text(
-                      attachment.fileName,
-                      style: const TextStyle(color: Colors.white, fontSize: 12),
-                    ),
+                gradient: LinearGradient(
+                  colors: [
+                    Colors.transparent,
+                    Colors.grey[300]!,
                   ],
                 ),
               ),
             ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-/// Widget per visualizzare allegati documento (cifrato - placeholder)
-class _AttachmentDocument extends StatefulWidget {
-  final Attachment attachment;
-  final bool isMe;
-  final String? currentUserId;
-  final String? senderId;
-  final AttachmentService attachmentService;
-
-  const _AttachmentDocument({
-    required this.attachment,
-    required this.isMe,
-    this.currentUserId,
-    this.senderId,
-    required this.attachmentService,
-  });
-
-  @override
-  State<_AttachmentDocument> createState() => _AttachmentDocumentState();
-}
-
-class _AttachmentDocumentState extends State<_AttachmentDocument> {
-  bool _isDownloading = false;
-
-  Future<void> _openDocument() async {
-    if (_isDownloading) return;
-
-    // Se URL è vuoto, il documento è ancora in upload - non fare nulla
-    if (widget.attachment.url.isEmpty) return;
-
-    // Check if it's a PDF - open with integrated viewer
-    final isPdf = widget.attachment.fileName.toLowerCase().endsWith('.pdf');
-
-    if (isPdf) {
-      // Open PDF with integrated viewer
-      if (mounted) {
-        Navigator.of(context).push(
-          MaterialPageRoute(
-            builder: (context) => PdfViewerScreen(
-              attachment: widget.attachment,
-              attachmentService: widget.attachmentService,
-              currentUserId: widget.currentUserId,
-              senderId: widget.senderId,
-            ),
           ),
-        );
-      }
-      return;
-    }
-
-    // For non-PDF documents, download and open with external app
-    setState(() => _isDownloading = true);
-
-    try {
-      // 1. Download and decrypt document
-      final decryptedBytes = await widget.attachmentService.downloadAndDecryptAttachment(
-        widget.attachment,
-        widget.currentUserId ?? '',
-        widget.senderId ?? '',
-        useThumbnail: false,
-      );
-
-      if (decryptedBytes == null) {
-        throw Exception('Failed to download document');
-      }
-
-      // 2. Save to temporary directory
-      final tempDir = await getTemporaryDirectory();
-      final file = File('${tempDir.path}/${widget.attachment.fileName}');
-      await file.writeAsBytes(decryptedBytes);
-
-      // 3. Open with external app
-      final result = await OpenFilex.open(file.path);
-
-      if (result.type != ResultType.done && mounted) {
-        final l10n = AppLocalizations.of(context)!;
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(l10n.chatFileOpenError(result.message)),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
-    } catch (e) {
-      if (kDebugMode) print('❌ Error opening document: $e');
-      if (mounted) {
-        final l10n = AppLocalizations.of(context)!;
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(l10n.error(e.toString())),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
-    } finally {
-      if (mounted) {
-        setState(() => _isDownloading = false);
-      }
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final l10n = AppLocalizations.of(context)!;
-    return GestureDetector(
-      onTap: _openDocument,
-      child: Container(
-        padding: const EdgeInsets.all(12),
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(12),
-          color: widget.isMe ? Colors.white.withOpacity(0.1) : Colors.grey[200],
-        ),
-        child: Row(
-          children: [
-            Container(
-              width: 40,
-              height: 40,
-              decoration: BoxDecoration(
-                color: widget.isMe ? Colors.white.withOpacity(0.2) : Colors.grey[300],
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: (_isDownloading || widget.attachment.url.isEmpty)
-                  ? Padding(
-                      padding: const EdgeInsets.all(10),
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2,
-                        valueColor: AlwaysStoppedAnimation<Color>(
-                          widget.isMe ? Colors.white : Colors.grey[700]!,
-                        ),
-                      ),
-                    )
-                  : Icon(
-                      Icons.insert_drive_file,
-                      color: widget.isMe ? Colors.white : Colors.grey[700],
-                    ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    widget.attachment.fileName,
-                    style: TextStyle(
-                      color: widget.isMe ? Colors.white : Colors.black87,
-                      fontWeight: FontWeight.w500,
-                    ),
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  Text(
-                    widget.attachment.url.isEmpty
-                        ? l10n.chatLoadingAttachment
-                        : widget.attachmentService.formatFileSize(widget.attachment.fileSize),
-                    style: TextStyle(
-                      color: widget.isMe ? Colors.white70 : Colors.black54,
-                      fontSize: 12,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(width: 8),
-            Icon(
-              Icons.lock_outline,
-              size: 16,
-              color: widget.isMe ? Colors.white70 : Colors.black54,
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-/// Widget per visualizzare immagine a schermo intero con zoom
-class _FullscreenImageViewer extends StatefulWidget {
-  final Attachment attachment;
-  final AttachmentService attachmentService;
-  final String? currentUserId;
-  final String? senderId;
-
-  const _FullscreenImageViewer({
-    required this.attachment,
-    required this.attachmentService,
-    this.currentUserId,
-    this.senderId,
-  });
-
-  @override
-  State<_FullscreenImageViewer> createState() => _FullscreenImageViewerState();
-}
-
-class _FullscreenImageViewerState extends State<_FullscreenImageViewer> {
-  bool _showOverlay = true;
-
-  void _toggleOverlay() {
-    setState(() {
-      _showOverlay = !_showOverlay;
-    });
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final l10n = AppLocalizations.of(context)!;
-    return Scaffold(
-      backgroundColor: Colors.black,
-      body: GestureDetector(
-        onTap: _toggleOverlay,
-        child: Stack(
-          children: [
-            // Immagine full screen con zoom
-            Center(
-              child: FutureBuilder<Uint8List?>(
-                future: widget.attachmentService.downloadAndDecryptAttachment(
-                  widget.attachment,
-                  widget.currentUserId ?? '',
-                  widget.senderId ?? '',
-                  useThumbnail: false, // Carica immagine FULL RESOLUTION
-                ),
-                builder: (context, snapshot) {
-                  if (snapshot.connectionState == ConnectionState.waiting) {
-                    // Loading
-                    return Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        const CircularProgressIndicator(color: Colors.white),
-                        const SizedBox(height: 16),
-                        Text(
-                          l10n.chatLoadingImage,
-                          style: const TextStyle(color: Colors.white70),
-                        ),
-                      ],
-                    );
-                  }
-
-                  if (snapshot.hasError || !snapshot.hasData || snapshot.data == null) {
-                    // Errore
-                    return Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        const Icon(Icons.error, color: Colors.red, size: 64),
-                        const SizedBox(height: 16),
-                        Text(
-                          l10n.chatImageLoadError,
-                          style: const TextStyle(color: Colors.white70),
-                        ),
-                      ],
-                    );
-                  }
-
-                  // Immagine decifrata con zoom
-                  return InteractiveViewer(
-                    minScale: 0.5,
-                    maxScale: 4.0,
-                    child: Image.memory(
-                      snapshot.data!,
-                      fit: BoxFit.contain,
-                    ),
-                  );
-                },
-              ),
-            ),
-
-            // Overlay con animazione fade (pulsante chiudi in alto a destra)
-            AnimatedOpacity(
-              opacity: _showOverlay ? 1.0 : 0.0,
-              duration: const Duration(milliseconds: 200),
-              child: SafeArea(
-                child: Align(
-                  alignment: Alignment.topRight,
-                  child: Padding(
-                    padding: const EdgeInsets.all(16),
-                    child: IconButton(
-                      icon: const Icon(Icons.close, color: Colors.white, size: 32),
-                      onPressed: () => Navigator.of(context).pop(),
-                      style: IconButton.styleFrom(
-                        backgroundColor: Colors.black.withOpacity(0.5),
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-            ),
-
-            // Overlay con animazione fade (info file in basso)
-            AnimatedOpacity(
-              opacity: _showOverlay ? 1.0 : 0.0,
-              duration: const Duration(milliseconds: 200),
-              child: SafeArea(
-                child: Align(
-                  alignment: Alignment.bottomCenter,
-                  child: Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        begin: Alignment.bottomCenter,
-                        end: Alignment.topCenter,
-                        colors: [
-                          Colors.black.withOpacity(0.7),
-                          Colors.transparent,
-                        ],
-                      ),
-                    ),
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text(
-                          widget.attachment.fileName,
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 14,
-                            fontWeight: FontWeight.w500,
-                          ),
-                          textAlign: TextAlign.center,
-                        ),
-                        const SizedBox(height: 4),
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            const Icon(Icons.lock, color: Colors.white70, size: 14),
-                            const SizedBox(width: 4),
-                            Text(
-                              'Cifrato E2E • ${widget.attachmentService.formatFileSize(widget.attachment.fileSize)}',
-                              style: const TextStyle(
-                                color: Colors.white70,
-                                fontSize: 12,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _TodoMessageBubble extends StatelessWidget {
-  final Message message;
-  final bool isMe;
-  final bool isCompleted;
-  final VoidCallback onComplete;
-
-  const _TodoMessageBubble({
-    super.key,
-    required this.message,
-    required this.isMe,
-    required this.isCompleted,
-    required this.onComplete,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final l10n = AppLocalizations.of(context)!;
-    final bool isPastDue = message.dueDate != null && message.dueDate!.isBefore(DateTime.now());
-
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 12, left: 8, right: 8),
-      child: Row(
-        mainAxisAlignment: isMe ? MainAxisAlignment.end : MainAxisAlignment.start,
-        children: [
-          GestureDetector(
-            onLongPress: isCompleted ? null : onComplete, // Long press per completare
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12),
             child: Container(
-              constraints: BoxConstraints(
-                maxWidth: MediaQuery.of(context).size.width * 0.75,
-              ),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
               decoration: BoxDecoration(
-                gradient: isMe
-                    ? const LinearGradient(
-                        colors: [
-                          Color(0xFF667eea), // Purple
-                          Color(0xFF764ba2), // Deep purple
-                        ],
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                      )
-                    : LinearGradient(
-                        colors: [
-                          Colors.grey[200]!,
-                          Colors.grey[100]!,
-                        ],
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                      ),
-                borderRadius: BorderRadius.only(
-                  topLeft: const Radius.circular(20),
-                  topRight: const Radius.circular(20),
-                  bottomLeft: isMe
-                      ? const Radius.circular(20)
-                      : const Radius.circular(4),
-                  bottomRight: isMe
-                      ? const Radius.circular(4)
-                      : const Radius.circular(20),
+                gradient: const LinearGradient(
+                  colors: [
+                    Color(0xFF667eea),
+                    Color(0xFF764ba2),
+                  ],
                 ),
+                borderRadius: BorderRadius.circular(16),
                 boxShadow: [
                   BoxShadow(
-                    color: isMe
-                        ? const Color(0xFF667eea).withOpacity(0.3)
-                        : Colors.black.withOpacity(0.08),
+                    color: const Color(0xFF667eea).withOpacity(0.3),
                     blurRadius: 8,
                     offset: const Offset(0, 2),
                   ),
                 ],
               ),
-              child: Padding(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 16,
-                  vertical: 10,
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // Testo del todo (mostra "Todo" se vuoto)
-                    (message.decryptedContent?.isEmpty ?? true)
-                        ? Text(
-                            l10n.chatTodoDefault,
-                            style: TextStyle(
-                              color: isMe ? Colors.white : Colors.black87,
-                              fontSize: 15,
-                              height: 1.4,
-                              decoration: isCompleted ? TextDecoration.lineThrough : null,
-                              fontStyle: FontStyle.italic,
-                            ),
-                          )
-                        : Linkify(
-                            onOpen: (link) async {
-                              try {
-                                final uri = Uri.parse(link.url);
-                                await launchUrl(
-                                  uri,
-                                  mode: LaunchMode.externalApplication,
-                                );
-                              } catch (e) {
-                                if (kDebugMode) {
-                                  print('Errore apertura URL: $e');
-                                }
-                              }
-                            },
-                            text: message.decryptedContent!,
-                            style: TextStyle(
-                              color: isMe ? Colors.white : Colors.black87,
-                              fontSize: 15,
-                              height: 1.4,
-                              decoration: isCompleted ? TextDecoration.lineThrough : null,
-                            ),
-                            linkStyle: TextStyle(
-                              color: isMe ? Colors.white : Colors.blue,
-                              fontSize: 15,
-                              height: 1.4,
-                              decoration: TextDecoration.underline,
-                            ),
-                            options: const LinkifyOptions(
-                              humanize: false,
-                              looseUrl: true,
-                            ),
-                          ),
-
-                    // Data e ora (icona campanello per reminder, calendario per evento)
-                    if (message.dueDate != null) ...[
-                      const SizedBox(height: 8),
-                      Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(
-                            message.isReminder == true
-                                ? Icons.notifications_outlined  // Campanello per reminder
-                                : Icons.calendar_today_outlined, // Calendario per evento
-                            size: 14,
-                            color: isMe
-                                ? Colors.white.withOpacity(0.9)
-                                : Colors.black54,
-                          ),
-                          const SizedBox(width: 4),
-                          Text(
-                            DateFormat('dd/MM/yyyy HH:mm').format(message.dueDate!),
-                            style: TextStyle(
-                              fontSize: 12,
-                              color: isMe
-                                  ? Colors.white.withOpacity(0.9)
-                                  : Colors.black54,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
-
-                    // Timestamp del messaggio
-                    const SizedBox(height: 4),
-                    Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text(
-                          DateFormat('HH:mm').format(message.timestamp),
-                          style: TextStyle(
-                            fontSize: 11,
-                            color: isMe
-                                ? Colors.white.withOpacity(0.8)
-                                : Colors.black54,
-                          ),
-                        ),
-                        // Mostra le spunte solo per i messaggi inviati da me
-                        if (isMe && !isCompleted) ...[
-                          const SizedBox(width: 4),
-                          Icon(
-                            (message.read ?? false) ? Icons.done_all : Icons.done,
-                            size: 14,
-                            color: (message.read ?? false)
-                                ? Colors.blue[300]
-                                : Colors.white.withOpacity(0.8),
-                          ),
-                        ],
-                        if (isCompleted) ...[
-                          const SizedBox(width: 6),
-                          Icon(
-                            Icons.check_circle,
-                            size: 12,
-                            color: isMe
-                                ? Colors.white.withOpacity(0.8)
-                                : Colors.green,
-                          ),
-                        ],
-                      ],
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(
+                    Icons.flag_rounded,
+                    size: 14,
+                    color: Colors.white,
+                  ),
+                  const SizedBox(width: 6),
+                  Text(
+                    dateLabel,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      letterSpacing: 0.5,
                     ),
-
-                    // Hint per long press (solo se non completato)
-                    if (!isCompleted) ...[
-                      const SizedBox(height: 6),
-                      Text(
-                        l10n.chatLongPressToComplete,
-                        style: TextStyle(
-                          fontSize: 10,
-                          color: isMe
-                              ? Colors.white.withOpacity(0.6)
-                              : Colors.black38,
-                          fontStyle: FontStyle.italic,
-                        ),
-                      ),
-                    ],
+                  ),
+                ],
+              ),
+            ),
+          ),
+          Expanded(
+            child: Container(
+              height: 1,
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [
+                    Colors.grey[300]!,
+                    Colors.transparent,
                   ],
                 ),
               ),

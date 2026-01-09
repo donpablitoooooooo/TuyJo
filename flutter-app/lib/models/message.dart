@@ -80,6 +80,7 @@ class Message {
 
   // Campi specifici per todo
   DateTime? dueDate;
+  DateTime? rangeEnd; // Data fine range (se è un TODO con range di date)
   bool? completed;
   String? originalTodoId; // Per messaggi di tipo 'todo_completed'
   bool? isReminder; // true se questo è un messaggio di reminder (icona campanello)
@@ -108,6 +109,7 @@ class Message {
     this.decryptedContent,
     this.messageType,
     this.dueDate,
+    this.rangeEnd,
     this.completed,
     this.originalTodoId,
     this.isReminder,

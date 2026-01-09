@@ -588,20 +588,29 @@ class ChatService extends ChangeNotifier {
     String familyChatId,
     String senderId,
     String senderPublicKey,
-    String recipientPublicKey,
-  ) async {
+    String recipientPublicKey, {
+    DateTime? rangeEnd, // Parametro opzionale per TODO con range
+    List<Attachment>? attachments, // Allegati opzionali per TODO
+  }) async {
     try {
       final timestamp = DateTime.now();
 
       // Costruisci il plaintext con type='todo' e due_date
-      final plaintext = json.encode({
+      final Map<String, dynamic> todoData = {
         'sender': senderId,
         'timestamp': timestamp.millisecondsSinceEpoch ~/ 1000,
         'type': 'todo',
         'body': content,
         'due_date': dueDate.toIso8601String(),
         'is_reminder': false,
-      });
+      };
+
+      // Aggiungi range_end se presente
+      if (rangeEnd != null) {
+        todoData['range_end'] = rangeEnd.toIso8601String();
+      }
+
+      final plaintext = json.encode(todoData);
 
       // Cifra con dual encryption
       final encryptedPayload = _encryptionService.encryptMessageDual(
@@ -627,6 +636,8 @@ class ChatService extends ChangeNotifier {
         'message_type': 'todo', // Campo non criptato per la Cloud Function
         'delivered': true, // Messaggio consegnato al server
         'read': false, // Non ancora letto dal destinatario
+        if (attachments != null && attachments.isNotEmpty)
+          'attachments': attachments.map((a) => a.toJson()).toList(),
       });
 
       if (kDebugMode) {
@@ -646,22 +657,33 @@ class ChatService extends ChangeNotifier {
   Future<bool> sendTodoReminder(
     String content,
     DateTime reminderDate,
+    DateTime originalTodoDate,
     String familyChatId,
     String senderId,
     String senderPublicKey,
-    String recipientPublicKey,
-  ) async {
+    String recipientPublicKey, {
+    DateTime? rangeEnd, // Parametro opzionale per TODO con range
+    List<Attachment>? attachments, // Allegati opzionali per TODO
+  }) async {
     try {
-      // IMPORTANTE: usa reminderDate come timestamp per cronologia corretta
-      // Il messaggio apparirà cronologicamente quando scatta il reminder
-      final plaintext = json.encode({
+      // IMPORTANTE:
+      // - reminderDate: quando appare il reminder nella chat (timestamp/created_at)
+      // - originalTodoDate: la data effettiva del TODO (due_date)
+      final Map<String, dynamic> reminderData = {
         'sender': senderId,
         'timestamp': reminderDate.millisecondsSinceEpoch ~/ 1000,
         'type': 'todo',
         'body': content,
-        'due_date': reminderDate.toIso8601String(),
+        'due_date': originalTodoDate.toIso8601String(), // Data del TODO originale!
         'is_reminder': true,
-      });
+      };
+
+      // Aggiungi range_end se presente
+      if (rangeEnd != null) {
+        reminderData['range_end'] = rangeEnd.toIso8601String();
+      }
+
+      final plaintext = json.encode(reminderData);
 
       // Cifra con dual encryption
       final encryptedPayload = _encryptionService.encryptMessageDual(
@@ -687,11 +709,14 @@ class ChatService extends ChangeNotifier {
         'message_type': 'todo', // Campo non criptato per la Cloud Function
         'delivered': true, // Messaggio consegnato al server
         'read': false, // Non ancora letto dal destinatario
+        if (attachments != null && attachments.isNotEmpty)
+          'attachments': attachments.map((a) => a.toJson()).toList(),
       });
 
       if (kDebugMode) {
         print('🔔 Todo reminder sent to chat: ${messageRef.id}');
-        print('   Reminder date (created_at): ${reminderDate.toIso8601String()}');
+        print('   Reminder appears at (created_at): ${reminderDate.toIso8601String()}');
+        print('   Original TODO date (due_date): ${originalTodoDate.toIso8601String()}');
         print('   Status: delivered=true, read=false');
       }
       return true;
@@ -879,6 +904,11 @@ class ChatService extends ChangeNotifier {
           message.dueDate = DateTime.parse(data['due_date']);
           message.completed = false;
 
+          // Parse range_end se presente
+          if (data['range_end'] != null) {
+            message.rangeEnd = DateTime.parse(data['range_end']);
+          }
+
           // Parse is_reminder con logging per debug
           final isReminderRaw = data['is_reminder'];
           message.isReminder = isReminderRaw == true;
@@ -886,6 +916,9 @@ class ChatService extends ChangeNotifier {
           if (kDebugMode) {
             print('📅 Todo message detected: ${message.decryptedContent}');
             print('   Due date: ${message.dueDate}');
+            if (message.rangeEnd != null) {
+              print('   Range end: ${message.rangeEnd}');
+            }
             print('   is_reminder (raw): $isReminderRaw (type: ${isReminderRaw.runtimeType})');
             print('   isReminder (parsed): ${message.isReminder}');
           }

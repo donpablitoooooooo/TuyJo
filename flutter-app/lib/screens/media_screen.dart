@@ -54,8 +54,8 @@ class _MediaScreenState extends State<MediaScreen> {
       }
     }
 
-    // Ordina per data più recente
-    items.sort((a, b) => b.message.timestamp.compareTo(a.message.timestamp));
+    // Ordina per data più vecchia (vecchi in alto, nuovi in basso)
+    items.sort((a, b) => a.message.timestamp.compareTo(b.message.timestamp));
 
     return items;
   }
@@ -121,7 +121,7 @@ class _MediaItem {
 }
 
 /// Lista unificata per tutti i media
-class _AllMediaList extends StatelessWidget {
+class _AllMediaList extends StatefulWidget {
   final List<_MediaItem> items;
   final String? currentUserId;
   final AttachmentService? attachmentService;
@@ -133,18 +133,43 @@ class _AllMediaList extends StatelessWidget {
   });
 
   @override
+  State<_AllMediaList> createState() => _AllMediaListState();
+}
+
+class _AllMediaListState extends State<_AllMediaList> {
+  final ScrollController _scrollController = ScrollController();
+
+  @override
+  void initState() {
+    super.initState();
+    // Posiziona lo scroll in basso dopo il primo frame
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (_scrollController.hasClients) {
+        _scrollController.jumpTo(_scrollController.position.maxScrollExtent);
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     // Mostra tutti i media (foto, video, documenti) in un'unica griglia
     return GridView.builder(
+      controller: _scrollController,
       padding: const EdgeInsets.all(4),
       gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
         crossAxisCount: 3,
         crossAxisSpacing: 4,
         mainAxisSpacing: 4,
       ),
-      itemCount: items.length,
+      itemCount: widget.items.length,
       itemBuilder: (context, index) {
-        final item = items[index];
+        final item = widget.items[index];
         final type = item.attachment.type;
 
         // Renderizza in base al tipo
@@ -152,14 +177,14 @@ class _AllMediaList extends StatelessWidget {
           return _MediaGridItem(
             item: item,
             isVideo: type == 'video',
-            currentUserId: currentUserId,
-            attachmentService: attachmentService,
+            currentUserId: widget.currentUserId,
+            attachmentService: widget.attachmentService,
           );
         } else if (type == 'document') {
           return _DocumentGridItem(
             item: item,
-            currentUserId: currentUserId,
-            attachmentService: attachmentService,
+            currentUserId: widget.currentUserId,
+            attachmentService: widget.attachmentService,
           );
         }
 
