@@ -21,6 +21,7 @@
     "rules": "storage.rules"
   },
   "hosting": {
+    "site": "youandme-b3b4c",
     "public": "public",
     "ignore": [
       "firebase.json",
