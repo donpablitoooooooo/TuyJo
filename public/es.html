@@ -1,0 +1,360 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>YouAndMe - App de Mensajería Cifrada para Parejas</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+        }
+
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        .lang-selector {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: rgba(255,255,255,0.95);
+            padding: 10px 15px;
+            border-radius: 25px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+            z-index: 1000;
+        }
+
+        .lang-selector a {
+            margin: 0 8px;
+            text-decoration: none;
+            color: #667eea;
+            font-weight: 600;
+            font-size: 0.9em;
+        }
+
+        .lang-selector a:hover {
+            color: #764ba2;
+        }
+
+        .lang-selector a.active {
+            color: #764ba2;
+            border-bottom: 2px solid #764ba2;
+        }
+
+        header {
+            text-align: center;
+            padding: 60px 20px;
+            color: white;
+        }
+
+        header h1 {
+            font-size: 3em;
+            margin-bottom: 10px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.2);
+        }
+
+        header p {
+            font-size: 1.3em;
+            opacity: 0.95;
+        }
+
+        .content {
+            background: white;
+            border-radius: 20px;
+            padding: 40px;
+            margin: 20px 0;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+        }
+
+        h2 {
+            color: #667eea;
+            margin: 30px 0 20px 0;
+            font-size: 2em;
+            border-bottom: 3px solid #667eea;
+            padding-bottom: 10px;
+        }
+
+        h2:first-child {
+            margin-top: 0;
+        }
+
+        h3 {
+            color: #764ba2;
+            margin: 25px 0 15px 0;
+            font-size: 1.4em;
+        }
+
+        .feature-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            margin: 30px 0;
+        }
+
+        .feature-card {
+            background: linear-gradient(135deg, #667eea15 0%, #764ba215 100%);
+            padding: 25px;
+            border-radius: 15px;
+            border-left: 4px solid #667eea;
+        }
+
+        .feature-card h3 {
+            margin-top: 0;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .emoji {
+            font-size: 1.5em;
+        }
+
+        .step-list {
+            background: #f8f9fa;
+            border-radius: 10px;
+            padding: 20px 20px 20px 40px;
+            margin: 20px 0;
+        }
+
+        .step-list li {
+            margin: 15px 0;
+            padding-left: 10px;
+        }
+
+        .highlight-box {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 25px;
+            border-radius: 15px;
+            margin: 25px 0;
+        }
+
+        .highlight-box h3 {
+            color: white;
+            margin-top: 0;
+        }
+
+        ul {
+            margin-left: 20px;
+            margin-bottom: 20px;
+        }
+
+        ul li {
+            margin: 10px 0;
+        }
+
+        .tech-stack {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin: 20px 0;
+        }
+
+        .tech-badge {
+            background: #667eea;
+            color: white;
+            padding: 8px 15px;
+            border-radius: 20px;
+            font-size: 0.9em;
+            font-weight: 500;
+        }
+
+        footer {
+            text-align: center;
+            color: white;
+            padding: 40px 20px;
+            font-size: 0.9em;
+        }
+
+        @media (max-width: 768px) {
+            header h1 {
+                font-size: 2em;
+            }
+
+            header p {
+                font-size: 1.1em;
+            }
+
+            .content {
+                padding: 25px;
+            }
+
+            h2 {
+                font-size: 1.6em;
+            }
+
+            .lang-selector {
+                top: 10px;
+                right: 10px;
+                padding: 8px 12px;
+            }
+
+            .lang-selector a {
+                margin: 0 5px;
+                font-size: 0.85em;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="lang-selector">
+        <a href="en.html">EN</a>
+        <a href="es.html" class="active">ES</a>
+        <a href="ca.html">CA</a>
+        <a href="index.html">IT</a>
+    </div>
+
+    <div class="container">
+        <header>
+            <h1>💜 YouAndMe</h1>
+            <p>Tu app de mensajería privada y cifrada para parejas</p>
+        </header>
+
+        <div class="content">
+            <h2>¿Qué es YouAndMe?</h2>
+            <p>
+                <strong>YouAndMe</strong> es una app de mensajería completamente privada y segura,
+                diseñada exclusivamente para parejas. Gracias al cifrado end-to-end avanzado
+                (RSA-2048 + AES-256), solo tú y tu pareja pueden leer vuestros mensajes.
+                ¡Ni siquiera nosotros podemos acceder a ellos!
+            </p>
+
+            <h2>✨ Funcionalidades Principales</h2>
+
+            <div class="feature-grid">
+                <div class="feature-card">
+                    <h3><span class="emoji">💬</span> Chat Seguro</h3>
+                    <p>Mensajes cifrados end-to-end, confirmaciones de lectura, indicador "escribiendo" y mucho más.</p>
+                </div>
+
+                <div class="feature-card">
+                    <h3><span class="emoji">📎</span> Adjuntos Protegidos</h3>
+                    <p>Envía fotos, vídeos y documentos completamente cifrados con visor integrado.</p>
+                </div>
+
+                <div class="feature-card">
+                    <h3><span class="emoji">📅</span> TODOs y Recordatorios</h3>
+                    <p>Crea recordatorios compartidos con notificaciones automáticas 1 hora antes del evento.</p>
+                </div>
+
+                <div class="feature-card">
+                    <h3><span class="emoji">📆</span> Calendario TODO</h3>
+                    <p>Visualiza todos tus TODOs en un calendario interactivo con rangos de fechas.</p>
+                </div>
+
+                <div class="feature-card">
+                    <h3><span class="emoji">💑</span> Selfie de Pareja</h3>
+                    <p>Una foto de perfil compartida que se sincroniza automáticamente entre vuestros dispositivos.</p>
+                </div>
+
+                <div class="feature-card">
+                    <h3><span class="emoji">🖼️</span> Galería Multimedia</h3>
+                    <p>Todas las fotos, vídeos y documentos en una cómoda cuadrícula 3x3 siempre disponible.</p>
+                </div>
+            </div>
+
+            <div class="highlight-box">
+                <h3>🔐 Máxima Seguridad</h3>
+                <p>
+                    Tu privacidad es nuestra prioridad. Utilizamos doble cifrado con RSA-2048 para
+                    el intercambio de claves y AES-256 para los mensajes. Cada mensaje tiene una clave única y
+                    nadie, ni siquiera el servidor, puede leer tu contenido.
+                </p>
+            </div>
+
+            <h2>🚀 ¿Cómo Funciona?</h2>
+
+            <h3>1. Emparejamiento Inicial (Código QR)</h3>
+            <ol class="step-list">
+                <li><strong>Dispositivo A</strong> genera sus claves criptográficas y muestra un código QR</li>
+                <li><strong>Dispositivo B</strong> escanea el código QR e importa la clave pública de A</li>
+                <li><strong>Dispositivo B</strong> muestra su código QR con su propia clave pública</li>
+                <li><strong>Dispositivo A</strong> escanea el código QR de B y completa el emparejamiento</li>
+                <li>¡Ambos dispositivos están ahora conectados de forma segura! 🎉</li>
+            </ol>
+
+            <h3>2. Envío de Mensajes Cifrados</h3>
+            <ol class="step-list">
+                <li>Escribe tu mensaje en la app</li>
+                <li>La app genera una clave AES-256 aleatoria única para ese mensaje</li>
+                <li>El mensaje se cifra con AES-256</li>
+                <li>La clave AES se cifra DOS veces:
+                    <ul>
+                        <li>Una con tu clave pública (para ti)</li>
+                        <li>Una con la clave pública de tu pareja (para él/ella)</li>
+                    </ul>
+                </li>
+                <li>El mensaje cifrado y las claves se guardan en la nube</li>
+                <li>¡Solo tú y tu pareja pueden descifrar y leer el mensaje!</li>
+            </ol>
+
+            <h3>3. TODOs con Recordatorios Automáticos</h3>
+            <ol class="step-list">
+                <li>Crea un TODO con fecha y hora desde la app</li>
+                <li>La app envía automáticamente un recordatorio programado</li>
+                <li>1 hora antes del evento, ambos recibiréis una notificación</li>
+                <li>¡Completa el TODO con una simple pulsación larga!</li>
+            </ol>
+
+            <h2>💪 ¿Por Qué Elegir YouAndMe?</h2>
+
+            <ul>
+                <li><strong>Privacidad Total:</strong> Cifrado end-to-end con arquitectura zero-knowledge</li>
+                <li><strong>Rápida:</strong> Caché local para carga instantánea (< 100ms)</li>
+                <li><strong>Completa:</strong> Chat, adjuntos, TODOs, calendario, notificaciones y mucho más</li>
+                <li><strong>Moderna:</strong> Diseño limpio con tema morado/blanco y animaciones fluidas</li>
+                <li><strong>Fiable:</strong> Backend serverless en Firebase, siempre disponible</li>
+                <li><strong>Solo para Vosotros:</strong> Diseñada específicamente para parejas, no para grupos</li>
+            </ul>
+
+            <div class="highlight-box">
+                <h3>🎯 Versión Actual: 1.11.0</h3>
+                <p>
+                    <strong>Novedades de Enero 2026:</strong><br>
+                    • Calendario TODO integrado con rangos de fechas<br>
+                    • Adjuntos para TODOs (fotos y documentos)<br>
+                    • Widgets reutilizables mejorados<br>
+                    • Separadores de fecha coloquiales ("Hoy", "Ayer")<br>
+                    • Rendimiento optimizado para desplazamiento multimedia
+                </p>
+            </div>
+
+            <h2>🛠️ Tecnología</h2>
+            <div class="tech-stack">
+                <span class="tech-badge">Flutter 3.x</span>
+                <span class="tech-badge">Firebase</span>
+                <span class="tech-badge">RSA-2048</span>
+                <span class="tech-badge">AES-256</span>
+                <span class="tech-badge">Firestore</span>
+                <span class="tech-badge">Cloud Storage</span>
+                <span class="tech-badge">SQLite</span>
+                <span class="tech-badge">Material Design 3</span>
+            </div>
+
+            <h2>📱 Disponibilidad</h2>
+            <p>
+                YouAndMe está disponible para <strong>iOS</strong> y <strong>Android</strong>.
+                La app está diseñada para funcionar perfectamente en smartphones modernos con
+                una interfaz optimizada para dispositivos móviles.
+            </p>
+        </div>
+
+        <footer>
+            <p>💜 YouAndMe - Vuestro espacio privado, seguro y compartido</p>
+            <p style="margin-top: 10px; opacity: 0.8;">Versión 1.11.0 - Enero 2026</p>
+        </footer>
+    </div>
+</body>
+</html>
