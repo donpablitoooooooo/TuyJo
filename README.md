@@ -2,7 +2,7 @@
 
 App di messaggistica privata per due persone con crittografia end-to-end e pairing tramite QR code.
 
-[![Status](https://img.shields.io/badge/status-v1.11.0--stable-success)](./README.md)
+[![Status](https://img.shields.io/badge/status-v1.12.0--stable-success)](./README.md)
 [![Flutter](https://img.shields.io/badge/Flutter-3.x-blue)](https://flutter.dev)
 [![Firebase](https://img.shields.io/badge/Firebase-Firestore-orange)](https://firebase.google.com)
 
@@ -62,6 +62,88 @@ App di messaggistica privata per due persone con crittografia end-to-end e pairi
 ---
 
 ## 📦 Aggiornamenti Recenti (Gennaio 2026)
+
+### ✨ v1.12.0 - UI/UX Polish & Real-time Sync Fixes (10 Gennaio 2026)
+
+**Miglioramenti Critici:**
+
+1. **🎬 Bubble Animation Removal**
+   - Rimossa animazione slide/fade dai messaggi che causava "bounce back" quando la spunta diventava blu
+   - Convertito `_MessageBubble` da StatefulWidget (con AnimationController) a StatelessWidget
+   - Messaggi ora appaiono istantaneamente senza transizioni
+   - Fix: messaggi non "ritornano indietro" quando cambia lo stato di lettura
+
+2. **🖼️ Thumbnail Stability - Three-Layer Fix**
+   - **Layer 1**: Convertito `AttachmentImage` da StatelessWidget a StatefulWidget
+     - Future cached in `initState()` per evitare ri-esecuzione ad ogni rebuild
+     - Thumbnail caricata una sola volta alla creazione del widget
+   - **Layer 2**: Chiave widget stabile basata solo su `message.id`
+     - Prima: `ValueKey('${senderId}_${timestamp}_${read}')` - cambiava quando read cambiava
+     - Dopo: `ValueKey(message.id)` - stabile per tutta la vita del messaggio
+     - Fix: widget non ricreato quando stato messaggio cambia
+   - **Layer 3**: Smart `didUpdateWidget()` per aggiornamenti intelligenti
+     - Ricarica thumbnail SOLO se URL cambia (pending → real durante upload)
+     - Ignora altri cambiamenti (read status, delivered, etc.)
+     - Perfetto per messaggi con ottimistic updates
+   - Risultato: zero flickering, thumbnail sempre visibile e stabile
+
+3. **🛡️ Empty URL Validation**
+   - Aggiunto controllo preventivo in `downloadAndDecryptAttachment()`
+   - Previene errori Firebase Storage quando URL ancora vuoto (file in upload)
+   - Ritorna `null` gracefully invece di crashare
+   - Fix: zero errori `'url must start with gs:// or https://'` nei log
+
+4. **📍 Date Separator Positioning**
+   - Separatore data ("Oggi", "Ieri") ora appare SOPRA il primo messaggio invece che sotto
+   - Invertito ordine children in Column: `[_DateSeparator, messageWidget]`
+   - UI più intuitiva e corretta logicamente
+   - Fix: "Oggi" non più sotto il primo messaggio dopo il pairing
+
+5. **📸 Real-time Couple Selfie Sync**
+   - Fix critico in `watchCoupleSelfie()` listener
+   - Prima: `notifyListeners()` chiamato prima che `_downloadAndCacheSelfie()` completasse
+   - Dopo: usa `.then()` per notificare SOLO dopo download completo
+   - Risultato: foto partner visibile immediatamente senza bisogno di killare l'app
+   - Cache `_cachedSelfieBytes` sempre popolata prima di aggiornare UI
+
+**Miglioramenti Tecnici:**
+
+- ✅ Widget lifecycle ottimizzato (StatefulWidget dove necessario)
+- ✅ Future caching pattern per performance
+- ✅ Smart key strategy per stabilità widget tree
+- ✅ didUpdateWidget() per aggiornamenti selettivi
+- ✅ Defensive programming per URL validation
+- ✅ Async callback timing corretto con Provider
+- ✅ Column child ordering ottimizzato
+
+**File Modificati:**
+- `pubspec.yaml`: Version 1.11.0+12 → **1.12.0+13**
+- `chat_screen.dart`:
+  - `_MessageBubble`: StatefulWidget → StatelessWidget (rimossa AnimationController)
+  - Widget key: changed to `ValueKey(message.id)` (stable)
+  - Date separator: inverted column order
+  - Added `ValueKey(attachment.id)` to attachment widgets
+- `attachment_widgets.dart`:
+  - `AttachmentImage`: StatelessWidget → StatefulWidget
+  - Cached `_imageFuture` in `initState()`
+  - Added `didUpdateWidget()` for smart reloads
+  - Extracted `_loadImage()` method for reusability
+- `attachment_service.dart`:
+  - Added `if (url.isEmpty) return null;` validation
+  - Prevents Firebase errors during upload
+- `couple_selfie_service.dart`:
+  - `watchCoupleSelfie()`: notifyListeners() moved to `.then()` callback
+  - Download completes BEFORE UI update
+  - Cache always populated when UI refreshes
+
+**Bug Fix:**
+- ✅ Bubble non "bounce back" quando spunta diventa blu
+- ✅ Thumbnail stabili anche durante state changes
+- ✅ Zero errori URL vuoto nei log
+- ✅ Separatore data posizionato correttamente
+- ✅ Foto coppia sincronizzata in real-time su entrambi i dispositivi
+
+---
 
 ### 🎯 v1.11.0 - TODO & Calendar Enhancement (9 Gennaio 2026)
 

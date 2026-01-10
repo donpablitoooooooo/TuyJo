@@ -10,7 +10,7 @@ import '../services/attachment_service.dart';
 import '../screens/pdf_viewer_screen.dart';
 
 /// Widget per visualizzare allegati immagine (decifrato)
-class AttachmentImage extends StatelessWidget {
+class AttachmentImage extends StatefulWidget {
   final Attachment attachment;
   final bool isMe;
   final String? currentUserId;
@@ -27,17 +27,60 @@ class AttachmentImage extends StatelessWidget {
   });
 
   @override
+  State<AttachmentImage> createState() => _AttachmentImageState();
+}
+
+class _AttachmentImageState extends State<AttachmentImage> {
+  late Future<Uint8List?> _imageFuture;
+
+  @override
+  void initState() {
+    super.initState();
+    // Crea il Future solo una volta - non verrà ricreato al rebuild
+    _imageFuture = _loadImage();
+  }
+
+  @override
+  void didUpdateWidget(AttachmentImage oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // Ricrea il Future SOLO se l'URL dell'attachment è cambiato
+    // (es. da vuoto a pieno quando il messaggio passa da pending a reale)
+    if (oldWidget.attachment.url != widget.attachment.url) {
+      if (kDebugMode) {
+        print('📸 [AttachmentImage] URL changed, reloading image');
+        print('   Old URL: ${oldWidget.attachment.url.isEmpty ? "(empty)" : "present"}');
+        print('   New URL: ${widget.attachment.url.isEmpty ? "(empty)" : "present"}');
+      }
+      _imageFuture = _loadImage();
+    }
+  }
+
+  Future<Uint8List?> _loadImage() {
+    // Se URL è vuoto, l'attachment è ancora in upload - ritorna null
+    if (widget.attachment.url.isEmpty) {
+      return Future.value(null);
+    }
+
+    return widget.attachmentService.downloadAndDecryptAttachment(
+      widget.attachment,
+      widget.currentUserId ?? '',
+      widget.senderId ?? '',
+      useThumbnail: true, // Usa thumbnail per performance
+    );
+  }
+
+  @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
     // Se URL è vuoto, l'allegato è in upload - mostra placeholder
-    if (attachment.url.isEmpty) {
+    if (widget.attachment.url.isEmpty) {
       return ClipRRect(
         borderRadius: BorderRadius.circular(12),
         child: SizedBox(
           width: double.infinity,
           height: 200,
           child: Container(
-            color: isMe ? Colors.white.withOpacity(0.1) : Colors.grey[200],
+            color: widget.isMe ? Colors.white.withOpacity(0.1) : Colors.grey[200],
             child: Center(
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
@@ -62,10 +105,10 @@ class AttachmentImage extends StatelessWidget {
         Navigator.of(context).push(
           MaterialPageRoute(
             builder: (context) => FullscreenImageViewer(
-              attachment: attachment,
-              attachmentService: attachmentService,
-              currentUserId: currentUserId,
-              senderId: senderId,
+              attachment: widget.attachment,
+              attachmentService: widget.attachmentService,
+              currentUserId: widget.currentUserId,
+              senderId: widget.senderId,
             ),
           ),
         );
@@ -73,12 +116,7 @@ class AttachmentImage extends StatelessWidget {
       child: ClipRRect(
         borderRadius: BorderRadius.circular(12),
         child: FutureBuilder<Uint8List?>(
-          future: attachmentService.downloadAndDecryptAttachment(
-            attachment,
-            currentUserId ?? '',
-            senderId ?? '',
-            useThumbnail: true, // Usa thumbnail per performance
-          ),
+          future: _imageFuture, // Usa il Future cachato
           builder: (context, snapshot) {
             if (kDebugMode) {
               print('📸 [AttachmentImage] State: ${snapshot.connectionState}');
@@ -96,7 +134,7 @@ class AttachmentImage extends StatelessWidget {
                 width: double.infinity,
                 height: 200,
                 child: Container(
-                  color: isMe ? Colors.white.withOpacity(0.1) : Colors.grey[200],
+                  color: widget.isMe ? Colors.white.withOpacity(0.1) : Colors.grey[200],
                   child: const Center(
                     child: CircularProgressIndicator(),
                   ),

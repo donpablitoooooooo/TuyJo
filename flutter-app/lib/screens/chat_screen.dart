@@ -1523,7 +1523,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                               }
 
                               messageWidget = TodoMessageBubble(
-                                key: ValueKey('${message.id}_${message.read}'),
+                                key: ValueKey(message.id), // Key stabile basata solo sull'ID
                                 message: message,
                                 isMe: isMe,
                                 isCompleted: isTodoCompleted,
@@ -1538,7 +1538,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                               final decryptedContent = message.decryptedContent ?? '[Messaggio non decifrabile]';
 
                               messageWidget = _MessageBubble(
-                                key: ValueKey('${message.senderId}_${message.timestamp.millisecondsSinceEpoch}_${message.read}'),
+                                key: ValueKey(message.id), // Key stabile basata solo sull'ID
                                 message: decryptedContent,
                                 timestamp: message.timestamp,
                                 isMe: isMe,
@@ -1555,10 +1555,10 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                             if (showDateSeparator) {
                               return Column(
                                 children: [
-                                  messageWidget,
                                   _DateSeparator(
                                     dateLabel: _formatDateSeparator(message.timestamp),
                                   ),
+                                  messageWidget,
                                 ],
                               );
                             }
@@ -1870,7 +1870,7 @@ class _AttachmentPreview extends StatelessWidget {
   }
 }
 
-class _MessageBubble extends StatefulWidget {
+class _MessageBubble extends StatelessWidget {
   final String message;
   final DateTime timestamp;
   final bool isMe;
@@ -1894,79 +1894,44 @@ class _MessageBubble extends StatefulWidget {
     this.attachmentService,
   });
 
-  @override
-  State<_MessageBubble> createState() => _MessageBubbleState();
-}
-
-class _MessageBubbleState extends State<_MessageBubble>
-    with SingleTickerProviderStateMixin {
-  late AnimationController _controller;
-  late Animation<double> _fadeAnimation;
-  late Animation<Offset> _slideAnimation;
-
-  @override
-  void initState() {
-    super.initState();
-    _controller = AnimationController(
-      duration: const Duration(milliseconds: 300),
-      vsync: this,
-    );
-
-    _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
-      CurvedAnimation(parent: _controller, curve: Curves.easeOut),
-    );
-
-    _slideAnimation = Tween<Offset>(
-      begin: widget.isMe ? const Offset(0.3, 0) : const Offset(-0.3, 0),
-      end: Offset.zero,
-    ).animate(
-      CurvedAnimation(parent: _controller, curve: Curves.easeOutCubic),
-    );
-
-    _controller.forward();
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
   /// Costruisce i widget per mostrare gli allegati (decifrati)
   List<Widget> _buildAttachments() {
-    if (widget.attachments == null || widget.attachments!.isEmpty) {
+    if (attachments == null || attachments!.isEmpty) {
       return [];
     }
 
     // Se attachmentService non è disponibile, non mostrare allegati
-    if (widget.attachmentService == null) {
+    if (attachmentService == null) {
       return [];
     }
 
     return [
-      ...widget.attachments!.map((attachment) {
+      ...attachments!.map((attachment) {
         if (attachment.type == 'photo') {
           return AttachmentImage(
+            key: ValueKey(attachment.id), // Key stabile per mantenere lo State
             attachment: attachment,
-            isMe: widget.isMe,
-            currentUserId: widget.currentUserId,
-            senderId: widget.senderId,
-            attachmentService: widget.attachmentService!,
+            isMe: isMe,
+            currentUserId: currentUserId,
+            senderId: senderId,
+            attachmentService: attachmentService!,
           );
         } else if (attachment.type == 'video') {
           return AttachmentVideo(
+            key: ValueKey(attachment.id), // Key stabile per mantenere lo State
             attachment: attachment,
-            isMe: widget.isMe,
-            currentUserId: widget.currentUserId,
-            senderId: widget.senderId,
+            isMe: isMe,
+            currentUserId: currentUserId,
+            senderId: senderId,
           );
         } else {
           return AttachmentDocument(
+            key: ValueKey(attachment.id), // Key stabile per mantenere lo State
             attachment: attachment,
-            isMe: widget.isMe,
-            currentUserId: widget.currentUserId,
-            senderId: widget.senderId,
-            attachmentService: widget.attachmentService!,
+            isMe: isMe,
+            currentUserId: currentUserId,
+            senderId: senderId,
+            attachmentService: attachmentService!,
           );
         }
       }),
@@ -1975,164 +1940,158 @@ class _MessageBubbleState extends State<_MessageBubble>
 
   @override
   Widget build(BuildContext context) {
-    return SlideTransition(
-      position: _slideAnimation,
-      child: FadeTransition(
-        opacity: _fadeAnimation,
-        child: Padding(
-          padding: const EdgeInsets.only(bottom: 12, left: 8, right: 8),
-          child: Row(
-            mainAxisAlignment:
-                widget.isMe ? MainAxisAlignment.end : MainAxisAlignment.start,
-            children: [
-              Container(
-                constraints: BoxConstraints(
-                  maxWidth: MediaQuery.of(context).size.width * 0.75,
-                ),
-                decoration: BoxDecoration(
-                  gradient: widget.isMe
-                      ? const LinearGradient(
-                          colors: [
-                            Color(0xFF667eea), // Purple
-                            Color(0xFF764ba2), // Deep purple
-                          ],
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
-                        )
-                      : LinearGradient(
-                          colors: [
-                            Colors.grey[200]!,
-                            Colors.grey[100]!,
-                          ],
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
-                        ),
-                  borderRadius: BorderRadius.only(
-                    topLeft: const Radius.circular(20),
-                    topRight: const Radius.circular(20),
-                    bottomLeft: widget.isMe
-                        ? const Radius.circular(20)
-                        : const Radius.circular(4),
-                    bottomRight: widget.isMe
-                        ? const Radius.circular(4)
-                        : const Radius.circular(20),
-                  ),
-                  boxShadow: [
-                    BoxShadow(
-                      color: widget.isMe
-                          ? const Color(0xFF667eea).withOpacity(0.3)
-                          : Colors.black.withOpacity(0.08),
-                      blurRadius: 8,
-                      offset: const Offset(0, 2),
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12, left: 8, right: 8),
+      child: Row(
+        mainAxisAlignment:
+            isMe ? MainAxisAlignment.end : MainAxisAlignment.start,
+        children: [
+          Container(
+            constraints: BoxConstraints(
+              maxWidth: MediaQuery.of(context).size.width * 0.75,
+            ),
+            decoration: BoxDecoration(
+              gradient: isMe
+                  ? const LinearGradient(
+                      colors: [
+                        Color(0xFF667eea), // Purple
+                        Color(0xFF764ba2), // Deep purple
+                      ],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    )
+                  : LinearGradient(
+                      colors: [
+                        Colors.grey[200]!,
+                        Colors.grey[100]!,
+                      ],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
                     ),
-                  ],
+              borderRadius: BorderRadius.only(
+                topLeft: const Radius.circular(20),
+                topRight: const Radius.circular(20),
+                bottomLeft: isMe
+                    ? const Radius.circular(20)
+                    : const Radius.circular(4),
+                bottomRight: isMe
+                    ? const Radius.circular(4)
+                    : const Radius.circular(20),
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: isMe
+                      ? const Color(0xFF667eea).withOpacity(0.3)
+                      : Colors.black.withOpacity(0.08),
+                  blurRadius: 8,
+                  offset: const Offset(0, 2),
                 ),
-                child: ClipRRect(
-                  borderRadius: BorderRadius.only(
-                    topLeft: const Radius.circular(20),
-                    topRight: const Radius.circular(20),
-                    bottomLeft: widget.isMe
-                        ? const Radius.circular(20)
-                        : const Radius.circular(4),
-                    bottomRight: widget.isMe
-                        ? const Radius.circular(4)
-                        : const Radius.circular(20),
-                  ),
-                  child: Material(
-                    color: Colors.transparent,
-                    child: InkWell(
-                      onTap: () {
-                        // Future: show message details or reactions
-                      },
-                      splashColor: Colors.white.withOpacity(0.2),
-                      highlightColor: Colors.white.withOpacity(0.1),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          // Allegati (se presenti) - senza padding per occupare tutta la larghezza
-                          if (widget.attachments != null && widget.attachments!.isNotEmpty)
-                            ..._buildAttachments(),
-                          // Testo e timestamp con padding
-                          Padding(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 16,
-                              vertical: 10,
-                            ),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                // Testo del messaggio (se presente)
-                                if (widget.message.isNotEmpty) ...[
-                                  Linkify(
-                                    onOpen: (link) async {
-                                      try {
-                                        final uri = Uri.parse(link.url);
-                                        await launchUrl(
-                                          uri,
-                                          mode: LaunchMode.externalApplication,
-                                        );
-                                      } catch (e) {
-                                        if (kDebugMode) {
-                                          print('Errore apertura URL: $e');
-                                        }
-                                      }
-                                    },
-                                    text: widget.message,
-                                    style: TextStyle(
-                                      color: widget.isMe ? Colors.white : Colors.black87,
-                                      fontSize: 15,
-                                      height: 1.4,
-                                    ),
-                                    linkStyle: TextStyle(
-                                      color: widget.isMe ? Colors.white : Colors.blue,
-                                      fontSize: 15,
-                                      height: 1.4,
-                                      decoration: TextDecoration.underline,
-                                    ),
-                                    options: const LinkifyOptions(
-                                      humanize: false,
-                                      looseUrl: true,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 4),
-                                ],
-                                Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    Text(
-                                      DateFormat('HH:mm').format(widget.timestamp),
-                                      style: TextStyle(
-                                        fontSize: 11,
-                                        color: widget.isMe
-                                            ? Colors.white.withOpacity(0.8)
-                                            : Colors.black54,
-                                      ),
-                                    ),
-                                    // Mostra le spunte solo per i messaggi inviati da me
-                                    if (widget.isMe) ...[
-                                      const SizedBox(width: 4),
-                                      Icon(
-                                        widget.read ? Icons.done_all : Icons.done,
-                                        size: 14,
-                                        color: widget.read
-                                            ? Colors.blue[300]
-                                            : Colors.white.withOpacity(0.8),
-                                      ),
-                                    ],
-                                  ],
+              ],
+            ),
+            child: ClipRRect(
+              borderRadius: BorderRadius.only(
+                topLeft: const Radius.circular(20),
+                topRight: const Radius.circular(20),
+                bottomLeft: isMe
+                    ? const Radius.circular(20)
+                    : const Radius.circular(4),
+                bottomRight: isMe
+                    ? const Radius.circular(4)
+                    : const Radius.circular(20),
+              ),
+              child: Material(
+                color: Colors.transparent,
+                child: InkWell(
+                  onTap: () {
+                    // Future: show message details or reactions
+                  },
+                  splashColor: Colors.white.withOpacity(0.2),
+                  highlightColor: Colors.white.withOpacity(0.1),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // Allegati (se presenti) - senza padding per occupare tutta la larghezza
+                      if (attachments != null && attachments!.isNotEmpty)
+                        ..._buildAttachments(),
+                      // Testo e timestamp con padding
+                      Padding(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 10,
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            // Testo del messaggio (se presente)
+                            if (message.isNotEmpty) ...[
+                              Linkify(
+                                onOpen: (link) async {
+                                  try {
+                                    final uri = Uri.parse(link.url);
+                                    await launchUrl(
+                                      uri,
+                                      mode: LaunchMode.externalApplication,
+                                    );
+                                  } catch (e) {
+                                    if (kDebugMode) {
+                                      print('Errore apertura URL: $e');
+                                    }
+                                  }
+                                },
+                                text: message,
+                                style: TextStyle(
+                                  color: isMe ? Colors.white : Colors.black87,
+                                  fontSize: 15,
+                                  height: 1.4,
                                 ),
+                                linkStyle: TextStyle(
+                                  color: isMe ? Colors.white : Colors.blue,
+                                  fontSize: 15,
+                                  height: 1.4,
+                                  decoration: TextDecoration.underline,
+                                ),
+                                options: const LinkifyOptions(
+                                  humanize: false,
+                                  looseUrl: true,
+                                ),
+                              ),
+                              const SizedBox(height: 4),
+                            ],
+                            Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Text(
+                                  DateFormat('HH:mm').format(timestamp),
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    color: isMe
+                                        ? Colors.white.withOpacity(0.8)
+                                        : Colors.black54,
+                                  ),
+                                ),
+                                // Mostra le spunte solo per i messaggi inviati da me
+                                if (isMe) ...[
+                                  const SizedBox(width: 4),
+                                  Icon(
+                                    read ? Icons.done_all : Icons.done,
+                                    size: 14,
+                                    color: read
+                                        ? Colors.blue[300]
+                                        : Colors.white.withOpacity(0.8),
+                                  ),
+                                ],
                               ],
                             ),
-                          ),
-                        ],
+                          ],
+                        ),
                       ),
-                    ),
+                    ],
                   ),
                 ),
               ),
-            ],
+            ),
           ),
-        ),
+        ],
       ),
     );
   }

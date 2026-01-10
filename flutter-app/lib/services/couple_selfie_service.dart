@@ -279,8 +279,11 @@ class CoupleSelfieService extends ChangeNotifier {
         // Se l'URL è cambiato
         if (url != oldUrl) {
           if (url != null) {
-            // Nuova foto - scaricala
-            _downloadAndCacheSelfie(url);
+            // Nuova foto - scaricala e notifica solo quando finito
+            _downloadAndCacheSelfie(url).then((_) {
+              notifyListeners();
+              if (kDebugMode) print('🔄 [COUPLE_SELFIE] Photo updated and UI notified');
+            });
           } else {
             // Foto eliminata - pulisci cache
             _cachedSelfieBytes = null;
@@ -289,11 +292,13 @@ class CoupleSelfieService extends ChangeNotifier {
                 await cacheFile.delete();
                 if (kDebugMode) print('🗑️ [COUPLE_SELFIE] Cache cleared (photo deleted)');
               }
+              notifyListeners();
             });
           }
+        } else {
+          // URL non cambiato, notifica comunque per sicurezza
+          notifyListeners();
         }
-
-        notifyListeners();
 
         return url;
       }
