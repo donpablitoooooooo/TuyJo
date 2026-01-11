@@ -1,6 +1,6 @@
-# 💬 YouAndMe - App di Messaggistica Privata E2E
+# 💬 TuyJo - App di Messaggistica Privata E2E
 
-App di messaggistica privata per due persone con crittografia end-to-end e pairing tramite QR code.
+**TuyJo** (Tu ed io in catalano) - App di messaggistica privata per due persone con crittografia end-to-end e pairing tramite QR code.
 
 [![Status](https://img.shields.io/badge/status-v1.12.0--stable-success)](./README.md)
 [![Flutter](https://img.shields.io/badge/Flutter-3.x-blue)](https://flutter.dev)
