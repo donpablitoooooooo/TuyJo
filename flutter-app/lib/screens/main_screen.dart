@@ -160,10 +160,12 @@ class _MainScreenState extends State<MainScreen> {
                   mainAxisAlignment: MainAxisAlignment.end,
                   children: [
                     Image.asset(
-                      'assets/cherry_white.png',
+                      'assets/cherry_logo.webp',
                       width: 60,
                       height: 60,
                       fit: BoxFit.contain,
+                      color: Colors.white,
+                      colorBlendMode: BlendMode.srcIn,
                     ),
                     const SizedBox(height: 16),
                     const Text(
@@ -298,20 +300,22 @@ class _MainScreenState extends State<MainScreen> {
                               errorBuilder: (context, error, stackTrace) {
                                 // Fallback to teal cherry logo if image fails to load
                                 return Image.asset(
-                                  'assets/cherry_teal.png',
+                                  'assets/cherry_logo.webp',
                                   width: 48,
                                   height: 48,
                                   fit: BoxFit.cover,
+                                  color: const Color(0xFF3BA8B0),
+                                  colorBlendMode: BlendMode.srcIn,
                                 );
                               },
                             )
                           : Image.asset(
-                              'assets/cherry_teal.png',
+                              'assets/cherry_logo.webp',
                               width: 48,
                               height: 48,
                               fit: BoxFit.cover,
-                              color: isPaired ? null : Colors.grey.withOpacity(0.7),
-                              colorBlendMode: isPaired ? null : BlendMode.saturation,
+                              color: isPaired ? const Color(0xFF3BA8B0) : Colors.grey,
+                              colorBlendMode: BlendMode.srcIn,
                             ),
                     ),
                   ),

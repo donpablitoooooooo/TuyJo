@@ -73,5 +73,3 @@ flutter:
   generate: true
   assets:
     - assets/cherry_logo.webp
-    - assets/cherry_white.png
-    - assets/cherry_teal.png
