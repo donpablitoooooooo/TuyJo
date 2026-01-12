@@ -1,5 +1,5 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    package="com.privatemessaging.private_messaging">
+    package="com.tuyjo.app">
 
     <!-- Queries per url_launcher - permette di aprire browser e app esterne -->
     <queries>
