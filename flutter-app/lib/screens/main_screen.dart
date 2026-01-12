@@ -160,7 +160,7 @@ class _MainScreenState extends State<MainScreen> {
                   mainAxisAlignment: MainAxisAlignment.end,
                   children: [
                     Image.asset(
-                      'assets/cherry_logo.webp',
+                      'assets/logo_white.png',
                       width: 60,
                       height: 60,
                       fit: BoxFit.contain,
@@ -296,9 +296,9 @@ class _MainScreenState extends State<MainScreen> {
                               cachedSelfieBytes,
                               fit: BoxFit.cover,
                               errorBuilder: (context, error, stackTrace) {
-                                // Fallback to cherry logo if image fails to load
+                                // Fallback to teal logo if image fails to load
                                 return Image.asset(
-                                  'assets/cherry_logo.webp',
+                                  'assets/logo_teal.png',
                                   width: 48,
                                   height: 48,
                                   fit: BoxFit.cover,
@@ -306,12 +306,10 @@ class _MainScreenState extends State<MainScreen> {
                               },
                             )
                           : Image.asset(
-                              'assets/cherry_logo.webp',
+                              isPaired ? 'assets/logo_teal.png' : 'assets/logo_grey.png',
                               width: 48,
                               height: 48,
                               fit: BoxFit.cover,
-                              color: isPaired ? null : Colors.grey.withOpacity(0.5),
-                              colorBlendMode: isPaired ? null : BlendMode.saturation,
                             ),
                     ),
                   ),

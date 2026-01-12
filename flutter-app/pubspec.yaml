@@ -72,4 +72,6 @@ flutter:
   uses-material-design: true
   generate: true
   assets:
-    - assets/cherry_logo.webp
+    - assets/logo_white.png
+    - assets/logo_teal.png
+    - assets/logo_grey.png

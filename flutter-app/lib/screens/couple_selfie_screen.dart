@@ -110,10 +110,11 @@ class _CoupleSelfieScreenState extends State<CoupleSelfieScreen> {
                             ),
                           ],
                         ),
-                        child: const Icon(
-                          Icons.favorite,
-                          color: Color(0xFF3BA8B0),
-                          size: 80,
+                        child: Image.asset(
+                          'assets/logo_teal.png',
+                          width: 100,
+                          height: 100,
+                          fit: BoxFit.contain,
                         ),
                       ),
 
