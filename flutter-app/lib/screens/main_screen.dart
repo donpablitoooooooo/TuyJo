@@ -143,36 +143,46 @@ class _MainScreenState extends State<MainScreen> {
               begin: Alignment.topCenter,
               end: Alignment.bottomCenter,
               colors: [
-                Color(0xFF667eea),
-                Color(0xFF764ba2),
+                Color(0xFF3BA8B0),
+                Color(0xFF145A60),
               ],
             ),
           ),
           child: ListView(
             padding: EdgeInsets.zero,
             children: [
-              const DrawerHeader(
-                decoration: BoxDecoration(
+              DrawerHeader(
+                padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+                decoration: const BoxDecoration(
                   color: Colors.transparent,
                 ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisAlignment: MainAxisAlignment.end,
-                  children: [
-                    Icon(Icons.favorite, color: Colors.white, size: 48),
-                    SizedBox(height: 16),
-                    Text(
-                      'You & Me',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 24,
-                        fontWeight: FontWeight.bold,
+                child: Align(
+                  alignment: Alignment.bottomLeft,
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Image.asset(
+                        'assets/logo_white.png',
+                        width: 48,
+                        height: 48,
+                        fit: BoxFit.contain,
                       ),
-                    ),
-                  ],
+                      const SizedBox(width: 8),
+                      const Text(
+                        'TuyJo',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 28,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
               ListTile(
+                contentPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 0),
                 leading: const Icon(Icons.chat_bubble, color: Colors.white),
                 title: const Text('Chat', style: TextStyle(color: Colors.white)),
                 selected: _selectedIndex == 0,
@@ -183,6 +193,7 @@ class _MainScreenState extends State<MainScreen> {
                 },
               ),
               ListTile(
+                contentPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 0),
                 leading: const Icon(Icons.calendar_today, color: Colors.white),
                 title: Text(AppLocalizations.of(context)!.calendar, style: const TextStyle(color: Colors.white)),
                 selected: _selectedIndex == 1,
@@ -193,6 +204,7 @@ class _MainScreenState extends State<MainScreen> {
                 },
               ),
               ListTile(
+                contentPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 0),
                 leading: const Icon(Icons.perm_media, color: Colors.white),
                 title: const Text('Media', style: TextStyle(color: Colors.white)),
                 selected: _selectedIndex == 2,
@@ -203,6 +215,7 @@ class _MainScreenState extends State<MainScreen> {
                 },
               ),
               ListTile(
+                contentPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 0),
                 leading: const Icon(Icons.settings, color: Colors.white),
                 title: Text(AppLocalizations.of(context)!.settings, style: const TextStyle(color: Colors.white)),
                 selected: _selectedIndex == 3,
@@ -241,7 +254,7 @@ class _MainScreenState extends State<MainScreen> {
                   ],
                 ),
                 child: IconButton(
-                  icon: const Icon(Icons.menu, color: Color(0xFF667eea)),
+                  icon: const Icon(Icons.menu, color: Color(0xFF3BA8B0)),
                   onPressed: () => Scaffold.of(context).openDrawer(),
                 ),
               ),
@@ -291,18 +304,20 @@ class _MainScreenState extends State<MainScreen> {
                               cachedSelfieBytes,
                               fit: BoxFit.cover,
                               errorBuilder: (context, error, stackTrace) {
-                                // Fallback to heart icon if image fails to load
-                                return Icon(
-                                  Icons.favorite,
-                                  color: isPaired ? const Color(0xFF667eea) : Colors.grey,
-                                  size: 24,
+                                // Fallback to teal logo if image fails to load
+                                return Image.asset(
+                                  'assets/logo_teal.png',
+                                  width: 48,
+                                  height: 48,
+                                  fit: BoxFit.cover,
                                 );
                               },
                             )
-                          : Icon(
-                              Icons.favorite,
-                              color: isPaired ? const Color(0xFF667eea) : Colors.grey,
-                              size: 24,
+                          : Image.asset(
+                              isPaired ? 'assets/logo_teal.png' : 'assets/logo_grey.png',
+                              width: 48,
+                              height: 48,
+                              fit: BoxFit.cover,
                             ),
                     ),
                   ),

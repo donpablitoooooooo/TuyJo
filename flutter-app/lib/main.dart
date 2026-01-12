@@ -118,15 +118,15 @@ class MyApp extends StatelessWidget {
         ],
         theme: ThemeData(
           colorScheme: ColorScheme.fromSeed(
-            seedColor: const Color(0xFF667eea),
-            primary: const Color(0xFF667eea),
-            secondary: const Color(0xFF764ba2),
+            seedColor: const Color(0xFF3BA8B0),
+            primary: const Color(0xFF3BA8B0),
+            secondary: const Color(0xFF145A60),
           ),
           useMaterial3: true,
           scaffoldBackgroundColor: Colors.white,
           appBarTheme: const AppBarTheme(
             backgroundColor: Colors.white,
-            foregroundColor: Color(0xFF667eea),
+            foregroundColor: Color(0xFF3BA8B0),
             elevation: 0,
           ),
         ),

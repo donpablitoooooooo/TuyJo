@@ -618,7 +618,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
             gradient: LinearGradient(
               begin: Alignment.topCenter,
               end: Alignment.bottomCenter,
-              colors: [Color(0xFF667eea), Color(0xFF764ba2)],
+              colors: [Color(0xFF3BA8B0), Color(0xFF145A60)],
             ),
           ),
           child: Padding(
@@ -732,7 +732,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
               gradient: LinearGradient(
                 begin: Alignment.topCenter,
                 end: Alignment.bottomCenter,
-                colors: [Color(0xFF667eea), Color(0xFF764ba2)],
+                colors: [Color(0xFF3BA8B0), Color(0xFF145A60)],
               ),
             ),
             child: Column(
@@ -820,7 +820,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                           color: Colors.white.withOpacity(0.9),
                           shape: BoxShape.circle,
                         ),
-                        selectedTextStyle: const TextStyle(color: Color(0xFF667eea), fontWeight: FontWeight.bold),
+                        selectedTextStyle: const TextStyle(color: Color(0xFF3BA8B0), fontWeight: FontWeight.bold),
                         todayDecoration: BoxDecoration(
                           color: Colors.white.withOpacity(0.3),
                           shape: BoxShape.circle,
@@ -830,12 +830,12 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                           color: Colors.white.withOpacity(0.9),
                           shape: BoxShape.circle,
                         ),
-                        rangeStartTextStyle: const TextStyle(color: Color(0xFF667eea), fontWeight: FontWeight.bold),
+                        rangeStartTextStyle: const TextStyle(color: Color(0xFF3BA8B0), fontWeight: FontWeight.bold),
                         rangeEndDecoration: BoxDecoration(
                           color: Colors.white.withOpacity(0.9),
                           shape: BoxShape.circle,
                         ),
-                        rangeEndTextStyle: const TextStyle(color: Color(0xFF667eea), fontWeight: FontWeight.bold),
+                        rangeEndTextStyle: const TextStyle(color: Color(0xFF3BA8B0), fontWeight: FontWeight.bold),
                         rangeHighlightColor: Colors.white.withOpacity(0.2),
                         withinRangeDecoration: BoxDecoration(
                           color: Colors.white.withOpacity(0.15),
@@ -879,7 +879,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                 Container(
                   padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 16),
                   decoration: BoxDecoration(
-                    color: const Color(0xFF764ba2).withOpacity(0.3),
+                    color: const Color(0xFF145A60).withOpacity(0.3),
                   ),
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.center,
@@ -984,7 +984,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                             child: DropdownButtonHideUnderline(
                               child: DropdownButton<int?>(
                                 value: selectedReminderHours,
-                                dropdownColor: const Color(0xFF764ba2),
+                                dropdownColor: const Color(0xFF145A60),
                                 icon: Icon(Icons.arrow_drop_down, color: Colors.white.withOpacity(0.7), size: 16),
                                 style: const TextStyle(
                                   color: Colors.white,
@@ -1652,7 +1652,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                         onPressed: _showAttachmentPicker,
                         icon: const Icon(Icons.add_circle_outline),
                         color: _selectedAttachments.isNotEmpty
-                            ? const Color(0xFF667eea)
+                            ? const Color(0xFF3BA8B0)
                             : Colors.grey[600],
                         tooltip: l10n.chatAttachmentsTooltip,
                         iconSize: 28,
@@ -1682,7 +1682,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                                   ? Icons.calendar_month
                                   : Icons.calendar_month_outlined,
                               color: _selectedTodoDate != null
-                                  ? const Color(0xFF667eea)
+                                  ? const Color(0xFF3BA8B0)
                                   : Colors.grey[600],
                             ),
                             onPressed: _showDateTimePicker,
@@ -1706,8 +1706,8 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                         gradient: _canSend
                             ? const LinearGradient(
                                 colors: [
-                                  Color(0xFF667eea),
-                                  Color(0xFF764ba2),
+                                  Color(0xFF3BA8B0),
+                                  Color(0xFF145A60),
                                 ],
                               )
                             : LinearGradient(
@@ -1720,7 +1720,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                         boxShadow: _canSend
                             ? [
                                 BoxShadow(
-                                  color: const Color(0xFF667eea).withOpacity(0.4),
+                                  color: const Color(0xFF3BA8B0).withOpacity(0.4),
                                   blurRadius: 8,
                                   offset: const Offset(0, 2),
                                 ),
@@ -1954,8 +1954,8 @@ class _MessageBubble extends StatelessWidget {
               gradient: isMe
                   ? const LinearGradient(
                       colors: [
-                        Color(0xFF667eea), // Purple
-                        Color(0xFF764ba2), // Deep purple
+                        Color(0xFF3BA8B0), // Purple
+                        Color(0xFF145A60), // Deep purple
                       ],
                       begin: Alignment.topLeft,
                       end: Alignment.bottomRight,
@@ -1981,7 +1981,7 @@ class _MessageBubble extends StatelessWidget {
               boxShadow: [
                 BoxShadow(
                   color: isMe
-                      ? const Color(0xFF667eea).withOpacity(0.3)
+                      ? const Color(0xFF3BA8B0).withOpacity(0.3)
                       : Colors.black.withOpacity(0.08),
                   blurRadius: 8,
                   offset: const Offset(0, 2),
@@ -2129,14 +2129,14 @@ class _DateSeparator extends StatelessWidget {
               decoration: BoxDecoration(
                 gradient: const LinearGradient(
                   colors: [
-                    Color(0xFF667eea),
-                    Color(0xFF764ba2),
+                    Color(0xFF3BA8B0),
+                    Color(0xFF145A60),
                   ],
                 ),
                 borderRadius: BorderRadius.circular(16),
                 boxShadow: [
                   BoxShadow(
-                    color: const Color(0xFF667eea).withOpacity(0.3),
+                    color: const Color(0xFF3BA8B0).withOpacity(0.3),
                     blurRadius: 8,
                     offset: const Offset(0, 2),
                   ),
