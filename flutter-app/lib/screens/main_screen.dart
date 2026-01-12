@@ -143,8 +143,8 @@ class _MainScreenState extends State<MainScreen> {
               begin: Alignment.topCenter,
               end: Alignment.bottomCenter,
               colors: [
-                Color(0xFF667eea),
-                Color(0xFF764ba2),
+                Color(0xFF5DBECC),
+                Color(0xFF3B9DA6),
               ],
             ),
           ),
@@ -241,7 +241,7 @@ class _MainScreenState extends State<MainScreen> {
                   ],
                 ),
                 child: IconButton(
-                  icon: const Icon(Icons.menu, color: Color(0xFF667eea)),
+                  icon: const Icon(Icons.menu, color: Color(0xFF5DBECC)),
                   onPressed: () => Scaffold.of(context).openDrawer(),
                 ),
               ),
@@ -294,14 +294,14 @@ class _MainScreenState extends State<MainScreen> {
                                 // Fallback to heart icon if image fails to load
                                 return Icon(
                                   Icons.favorite,
-                                  color: isPaired ? const Color(0xFF667eea) : Colors.grey,
+                                  color: isPaired ? const Color(0xFF5DBECC) : Colors.grey,
                                   size: 24,
                                 );
                               },
                             )
                           : Icon(
                               Icons.favorite,
-                              color: isPaired ? const Color(0xFF667eea) : Colors.grey,
+                              color: isPaired ? const Color(0xFF5DBECC) : Colors.grey,
                               size: 24,
                             ),
                     ),
