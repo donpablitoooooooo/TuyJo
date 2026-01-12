@@ -168,7 +168,7 @@ class _MainScreenState extends State<MainScreen> {
                         height: 48,
                         fit: BoxFit.contain,
                       ),
-                      const SizedBox(width: 12),
+                      const SizedBox(width: 8),
                       const Text(
                         'TuyJo',
                         style: TextStyle(
@@ -182,6 +182,7 @@ class _MainScreenState extends State<MainScreen> {
                 ),
               ),
               ListTile(
+                contentPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 0),
                 leading: const Icon(Icons.chat_bubble, color: Colors.white),
                 title: const Text('Chat', style: TextStyle(color: Colors.white)),
                 selected: _selectedIndex == 0,
@@ -192,6 +193,7 @@ class _MainScreenState extends State<MainScreen> {
                 },
               ),
               ListTile(
+                contentPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 0),
                 leading: const Icon(Icons.calendar_today, color: Colors.white),
                 title: Text(AppLocalizations.of(context)!.calendar, style: const TextStyle(color: Colors.white)),
                 selected: _selectedIndex == 1,
@@ -202,6 +204,7 @@ class _MainScreenState extends State<MainScreen> {
                 },
               ),
               ListTile(
+                contentPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 0),
                 leading: const Icon(Icons.perm_media, color: Colors.white),
                 title: const Text('Media', style: TextStyle(color: Colors.white)),
                 selected: _selectedIndex == 2,
@@ -212,6 +215,7 @@ class _MainScreenState extends State<MainScreen> {
                 },
               ),
               ListTile(
+                contentPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 0),
                 leading: const Icon(Icons.settings, color: Colors.white),
                 title: Text(AppLocalizations.of(context)!.settings, style: const TextStyle(color: Colors.white)),
                 selected: _selectedIndex == 3,
