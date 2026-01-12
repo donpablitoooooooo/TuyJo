@@ -155,17 +155,16 @@ class _MainScreenState extends State<MainScreen> {
                 decoration: const BoxDecoration(
                   color: Colors.transparent,
                 ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisAlignment: MainAxisAlignment.end,
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
                     Image.asset(
                       'assets/logo_white.png',
-                      width: 60,
-                      height: 60,
+                      width: 50,
+                      height: 50,
                       fit: BoxFit.contain,
                     ),
-                    const SizedBox(height: 16),
+                    const SizedBox(width: 16),
                     const Text(
                       'TuyJo',
                       style: TextStyle(
