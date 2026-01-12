@@ -1,1 +1,2 @@
-*.jks
+# Keystore incluso per pubblicazione (progetto privato)
+# *.jks
