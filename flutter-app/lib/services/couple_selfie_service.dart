@@ -1,12 +1,14 @@
 import 'dart:io';
 import 'dart:typed_data';
 import 'dart:async';
+import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:path/path.dart' as path;
 import 'package:path_provider/path_provider.dart';
 import 'package:http/http.dart' as http;
+import 'package:crypto/crypto.dart';
 import 'encryption_service.dart';
 import 'pairing_service.dart';
 
@@ -24,8 +26,7 @@ class CoupleSelfieService extends ChangeNotifier {
   StreamSubscription<String?>? _selfieSubscription; // Listener real-time
 
   // Metadati di crittografia per la foto corrente
-  String? _encryptedKeyUser1;
-  String? _encryptedKeyUser2;
+  Map<String, String>? _encryptedKeys; // Map userId -> encryptedKey
   String? _iv;
 
   CoupleSelfieService({
@@ -34,6 +35,13 @@ class CoupleSelfieService extends ChangeNotifier {
   });
 
   String? get selfieUrl => _selfieUrl;
+
+  /// Calcola l'userId da una chiave pubblica (SHA-256)
+  String _getUserIdFromPublicKey(String publicKey) {
+    final bytes = utf8.encode(publicKey);
+    final digest = sha256.convert(bytes);
+    return digest.toString();
+  }
   bool get isLoading => _isLoading;
   bool get hasSelfie => _selfieUrl != null && _selfieUrl!.isNotEmpty;
   Uint8List? get cachedSelfieBytes => _cachedSelfieBytes;
@@ -130,37 +138,32 @@ class CoupleSelfieService extends ChangeNotifier {
       if (doc.exists) {
         final data = doc.data();
         final url = data?['couple_selfie_url'] as String?;
-        final encryptedKey1 = data?['couple_selfie_encrypted_key_user1'] as String?;
-        final encryptedKey2 = data?['couple_selfie_encrypted_key_user2'] as String?;
+        final encryptedKeysMap = data?['couple_selfie_encrypted_keys'] as Map<String, dynamic>?;
         final iv = data?['couple_selfie_iv'] as String?;
 
         _selfieUrl = url;
-        _encryptedKeyUser1 = encryptedKey1;
-        _encryptedKeyUser2 = encryptedKey2;
+        _encryptedKeys = encryptedKeysMap?.map((key, value) => MapEntry(key, value as String));
         _iv = iv;
 
         if (kDebugMode) {
           print('🖼️ [COUPLE_SELFIE] Loaded selfie: ${_selfieUrl != null ? "YES" : "NO"}');
           print('   Encryption metadata: ${iv != null ? "YES" : "NO"}');
+          print('   Encrypted keys count: ${_encryptedKeys?.length ?? 0}');
         }
 
         // Se c'è un URL e non abbiamo cache, scarica e decifra
-        if (url != null && _cachedSelfieBytes == null) {
-          // Determina quale chiave usare (prova prima user1, poi user2)
-          String? encryptedKeyToUse;
-          try {
-            if (encryptedKey1 != null) {
-              encryptedKeyToUse = encryptedKey1;
-              if (kDebugMode) print('🔑 [COUPLE_SELFIE] Trying to decrypt with key_user1');
-            }
-          } catch (e) {
-            if (kDebugMode) print('⚠️ [COUPLE_SELFIE] key_user1 failed, trying key_user2...');
-            if (encryptedKey2 != null) {
-              encryptedKeyToUse = encryptedKey2;
+        if (url != null && _cachedSelfieBytes == null && _encryptedKeys != null) {
+          // Usa la chiave del proprio userId
+          final myUserId = await pairingService.getMyUserId();
+          if (myUserId != null) {
+            final myEncryptedKey = _encryptedKeys![myUserId];
+            if (myEncryptedKey != null) {
+              if (kDebugMode) print('🔑 [COUPLE_SELFIE] Using my encrypted key for userId: $myUserId');
+              await _downloadAndCacheSelfie(url, myEncryptedKey, iv);
+            } else {
+              if (kDebugMode) print('⚠️ [COUPLE_SELFIE] No encrypted key found for my userId: $myUserId');
             }
           }
-
-          await _downloadAndCacheSelfie(url, encryptedKeyToUse, iv);
         }
 
         notifyListeners();
@@ -219,11 +222,18 @@ class CoupleSelfieService extends ChangeNotifier {
       final myPublicKey = await encryptionService.getPublicKey();
       final partnerPublicKey = pairingService.partnerPublicKey;
 
-      if (myPublicKey == null || partnerPublicKey == null) {
-        throw Exception('Cannot encrypt: missing public keys');
+      if (myUserId == null || myPublicKey == null || partnerPublicKey == null) {
+        throw Exception('Cannot encrypt: missing userId or public keys');
       }
 
-      if (kDebugMode) print('🔐 [COUPLE_SELFIE] Encrypting photo with dual encryption...');
+      // Calcola l'userId del partner dalla sua chiave pubblica
+      final partnerUserId = _getUserIdFromPublicKey(partnerPublicKey);
+
+      if (kDebugMode) {
+        print('🔐 [COUPLE_SELFIE] Encrypting photo with dual encryption...');
+        print('   My userId: $myUserId');
+        print('   Partner userId: $partnerUserId');
+      }
 
       // 4. Cifra il file con dual encryption
       final encryptedData = encryptionService.encryptFileDual(
@@ -257,25 +267,24 @@ class CoupleSelfieService extends ChangeNotifier {
 
       if (kDebugMode) print('✅ [COUPLE_SELFIE] Encrypted upload complete: $downloadUrl');
 
-      // 7. Determina quale chiave è per quale utente
-      // myUserId è l'utente corrente (sender)
-      final String encryptedKeyCurrentUser = encryptedKeySender;
-      final String encryptedKeyPartner = encryptedKeyRecipient;
+      // 7. Crea mappa delle chiavi cifrate usando gli userId reali
+      final encryptedKeysMap = {
+        myUserId: encryptedKeySender,
+        partnerUserId: encryptedKeyRecipient,
+      };
 
       // 8. Save URL e metadati di crittografia to Firestore
       final docRef = _firestore.collection('families').doc(familyChatId);
       await docRef.set({
         'couple_selfie_url': downloadUrl,
-        'couple_selfie_encrypted_key_user1': encryptedKeyCurrentUser,
-        'couple_selfie_encrypted_key_user2': encryptedKeyPartner,
+        'couple_selfie_encrypted_keys': encryptedKeysMap,
         'couple_selfie_iv': iv,
         'couple_selfie_updated_at': FieldValue.serverTimestamp(),
       }, SetOptions(merge: true));
 
       // 9. Update local state and cache
       _selfieUrl = downloadUrl;
-      _encryptedKeyUser1 = encryptedKeyCurrentUser;
-      _encryptedKeyUser2 = encryptedKeyPartner;
+      _encryptedKeys = encryptedKeysMap;
       _iv = iv;
       _cachedSelfieBytes = imageBytes; // Cache DECRIPTATA
 
@@ -330,8 +339,7 @@ class CoupleSelfieService extends ChangeNotifier {
         final docRef = _firestore.collection('families').doc(familyChatId);
         await docRef.update({
           'couple_selfie_url': FieldValue.delete(),
-          'couple_selfie_encrypted_key_user1': FieldValue.delete(),
-          'couple_selfie_encrypted_key_user2': FieldValue.delete(),
+          'couple_selfie_encrypted_keys': FieldValue.delete(),
           'couple_selfie_iv': FieldValue.delete(),
           'couple_selfie_updated_at': FieldValue.delete(),
         });
@@ -348,8 +356,7 @@ class CoupleSelfieService extends ChangeNotifier {
       // 4. Update local state
       if (deleteFromServer) {
         _selfieUrl = null;
-        _encryptedKeyUser1 = null;
-        _encryptedKeyUser2 = null;
+        _encryptedKeys = null;
         _iv = null;
       }
       notifyListeners();
@@ -369,56 +376,47 @@ class CoupleSelfieService extends ChangeNotifier {
         .collection('families')
         .doc(familyChatId)
         .snapshots()
-        .map((doc) {
+        .asyncMap((doc) async {
       if (doc.exists) {
         final data = doc.data();
         final url = data?['couple_selfie_url'] as String?;
-        final encryptedKey1 = data?['couple_selfie_encrypted_key_user1'] as String?;
-        final encryptedKey2 = data?['couple_selfie_encrypted_key_user2'] as String?;
+        final encryptedKeysMap = data?['couple_selfie_encrypted_keys'] as Map<String, dynamic>?;
         final iv = data?['couple_selfie_iv'] as String?;
 
         // Update local state
         final oldUrl = _selfieUrl;
         _selfieUrl = url;
-        _encryptedKeyUser1 = encryptedKey1;
-        _encryptedKeyUser2 = encryptedKey2;
+        _encryptedKeys = encryptedKeysMap?.map((key, value) => MapEntry(key, value as String));
         _iv = iv;
 
         // Se l'URL è cambiato
         if (url != oldUrl) {
-          if (url != null) {
+          if (url != null && _encryptedKeys != null) {
             // Nuova foto - scaricala, decriptala e notifica solo quando finito
-            // Determina quale chiave usare (prova prima user1, poi user2)
-            String? encryptedKeyToUse;
-            try {
-              if (encryptedKey1 != null) {
-                encryptedKeyToUse = encryptedKey1;
-                if (kDebugMode) print('🔑 [COUPLE_SELFIE] Trying to decrypt with key_user1');
-              }
-            } catch (e) {
-              if (kDebugMode) print('⚠️ [COUPLE_SELFIE] key_user1 failed, trying key_user2...');
-              if (encryptedKey2 != null) {
-                encryptedKeyToUse = encryptedKey2;
+            // Usa la chiave del proprio userId
+            final myUserId = await pairingService.getMyUserId();
+            if (myUserId != null) {
+              final myEncryptedKey = _encryptedKeys![myUserId];
+              if (myEncryptedKey != null) {
+                if (kDebugMode) print('🔑 [COUPLE_SELFIE] Using my encrypted key for userId: $myUserId');
+                await _downloadAndCacheSelfie(url, myEncryptedKey, iv);
+                notifyListeners();
+                if (kDebugMode) print('🔄 [COUPLE_SELFIE] Photo updated, decrypted and UI notified');
+              } else {
+                if (kDebugMode) print('⚠️ [COUPLE_SELFIE] No encrypted key found for my userId: $myUserId');
               }
             }
-
-            _downloadAndCacheSelfie(url, encryptedKeyToUse, iv).then((_) {
-              notifyListeners();
-              if (kDebugMode) print('🔄 [COUPLE_SELFIE] Photo updated, decrypted and UI notified');
-            });
           } else {
             // Foto eliminata - pulisci cache
             _cachedSelfieBytes = null;
-            _encryptedKeyUser1 = null;
-            _encryptedKeyUser2 = null;
+            _encryptedKeys = null;
             _iv = null;
-            _getCacheFile().then((cacheFile) async {
-              if (await cacheFile.exists()) {
-                await cacheFile.delete();
-                if (kDebugMode) print('🗑️ [COUPLE_SELFIE] Cache cleared (photo deleted)');
-              }
-              notifyListeners();
-            });
+            final cacheFile = await _getCacheFile();
+            if (await cacheFile.exists()) {
+              await cacheFile.delete();
+              if (kDebugMode) print('🗑️ [COUPLE_SELFIE] Cache cleared (photo deleted)');
+            }
+            notifyListeners();
           }
         } else {
           // URL non cambiato, notifica comunque per sicurezza
