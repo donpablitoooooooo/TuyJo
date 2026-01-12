@@ -10,8 +10,9 @@ NC='\033[0m' # No Color
 echo -e "${GREEN}🚀 TuyJo - Build Release Script${NC}"
 echo "================================="
 
-# Vai nella directory flutter-app
-cd /home/user/TuyJo/flutter-app || exit 1
+# Vai nella directory flutter-app (usa percorso relativo allo script)
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+cd "$SCRIPT_DIR/flutter-app" || exit 1
 
 # 1. Pulizia
 echo -e "\n${YELLOW}📦 Step 1: Pulizia progetto...${NC}"
