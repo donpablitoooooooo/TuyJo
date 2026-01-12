@@ -152,28 +152,33 @@ class _MainScreenState extends State<MainScreen> {
             padding: EdgeInsets.zero,
             children: [
               DrawerHeader(
+                padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
                 decoration: const BoxDecoration(
                   color: Colors.transparent,
                 ),
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.center,
-                  children: [
-                    Image.asset(
-                      'assets/logo_white.png',
-                      width: 50,
-                      height: 50,
-                      fit: BoxFit.contain,
-                    ),
-                    const SizedBox(width: 16),
-                    const Text(
-                      'TuyJo',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 28,
-                        fontWeight: FontWeight.bold,
+                child: Align(
+                  alignment: Alignment.bottomLeft,
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Image.asset(
+                        'assets/logo_white.png',
+                        width: 48,
+                        height: 48,
+                        fit: BoxFit.contain,
                       ),
-                    ),
-                  ],
+                      const SizedBox(width: 12),
+                      const Text(
+                        'TuyJo',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 28,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
               ListTile(
