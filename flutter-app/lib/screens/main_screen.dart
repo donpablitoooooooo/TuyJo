@@ -164,8 +164,6 @@ class _MainScreenState extends State<MainScreen> {
                       width: 60,
                       height: 60,
                       fit: BoxFit.contain,
-                      color: Colors.white,
-                      colorBlendMode: BlendMode.srcIn,
                     ),
                     const SizedBox(height: 16),
                     const Text(
@@ -298,14 +296,12 @@ class _MainScreenState extends State<MainScreen> {
                               cachedSelfieBytes,
                               fit: BoxFit.cover,
                               errorBuilder: (context, error, stackTrace) {
-                                // Fallback to teal cherry logo if image fails to load
+                                // Fallback to cherry logo if image fails to load
                                 return Image.asset(
                                   'assets/cherry_logo.webp',
                                   width: 48,
                                   height: 48,
                                   fit: BoxFit.cover,
-                                  color: const Color(0xFF3BA8B0),
-                                  colorBlendMode: BlendMode.srcIn,
                                 );
                               },
                             )
@@ -314,8 +310,8 @@ class _MainScreenState extends State<MainScreen> {
                               width: 48,
                               height: 48,
                               fit: BoxFit.cover,
-                              color: isPaired ? const Color(0xFF3BA8B0) : Colors.grey,
-                              colorBlendMode: BlendMode.srcIn,
+                              color: isPaired ? null : Colors.grey.withOpacity(0.5),
+                              colorBlendMode: isPaired ? null : BlendMode.saturation,
                             ),
                     ),
                   ),
