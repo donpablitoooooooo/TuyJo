@@ -31,7 +31,10 @@ void main() async {
   final pairingService = PairingService();
   final notificationService = NotificationService();
   final chatService = ChatService(encryptionService, notificationService);
-  final coupleSelfieService = CoupleSelfieService();
+  final coupleSelfieService = CoupleSelfieService(
+    encryptionService: encryptionService,
+    pairingService: pairingService,
+  );
   final attachmentService = AttachmentService(encryptionService: encryptionService);
 
   // Configura callback per pulizia cache quando il partner richiede la cancellazione
