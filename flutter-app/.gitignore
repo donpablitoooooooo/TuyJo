@@ -52,8 +52,9 @@ app.*.map.json
 **/android/gradlew.bat
 **/android/local.properties
 **/android/**/GeneratedPluginRegistrant.java
-**/android/key.properties
-*.jks
+# File inclusi per pubblicazione (progetto privato)
+# **/android/key.properties
+# *.jks
 
 # iOS/XCode related
 **/ios/**/*.mode1v3
