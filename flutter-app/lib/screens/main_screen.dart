@@ -143,8 +143,8 @@ class _MainScreenState extends State<MainScreen> {
               begin: Alignment.topCenter,
               end: Alignment.bottomCenter,
               colors: [
-                Color(0xFF2A8C94),
-                Color(0xFF1F6B73),
+                Color(0xFF3BA8B0),
+                Color(0xFF145A60),
               ],
             ),
           ),
@@ -160,7 +160,7 @@ class _MainScreenState extends State<MainScreen> {
                   mainAxisAlignment: MainAxisAlignment.end,
                   children: [
                     Image.asset(
-                      'assets/cherry_logo.webp',
+                      'assets/cherry_white.png',
                       width: 60,
                       height: 60,
                       fit: BoxFit.contain,
@@ -246,7 +246,7 @@ class _MainScreenState extends State<MainScreen> {
                   ],
                 ),
                 child: IconButton(
-                  icon: const Icon(Icons.menu, color: Color(0xFF2A8C94)),
+                  icon: const Icon(Icons.menu, color: Color(0xFF3BA8B0)),
                   onPressed: () => Scaffold.of(context).openDrawer(),
                 ),
               ),
@@ -296,23 +296,21 @@ class _MainScreenState extends State<MainScreen> {
                               cachedSelfieBytes,
                               fit: BoxFit.cover,
                               errorBuilder: (context, error, stackTrace) {
-                                // Fallback to cherry logo if image fails to load
-                                return ClipOval(
-                                  child: Image.asset(
-                                    'assets/cherry_logo.webp',
-                                    width: 48,
-                                    height: 48,
-                                    fit: BoxFit.cover,
-                                  ),
+                                // Fallback to teal cherry logo if image fails to load
+                                return Image.asset(
+                                  'assets/cherry_teal.png',
+                                  width: 48,
+                                  height: 48,
+                                  fit: BoxFit.cover,
                                 );
                               },
                             )
                           : Image.asset(
-                              'assets/cherry_logo.webp',
+                              'assets/cherry_teal.png',
                               width: 48,
                               height: 48,
                               fit: BoxFit.cover,
-                              color: isPaired ? null : Colors.grey.withOpacity(0.5),
+                              color: isPaired ? null : Colors.grey.withOpacity(0.7),
                               colorBlendMode: isPaired ? null : BlendMode.saturation,
                             ),
                     ),

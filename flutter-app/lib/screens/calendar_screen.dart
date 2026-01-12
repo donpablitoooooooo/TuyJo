@@ -191,8 +191,8 @@ class _CalendarScreenState extends State<CalendarScreen> {
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
             colors: [
-              Color(0xFF2A8C94),
-              Color(0xFF1F6B73),
+              Color(0xFF3BA8B0),
+              Color(0xFF145A60),
             ],
           ),
         ),
@@ -231,15 +231,15 @@ class _CalendarScreenState extends State<CalendarScreen> {
                   eventLoader: _getTodosForDay,
                   calendarStyle: CalendarStyle(
                     todayDecoration: BoxDecoration(
-                      color: const Color(0xFF2A8C94).withOpacity(0.3),
+                      color: const Color(0xFF3BA8B0).withOpacity(0.3),
                       shape: BoxShape.circle,
                     ),
                     selectedDecoration: const BoxDecoration(
-                      color: Color(0xFF2A8C94),
+                      color: Color(0xFF3BA8B0),
                       shape: BoxShape.circle,
                     ),
                     markerDecoration: const BoxDecoration(
-                      color: Color(0xFF1F6B73),
+                      color: Color(0xFF145A60),
                       shape: BoxShape.circle,
                     ),
                     markersAlignment: Alignment.bottomCenter,
@@ -282,7 +282,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
                           children: [
                             Icon(
                               Icons.event_note,
-                              color: const Color(0xFF2A8C94),
+                              color: const Color(0xFF3BA8B0),
                               size: 24,
                             ),
                             const SizedBox(width: 8),
@@ -294,7 +294,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
                                 style: const TextStyle(
                                   fontSize: 16,
                                   fontWeight: FontWeight.bold,
-                                  color: Color(0xFF2A8C94),
+                                  color: Color(0xFF3BA8B0),
                                 ),
                               ),
                             ),
@@ -302,7 +302,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
                               Container(
                                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                                 decoration: BoxDecoration(
-                                  color: const Color(0xFF2A8C94),
+                                  color: const Color(0xFF3BA8B0),
                                   borderRadius: BorderRadius.circular(12),
                                 ),
                                 child: Text(

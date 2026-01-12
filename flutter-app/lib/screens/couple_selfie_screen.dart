@@ -35,8 +35,8 @@ class _CoupleSelfieScreenState extends State<CoupleSelfieScreen> {
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
             colors: [
-              Color(0xFF2A8C94),
-              Color(0xFF1F6B73),
+              Color(0xFF3BA8B0),
+              Color(0xFF145A60),
             ],
           ),
         ),
@@ -59,7 +59,7 @@ class _CoupleSelfieScreenState extends State<CoupleSelfieScreen> {
                   ],
                 ),
                 child: IconButton(
-                  icon: const Icon(Icons.arrow_back, color: Color(0xFF2A8C94)),
+                  icon: const Icon(Icons.arrow_back, color: Color(0xFF3BA8B0)),
                   onPressed: () {
                     Navigator.of(context, rootNavigator: false).pop();
                   },
@@ -112,7 +112,7 @@ class _CoupleSelfieScreenState extends State<CoupleSelfieScreen> {
                         ),
                         child: const Icon(
                           Icons.favorite,
-                          color: Color(0xFF2A8C94),
+                          color: Color(0xFF3BA8B0),
                           size: 80,
                         ),
                       ),
@@ -164,8 +164,8 @@ class _CoupleSelfieScreenState extends State<CoupleSelfieScreen> {
           gradient: onPressed != null
               ? const LinearGradient(
                   colors: [
-                    Color(0xFF2A8C94),
-                    Color(0xFF1F6B73),
+                    Color(0xFF3BA8B0),
+                    Color(0xFF145A60),
                   ],
                 )
               : null,
@@ -173,7 +173,7 @@ class _CoupleSelfieScreenState extends State<CoupleSelfieScreen> {
           borderRadius: BorderRadius.circular(16),
           boxShadow: [
             BoxShadow(
-              color: (onPressed != null ? const Color(0xFF2A8C94) : Colors.grey)
+              color: (onPressed != null ? const Color(0xFF3BA8B0) : Colors.grey)
                   .withOpacity(0.3),
               blurRadius: 12,
               offset: const Offset(0, 6),
@@ -234,9 +234,9 @@ class _CoupleSelfieScreenState extends State<CoupleSelfieScreen> {
         uiSettings: [
           AndroidUiSettings(
             toolbarTitle: l10n.coupleSelfieCropTitle,
-            toolbarColor: const Color(0xFF2A8C94),
+            toolbarColor: const Color(0xFF3BA8B0),
             toolbarWidgetColor: Colors.white,
-            activeControlsWidgetColor: const Color(0xFF2A8C94),
+            activeControlsWidgetColor: const Color(0xFF3BA8B0),
             initAspectRatio: CropAspectRatioPreset.square,
             lockAspectRatio: true,
             hideBottomControls: false,
@@ -442,7 +442,7 @@ class _CoupleSelfieScreenState extends State<CoupleSelfieScreen> {
             Expanded(child: Text(message)),
           ],
         ),
-        backgroundColor: isError ? Colors.red : const Color(0xFF2A8C94),
+        backgroundColor: isError ? Colors.red : const Color(0xFF3BA8B0),
         behavior: SnackBarBehavior.floating,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         margin: const EdgeInsets.all(16),

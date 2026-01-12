@@ -105,8 +105,8 @@ class TodoMessageBubble extends StatelessWidget {
                 gradient: isMe
                     ? const LinearGradient(
                         colors: [
-                          Color(0xFF2A8C94), // Purple
-                          Color(0xFF1F6B73), // Deep purple
+                          Color(0xFF3BA8B0), // Purple
+                          Color(0xFF145A60), // Deep purple
                         ],
                         begin: Alignment.topLeft,
                         end: Alignment.bottomRight,
@@ -132,7 +132,7 @@ class TodoMessageBubble extends StatelessWidget {
                 boxShadow: [
                   BoxShadow(
                     color: isMe
-                        ? const Color(0xFF2A8C94).withOpacity(0.3)
+                        ? const Color(0xFF3BA8B0).withOpacity(0.3)
                         : Colors.black.withOpacity(0.08),
                     blurRadius: 8,
                     offset: const Offset(0, 2),

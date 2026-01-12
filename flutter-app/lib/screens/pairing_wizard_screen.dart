@@ -124,7 +124,7 @@ class _PairingWizardScreenState extends State<PairingWizardScreen> {
             Expanded(child: Text(message)),
           ],
         ),
-        backgroundColor: isError ? Colors.red : const Color(0xFF2A8C94),
+        backgroundColor: isError ? Colors.red : const Color(0xFF3BA8B0),
         behavior: SnackBarBehavior.floating,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         margin: const EdgeInsets.all(16),
@@ -190,8 +190,8 @@ class _PairingWizardScreenState extends State<PairingWizardScreen> {
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
             colors: [
-              Color(0xFF2A8C94),
-              Color(0xFF1F6B73),
+              Color(0xFF3BA8B0),
+              Color(0xFF145A60),
             ],
           ),
         ),
@@ -214,7 +214,7 @@ class _PairingWizardScreenState extends State<PairingWizardScreen> {
                   ],
                 ),
                 child: IconButton(
-                  icon: const Icon(Icons.arrow_back, color: Color(0xFF2A8C94)),
+                  icon: const Icon(Icons.arrow_back, color: Color(0xFF3BA8B0)),
                   onPressed: () {
                     Navigator.of(context, rootNavigator: false).pop();
                   },
@@ -302,11 +302,11 @@ class _PairingWizardScreenState extends State<PairingWizardScreen> {
                                         backgroundColor: Colors.white,
                                         eyeStyle: const QrEyeStyle(
                                           eyeShape: QrEyeShape.square,
-                                          color: Color(0xFF2A8C94),
+                                          color: Color(0xFF3BA8B0),
                                         ),
                                         dataModuleStyle: const QrDataModuleStyle(
                                           dataModuleShape: QrDataModuleShape.square,
-                                          color: Color(0xFF2A8C94),
+                                          color: Color(0xFF3BA8B0),
                                         ),
                                       ),
                                     ),
@@ -315,17 +315,17 @@ class _PairingWizardScreenState extends State<PairingWizardScreen> {
                                   Container(
                                     padding: const EdgeInsets.all(16),
                                     decoration: BoxDecoration(
-                                      color: const Color(0xFF2A8C94).withOpacity(0.1),
+                                      color: const Color(0xFF3BA8B0).withOpacity(0.1),
                                       borderRadius: BorderRadius.circular(12),
                                       border: Border.all(
-                                        color: const Color(0xFF2A8C94),
+                                        color: const Color(0xFF3BA8B0),
                                       ),
                                     ),
                                     child: Row(
                                       children: [
                                         const Icon(
                                           Icons.check_circle,
-                                          color: Color(0xFF2A8C94),
+                                          color: Color(0xFF3BA8B0),
                                           size: 32,
                                         ),
                                         const SizedBox(width: 12),
@@ -333,7 +333,7 @@ class _PairingWizardScreenState extends State<PairingWizardScreen> {
                                           child: Text(
                                             l10n.pairingWizardPairingCompleted,
                                             style: const TextStyle(
-                                              color: Color(0xFF2A8C94),
+                                              color: Color(0xFF3BA8B0),
                                               fontWeight: FontWeight.w600,
                                               fontSize: 14,
                                             ),
@@ -365,14 +365,14 @@ class _PairingWizardScreenState extends State<PairingWizardScreen> {
                                       decoration: BoxDecoration(
                                         gradient: const LinearGradient(
                                           colors: [
-                                            Color(0xFF2A8C94),
-                                            Color(0xFF1F6B73),
+                                            Color(0xFF3BA8B0),
+                                            Color(0xFF145A60),
                                           ],
                                         ),
                                         borderRadius: BorderRadius.circular(12),
                                         boxShadow: [
                                           BoxShadow(
-                                            color: const Color(0xFF2A8C94).withOpacity(0.3),
+                                            color: const Color(0xFF3BA8B0).withOpacity(0.3),
                                             blurRadius: 8,
                                             offset: const Offset(0, 4),
                                           ),
@@ -416,17 +416,17 @@ class _PairingWizardScreenState extends State<PairingWizardScreen> {
                                   Container(
                                     padding: const EdgeInsets.all(16),
                                     decoration: BoxDecoration(
-                                      color: const Color(0xFF2A8C94).withOpacity(0.1),
+                                      color: const Color(0xFF3BA8B0).withOpacity(0.1),
                                       borderRadius: BorderRadius.circular(12),
                                       border: Border.all(
-                                        color: const Color(0xFF2A8C94),
+                                        color: const Color(0xFF3BA8B0),
                                       ),
                                     ),
                                     child: Row(
                                       children: [
                                         const Icon(
                                           Icons.check_circle,
-                                          color: Color(0xFF2A8C94),
+                                          color: Color(0xFF3BA8B0),
                                           size: 32,
                                         ),
                                         const SizedBox(width: 12),
@@ -434,7 +434,7 @@ class _PairingWizardScreenState extends State<PairingWizardScreen> {
                                           child: Text(
                                             l10n.pairingWizardQRScannedSuccess,
                                             style: const TextStyle(
-                                              color: Color(0xFF2A8C94),
+                                              color: Color(0xFF3BA8B0),
                                               fontWeight: FontWeight.w600,
                                               fontSize: 14,
                                             ),
@@ -470,7 +470,7 @@ class _PairingWizardScreenState extends State<PairingWizardScreen> {
                                 children: [
                                   Icon(
                                     _bothPaired ? Icons.favorite : Icons.favorite_border,
-                                    color: const Color(0xFF2A8C94),
+                                    color: const Color(0xFF3BA8B0),
                                     size: 48,
                                   ),
                                   const SizedBox(height: 12),
@@ -479,7 +479,7 @@ class _PairingWizardScreenState extends State<PairingWizardScreen> {
                                         ? l10n.pairingWizardPairingCompleted
                                         : l10n.pairingWizardYouCompletedPairing,
                                     style: const TextStyle(
-                                      color: Color(0xFF2A8C94),
+                                      color: Color(0xFF3BA8B0),
                                       fontWeight: FontWeight.bold,
                                       fontSize: 20,
                                     ),
@@ -506,8 +506,8 @@ class _PairingWizardScreenState extends State<PairingWizardScreen> {
                                   gradient: _bothPaired
                                       ? const LinearGradient(
                                           colors: [
-                                            Color(0xFF2A8C94),
-                                            Color(0xFF1F6B73),
+                                            Color(0xFF3BA8B0),
+                                            Color(0xFF145A60),
                                           ],
                                         )
                                       : null,
@@ -516,7 +516,7 @@ class _PairingWizardScreenState extends State<PairingWizardScreen> {
                                   boxShadow: _bothPaired
                                       ? [
                                           BoxShadow(
-                                            color: const Color(0xFF2A8C94).withOpacity(0.3),
+                                            color: const Color(0xFF3BA8B0).withOpacity(0.3),
                                             blurRadius: 8,
                                             offset: const Offset(0, 4),
                                           ),
@@ -603,8 +603,8 @@ class _PairingWizardScreenState extends State<PairingWizardScreen> {
                   gradient: isCompleted
                       ? const LinearGradient(
                           colors: [
-                            Color(0xFF2A8C94),
-                            Color(0xFF1F6B73),
+                            Color(0xFF3BA8B0),
+                            Color(0xFF145A60),
                           ],
                         )
                       : null,
@@ -667,8 +667,8 @@ class _PairingWizardScreenState extends State<PairingWizardScreen> {
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
             colors: [
-              Color(0xFF2A8C94),
-              Color(0xFF1F6B73),
+              Color(0xFF3BA8B0),
+              Color(0xFF145A60),
             ],
           ),
         ),
@@ -710,7 +710,7 @@ class _PairingWizardScreenState extends State<PairingWizardScreen> {
                   ],
                 ),
                 child: IconButton(
-                  icon: const Icon(Icons.arrow_back, color: Color(0xFF2A8C94)),
+                  icon: const Icon(Icons.arrow_back, color: Color(0xFF3BA8B0)),
                   onPressed: () {
                     controller.dispose();
                     setState(() {
@@ -744,7 +744,7 @@ class _PairingWizardScreenState extends State<PairingWizardScreen> {
                       final torchState = controller.value.torchState;
                       switch (torchState) {
                         case TorchState.off:
-                          return const Icon(Icons.flash_off, color: Color(0xFF2A8C94));
+                          return const Icon(Icons.flash_off, color: Color(0xFF3BA8B0));
                         case TorchState.on:
                           return const Icon(Icons.flash_on, color: Colors.amber);
                         case TorchState.unavailable:
