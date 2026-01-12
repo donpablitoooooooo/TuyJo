@@ -143,29 +143,34 @@ class _MainScreenState extends State<MainScreen> {
               begin: Alignment.topCenter,
               end: Alignment.bottomCenter,
               colors: [
-                Color(0xFF5DBECC),
-                Color(0xFF3B9DA6),
+                Color(0xFF2A8C94),
+                Color(0xFF1F6B73),
               ],
             ),
           ),
           child: ListView(
             padding: EdgeInsets.zero,
             children: [
-              const DrawerHeader(
-                decoration: BoxDecoration(
+              DrawerHeader(
+                decoration: const BoxDecoration(
                   color: Colors.transparent,
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   mainAxisAlignment: MainAxisAlignment.end,
                   children: [
-                    Icon(Icons.favorite, color: Colors.white, size: 48),
-                    SizedBox(height: 16),
-                    Text(
-                      'You & Me',
+                    Image.asset(
+                      'assets/cherry_logo.webp',
+                      width: 60,
+                      height: 60,
+                      fit: BoxFit.contain,
+                    ),
+                    const SizedBox(height: 16),
+                    const Text(
+                      'TuyJo',
                       style: TextStyle(
                         color: Colors.white,
-                        fontSize: 24,
+                        fontSize: 28,
                         fontWeight: FontWeight.bold,
                       ),
                     ),
@@ -241,7 +246,7 @@ class _MainScreenState extends State<MainScreen> {
                   ],
                 ),
                 child: IconButton(
-                  icon: const Icon(Icons.menu, color: Color(0xFF5DBECC)),
+                  icon: const Icon(Icons.menu, color: Color(0xFF2A8C94)),
                   onPressed: () => Scaffold.of(context).openDrawer(),
                 ),
               ),
@@ -291,18 +296,24 @@ class _MainScreenState extends State<MainScreen> {
                               cachedSelfieBytes,
                               fit: BoxFit.cover,
                               errorBuilder: (context, error, stackTrace) {
-                                // Fallback to heart icon if image fails to load
-                                return Icon(
-                                  Icons.favorite,
-                                  color: isPaired ? const Color(0xFF5DBECC) : Colors.grey,
-                                  size: 24,
+                                // Fallback to cherry logo if image fails to load
+                                return ClipOval(
+                                  child: Image.asset(
+                                    'assets/cherry_logo.webp',
+                                    width: 48,
+                                    height: 48,
+                                    fit: BoxFit.cover,
+                                  ),
                                 );
                               },
                             )
-                          : Icon(
-                              Icons.favorite,
-                              color: isPaired ? const Color(0xFF5DBECC) : Colors.grey,
-                              size: 24,
+                          : Image.asset(
+                              'assets/cherry_logo.webp',
+                              width: 48,
+                              height: 48,
+                              fit: BoxFit.cover,
+                              color: isPaired ? null : Colors.grey.withOpacity(0.5),
+                              colorBlendMode: isPaired ? null : BlendMode.saturation,
                             ),
                     ),
                   ),

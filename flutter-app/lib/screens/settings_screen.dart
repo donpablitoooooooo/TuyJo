@@ -221,7 +221,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         title: Row(
           children: [
-            const Icon(Icons.favorite, color: Color(0xFF5DBECC)),
+            const Icon(Icons.favorite, color: Color(0xFF2A8C94)),
             const SizedBox(width: 12),
             Text(l10n.settingsNewPairingDialogTitle),
           ],
@@ -252,7 +252,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
               // Mostra dialog per salvare la chiave (opzionale)
               _showSaveKeyDialog();
             },
-            style: TextButton.styleFrom(foregroundColor: const Color(0xFF5DBECC)),
+            style: TextButton.styleFrom(foregroundColor: const Color(0xFF2A8C94)),
             child: Text(l10n.continue_),
           ),
         ],
@@ -268,7 +268,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         title: Row(
           children: [
-            const Icon(Icons.backup, color: Color(0xFF5DBECC)),
+            const Icon(Icons.backup, color: Color(0xFF2A8C94)),
             const SizedBox(width: 12),
             Text(l10n.settingsSaveKeyDialogTitle),
           ],
@@ -292,7 +292,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
               await _copyPrivateKey();
               _startPairingWizard();
             },
-            style: TextButton.styleFrom(foregroundColor: const Color(0xFF5DBECC)),
+            style: TextButton.styleFrom(foregroundColor: const Color(0xFF2A8C94)),
             child: Text(l10n.settingsSaveKeyNow),
           ),
         ],
@@ -310,7 +310,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         title: Row(
           children: [
-            const Icon(Icons.restore, color: Color(0xFF5DBECC)),
+            const Icon(Icons.restore, color: Color(0xFF2A8C94)),
             const SizedBox(width: 12),
             Text(l10n.settingsRestoreDialogTitle),
           ],
@@ -332,7 +332,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 ),
                 focusedBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12),
-                  borderSide: const BorderSide(color: Color(0xFF5DBECC), width: 2),
+                  borderSide: const BorderSide(color: Color(0xFF2A8C94), width: 2),
                 ),
               ),
               maxLines: 4,
@@ -429,7 +429,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 setState(() => _isLoading = false);
               }
             },
-            style: TextButton.styleFrom(foregroundColor: const Color(0xFF5DBECC)),
+            style: TextButton.styleFrom(foregroundColor: const Color(0xFF2A8C94)),
             child: Text(l10n.settingsRestoreButton),
           ),
         ],
@@ -527,7 +527,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     if (_isLoading) {
       return const Center(
         child: CircularProgressIndicator(
-          valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF5DBECC)),
+          valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF2A8C94)),
         ),
       );
     }
@@ -543,12 +543,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 padding: const EdgeInsets.all(20),
                 decoration: BoxDecoration(
                   gradient: const LinearGradient(
-                    colors: [Color(0xFF5DBECC), Color(0xFF3B9DA6)],
+                    colors: [Color(0xFF2A8C94), Color(0xFF1F6B73)],
                   ),
                   shape: BoxShape.circle,
                   boxShadow: [
                     BoxShadow(
-                      color: const Color(0xFF5DBECC).withOpacity(0.3),
+                      color: const Color(0xFF2A8C94).withOpacity(0.3),
                       blurRadius: 20,
                       offset: const Offset(0, 4),
                     ),
@@ -562,7 +562,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 style: const TextStyle(
                   fontSize: 28,
                   fontWeight: FontWeight.bold,
-                  color: Color(0xFF5DBECC),
+                  color: Color(0xFF2A8C94),
                 ),
               ),
             ],
@@ -574,7 +574,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
         _SettingsSection(
           title: AppLocalizations.of(context)!.settingsSectionPairing,
           icon: Icons.favorite,
-          iconColor: const Color(0xFF5DBECC),
+          iconColor: const Color(0xFF2A8C94),
           children: [
             if (isPaired) ...[
               // Paired: mostra status e backup
@@ -695,7 +695,7 @@ class _SettingsSection extends StatelessWidget {
         children: [
           Row(
             children: [
-              Icon(icon, color: iconColor ?? const Color(0xFF5DBECC), size: 24),
+              Icon(icon, color: iconColor ?? const Color(0xFF2A8C94), size: 24),
               const SizedBox(width: 12),
               Text(
                 title,
@@ -742,7 +742,7 @@ class _PurpleButton extends StatelessWidget {
         child: Ink(
           decoration: BoxDecoration(
             gradient: const LinearGradient(
-              colors: [Color(0xFF5DBECC), Color(0xFF3B9DA6)],
+              colors: [Color(0xFF2A8C94), Color(0xFF1F6B73)],
             ),
             borderRadius: BorderRadius.circular(12),
           ),
@@ -785,7 +785,7 @@ class _OutlineButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final buttonColor = color ?? const Color(0xFF5DBECC);
+    final buttonColor = color ?? const Color(0xFF2A8C94);
 
     return SizedBox(
       width: double.infinity,

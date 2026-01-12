@@ -1,12 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- TuyJo splash screen with teal gradient -->
+<!-- TuyJo splash screen - solid teal color -->
 <layer-list xmlns:android="http://schemas.android.com/apk/res/android">
-    <item android:drawable="@drawable/teal_gradient" />
-
-    <!-- Cherry logo icon -->
-    <item>
-        <bitmap
-            android:gravity="center"
-            android:src="@mipmap/ic_launcher" />
-    </item>
+    <item android:drawable="@color/teal_primary" />
 </layer-list>
