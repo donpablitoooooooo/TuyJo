@@ -59,16 +59,22 @@
             color: white;
         }
 
+        header .header-title {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 15px;
+            margin-bottom: 15px;
+        }
+
         header .logo {
-            width: 100px;
-            height: 100px;
-            margin: 0 auto 15px;
-            display: block;
+            width: 60px;
+            height: 60px;
         }
 
         header h1 {
             font-size: 3em;
-            margin-bottom: 10px;
+            margin: 0;
             text-shadow: 2px 2px 4px rgba(0,0,0,0.2);
         }
 
@@ -163,6 +169,15 @@
         }
 
         @media (max-width: 768px) {
+            header .header-title {
+                gap: 10px;
+            }
+
+            header .logo {
+                width: 50px;
+                height: 50px;
+            }
+
             header h1 {
                 font-size: 2em;
             }
@@ -202,8 +217,10 @@
 
     <div class="container">
         <header>
-            <img src="logo.png" alt="TuyJo Logo" class="logo">
-            <h1>Privacy Policy</h1>
+            <div class="header-title">
+                <img src="logo.png" alt="TuyJo Logo" class="logo">
+                <h1>Privacy Policy</h1>
+            </div>
             <p>Your privacy is our priority</p>
         </header>
 
