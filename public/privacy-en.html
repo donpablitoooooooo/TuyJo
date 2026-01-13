@@ -1,0 +1,363 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Privacy Policy - TuyJo</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            background: linear-gradient(135deg, #3BA8B0 0%, #145A60 100%);
+            min-height: 100vh;
+        }
+
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        .lang-selector {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: rgba(255,255,255,0.95);
+            padding: 10px 15px;
+            border-radius: 25px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+            z-index: 1000;
+        }
+
+        .lang-selector a {
+            margin: 0 8px;
+            text-decoration: none;
+            color: #3BA8B0;
+            font-weight: 600;
+            font-size: 0.9em;
+        }
+
+        .lang-selector a:hover {
+            color: #145A60;
+        }
+
+        .lang-selector a.active {
+            color: #145A60;
+            border-bottom: 2px solid #145A60;
+        }
+
+        header {
+            text-align: center;
+            padding: 60px 20px;
+            color: white;
+        }
+
+        header .header-title {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 15px;
+            margin-bottom: 15px;
+        }
+
+        header .logo {
+            width: 60px;
+            height: 60px;
+        }
+
+        header h1 {
+            font-size: 3em;
+            margin: 0;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.2);
+        }
+
+        header p {
+            font-size: 1.3em;
+            opacity: 0.95;
+        }
+
+        .content {
+            background: white;
+            border-radius: 20px;
+            padding: 40px;
+            margin: 20px 0;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+        }
+
+        h2 {
+            color: #3BA8B0;
+            margin: 30px 0 20px 0;
+            font-size: 2em;
+            border-bottom: 3px solid #3BA8B0;
+            padding-bottom: 10px;
+        }
+
+        h2:first-child {
+            margin-top: 0;
+        }
+
+        h3 {
+            color: #145A60;
+            margin: 25px 0 15px 0;
+            font-size: 1.4em;
+        }
+
+        p {
+            margin-bottom: 15px;
+        }
+
+        .highlight-box {
+            background: linear-gradient(135deg, #3BA8B0 0%, #145A60 100%);
+            color: white;
+            padding: 25px;
+            border-radius: 15px;
+            margin: 25px 0;
+        }
+
+        .highlight-box h3 {
+            color: white;
+            margin-top: 0;
+        }
+
+        .info-box {
+            background: #f8f9fa;
+            border-left: 4px solid #3BA8B0;
+            padding: 20px;
+            border-radius: 10px;
+            margin: 20px 0;
+        }
+
+        ul {
+            margin-left: 20px;
+            margin-bottom: 20px;
+        }
+
+        ul li {
+            margin: 10px 0;
+        }
+
+        .date-info {
+            background: linear-gradient(135deg, #3BA8B015 0%, #145A6015 100%);
+            padding: 15px 20px;
+            border-radius: 10px;
+            margin: 20px 0;
+            font-style: italic;
+            color: #555;
+        }
+
+        footer {
+            text-align: center;
+            color: white;
+            padding: 40px 20px;
+            font-size: 0.9em;
+        }
+
+        footer a {
+            color: white;
+            text-decoration: underline;
+        }
+
+        footer a:hover {
+            opacity: 0.8;
+        }
+
+        @media (max-width: 768px) {
+            header .header-title {
+                gap: 10px;
+            }
+
+            header .logo {
+                width: 50px;
+                height: 50px;
+            }
+
+            header h1 {
+                font-size: 2em;
+            }
+
+            header p {
+                font-size: 1.1em;
+            }
+
+            .content {
+                padding: 25px;
+            }
+
+            h2 {
+                font-size: 1.6em;
+            }
+
+            .lang-selector {
+                top: 10px;
+                right: 10px;
+                padding: 8px 12px;
+            }
+
+            .lang-selector a {
+                margin: 0 5px;
+                font-size: 0.85em;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="lang-selector">
+        <a href="privacy-en.html" class="active">EN</a>
+        <a href="privacy-es.html">ES</a>
+        <a href="privacy-ca.html">CA</a>
+        <a href="privacy-it.html">IT</a>
+    </div>
+
+    <div class="container">
+        <header>
+            <div class="header-title">
+                <img src="logo.png" alt="TuyJo Logo" class="logo">
+                <h1>Privacy Policy</h1>
+            </div>
+            <p>Your privacy is our priority</p>
+        </header>
+
+        <div class="content">
+            <div class="date-info">
+                <strong>Last Updated:</strong> January 13, 2026<br>
+                <strong>Version:</strong> 1.0
+            </div>
+
+            <h2>1. Introduction</h2>
+            <p>
+                Welcome to <strong>TuyJo's</strong> Privacy Policy. TuyJo is a private messaging application
+                designed specifically for couples, featuring advanced end-to-end encryption (RSA-2048 + AES-256).
+            </p>
+            <p>
+                Your privacy is fundamental to us. This policy explains what data we collect, how we use it,
+                and what rights you have over your personal data.
+            </p>
+
+            <div class="highlight-box">
+                <h3>🔐 Core Principle</h3>
+                <p>
+                    <strong>Zero-Knowledge Architecture:</strong> Thanks to end-to-end encryption, your messages,
+                    photos, and documents are readable ONLY by you and your partner. Not even we, the developers,
+                    can access your content.
+                </p>
+            </div>
+
+            <h2>2. Data We Collect</h2>
+
+            <h3>2.1 Encryption System</h3>
+            <p>
+                TuyJo uses an asymmetric key pair encryption system (RSA-2048) to ensure
+                maximum security and privacy:
+            </p>
+            <ul>
+                <li><strong>Personal Private Key:</strong> Automatically generated on your device and <strong>never shared with the server</strong>.
+                It always remains only on your device, protected by the operating system (Keychain on iOS, Keystore on Android).
+                This key is necessary to decrypt the messages you receive.</li>
+                <li><strong>Public Key (QR Code):</strong> Generated together with the private key and shared with your partner via QR code during pairing.
+                This key is used by your partner to encrypt messages intended for you. The public key can be safely shared
+                because it only serves to encrypt, not to decrypt.</li>
+            </ul>
+            <div class="info-box">
+                <strong>Important:</strong> We do not store any personal authentication information (email, user ID, password).
+                The system is based exclusively on cryptographic keys generated locally on your device.
+            </div>
+
+            <h3>2.3 Messages and Content (Encrypted)</h3>
+            <ul>
+                <li><strong>Encrypted Messages:</strong> Message text encrypted with AES-256</li>
+                <li><strong>Encrypted Attachments:</strong> End-to-end encrypted photos, videos, and documents</li>
+                <li><strong>TODOs and Reminders:</strong> Shared reminders and notes (encrypted)</li>
+                <li><strong>Metadata:</strong> Sending timestamp, message ID, message type (text/attachment/TODO)</li>
+            </ul>
+            <div class="info-box">
+                <strong>Important Note:</strong> All content (messages, attachments, TODOs) is end-to-end encrypted.
+                We only store encrypted data that we cannot read without your private keys, which are stored
+                ONLY on your device.
+            </div>
+
+            <h3>2.4 Technical Data</h3>
+            <ul>
+                <li><strong>FCM Token:</strong> Token for Firebase Cloud Messaging push notifications, necessary to send notifications when you receive new messages</li>
+            </ul>
+
+            <h2>3. How We Use Data</h2>
+
+            <h3>3.1 Primary Purposes</h3>
+            <ul>
+                <li><strong>Provide the Service:</strong> Synchronize messages between your devices and your partner's</li>
+                <li><strong>Notifications:</strong> Send push notifications when you receive new messages or reminders</li>
+                <li><strong>Security:</strong> Maintain the integrity and security of the pairing system</li>
+                <li><strong>Improvements:</strong> Fix bugs and improve app features</li>
+            </ul>
+
+            <h3>3.2 What We DON'T Do with Your Data</h3>
+            <ul>
+                <li>❌ <strong>We don't read your messages</strong> (impossible due to E2E encryption)</li>
+                <li>❌ <strong>We don't sell your data</strong> to third parties</li>
+                <li>❌ <strong>We don't use your data for advertising</strong> or profiling</li>
+                <li>❌ <strong>We don't share your content</strong> with anyone (except legal cases, see sec. 5)</li>
+            </ul>
+
+            <h2>4. Encryption and Security</h2>
+
+            <h3>4.1 Encryption Architecture</h3>
+            <p>TuyJo uses a two-tier encryption system:</p>
+            <ul>
+                <li><strong>RSA-2048:</strong> For secure exchange of public keys during pairing</li>
+                <li><strong>AES-256:</strong> For encrypting messages and attachments</li>
+                <li><strong>Unique Key per Message:</strong> Each message has a randomly generated unique AES key</li>
+            </ul>
+
+            <div class="highlight-box">
+                <h3>🔑 Your Private Keys</h3>
+                <p>
+                    Your RSA private keys are stored EXCLUSIVELY on your device using
+                    <strong>flutter_secure_storage</strong>, an encrypted storage system protected by the operating system
+                    (Keychain on iOS, Keystore on Android). Not even we can access them.
+                </p>
+            </div>
+
+            <h3>4.2 Security Measures</h3>
+            <ul>
+                <li><strong>HTTPS/TLS:</strong> All communications between app and server use secure encrypted connections</li>
+            </ul>
+
+            <h2>5. Data Retention and Deletion</h2>
+            <p>
+                Data deletion can be performed directly from the app by either of the two partners.
+                Both partners have complete control over shared data and can delete it at any time.
+            </p>
+
+            <h2>6. Contact</h2>
+            <p>For questions or requests about privacy, you can contact us:</p>
+            <ul>
+                <li><strong>Email:</strong> info@tuyjo.com</li>
+            </ul>
+
+            <div class="highlight-box">
+                <h3>💜 Our Commitment</h3>
+                <p>
+                    Privacy is at the heart of TuyJo. We designed the app from scratch with end-to-end encryption
+                    to ensure your conversations remain private between you and your partner. We will continue to
+                    protect your privacy as a fundamental principle.
+                </p>
+            </div>
+        </div>
+
+        <footer>
+            <p>💜 TuyJo - Privacy Policy</p>
+            <p style="margin-top: 10px;">
+                <a href="en.html">Back to Home</a>
+            </p>
+            <p style="margin-top: 5px; opacity: 0.8;">Version 1.0 - January 2026</p>
+        </footer>
+    </div>
+</body>
+</html>
