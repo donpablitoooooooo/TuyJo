@@ -226,18 +226,23 @@
 
             <h2>2. Dati che Raccogliamo</h2>
 
-            <h3>2.1 Dati di Autenticazione</h3>
+            <h3>2.1 Sistema di Crittografia</h3>
+            <p>
+                TuyJo utilizza un sistema di crittografia a coppia di chiavi asimmetriche (RSA-2048) per garantire
+                la massima sicurezza e privacy:
+            </p>
             <ul>
-                <li><strong>ID Utente Firebase:</strong> Un identificativo univoco generato automaticamente da Firebase Authentication</li>
-                <li><strong>Email (opzionale):</strong> Se scegli di associare un'email al tuo account</li>
-                <li><strong>Chiave Pubblica RSA:</strong> La tua chiave pubblica di crittografia (non segreta), memorizzata per permettere al tuo partner di criptare messaggi per te</li>
+                <li><strong>Chiave Privata Personale:</strong> Generata automaticamente sul tuo dispositivo e <strong>mai condivisa con il server</strong>.
+                Rimane sempre e solo sul tuo dispositivo, protetta dal sistema operativo (Keychain su iOS, Keystore su Android).
+                Questa chiave è necessaria per decifrare i messaggi che ricevi.</li>
+                <li><strong>Chiave Pubblica (QR Code):</strong> Generata insieme alla chiave privata e condivisa con il tuo partner tramite QR code durante il pairing.
+                Questa chiave viene utilizzata dal partner per criptare i messaggi destinati a te. La chiave pubblica può essere condivisa in sicurezza
+                perché serve solo a cifrare, non a decifrare.</li>
             </ul>
-
-            <h3>2.2 Dati di Pairing</h3>
-            <ul>
-                <li><strong>ID del Partner:</strong> L'identificativo Firebase del tuo partner associato al tuo account</li>
-                <li><strong>Stato del Pairing:</strong> Informazioni sullo stato di collegamento tra i dispositivi</li>
-            </ul>
+            <div class="info-box">
+                <strong>Importante:</strong> Non memorizziamo alcuna informazione di autenticazione personale (email, ID utente, password).
+                Il sistema si basa esclusivamente sulle chiavi crittografiche generate localmente sul tuo dispositivo.
+            </div>
 
             <h3>2.3 Messaggi e Contenuti (Criptati)</h3>
             <ul>
@@ -252,11 +257,9 @@
                 SOLO sul tuo dispositivo.
             </div>
 
-            <h3>2.4 Dati Tecnici e di Utilizzo</h3>
+            <h3>2.4 Dati Tecnici</h3>
             <ul>
-                <li><strong>Token FCM:</strong> Token per le notifiche push di Firebase Cloud Messaging</li>
-                <li><strong>Log di Errori:</strong> Informazioni su crash e errori dell'app (anonimizzati)</li>
-                <li><strong>Statistiche di Utilizzo:</strong> Dati aggregati e anonimi sull'uso dell'app</li>
+                <li><strong>Token FCM:</strong> Token per le notifiche push di Firebase Cloud Messaging, necessario per inviare notifiche quando ricevi nuovi messaggi</li>
             </ul>
 
             <h2>3. Come Utilizziamo i Dati</h2>
@@ -298,10 +301,7 @@
 
             <h3>4.2 Misure di Sicurezza</h3>
             <ul>
-                <li><strong>Firestore Security Rules:</strong> Regole di accesso rigorose che impediscono la lettura non autorizzata</li>
-                <li><strong>HTTPS/TLS:</strong> Tutte le comunicazioni tra app e server usano connessioni sicure</li>
-                <li><strong>Cloud Storage Rules:</strong> Gli allegati sono accessibili solo agli utenti autorizzati (anche se criptati)</li>
-                <li><strong>Backup Sicuro:</strong> Puoi esportare e importare le tue chiavi in modo sicuro</li>
+                <li><strong>HTTPS/TLS:</strong> Tutte le comunicazioni tra app e server usano connessioni sicure crittografate</li>
             </ul>
 
             <h2>5. Condivisione dei Dati con Terze Parti</h2>

@@ -226,18 +226,23 @@
 
             <h2>2. Dades que Recopilem</h2>
 
-            <h3>2.1 Dades d'Autenticació</h3>
+            <h3>2.1 Sistema de Xifratge</h3>
+            <p>
+                TuyJo utilitza un sistema de xifratge de parell de claus asimètriques (RSA-2048) per garantir
+                la màxima seguretat i privadesa:
+            </p>
             <ul>
-                <li><strong>ID d'Usuari Firebase:</strong> Un identificador únic generat automàticament per Firebase Authentication</li>
-                <li><strong>Email (opcional):</strong> Si tries associar un email al teu compte</li>
-                <li><strong>Clau Pública RSA:</strong> La teva clau pública de xifratge (no secreta), emmagatzemada per permetre que la teva parella xifri missatges per a tu</li>
+                <li><strong>Clau Privada Personal:</strong> Generada automàticament al teu dispositiu i <strong>mai compartida amb el servidor</strong>.
+                Roman sempre i només al teu dispositiu, protegida pel sistema operatiu (Keychain a iOS, Keystore a Android).
+                Aquesta clau és necessària per desxifrar els missatges que reps.</li>
+                <li><strong>Clau Pública (Codi QR):</strong> Generada juntament amb la clau privada i compartida amb la teva parella mitjançant codi QR durant l'emparellament.
+                Aquesta clau és utilitzada per la teva parella per xifrar els missatges destinats a tu. La clau pública es pot compartir de forma segura
+                perquè només serveix per xifrar, no per desxifrar.</li>
             </ul>
-
-            <h3>2.2 Dades d'Emparellament</h3>
-            <ul>
-                <li><strong>ID de la Parella:</strong> L'identificador Firebase de la teva parella vinculat al teu compte</li>
-                <li><strong>Estat de l'Emparellament:</strong> Informació sobre l'estat de connexió entre dispositius</li>
-            </ul>
+            <div class="info-box">
+                <strong>Important:</strong> No emmagatzemem cap informació d'autenticació personal (email, ID d'usuari, contrasenya).
+                El sistema es basa exclusivament en claus criptogràfiques generades localment al teu dispositiu.
+            </div>
 
             <h3>2.3 Missatges i Contingut (Xifrats)</h3>
             <ul>
@@ -252,11 +257,9 @@
                 NOMÉS al teu dispositiu.
             </div>
 
-            <h3>2.4 Dades Tècniques i d'Ús</h3>
+            <h3>2.4 Dades Tècniques</h3>
             <ul>
-                <li><strong>Token FCM:</strong> Token per a notificacions push de Firebase Cloud Messaging</li>
-                <li><strong>Registres d'Errors:</strong> Informació sobre fallades i errors de l'aplicació (anonimitzats)</li>
-                <li><strong>Estadístiques d'Ús:</strong> Dades agregades i anònimes sobre l'ús de l'aplicació</li>
+                <li><strong>Token FCM:</strong> Token per a notificacions push de Firebase Cloud Messaging, necessari per enviar notificacions quan reps nous missatges</li>
             </ul>
 
             <h2>3. Com Utilitzem les Dades</h2>
@@ -298,10 +301,7 @@
 
             <h3>4.2 Mesures de Seguretat</h3>
             <ul>
-                <li><strong>Regles de Seguretat de Firestore:</strong> Regles d'accés estrictes que impedeixen la lectura no autoritzada</li>
-                <li><strong>HTTPS/TLS:</strong> Totes les comunicacions entre l'aplicació i el servidor utilitzen connexions segures</li>
-                <li><strong>Regles de Cloud Storage:</strong> Els fitxers adjunts només són accessibles per als usuaris autoritzats (encara que xifrats)</li>
-                <li><strong>Còpia de Seguretat Segura:</strong> Pots exportar i importar les teves claus de manera segura</li>
+                <li><strong>HTTPS/TLS:</strong> Totes les comunicacions entre l'aplicació i el servidor utilitzen connexions segures xifrades</li>
             </ul>
 
             <h2>5. Compartir Dades amb Tercers</h2>
