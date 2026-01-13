@@ -1,0 +1,408 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Política de Privacidad - TuyJo</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+        }
+
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        .lang-selector {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: rgba(255,255,255,0.95);
+            padding: 10px 15px;
+            border-radius: 25px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+            z-index: 1000;
+        }
+
+        .lang-selector a {
+            margin: 0 8px;
+            text-decoration: none;
+            color: #667eea;
+            font-weight: 600;
+            font-size: 0.9em;
+        }
+
+        .lang-selector a:hover {
+            color: #764ba2;
+        }
+
+        .lang-selector a.active {
+            color: #764ba2;
+            border-bottom: 2px solid #764ba2;
+        }
+
+        header {
+            text-align: center;
+            padding: 60px 20px;
+            color: white;
+        }
+
+        header h1 {
+            font-size: 3em;
+            margin-bottom: 10px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.2);
+        }
+
+        header p {
+            font-size: 1.3em;
+            opacity: 0.95;
+        }
+
+        .content {
+            background: white;
+            border-radius: 20px;
+            padding: 40px;
+            margin: 20px 0;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+        }
+
+        h2 {
+            color: #667eea;
+            margin: 30px 0 20px 0;
+            font-size: 2em;
+            border-bottom: 3px solid #667eea;
+            padding-bottom: 10px;
+        }
+
+        h2:first-child {
+            margin-top: 0;
+        }
+
+        h3 {
+            color: #764ba2;
+            margin: 25px 0 15px 0;
+            font-size: 1.4em;
+        }
+
+        p {
+            margin-bottom: 15px;
+        }
+
+        .highlight-box {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 25px;
+            border-radius: 15px;
+            margin: 25px 0;
+        }
+
+        .highlight-box h3 {
+            color: white;
+            margin-top: 0;
+        }
+
+        .info-box {
+            background: #f8f9fa;
+            border-left: 4px solid #667eea;
+            padding: 20px;
+            border-radius: 10px;
+            margin: 20px 0;
+        }
+
+        ul {
+            margin-left: 20px;
+            margin-bottom: 20px;
+        }
+
+        ul li {
+            margin: 10px 0;
+        }
+
+        .date-info {
+            background: linear-gradient(135deg, #667eea15 0%, #764ba215 100%);
+            padding: 15px 20px;
+            border-radius: 10px;
+            margin: 20px 0;
+            font-style: italic;
+            color: #555;
+        }
+
+        footer {
+            text-align: center;
+            color: white;
+            padding: 40px 20px;
+            font-size: 0.9em;
+        }
+
+        footer a {
+            color: white;
+            text-decoration: underline;
+        }
+
+        footer a:hover {
+            opacity: 0.8;
+        }
+
+        @media (max-width: 768px) {
+            header h1 {
+                font-size: 2em;
+            }
+
+            header p {
+                font-size: 1.1em;
+            }
+
+            .content {
+                padding: 25px;
+            }
+
+            h2 {
+                font-size: 1.6em;
+            }
+
+            .lang-selector {
+                top: 10px;
+                right: 10px;
+                padding: 8px 12px;
+            }
+
+            .lang-selector a {
+                margin: 0 5px;
+                font-size: 0.85em;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="lang-selector">
+        <a href="privacy-en.html">EN</a>
+        <a href="privacy-es.html" class="active">ES</a>
+        <a href="privacy-ca.html">CA</a>
+        <a href="privacy-it.html">IT</a>
+    </div>
+
+    <div class="container">
+        <header>
+            <h1>🔒 Política de Privacidad</h1>
+            <p>Tu privacidad es nuestra prioridad</p>
+        </header>
+
+        <div class="content">
+            <div class="date-info">
+                <strong>Última actualización:</strong> 13 de enero de 2026<br>
+                <strong>Versión:</strong> 1.0
+            </div>
+
+            <h2>1. Introducción</h2>
+            <p>
+                Bienvenido a la Política de Privacidad de <strong>TuyJo</strong>. TuyJo es una aplicación de mensajería
+                privada diseñada específicamente para parejas, con cifrado de extremo a extremo avanzado (RSA-2048 + AES-256).
+            </p>
+            <p>
+                Tu privacidad es fundamental para nosotros. Esta política explica qué datos recopilamos, cómo los utilizamos
+                y qué derechos tienes sobre tus datos personales.
+            </p>
+
+            <div class="highlight-box">
+                <h3>🔐 Principio Fundamental</h3>
+                <p>
+                    <strong>Arquitectura de Conocimiento Cero:</strong> Gracias al cifrado de extremo a extremo, tus mensajes,
+                    fotos y documentos son legibles SOLO por ti y tu pareja. Ni siquiera nosotros, los desarrolladores,
+                    podemos acceder a tu contenido.
+                </p>
+            </div>
+
+            <h2>2. Datos que Recopilamos</h2>
+
+            <h3>2.1 Datos de Autenticación</h3>
+            <ul>
+                <li><strong>ID de Usuario Firebase:</strong> Un identificador único generado automáticamente por Firebase Authentication</li>
+                <li><strong>Email (opcional):</strong> Si eliges asociar un email a tu cuenta</li>
+                <li><strong>Clave Pública RSA:</strong> Tu clave pública de cifrado (no secreta), almacenada para permitir que tu pareja cifre mensajes para ti</li>
+            </ul>
+
+            <h3>2.2 Datos de Emparejamiento</h3>
+            <ul>
+                <li><strong>ID de la Pareja:</strong> El identificador Firebase de tu pareja vinculado a tu cuenta</li>
+                <li><strong>Estado del Emparejamiento:</strong> Información sobre el estado de conexión entre dispositivos</li>
+            </ul>
+
+            <h3>2.3 Mensajes y Contenido (Cifrados)</h3>
+            <ul>
+                <li><strong>Mensajes Cifrados:</strong> El texto de los mensajes cifrado con AES-256</li>
+                <li><strong>Archivos Adjuntos Cifrados:</strong> Fotos, videos y documentos cifrados de extremo a extremo</li>
+                <li><strong>TODOs y Recordatorios:</strong> Recordatorios y notas compartidas (cifrados)</li>
+                <li><strong>Metadatos:</strong> Marca de tiempo de envío, ID del mensaje, tipo de mensaje (texto/adjunto/TODO)</li>
+            </ul>
+            <div class="info-box">
+                <strong>Nota Importante:</strong> Todo el contenido (mensajes, adjuntos, TODOs) está cifrado de extremo a extremo.
+                Solo almacenamos datos cifrados que no podemos leer sin tus claves privadas, que se almacenan
+                SOLO en tu dispositivo.
+            </div>
+
+            <h3>2.4 Datos Técnicos y de Uso</h3>
+            <ul>
+                <li><strong>Token FCM:</strong> Token para notificaciones push de Firebase Cloud Messaging</li>
+                <li><strong>Registros de Errores:</strong> Información sobre fallos y errores de la aplicación (anonimizados)</li>
+                <li><strong>Estadísticas de Uso:</strong> Datos agregados y anónimos sobre el uso de la aplicación</li>
+            </ul>
+
+            <h2>3. Cómo Utilizamos los Datos</h2>
+
+            <h3>3.1 Finalidades Principales</h3>
+            <ul>
+                <li><strong>Proporcionar el Servicio:</strong> Sincronizar mensajes entre tus dispositivos y los de tu pareja</li>
+                <li><strong>Notificaciones:</strong> Enviar notificaciones push cuando recibes nuevos mensajes o recordatorios</li>
+                <li><strong>Seguridad:</strong> Mantener la integridad y seguridad del sistema de emparejamiento</li>
+                <li><strong>Mejoras:</strong> Corregir errores y mejorar las funcionalidades de la aplicación</li>
+            </ul>
+
+            <h3>3.2 Lo que NO Hacemos con tus Datos</h3>
+            <ul>
+                <li>❌ <strong>No leemos tus mensajes</strong> (imposible gracias al cifrado E2E)</li>
+                <li>❌ <strong>No vendemos tus datos</strong> a terceros</li>
+                <li>❌ <strong>No utilizamos tus datos para publicidad</strong> dirigida o perfilado</li>
+                <li>❌ <strong>No compartimos tu contenido</strong> con nadie (excepto casos legales, ver sec. 5)</li>
+            </ul>
+
+            <h2>4. Cifrado y Seguridad</h2>
+
+            <h3>4.1 Arquitectura de Cifrado</h3>
+            <p>TuyJo utiliza un sistema de cifrado de dos niveles:</p>
+            <ul>
+                <li><strong>RSA-2048:</strong> Para el intercambio seguro de claves públicas durante el emparejamiento</li>
+                <li><strong>AES-256:</strong> Para el cifrado de mensajes y archivos adjuntos</li>
+                <li><strong>Clave Única por Mensaje:</strong> Cada mensaje tiene una clave AES única generada aleatoriamente</li>
+            </ul>
+
+            <div class="highlight-box">
+                <h3>🔑 Tus Claves Privadas</h3>
+                <p>
+                    Tus claves privadas RSA se almacenan EXCLUSIVAMENTE en tu dispositivo utilizando
+                    <strong>flutter_secure_storage</strong>, un sistema de almacenamiento cifrado protegido por el sistema operativo
+                    (Keychain en iOS, Keystore en Android). Ni siquiera nosotros podemos acceder a ellas.
+                </p>
+            </div>
+
+            <h3>4.2 Medidas de Seguridad</h3>
+            <ul>
+                <li><strong>Reglas de Seguridad de Firestore:</strong> Reglas de acceso estrictas que impiden la lectura no autorizada</li>
+                <li><strong>HTTPS/TLS:</strong> Todas las comunicaciones entre la aplicación y el servidor utilizan conexiones seguras</li>
+                <li><strong>Reglas de Cloud Storage:</strong> Los archivos adjuntos solo son accesibles para usuarios autorizados (aunque estén cifrados)</li>
+                <li><strong>Copia de Seguridad Segura:</strong> Puedes exportar e importar tus claves de forma segura</li>
+            </ul>
+
+            <h2>5. Compartir Datos con Terceros</h2>
+
+            <h3>5.1 Servicios Utilizados</h3>
+            <p>TuyJo utiliza los siguientes servicios de terceros:</p>
+            <ul>
+                <li><strong>Firebase (Google):</strong> Authentication, Firestore, Cloud Storage, Cloud Messaging
+                    <ul>
+                        <li>Política de Privacidad: <a href="https://firebase.google.com/support/privacy" target="_blank" style="color: #667eea;">firebase.google.com/support/privacy</a></li>
+                    </ul>
+                </li>
+            </ul>
+
+            <div class="info-box">
+                <strong>Importante:</strong> Incluso Firebase solo almacena datos cifrados. Google puede ver metadatos
+                (marcas de tiempo, tamaño de datos) pero no puede leer el contenido de tus mensajes.
+            </div>
+
+            <h3>5.2 Divulgación Legal</h3>
+            <p>Podemos divulgar datos no cifrados (como ID de usuario, metadatos) si:</p>
+            <ul>
+                <li>Es requerido por órdenes legales (órdenes judiciales, citaciones)</li>
+                <li>Es necesario para proteger nuestros derechos legales</li>
+                <li>Es requerido para prevenir actividades ilegales o fraude</li>
+            </ul>
+            <p><strong>Nota:</strong> No podemos divulgar el contenido de mensajes cifrados porque no tenemos las claves para descifrarlos.</p>
+
+            <h2>6. Conservación de Datos</h2>
+
+            <h3>6.1 Período de Conservación</h3>
+            <ul>
+                <li><strong>Mensajes:</strong> Conservados indefinidamente hasta que los elimines manualmente</li>
+                <li><strong>Archivos Adjuntos:</strong> Conservados indefinidamente hasta que los elimines</li>
+                <li><strong>Cuenta:</strong> Datos conservados mientras la cuenta esté activa</li>
+                <li><strong>Registros Técnicos:</strong> Conservados durante un máximo de 90 días</li>
+            </ul>
+
+            <h3>6.2 Eliminación de Datos</h3>
+            <p>Puedes eliminar tus datos en cualquier momento:</p>
+            <ul>
+                <li><strong>Eliminar Mensajes Individuales:</strong> Mantén pulsado un mensaje → Eliminar</li>
+                <li><strong>Eliminar Archivos Adjuntos:</strong> Elimina los mensajes que contienen archivos adjuntos</li>
+                <li><strong>Eliminar Todos los Datos:</strong> Configuración → "Eliminar Todos los Datos" (irreversible)</li>
+                <li><strong>Eliminar Cuenta:</strong> Contáctanos para la eliminación completa de la cuenta</li>
+            </ul>
+
+            <h2>7. Tus Derechos (RGPD)</h2>
+            <p>Si estás en la Unión Europea, tienes los siguientes derechos:</p>
+            <ul>
+                <li><strong>Derecho de Acceso:</strong> Puedes solicitar una copia de tus datos personales</li>
+                <li><strong>Derecho de Rectificación:</strong> Puedes corregir datos inexactos</li>
+                <li><strong>Derecho de Supresión:</strong> Puedes solicitar la eliminación de tus datos</li>
+                <li><strong>Derecho a la Portabilidad:</strong> Puedes exportar tus datos (función de copia de seguridad)</li>
+                <li><strong>Derecho de Oposición:</strong> Puedes oponerte al tratamiento de tus datos</li>
+                <li><strong>Derecho de Reclamación:</strong> Puedes presentar una reclamación ante la autoridad de protección de datos</li>
+            </ul>
+            <p>Para ejercer estos derechos, contáctanos en la dirección indicada en la sección 9.</p>
+
+            <h2>8. Privacidad de Menores</h2>
+            <p>
+                TuyJo no está destinado a usuarios menores de 16 años (o la edad mínima requerida en tu país).
+                No recopilamos intencionadamente datos personales de menores. Si eres padre/madre y descubres que tu hijo/a
+                nos ha proporcionado datos personales, contáctanos para su eliminación inmediata.
+            </p>
+
+            <h2>9. Cambios en esta Política de Privacidad</h2>
+            <p>
+                Podemos actualizar esta Política de Privacidad periódicamente. Te notificaremos los cambios sustanciales
+                mediante notificación en la aplicación o por correo electrónico. La fecha de "Última actualización" en la parte
+                superior de la página indica cuándo se modificó la política por última vez.
+            </p>
+            <div class="info-box">
+                <strong>Versiones Anteriores:</strong> Puedes solicitar versiones anteriores de esta política
+                contactándonos.
+            </div>
+
+            <h2>10. Contacto</h2>
+            <p>Para preguntas, solicitudes o preocupaciones sobre privacidad, puedes contactarnos:</p>
+            <ul>
+                <li><strong>Email:</strong> privacy@tuyjo.app (reemplazar con email real si está disponible)</li>
+                <li><strong>GitHub:</strong> <a href="https://github.com/donpablitoooooooo/TuyJo" target="_blank" style="color: #667eea;">github.com/donpablitoooooooo/TuyJo</a></li>
+            </ul>
+
+            <div class="highlight-box">
+                <h3>💜 Nuestro Compromiso</h3>
+                <p>
+                    La privacidad está en el corazón de TuyJo. Diseñamos la aplicación desde cero con cifrado de extremo a extremo
+                    para garantizar que tus conversaciones permanezcan privadas entre tú y tu pareja. Continuaremos
+                    protegiendo tu privacidad como principio fundamental.
+                </p>
+            </div>
+        </div>
+
+        <footer>
+            <p>💜 TuyJo - Política de Privacidad</p>
+            <p style="margin-top: 10px;">
+                <a href="es.html">Volver al Inicio</a>
+            </p>
+            <p style="margin-top: 5px; opacity: 0.8;">Versión 1.0 - Enero 2026</p>
+        </footer>
+    </div>
+</body>
+</html>

@@ -1,0 +1,408 @@
+<!DOCTYPE html>
+<html lang="ca">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Política de Privadesa - TuyJo</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+        }
+
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        .lang-selector {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: rgba(255,255,255,0.95);
+            padding: 10px 15px;
+            border-radius: 25px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+            z-index: 1000;
+        }
+
+        .lang-selector a {
+            margin: 0 8px;
+            text-decoration: none;
+            color: #667eea;
+            font-weight: 600;
+            font-size: 0.9em;
+        }
+
+        .lang-selector a:hover {
+            color: #764ba2;
+        }
+
+        .lang-selector a.active {
+            color: #764ba2;
+            border-bottom: 2px solid #764ba2;
+        }
+
+        header {
+            text-align: center;
+            padding: 60px 20px;
+            color: white;
+        }
+
+        header h1 {
+            font-size: 3em;
+            margin-bottom: 10px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.2);
+        }
+
+        header p {
+            font-size: 1.3em;
+            opacity: 0.95;
+        }
+
+        .content {
+            background: white;
+            border-radius: 20px;
+            padding: 40px;
+            margin: 20px 0;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+        }
+
+        h2 {
+            color: #667eea;
+            margin: 30px 0 20px 0;
+            font-size: 2em;
+            border-bottom: 3px solid #667eea;
+            padding-bottom: 10px;
+        }
+
+        h2:first-child {
+            margin-top: 0;
+        }
+
+        h3 {
+            color: #764ba2;
+            margin: 25px 0 15px 0;
+            font-size: 1.4em;
+        }
+
+        p {
+            margin-bottom: 15px;
+        }
+
+        .highlight-box {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 25px;
+            border-radius: 15px;
+            margin: 25px 0;
+        }
+
+        .highlight-box h3 {
+            color: white;
+            margin-top: 0;
+        }
+
+        .info-box {
+            background: #f8f9fa;
+            border-left: 4px solid #667eea;
+            padding: 20px;
+            border-radius: 10px;
+            margin: 20px 0;
+        }
+
+        ul {
+            margin-left: 20px;
+            margin-bottom: 20px;
+        }
+
+        ul li {
+            margin: 10px 0;
+        }
+
+        .date-info {
+            background: linear-gradient(135deg, #667eea15 0%, #764ba215 100%);
+            padding: 15px 20px;
+            border-radius: 10px;
+            margin: 20px 0;
+            font-style: italic;
+            color: #555;
+        }
+
+        footer {
+            text-align: center;
+            color: white;
+            padding: 40px 20px;
+            font-size: 0.9em;
+        }
+
+        footer a {
+            color: white;
+            text-decoration: underline;
+        }
+
+        footer a:hover {
+            opacity: 0.8;
+        }
+
+        @media (max-width: 768px) {
+            header h1 {
+                font-size: 2em;
+            }
+
+            header p {
+                font-size: 1.1em;
+            }
+
+            .content {
+                padding: 25px;
+            }
+
+            h2 {
+                font-size: 1.6em;
+            }
+
+            .lang-selector {
+                top: 10px;
+                right: 10px;
+                padding: 8px 12px;
+            }
+
+            .lang-selector a {
+                margin: 0 5px;
+                font-size: 0.85em;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="lang-selector">
+        <a href="privacy-en.html">EN</a>
+        <a href="privacy-es.html">ES</a>
+        <a href="privacy-ca.html" class="active">CA</a>
+        <a href="privacy-it.html">IT</a>
+    </div>
+
+    <div class="container">
+        <header>
+            <h1>🔒 Política de Privadesa</h1>
+            <p>La teva privadesa és la nostra prioritat</p>
+        </header>
+
+        <div class="content">
+            <div class="date-info">
+                <strong>Última actualització:</strong> 13 de gener de 2026<br>
+                <strong>Versió:</strong> 1.0
+            </div>
+
+            <h2>1. Introducció</h2>
+            <p>
+                Benvingut a la Política de Privadesa de <strong>TuyJo</strong>. TuyJo és una aplicació de missatgeria
+                privada dissenyada específicament per a parelles, amb xifratge d'extrem a extrem avançat (RSA-2048 + AES-256).
+            </p>
+            <p>
+                La teva privadesa és fonamental per a nosaltres. Aquesta política explica quines dades recopilem, com les utilitzem
+                i quins drets tens sobre les teves dades personals.
+            </p>
+
+            <div class="highlight-box">
+                <h3>🔐 Principi Fonamental</h3>
+                <p>
+                    <strong>Arquitectura de Coneixement Zero:</strong> Gràcies al xifratge d'extrem a extrem, els teus missatges,
+                    fotos i documents són llegibles NOMÉS per tu i la teva parella. Ni tan sols nosaltres, els desenvolupadors,
+                    podem accedir al teu contingut.
+                </p>
+            </div>
+
+            <h2>2. Dades que Recopilem</h2>
+
+            <h3>2.1 Dades d'Autenticació</h3>
+            <ul>
+                <li><strong>ID d'Usuari Firebase:</strong> Un identificador únic generat automàticament per Firebase Authentication</li>
+                <li><strong>Email (opcional):</strong> Si tries associar un email al teu compte</li>
+                <li><strong>Clau Pública RSA:</strong> La teva clau pública de xifratge (no secreta), emmagatzemada per permetre que la teva parella xifri missatges per a tu</li>
+            </ul>
+
+            <h3>2.2 Dades d'Emparellament</h3>
+            <ul>
+                <li><strong>ID de la Parella:</strong> L'identificador Firebase de la teva parella vinculat al teu compte</li>
+                <li><strong>Estat de l'Emparellament:</strong> Informació sobre l'estat de connexió entre dispositius</li>
+            </ul>
+
+            <h3>2.3 Missatges i Contingut (Xifrats)</h3>
+            <ul>
+                <li><strong>Missatges Xifrats:</strong> El text dels missatges xifrat amb AES-256</li>
+                <li><strong>Fitxers Adjunts Xifrats:</strong> Fotos, vídeos i documents xifrats d'extrem a extrem</li>
+                <li><strong>TODOs i Recordatoris:</strong> Recordatoris i notes compartides (xifrats)</li>
+                <li><strong>Metadades:</strong> Marca de temps d'enviament, ID del missatge, tipus de missatge (text/adjunt/TODO)</li>
+            </ul>
+            <div class="info-box">
+                <strong>Nota Important:</strong> Tot el contingut (missatges, adjunts, TODOs) està xifrat d'extrem a extrem.
+                Només emmagatzemem dades xifrades que no podem llegir sense les teves claus privades, que s'emmagatzemen
+                NOMÉS al teu dispositiu.
+            </div>
+
+            <h3>2.4 Dades Tècniques i d'Ús</h3>
+            <ul>
+                <li><strong>Token FCM:</strong> Token per a notificacions push de Firebase Cloud Messaging</li>
+                <li><strong>Registres d'Errors:</strong> Informació sobre fallades i errors de l'aplicació (anonimitzats)</li>
+                <li><strong>Estadístiques d'Ús:</strong> Dades agregades i anònimes sobre l'ús de l'aplicació</li>
+            </ul>
+
+            <h2>3. Com Utilitzem les Dades</h2>
+
+            <h3>3.1 Finalitats Principals</h3>
+            <ul>
+                <li><strong>Proporcionar el Servei:</strong> Sincronitzar missatges entre els teus dispositius i els de la teva parella</li>
+                <li><strong>Notificacions:</strong> Enviar notificacions push quan reps nous missatges o recordatoris</li>
+                <li><strong>Seguretat:</strong> Mantenir la integritat i seguretat del sistema d'emparellament</li>
+                <li><strong>Millores:</strong> Corregir errors i millorar les funcionalitats de l'aplicació</li>
+            </ul>
+
+            <h3>3.2 El que NO Fem amb les Teves Dades</h3>
+            <ul>
+                <li>❌ <strong>No llegim els teus missatges</strong> (impossible gràcies al xifratge E2E)</li>
+                <li>❌ <strong>No venem les teves dades</strong> a tercers</li>
+                <li>❌ <strong>No utilitzem les teves dades per a publicitat</strong> dirigida o perfilat</li>
+                <li>❌ <strong>No compartim el teu contingut</strong> amb ningú (excepte casos legals, veure sec. 5)</li>
+            </ul>
+
+            <h2>4. Xifratge i Seguretat</h2>
+
+            <h3>4.1 Arquitectura de Xifratge</h3>
+            <p>TuyJo utilitza un sistema de xifratge de dos nivells:</p>
+            <ul>
+                <li><strong>RSA-2048:</strong> Per a l'intercanvi segur de claus públiques durant l'emparellament</li>
+                <li><strong>AES-256:</strong> Per al xifratge de missatges i fitxers adjunts</li>
+                <li><strong>Clau Única per Missatge:</strong> Cada missatge té una clau AES única generada aleatòriament</li>
+            </ul>
+
+            <div class="highlight-box">
+                <h3>🔑 Les Teves Claus Privades</h3>
+                <p>
+                    Les teves claus privades RSA s'emmagatzemen EXCLUSIVAMENT al teu dispositiu utilitzant
+                    <strong>flutter_secure_storage</strong>, un sistema d'emmagatzematge xifrat protegit pel sistema operatiu
+                    (Keychain a iOS, Keystore a Android). Ni tan sols nosaltres podem accedir-hi.
+                </p>
+            </div>
+
+            <h3>4.2 Mesures de Seguretat</h3>
+            <ul>
+                <li><strong>Regles de Seguretat de Firestore:</strong> Regles d'accés estrictes que impedeixen la lectura no autoritzada</li>
+                <li><strong>HTTPS/TLS:</strong> Totes les comunicacions entre l'aplicació i el servidor utilitzen connexions segures</li>
+                <li><strong>Regles de Cloud Storage:</strong> Els fitxers adjunts només són accessibles per als usuaris autoritzats (encara que xifrats)</li>
+                <li><strong>Còpia de Seguretat Segura:</strong> Pots exportar i importar les teves claus de manera segura</li>
+            </ul>
+
+            <h2>5. Compartir Dades amb Tercers</h2>
+
+            <h3>5.1 Serveis Utilitzats</h3>
+            <p>TuyJo utilitza els següents serveis de tercers:</p>
+            <ul>
+                <li><strong>Firebase (Google):</strong> Authentication, Firestore, Cloud Storage, Cloud Messaging
+                    <ul>
+                        <li>Política de Privadesa: <a href="https://firebase.google.com/support/privacy" target="_blank" style="color: #667eea;">firebase.google.com/support/privacy</a></li>
+                    </ul>
+                </li>
+            </ul>
+
+            <div class="info-box">
+                <strong>Important:</strong> Fins i tot Firebase només emmagatzema dades xifrades. Google pot veure metadades
+                (marques de temps, mida de dades) però no pot llegir el contingut dels teus missatges.
+            </div>
+
+            <h3>5.2 Divulgació Legal</h3>
+            <p>Podem divulgar dades no xifrades (com ID d'usuari, metadades) si:</p>
+            <ul>
+                <li>És requerit per ordres legals (ordres judicials, citacions)</li>
+                <li>És necessari per protegir els nostres drets legals</li>
+                <li>És requerit per prevenir activitats il·legals o frau</li>
+            </ul>
+            <p><strong>Nota:</strong> No podem divulgar el contingut de missatges xifrats perquè no tenim les claus per desxifrar-los.</p>
+
+            <h2>6. Conservació de Dades</h2>
+
+            <h3>6.1 Període de Conservació</h3>
+            <ul>
+                <li><strong>Missatges:</strong> Conservats indefinidament fins que els eliminis manualment</li>
+                <li><strong>Fitxers Adjunts:</strong> Conservats indefinidament fins que els eliminis</li>
+                <li><strong>Compte:</strong> Dades conservades mentre el compte estigui actiu</li>
+                <li><strong>Registres Tècnics:</strong> Conservats durant un màxim de 90 dies</li>
+            </ul>
+
+            <h3>6.2 Eliminació de Dades</h3>
+            <p>Pots eliminar les teves dades en qualsevol moment:</p>
+            <ul>
+                <li><strong>Eliminar Missatges Individuals:</strong> Mantén premut un missatge → Eliminar</li>
+                <li><strong>Eliminar Fitxers Adjunts:</strong> Elimina els missatges que contenen fitxers adjunts</li>
+                <li><strong>Eliminar Totes les Dades:</strong> Configuració → "Eliminar Totes les Dades" (irreversible)</li>
+                <li><strong>Eliminar Compte:</strong> Contacta'ns per a l'eliminació completa del compte</li>
+            </ul>
+
+            <h2>7. Els Teus Drets (RGPD)</h2>
+            <p>Si ets a la Unió Europea, tens els següents drets:</p>
+            <ul>
+                <li><strong>Dret d'Accés:</strong> Pots sol·licitar una còpia de les teves dades personals</li>
+                <li><strong>Dret de Rectificació:</strong> Pots corregir dades inexactes</li>
+                <li><strong>Dret de Supressió:</strong> Pots sol·licitar l'eliminació de les teves dades</li>
+                <li><strong>Dret a la Portabilitat:</strong> Pots exportar les teves dades (funció de còpia de seguretat)</li>
+                <li><strong>Dret d'Oposició:</strong> Pots oposar-te al tractament de les teves dades</li>
+                <li><strong>Dret de Reclamació:</strong> Pots presentar una reclamació davant l'autoritat de protecció de dades</li>
+            </ul>
+            <p>Per exercir aquests drets, contacta'ns a l'adreça indicada a la secció 9.</p>
+
+            <h2>8. Privadesa de Menors</h2>
+            <p>
+                TuyJo no està destinat a usuaris menors de 16 anys (o l'edat mínima requerida al teu país).
+                No recopilem intencionadament dades personals de menors. Si ets pare/mare i descobreixes que el teu fill/a
+                ens ha proporcionat dades personals, contacta'ns per a la seva eliminació immediata.
+            </p>
+
+            <h2>9. Canvis en aquesta Política de Privadesa</h2>
+            <p>
+                Podem actualitzar aquesta Política de Privadesa periòdicament. T'avisarem dels canvis substancials
+                mitjançant notificació a l'aplicació o per correu electrònic. La data de "Última actualització" a la part
+                superior de la pàgina indica quan es va modificar la política per última vegada.
+            </p>
+            <div class="info-box">
+                <strong>Versions Anteriors:</strong> Pots sol·licitar versions anteriors d'aquesta política
+                contactant-nos.
+            </div>
+
+            <h2>10. Contacte</h2>
+            <p>Per a preguntes, sol·licituds o preocupacions sobre privadesa, pots contactar-nos:</p>
+            <ul>
+                <li><strong>Email:</strong> privacy@tuyjo.app (reemplaçar amb email real si està disponible)</li>
+                <li><strong>GitHub:</strong> <a href="https://github.com/donpablitoooooooo/TuyJo" target="_blank" style="color: #667eea;">github.com/donpablitoooooooo/TuyJo</a></li>
+            </ul>
+
+            <div class="highlight-box">
+                <h3>💜 El Nostre Compromís</h3>
+                <p>
+                    La privadesa està al cor de TuyJo. Vam dissenyar l'aplicació des de zero amb xifratge d'extrem a extrem
+                    per garantir que les teves converses romanguin privades entre tu i la teva parella. Continuarem
+                    protegint la teva privadesa com a principi fonamental.
+                </p>
+            </div>
+        </div>
+
+        <footer>
+            <p>💜 TuyJo - Política de Privadesa</p>
+            <p style="margin-top: 10px;">
+                <a href="ca.html">Tornar a l'Inici</a>
+            </p>
+            <p style="margin-top: 5px; opacity: 0.8;">Versió 1.0 - Gener 2026</p>
+        </footer>
+    </div>
+</body>
+</html>
