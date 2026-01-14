@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:io';
 import 'dart:typed_data';
+import 'package:path/path.dart' as path;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
@@ -58,6 +59,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   int? _selectedReminderHours; // Ore prima del todo per l'alert (null = nessun alert)
   List<File> _selectedAttachments = []; // Lista di file selezionati da inviare
   bool _isUploadingAttachments = false; // Stato di upload allegati
+  Set<String> _iosSharedFiles = {}; // Traccia i file temporanei copiati su iOS per pulizia
 
   // Stream subscription per condivisione file da altre app
   StreamSubscription? _intentMediaStreamSubscription;
@@ -115,9 +117,69 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   }
 
   /// Gestisce file media condivisi da altre app
-  void _handleSharedFiles(List<SharedMediaFile> sharedFiles) {
+  Future<void> _handleSharedFiles(List<SharedMediaFile> sharedFiles) async {
     if (kDebugMode) {
       print("📤 Ricevuti ${sharedFiles.length} file condivisi");
+    }
+
+    // Lista di file processati con successo
+    final List<File> processedFiles = [];
+
+    // Processa ogni file condiviso
+    for (var sharedFile in sharedFiles) {
+      try {
+        if (kDebugMode) {
+          print("📎 Processando file: ${sharedFile.path}");
+        }
+
+        final originalFile = File(sharedFile.path);
+
+        // Verifica che il file esista
+        if (!await originalFile.exists()) {
+          if (kDebugMode) {
+            print("⚠️ File non trovato: ${sharedFile.path}");
+          }
+          continue;
+        }
+
+        File fileToAdd;
+
+        // Su iOS, copia il file in una directory permanente
+        if (Platform.isIOS) {
+          try {
+            final appDocDir = await getApplicationDocumentsDirectory();
+            final fileName = path.basename(sharedFile.path);
+            final timestamp = DateTime.now().millisecondsSinceEpoch;
+            final newPath = path.join(appDocDir.path, 'shared_${timestamp}_$fileName');
+
+            if (kDebugMode) {
+              print("📋 Copiando file iOS da ${sharedFile.path} a $newPath");
+            }
+
+            fileToAdd = await originalFile.copy(newPath);
+            _iosSharedFiles.add(newPath); // Traccia il file per pulizia successiva
+
+            if (kDebugMode) {
+              print("✅ File iOS copiato con successo: $newPath");
+            }
+          } catch (e) {
+            if (kDebugMode) {
+              print("❌ Errore copia file iOS: $e");
+            }
+            continue;
+          }
+        } else {
+          // Su Android usa il file originale
+          fileToAdd = originalFile;
+        }
+
+        processedFiles.add(fileToAdd);
+
+      } catch (e) {
+        if (kDebugMode) {
+          print("❌ Errore processando file ${sharedFile.path}: $e");
+        }
+      }
     }
 
     // Usa addPostFrameCallback per assicurarsi che il widget sia completamente inizializzato
@@ -125,10 +187,12 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       if (!mounted) return;
 
       setState(() {
-        for (var sharedFile in sharedFiles) {
-          final file = File(sharedFile.path);
+        for (var file in processedFiles) {
           if (!_selectedAttachments.any((f) => f.path == file.path)) {
             _selectedAttachments.add(file);
+            if (kDebugMode) {
+              print("✅ File aggiunto agli allegati: ${file.path}");
+            }
           }
         }
       });
@@ -136,6 +200,36 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       // Reset condivisione intent per evitare duplicati
       ReceiveSharingIntent.instance.reset();
     });
+  }
+
+  /// Elimina un singolo file temporaneo iOS
+  Future<void> _cleanupIOSFile(String filePath) async {
+    if (Platform.isIOS && _iosSharedFiles.contains(filePath)) {
+      try {
+        final file = File(filePath);
+        if (await file.exists()) {
+          await file.delete();
+          if (kDebugMode) {
+            print("🗑️ File iOS temporaneo eliminato: $filePath");
+          }
+        }
+        _iosSharedFiles.remove(filePath);
+      } catch (e) {
+        if (kDebugMode) {
+          print("⚠️ Errore eliminazione file iOS: $e");
+        }
+      }
+    }
+  }
+
+  /// Elimina tutti i file temporanei iOS copiati
+  Future<void> _cleanupAllIOSFiles() async {
+    if (Platform.isIOS && _iosSharedFiles.isNotEmpty) {
+      final filesToClean = List<String>.from(_iosSharedFiles);
+      for (var filePath in filesToClean) {
+        await _cleanupIOSFile(filePath);
+      }
+    }
   }
 
   @override
@@ -313,6 +407,8 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     _scrollController.dispose();
     _typingTimer?.cancel();
     _intentMediaStreamSubscription?.cancel();
+    // Pulisci eventuali file temporanei iOS rimasti
+    _cleanupAllIOSFiles();
     super.dispose();
   }
 
@@ -1102,6 +1198,9 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       _isUploadingAttachments = true; // Mostra loader
     });
 
+    // Pulisci i file temporanei iOS dopo l'invio
+    _cleanupAllIOSFiles();
+
     // BLOCCO INVIO: Verifica che siamo in pairing
     final pairingService = Provider.of<PairingService>(context, listen: false);
     if (!pairingService.isPaired) {
@@ -1636,6 +1735,8 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                             return _AttachmentPreview(
                               file: file,
                               onRemove: () {
+                                // Pulisci il file iOS prima di rimuoverlo
+                                _cleanupIOSFile(file.path);
                                 setState(() {
                                   _selectedAttachments.removeAt(index);
                                 });
