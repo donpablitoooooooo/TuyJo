@@ -1,0 +1,11 @@
+/* 
+  Localizable.strings
+  Runner
+ 
+  Created by PAOLO COLOMBO on 14/1/26.
+  
+*/
+NSCameraUsageDescription = "Serve per scattare foto e condividerle con il tuo partner.";
+NSPhotoLibraryUsageDescription = "Serve per scegliere foto e video da condividere con il tuo partner.";
+NSPhotoLibraryAddUsageDescription = "Serve per salvare foto condivise nella tua libreria.";
+NSMicrophoneUsageDescription = "Serve per registrare video o messaggi audio da condividere con il tuo partner.";
