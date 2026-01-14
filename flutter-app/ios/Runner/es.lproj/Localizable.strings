@@ -5,7 +5,7 @@
   Created by PAOLO COLOMBO on 14/1/26.
   
 */
-NSCameraUsageDescription = "Serve per scattare foto e condividerle con il tuo partner.";
-NSPhotoLibraryUsageDescription = "Serve per scegliere foto e video da condividere con il tuo partner.";
-NSPhotoLibraryAddUsageDescription = "Serve per salvare foto condivise nella tua libreria.";
-NSMicrophoneUsageDescription = "Serve per registrare video o messaggi audio da condividere con il tuo partner.";
+NSCameraUsageDescription = "Se utiliza para tomar fotos y compartirlas con tu pareja.";
+NSPhotoLibraryUsageDescription = "Se utiliza para seleccionar fotos y vídeos para compartir con tu pareja.";
+NSPhotoLibraryAddUsageDescription = "Se utiliza para guardar fotos compartidas en tu biblioteca.";
+NSMicrophoneUsageDescription = "Se utiliza para grabar vídeos o mensajes de audio para compartir con tu pareja.";

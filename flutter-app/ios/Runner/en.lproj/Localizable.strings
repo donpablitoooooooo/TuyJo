@@ -1,7 +1,11 @@
 /* 
   Localizable.strings
   Runner
-
+ 
   Created by PAOLO COLOMBO on 14/1/26.
   
 */
+NSCameraUsageDescription = "Used to take photos and share them with your partner.";
+NSPhotoLibraryUsageDescription = "Used to select photos and videos to share with your partner.";
+NSPhotoLibraryAddUsageDescription = "Used to save shared photos to your photo library.";
+NSMicrophoneUsageDescription = "Used to record videos or audio messages to share with your partner.";
