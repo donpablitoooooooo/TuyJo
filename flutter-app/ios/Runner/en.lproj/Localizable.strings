@@ -1,0 +1,7 @@
+/* English localizations */
+"CFBundleDisplayName" = "TuyJo";
+"CFBundleName" = "TuyJo";
+
+/* Permissions */
+"NSPhotoLibraryUsageDescription" = "To send photos in the chat";
+"NSCameraUsageDescription" = "To take photos in the chat";
