@@ -96,24 +96,48 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
 
   /// Inizializza listener per file condivisi da altre app
   void _initSharedFiles() {
+    if (kDebugMode) {
+      print("🔧 Inizializzazione receive_sharing_intent...");
+    }
+
     // Per file media (immagini, video, documenti) condivisi mentre l'app è chiusa
     ReceiveSharingIntent.instance.getInitialMedia().then((List<SharedMediaFile> value) {
+      if (kDebugMode) {
+        print("📥 getInitialMedia() restituito: ${value.length} file");
+        for (var file in value) {
+          print("   - Tipo: ${file.type}, Path: ${file.path}");
+        }
+      }
       if (value.isNotEmpty) {
         _handleSharedFiles(value);
+      } else {
+        if (kDebugMode) print("⚠️ getInitialMedia() ha restituito lista vuota");
       }
+    }).catchError((error) {
+      if (kDebugMode) print("❌ Errore in getInitialMedia(): $error");
     });
 
     // Per file media condivisi mentre l'app è aperta
     _intentMediaStreamSubscription = ReceiveSharingIntent.instance.getMediaStream().listen(
       (List<SharedMediaFile> value) {
+        if (kDebugMode) {
+          print("📥 getMediaStream() ricevuto: ${value.length} file");
+          for (var file in value) {
+            print("   - Tipo: ${file.type}, Path: ${file.path}");
+          }
+        }
         if (value.isNotEmpty) {
           _handleSharedFiles(value);
         }
       },
       onError: (err) {
-        if (kDebugMode) print("Errore ricezione file condivisi: $err");
+        if (kDebugMode) print("❌ Errore ricezione file condivisi: $err");
       },
     );
+
+    if (kDebugMode) {
+      print("✅ Listener receive_sharing_intent configurati");
+    }
   }
 
   /// Gestisce file media condivisi da altre app
