@@ -1,6 +1,6 @@
 # TuyJo - Private Messaging & Family Organization App
 
-**Version:** 1.1.0 (Build 14) | **Status:** 🚀 Release Candidate - Ready for App Store
+**Version:** 1.13.0 (Build 15) | **Status:** 🚀 Release Candidate - Ready for App Store
 
 [![Flutter](https://img.shields.io/badge/Flutter-3.x-blue)](https://flutter.dev)
 [![Firebase](https://img.shields.io/badge/Firebase-Firestore-orange)](https://firebase.google.com)
@@ -48,7 +48,7 @@ A secure, end-to-end encrypted messaging and family organization app built with 
 
 ---
 
-## 🚀 What's New in 1.1.0 - Release Candidate
+## 🚀 What's New in 1.13.0 - Release Candidate
 
 ### iOS Photo Sharing Implementation
 
@@ -339,7 +339,7 @@ platform.setMethodCallHandler((call) async {
 - [x] Build cycle dependencies resolved
 - [x] Storyboard files present
 - [x] TestFlight beta testing completed
-- [x] Version bumped to 1.1.0 (Build 14)
+- [x] Version bumped to 1.13.0 (Build 15)
 
 ### App Store Connect
 **Bundle ID**: `com.privatemessaging.tuyjo`
@@ -416,16 +416,19 @@ Proprietary - All rights reserved
 
 ## 🎉 Version History
 
-### 1.1.0 (Build 14) - January 15, 2026 - Release Candidate
+### 1.13.0 (Build 15) - January 15, 2026 - Release Candidate
 **NEW**: Native iOS photo sharing from Photos app
 **FIXED**: File cleanup timing, build dependencies, localizations
 **IMPROVED**: Caches directory usage, project structure cleanup
 
-### 1.0.0 (Build 13) - January 10, 2026
-Initial TestFlight release
+### 1.12.0 (Build 14) - January 10, 2026
+iOS TestFlight release
+
+### 1.12.0 (Build 13) - January 10, 2026
+Android Firebase release
 
 ---
 
 **Status**: ✅ Ready for App Store submission
 **Last Updated**: January 15, 2026
-**Build**: Release Candidate (1.1.0+14)
+**Build**: Release Candidate (1.13.0+15)
