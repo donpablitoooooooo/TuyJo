@@ -122,10 +122,11 @@ import Flutter
         return nil
       }
 
-      // Directory temporanea app
-      let tempDir = FileManager.default.temporaryDirectory.appendingPathComponent("shared_media", isDirectory: true)
+      // Directory Caches (più stabile di /tmp/)
+      let cachesDir = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask).first!
+      let tempDir = cachesDir.appendingPathComponent("shared_media", isDirectory: true)
       try? FileManager.default.createDirectory(at: tempDir, withIntermediateDirectories: true)
-      print("📋 Temp directory: \(tempDir.path)")
+      print("📋 Caches directory: \(tempDir.path)")
 
       // Nome file unico
       let timestamp = Int(Date().timeIntervalSince1970 * 1000)
