@@ -407,7 +407,6 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     _messageController.dispose();
     _scrollController.dispose();
     _typingTimer?.cancel();
-    _intentMediaStreamSubscription?.cancel();
     // Pulisci eventuali file temporanei iOS rimasti
     _cleanupAllIOSFiles();
     super.dispose();
