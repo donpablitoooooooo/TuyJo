@@ -1198,9 +1198,6 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       _isUploadingAttachments = true; // Mostra loader
     });
 
-    // Pulisci i file temporanei iOS dopo l'invio
-    _cleanupAllIOSFiles();
-
     // BLOCCO INVIO: Verifica che siamo in pairing
     final pairingService = Provider.of<PairingService>(context, listen: false);
     if (!pairingService.isPaired) {
@@ -1448,6 +1445,9 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
         ),
       );
     }
+
+    // Pulisci i file temporanei iOS DOPO l'upload
+    _cleanupAllIOSFiles();
   }
 
   @override
