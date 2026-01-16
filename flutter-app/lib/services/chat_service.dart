@@ -890,9 +890,17 @@ class ChatService extends ChangeNotifier {
     String messageId,
     String familyChatId,
     String userId,
-    String reactionType, // 'love', 'ok', 'shit', 'wtf', 'done'
+    String reactionType, // 'love', 'ok', 'shit', 'done'
   ) async {
     try {
+      if (kDebugMode) {
+        print('🔄 [addReaction] Starting...');
+        print('   messageId: $messageId');
+        print('   familyChatId: $familyChatId');
+        print('   userId: $userId');
+        print('   reactionType: $reactionType');
+      }
+
       // Crea l'oggetto reaction
       final reaction = Reaction(
         type: reactionType,
@@ -907,9 +915,17 @@ class ChatService extends ChangeNotifier {
           .collection('messages')
           .doc(messageId);
 
+      if (kDebugMode) {
+        print('📤 [addReaction] Updating Firestore...');
+      }
+
       await messageRef.update({
         'reaction': reaction.toJson(),
       });
+
+      if (kDebugMode) {
+        print('✅ [addReaction] Firestore updated successfully');
+      }
 
       // Aggiorna il messaggio locale nella lista
       final index = _messages.indexWhere((m) => m.id == messageId);
@@ -919,15 +935,26 @@ class ChatService extends ChangeNotifier {
         // Aggiorna anche la cache SQLite
         await _cacheService.saveMessage(_messages[index], familyChatId);
 
+        if (kDebugMode) {
+          print('✅ [addReaction] Local cache updated successfully');
+        }
+
         notifyListeners();
+      } else {
+        if (kDebugMode) {
+          print('⚠️ [addReaction] Message not found in local list');
+        }
       }
 
       if (kDebugMode) {
-        print('✅ Reaction $reactionType added to message $messageId');
+        print('✅ [addReaction] Reaction $reactionType added to message $messageId');
       }
       return true;
-    } catch (e) {
-      if (kDebugMode) print('❌ Add reaction error: $e');
+    } catch (e, stackTrace) {
+      if (kDebugMode) {
+        print('❌ [addReaction] Error: $e');
+        print('Stack trace: $stackTrace');
+      }
       return false;
     }
   }
