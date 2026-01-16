@@ -1,7 +1,7 @@
 {
-  "name": "youandme-functions",
+  "name": "tuijo-functions",
   "version": "1.0.0",
-  "description": "Cloud Functions per le notifiche push di YouAndMe",
+  "description": "Cloud Functions per le notifiche push di Tuijo",
   "main": "index.js",
   "scripts": {
     "serve": "firebase emulators:start --only functions",
@@ -9,7 +9,7 @@
     "logs": "firebase functions:log"
   },
   "engines": {
-    "node": "20"
+    "node": ">=18"
   },
   "dependencies": {
     "firebase-admin": "^12.0.0",
