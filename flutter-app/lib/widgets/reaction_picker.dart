@@ -1,14 +1,18 @@
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
+import '../models/message.dart';
 import 'reaction_icon.dart';
 
 /// Bottom sheet per selezionare una reaction
 /// Mostra 4 opzioni: LOVE, OK, SHIT, DONE
 class ReactionPicker extends StatelessWidget {
   final Function(String reactionType) onReactionSelected;
+  final Message message;
 
   const ReactionPicker({
     super.key,
     required this.onReactionSelected,
+    required this.message,
   });
 
   @override
@@ -30,14 +34,18 @@ class ReactionPicker extends StatelessWidget {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              // Header con X
+              // Header con preview del messaggio
               Padding(
-                padding: const EdgeInsets.only(left: 8, top: 8, bottom: 16),
+                padding: const EdgeInsets.only(left: 8, top: 8, right: 16, bottom: 16),
                 child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     IconButton(
                       onPressed: () => Navigator.pop(context),
                       icon: const Icon(Icons.close, color: Colors.white, size: 28),
+                    ),
+                    Expanded(
+                      child: _buildMessagePreview(),
                     ),
                   ],
                 ),
@@ -85,16 +93,77 @@ class ReactionPicker extends StatelessWidget {
     );
   }
 
+  /// Crea la preview del messaggio (testo + data se todo + thumbnail se foto)
+  Widget _buildMessagePreview() {
+    return Padding(
+      padding: const EdgeInsets.only(top: 8),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Thumbnail se c'è una foto
+          if (message.attachments != null && message.attachments!.isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.only(right: 8),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(6),
+                child: Image.network(
+                  message.attachments!.first.thumbnailUrl ?? message.attachments!.first.url,
+                  width: 40,
+                  height: 40,
+                  fit: BoxFit.cover,
+                  errorBuilder: (context, error, stackTrace) => const SizedBox.shrink(),
+                ),
+              ),
+            ),
+          // Testo e data
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Prima riga del testo
+                if (message.decryptedContent != null && message.decryptedContent!.isNotEmpty)
+                  Text(
+                    message.decryptedContent!,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 14,
+                      fontWeight: FontWeight.w500,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                // Data se è un todo
+                if (message.messageType == 'todo' && message.dueDate != null)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 4),
+                    child: Text(
+                      DateFormat('dd/MM/yyyy').format(message.dueDate!),
+                      style: TextStyle(
+                        color: Colors.white.withOpacity(0.8),
+                        fontSize: 12,
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   /// Mostra il picker come bottom sheet
   static void show(
     BuildContext context, {
     required Function(String) onReactionSelected,
+    required Message message,
   }) {
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
       builder: (context) => ReactionPicker(
         onReactionSelected: onReactionSelected,
+        message: message,
       ),
     );
   }

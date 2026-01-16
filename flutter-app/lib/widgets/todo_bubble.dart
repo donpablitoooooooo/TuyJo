@@ -106,6 +106,7 @@ class TodoMessageBubble extends StatelessWidget {
                   ReactionPicker.show(
                     context,
                     onReactionSelected: onReact,
+                    message: message,
                   );
                 },
                 child: Container(

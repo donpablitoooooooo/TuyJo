@@ -1671,6 +1671,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                                 attachmentService: _attachmentService,
                                 reaction: message.reaction,
                                 onReact: (reactionType) => _addReaction(message.id, reactionType),
+                                messageObject: message,
                               );
                             }
 
@@ -2007,6 +2008,7 @@ class _MessageBubble extends StatelessWidget {
   final AttachmentService? attachmentService;
   final Reaction? reaction; // Reaction al messaggio
   final Function(String reactionType)? onReact; // Callback per aggiungere reaction
+  final Message? messageObject; // Oggetto Message completo per il ReactionPicker
 
   const _MessageBubble({
     super.key,
@@ -2021,6 +2023,7 @@ class _MessageBubble extends StatelessWidget {
     this.attachmentService,
     this.reaction,
     this.onReact,
+    this.messageObject,
   });
 
   /// Costruisce i widget per mostrare gli allegati (decifrati)
@@ -2079,11 +2082,12 @@ class _MessageBubble extends StatelessWidget {
             clipBehavior: Clip.none,
             children: [
               GestureDetector(
-                onLongPress: onReact != null
+                onLongPress: onReact != null && messageObject != null
                     ? () {
                         ReactionPicker.show(
                           context,
                           onReactionSelected: onReact!,
+                          message: messageObject!,
                         );
                       }
                     : null,
