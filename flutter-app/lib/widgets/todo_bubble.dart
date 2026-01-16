@@ -7,7 +7,7 @@ import 'package:private_messaging/generated/l10n/app_localizations.dart';
 import '../models/message.dart';
 import '../services/attachment_service.dart';
 import 'attachment_widgets.dart';
-import 'reaction_picker.dart';
+import 'reaction_overlay_screen.dart';
 import 'reaction_overlay.dart';
 
 /// Widget riutilizzabile per le bubble TODO
@@ -91,6 +91,7 @@ class TodoMessageBubble extends StatelessWidget {
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
     final bool isPastDue = message.dueDate != null && message.dueDate!.isBefore(DateTime.now());
+    final messageKey = GlobalKey();
 
     return Padding(
       padding: const EdgeInsets.only(bottom: 12, left: 8, right: 8),
@@ -102,13 +103,15 @@ class TodoMessageBubble extends StatelessWidget {
             children: [
               GestureDetector(
                 onLongPress: () {
-                  // Mostra il reaction picker
-                  ReactionPicker.show(
+                  // Mostra l'overlay con il messaggio evidenziato
+                  ReactionOverlayScreen.show(
                     context,
+                    messageKey: messageKey,
                     onReactionSelected: onReact,
                   );
                 },
                 child: Container(
+                  key: messageKey,
               constraints: BoxConstraints(
                 maxWidth: MediaQuery.of(context).size.width * 0.75,
               ),

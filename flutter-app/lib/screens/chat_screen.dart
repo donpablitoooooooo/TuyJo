@@ -22,7 +22,7 @@ import '../services/attachment_service.dart';
 import '../models/message.dart';
 import '../widgets/todo_bubble.dart';
 import '../widgets/attachment_widgets.dart';
-import '../widgets/reaction_picker.dart';
+import '../widgets/reaction_overlay_screen.dart';
 import '../widgets/reaction_overlay.dart';
 import 'pdf_viewer_screen.dart';
 
@@ -2069,6 +2069,8 @@ class _MessageBubble extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final messageKey = GlobalKey();
+
     return Padding(
       padding: const EdgeInsets.only(bottom: 12, left: 8, right: 8),
       child: Row(
@@ -2081,13 +2083,15 @@ class _MessageBubble extends StatelessWidget {
               GestureDetector(
                 onLongPress: onReact != null
                     ? () {
-                        ReactionPicker.show(
+                        ReactionOverlayScreen.show(
                           context,
+                          messageKey: messageKey,
                           onReactionSelected: onReact!,
                         );
                       }
                     : null,
                 child: Container(
+                  key: messageKey,
             constraints: BoxConstraints(
               maxWidth: MediaQuery.of(context).size.width * 0.75,
             ),
