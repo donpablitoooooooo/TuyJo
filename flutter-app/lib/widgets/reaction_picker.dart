@@ -107,6 +107,7 @@ class ReactionPicker extends StatelessWidget {
       padding: const EdgeInsets.only(top: 8),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
         children: [
           // Thumbnail se c'è una foto
           if (message.attachments != null &&
@@ -122,6 +123,7 @@ class ReactionPicker extends StatelessWidget {
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
               children: [
                 // Prima riga del testo
                 if (message.decryptedContent != null && message.decryptedContent!.isNotEmpty)
