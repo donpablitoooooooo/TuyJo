@@ -174,6 +174,12 @@ class MessageCacheService {
         );
       }
 
+      // Serializza reaction come JSON se presente
+      String? reactionJson;
+      if (message.reaction != null) {
+        reactionJson = json.encode(message.reaction!.toJson());
+      }
+
       final data = {
         'id': message.id,
         'family_chat_id': familyChatId,
@@ -197,6 +203,7 @@ class MessageCacheService {
         'read': message.read == true ? 1 : 0,
         'read_at': message.readAt?.millisecondsSinceEpoch,
         'attachments_json': attachmentsJson,
+        'reaction_json': reactionJson,
       };
 
       batch.insert(_messagesTable, data, conflictAlgorithm: ConflictAlgorithm.replace);
