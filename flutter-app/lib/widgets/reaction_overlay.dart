@@ -18,7 +18,7 @@ class ReactionOverlay extends StatelessWidget {
       right: -6,
       child: ReactionIcon(
         type: reaction.type,
-        size: 32,
+        size: 38,
       ),
     );
   }
