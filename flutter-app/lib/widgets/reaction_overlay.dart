@@ -13,23 +13,20 @@ class ReactionOverlay extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Positioned(
-      top: -8,
+      bottom: -8,
       right: -8,
       child: Container(
-        width: 32,
-        height: 32,
+        width: 56,
+        height: 56,
         decoration: BoxDecoration(
-          color: Colors.white,
-          shape: BoxShape.circle,
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.1),
-              blurRadius: 4,
+              color: Colors.black.withOpacity(0.15),
+              blurRadius: 6,
               offset: const Offset(0, 2),
             ),
           ],
         ),
-        padding: const EdgeInsets.all(4),
         child: Image.asset(
           _getAssetPath(reaction.type),
           fit: BoxFit.contain,
