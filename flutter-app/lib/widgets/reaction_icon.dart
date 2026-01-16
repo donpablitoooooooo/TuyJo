@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
-/// Widget per disegnare una reaction custom con stile minimal e gradient
-/// Tondino con colore principale sfumato + icona bianca al centro
+/// Widget per disegnare una reaction custom con stile minimal
+/// Tondino teal con icona bianca al centro - stile coordinato con l'app
 class ReactionIcon extends StatelessWidget {
   final String type; // 'love', 'ok', 'shit', 'done'
   final double size;
@@ -9,24 +9,27 @@ class ReactionIcon extends StatelessWidget {
   const ReactionIcon({
     super.key,
     required this.type,
-    this.size = 48,
+    this.size = 40,
   });
 
   @override
   Widget build(BuildContext context) {
     final iconData = _getIconData(type);
-    final gradient = _getGradient(type);
 
     return Container(
       width: size,
       height: size,
       decoration: BoxDecoration(
         shape: BoxShape.circle,
-        gradient: gradient,
+        gradient: const LinearGradient(
+          colors: [Color(0xFF3BA8B0), Color(0xFF145A60)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
         boxShadow: [
           BoxShadow(
-            color: _getBaseColor(type).withOpacity(0.3),
-            blurRadius: 8,
+            color: const Color(0xFF3BA8B0).withOpacity(0.3),
+            blurRadius: 6,
             offset: const Offset(0, 3),
           ),
         ],
@@ -34,7 +37,7 @@ class ReactionIcon extends StatelessWidget {
       child: Icon(
         iconData,
         color: Colors.white,
-        size: size * 0.55, // Icona al 55% della dimensione del cerchio
+        size: size * 0.55,
       ),
     );
   }
@@ -52,31 +55,5 @@ class ReactionIcon extends StatelessWidget {
       default:
         return Icons.thumb_up;
     }
-  }
-
-  Color _getBaseColor(String reactionType) {
-    switch (reactionType) {
-      case 'love':
-        return const Color(0xFFE91E63); // Rosa/magenta
-      case 'ok':
-        return const Color(0xFF4CAF50); // Verde
-      case 'shit':
-        return const Color(0xFFFF9800); // Arancione
-      case 'done':
-        return const Color(0xFF3BA8B0); // Teal (colore principale app)
-      default:
-        return const Color(0xFF3BA8B0);
-    }
-  }
-
-  LinearGradient _getGradient(String reactionType) {
-    final baseColor = _getBaseColor(reactionType);
-    final darkerColor = Color.lerp(baseColor, Colors.black, 0.3)!;
-
-    return LinearGradient(
-      colors: [baseColor, darkerColor],
-      begin: Alignment.topLeft,
-      end: Alignment.bottomRight,
-    );
   }
 }

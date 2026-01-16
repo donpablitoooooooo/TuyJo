@@ -13,54 +13,73 @@ class ReactionPicker extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          // Handle bar
-          Container(
-            width: 40,
-            height: 4,
-            decoration: BoxDecoration(
-              color: Colors.grey[300],
-              borderRadius: BorderRadius.circular(2),
-            ),
+    return ClipRRect(
+      borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+      child: Container(
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [Color(0xFF3BA8B0), Color(0xFF145A60)],
           ),
-          const SizedBox(height: 24),
-
-          // Reactions grid
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+        ),
+        child: Padding(
+          padding: EdgeInsets.only(
+            bottom: MediaQuery.of(context).padding.bottom + 16,
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
             children: [
-              _buildReactionButton('love', context),
-              _buildReactionButton('ok', context),
-              _buildReactionButton('shit', context),
-              _buildReactionButton('done', context),
+              // Header con X
+              Padding(
+                padding: const EdgeInsets.only(left: 8, top: 8, bottom: 16),
+                child: Row(
+                  children: [
+                    IconButton(
+                      onPressed: () => Navigator.pop(context),
+                      icon: const Icon(Icons.close, color: Colors.white, size: 28),
+                    ),
+                  ],
+                ),
+              ),
+
+              // Reactions grid
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 24),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                  children: [
+                    _buildReactionButton('love', context),
+                    _buildReactionButton('ok', context),
+                    _buildReactionButton('shit', context),
+                    _buildReactionButton('done', context),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 16),
             ],
           ),
-          const SizedBox(height: 8),
-        ],
+        ),
       ),
     );
   }
 
   Widget _buildReactionButton(String type, BuildContext context) {
-    return InkWell(
-      onTap: () {
-        Navigator.pop(context);
-        onReactionSelected(type);
-      },
-      borderRadius: BorderRadius.circular(40),
-      child: Padding(
-        padding: const EdgeInsets.all(8.0),
-        child: ReactionIcon(
-          type: type,
-          size: 56,
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: () {
+          Navigator.pop(context);
+          onReactionSelected(type);
+        },
+        borderRadius: BorderRadius.circular(40),
+        splashColor: Colors.white.withOpacity(0.2),
+        child: Padding(
+          padding: const EdgeInsets.all(12.0),
+          child: ReactionIcon(
+            type: type,
+            size: 52,
+          ),
         ),
       ),
     );
