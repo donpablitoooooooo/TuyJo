@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
+import 'reaction_icon.dart';
 
 /// Bottom sheet per selezionare una reaction
-/// Mostra 5 opzioni: LOVE, OK, SHIT, WTF, DONE
+/// Mostra 4 opzioni: LOVE, OK, SHIT, DONE
 class ReactionPicker extends StatelessWidget {
   final Function(String reactionType) onReactionSelected;
 
@@ -36,11 +37,10 @@ class ReactionPicker extends StatelessWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceEvenly,
             children: [
-              _buildReactionButton('love', 'assets/love.png', context),
-              _buildReactionButton('ok', 'assets/ok.png', context),
-              _buildReactionButton('shit', 'assets/shit.png', context),
-              _buildReactionButton('wtf', 'assets/wtf.png', context),
-              _buildReactionButton('done', 'assets/done.png', context),
+              _buildReactionButton('love', context),
+              _buildReactionButton('ok', context),
+              _buildReactionButton('shit', context),
+              _buildReactionButton('done', context),
             ],
           ),
           const SizedBox(height: 8),
@@ -49,24 +49,18 @@ class ReactionPicker extends StatelessWidget {
     );
   }
 
-  Widget _buildReactionButton(String type, String assetPath, BuildContext context) {
+  Widget _buildReactionButton(String type, BuildContext context) {
     return InkWell(
       onTap: () {
         Navigator.pop(context);
         onReactionSelected(type);
       },
-      borderRadius: BorderRadius.circular(16),
-      child: Container(
-        width: 64,
-        height: 64,
-        padding: const EdgeInsets.all(8),
-        decoration: BoxDecoration(
-          color: Colors.grey[100],
-          borderRadius: BorderRadius.circular(16),
-        ),
-        child: Image.asset(
-          assetPath,
-          fit: BoxFit.contain,
+      borderRadius: BorderRadius.circular(40),
+      child: Padding(
+        padding: const EdgeInsets.all(8.0),
+        child: ReactionIcon(
+          type: type,
+          size: 56,
         ),
       ),
     );

@@ -2,7 +2,7 @@ import 'package:flutter/foundation.dart';
 
 // Modello per le reactions ai messaggi
 class Reaction {
-  final String type; // 'love', 'ok', 'shit', 'wtf', 'done'
+  final String type; // 'love', 'ok', 'shit', 'done'
   final String userId; // deviceId di chi ha messo la reaction
   final DateTime timestamp;
 
