@@ -1,4 +1,4 @@
-# TuyJo - Private Messaging & Family Organization App
+# Tuijo - Private Messaging & Family Organization App
 
 **Version:** 1.13.0 (Build 15) | **Status:** 🚀 Release Candidate - Ready for App Store
 
@@ -20,7 +20,7 @@ A secure, end-to-end encrypted messaging and family organization app built with 
 - **Rich Attachments**: Share photos, videos, and documents with E2E encryption
 
 ### 📱 iOS Photo Sharing (NEW!)
-- **Native iOS Integration**: Share photos directly from iOS Photos app to TuyJo
+- **Native iOS Integration**: Share photos directly from iOS Photos app to Tuijo
 - **Method Channel Implementation**: Custom AppDelegate with Flutter Method Channel
 - **Seamless File Handling**: Files copied to app's Caches directory and encrypted before upload
 - **Universal Sharing**: Works from Photos, Files, and any app with Share Sheet
@@ -88,7 +88,7 @@ A secure, end-to-end encrypted messaging and family organization app built with 
 ## 📁 Project Structure
 
 ```
-TuyJo/
+Tuijo/
 ├── flutter-app/
 │   ├── lib/
 │   │   ├── models/          # Data models (Message, Attachment, etc.)
@@ -127,8 +127,8 @@ TuyJo/
 
 ```bash
 # Clone repository
-git clone https://github.com/donpablitoooooooo/TuyJo.git
-cd TuyJo/flutter-app
+git clone https://github.com/donpablitoooooooo/Tuijo.git
+cd Tuijo/flutter-app
 
 # Install dependencies
 flutter pub get
@@ -201,7 +201,7 @@ flutter build appbundle --release
 
 ```
 iOS Photos App
-    ↓ (User taps Share → TuyJo)
+    ↓ (User taps Share → Tuijo)
 AppDelegate.application(_:open:options:)
     ↓ (Intercepts file URL)
 handleSharedMedia([URL])
@@ -361,13 +361,13 @@ platform.setMethodCallHandler((call) async {
 
 ## 📊 App Store Description
 
-**Title**: TuyJo - Private Couple Messaging
+**Title**: Tuijo - Private Couple Messaging
 
 **Subtitle**: Secure E2E encrypted chat & todos
 
 **Description**:
 ```
-TuyJo (Tu y yo - You and I) is a private messaging app designed for couples who value their privacy.
+Tuijo (Tu y yo - You and I) is a private messaging app designed for couples who value their privacy.
 
 ✨ FEATURES
 • End-to-end encrypted messages (RSA-2048 + AES-256)
@@ -392,7 +392,7 @@ TuyJo (Tu y yo - You and I) is a private messaging app designed for couples who 
 • Secure photo sharing
 • Private todo lists & reminders
 
-Download TuyJo and start your private conversation today.
+Download Tuijo and start your private conversation today.
 ```
 
 **Keywords**: `private,encrypted,couple,messaging,secure,chat,e2e,privacy,family,todo,reminder,calendar,photos`
@@ -402,7 +402,7 @@ Download TuyJo and start your private conversation today.
 ## 🆘 Support
 
 **Email**: support@tuyjo.com
-**GitHub**: [Create an issue](https://github.com/donpablitoooooooo/TuyJo/issues)
+**GitHub**: [Create an issue](https://github.com/donpablitoooooooo/Tuijo/issues)
 **Privacy Policy**: https://tuyjo.com/privacy
 **Terms of Service**: https://tuyjo.com/terms
 
