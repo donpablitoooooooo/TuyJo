@@ -176,5 +176,13 @@
     "calendarNoTodos": "No TODOs",
     "calendarNoTodosDescription": "Your TODOs will appear here",
     "calendarTodosForDate": "TODOs for {date}",
-    "calendarMarkAsCompleted": "Mark as completed"
+    "calendarMarkAsCompleted": "Mark as completed",
+    "notificationNewMessage": "New message",
+    "notificationNewMessageBody": "You have received a new encrypted message",
+    "notificationNewTodo": "New To Do",
+    "notificationNewTodoBody": "Your partner has created a new reminder",
+    "notificationChannelMessages": "Messages",
+    "notificationChannelMessagesDescription": "Notifications for new messages",
+    "notificationChannelTodos": "To Do Reminders",
+    "notificationChannelTodosDescription": "Notifications for event reminders"
 }
