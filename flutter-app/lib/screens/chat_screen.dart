@@ -22,6 +22,8 @@ import '../services/attachment_service.dart';
 import '../models/message.dart';
 import '../widgets/todo_bubble.dart';
 import '../widgets/attachment_widgets.dart';
+import '../widgets/reaction_picker.dart';
+import '../widgets/reaction_overlay.dart';
 import 'pdf_viewer_screen.dart';
 
 class ChatScreen extends StatefulWidget {
@@ -519,6 +521,24 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     );
 
     if (kDebugMode) print('✅ Todo marked as completed: $todoId');
+  }
+
+  /// Aggiunge una reaction a un messaggio
+  void _addReaction(String messageId, String reactionType) async {
+    if (_familyChatId == null || _myDeviceId == null) {
+      return;
+    }
+
+    final chatService = Provider.of<ChatService>(context, listen: false);
+
+    await chatService.addReaction(
+      messageId,
+      _familyChatId!,
+      _myDeviceId!,
+      reactionType,
+    );
+
+    if (kDebugMode) print('✅ Reaction $reactionType added to message: $messageId');
   }
 
   /// Formatta la data in modo colloquiale per il separatore
@@ -1575,9 +1595,11 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                             // Verifica se il todo è stato completato
                             bool isTodoCompleted = false;
                             if (message.messageType == 'todo') {
-                              isTodoCompleted = chatService.messages.any((m) =>
-                                  m.messageType == 'todo_completed' &&
-                                  m.originalTodoId == message.id);
+                              // TODO completato se ha reaction DONE oppure messaggio todo_completed
+                              isTodoCompleted = message.reaction?.type == 'done' ||
+                                  chatService.messages.any((m) =>
+                                      m.messageType == 'todo_completed' &&
+                                      m.originalTodoId == message.id);
                             }
 
                             // Determina se mostrare il separatore di data
@@ -1626,7 +1648,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                                 message: message,
                                 isMe: isMe,
                                 isCompleted: isTodoCompleted,
-                                onComplete: () => _completeTodo(message.id),
+                                onReact: (reactionType) => _addReaction(message.id, reactionType),
                                 formattedDate: formattedDate,
                                 attachmentService: _attachmentService,
                                 senderId: message.senderId,
@@ -1647,6 +1669,8 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                                 senderId: message.senderId,
                                 currentUserId: _myDeviceId,
                                 attachmentService: _attachmentService,
+                                reaction: message.reaction,
+                                onReact: (reactionType) => _addReaction(message.id, reactionType),
                               );
                             }
 
@@ -1981,6 +2005,8 @@ class _MessageBubble extends StatelessWidget {
   final String? senderId; // ID del mittente del messaggio
   final String? currentUserId; // ID dell'utente corrente
   final AttachmentService? attachmentService;
+  final Reaction? reaction; // Reaction al messaggio
+  final Function(String reactionType)? onReact; // Callback per aggiungere reaction
 
   const _MessageBubble({
     super.key,
@@ -1993,6 +2019,8 @@ class _MessageBubble extends StatelessWidget {
     this.senderId,
     this.currentUserId,
     this.attachmentService,
+    this.reaction,
+    this.onReact,
   });
 
   /// Costruisce i widget per mostrare gli allegati (decifrati)
@@ -2047,7 +2075,19 @@ class _MessageBubble extends StatelessWidget {
         mainAxisAlignment:
             isMe ? MainAxisAlignment.end : MainAxisAlignment.start,
         children: [
-          Container(
+          Stack(
+            clipBehavior: Clip.none,
+            children: [
+              GestureDetector(
+                onLongPress: onReact != null
+                    ? () {
+                        ReactionPicker.show(
+                          context,
+                          onReactionSelected: onReact!,
+                        );
+                      }
+                    : null,
+                child: Container(
             constraints: BoxConstraints(
               maxWidth: MediaQuery.of(context).size.width * 0.75,
             ),
@@ -2191,6 +2231,11 @@ class _MessageBubble extends StatelessWidget {
                 ),
               ),
             ),
+                ),
+              ),
+              // Reaction overlay se presente
+              if (reaction != null) ReactionOverlay(reaction: reaction!),
+            ],
           ),
         ],
       ),

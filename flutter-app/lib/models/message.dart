@@ -1,5 +1,34 @@
 import 'package:flutter/foundation.dart';
 
+// Modello per le reactions ai messaggi
+class Reaction {
+  final String type; // 'love', 'ok', 'shit', 'wtf', 'done'
+  final String userId; // deviceId di chi ha messo la reaction
+  final DateTime timestamp;
+
+  Reaction({
+    required this.type,
+    required this.userId,
+    required this.timestamp,
+  });
+
+  factory Reaction.fromJson(Map<String, dynamic> json) {
+    return Reaction(
+      type: json['type'] ?? '',
+      userId: json['userId'] ?? '',
+      timestamp: DateTime.parse(json['timestamp'] ?? DateTime.now().toIso8601String()),
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'type': type,
+      'userId': userId,
+      'timestamp': timestamp.toIso8601String(),
+    };
+  }
+}
+
 // Modello per gli allegati (con cifratura E2E dual encryption)
 class Attachment {
   final String id;
@@ -94,6 +123,9 @@ class Message {
   // Allegati (foto, video, documenti)
   List<Attachment>? attachments;
 
+  // Reaction al messaggio (solo una reaction per messaggio, l'ultima vince)
+  Reaction? reaction;
+
   Message({
     required this.id,
     required this.senderId,
@@ -118,6 +150,7 @@ class Message {
     this.readAt,
     this.isPending = false,
     this.attachments,
+    this.reaction,
   });
 
   factory Message.fromJson(Map<String, dynamic> json) {
@@ -152,6 +185,18 @@ class Message {
       }
     }
 
+    // Parse reaction se presente
+    Reaction? reaction;
+    if (data['reaction'] != null && data['reaction'] is Map) {
+      try {
+        reaction = Reaction.fromJson(data['reaction'] as Map<String, dynamic>);
+        if (kDebugMode) print('✅ Parsed reaction for message $docId: ${reaction.type}');
+      } catch (e) {
+        if (kDebugMode) print('❌ Error parsing reaction for message $docId: $e');
+        reaction = null;
+      }
+    }
+
     return Message(
       id: docId,
       senderId: data['sender_id'] ?? '',
@@ -168,6 +213,7 @@ class Message {
       read: data['read'],
       readAt: data['read_at'] != null ? DateTime.parse(data['read_at']) : null,
       attachments: attachments,
+      reaction: reaction,
     );
   }
 
@@ -188,6 +234,7 @@ class Message {
       if (read != null) 'read': read,
       if (readAt != null) 'read_at': readAt!.toIso8601String(),
       if (attachments != null) 'attachments': attachments!.map((a) => a.toJson()).toList(),
+      if (reaction != null) 'reaction': reaction!.toJson(),
     };
   }
 }

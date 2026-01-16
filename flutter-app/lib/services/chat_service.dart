@@ -885,6 +885,53 @@ class ChatService extends ChangeNotifier {
     }
   }
 
+  /// Aggiunge o aggiorna una reaction a un messaggio
+  Future<bool> addReaction(
+    String messageId,
+    String familyChatId,
+    String userId,
+    String reactionType, // 'love', 'ok', 'shit', 'wtf', 'done'
+  ) async {
+    try {
+      // Crea l'oggetto reaction
+      final reaction = Reaction(
+        type: reactionType,
+        userId: userId,
+        timestamp: DateTime.now(),
+      );
+
+      // Aggiorna il messaggio in Firestore
+      final messageRef = _firestore
+          .collection('families')
+          .doc(familyChatId)
+          .collection('messages')
+          .doc(messageId);
+
+      await messageRef.update({
+        'reaction': reaction.toJson(),
+      });
+
+      // Aggiorna il messaggio locale nella lista
+      final index = _messages.indexWhere((m) => m.id == messageId);
+      if (index != -1) {
+        _messages[index].reaction = reaction;
+
+        // Aggiorna anche la cache SQLite
+        await _messageCacheService.saveMessage(_messages[index], familyChatId);
+
+        notifyListeners();
+      }
+
+      if (kDebugMode) {
+        print('✅ Reaction $reactionType added to message $messageId');
+      }
+      return true;
+    } catch (e) {
+      if (kDebugMode) print('❌ Add reaction error: $e');
+      return false;
+    }
+  }
+
   /// Decripta un messaggio e popola i campi aggiuntivi (messageType, dueDate, ecc.)
   /// Schedula notifiche per i todo
   void _decryptAndPopulateMessage(Message message, String myDeviceId) {
