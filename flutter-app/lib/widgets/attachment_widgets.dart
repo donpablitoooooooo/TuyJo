@@ -76,23 +76,22 @@ class _AttachmentImageState extends State<AttachmentImage> {
     if (widget.attachment.url.isEmpty) {
       return ClipRRect(
         borderRadius: BorderRadius.circular(12),
-        child: SizedBox(
+        child: Container(
           width: double.infinity,
           height: 200,
-          child: Container(
-            color: widget.isMe ? Colors.white.withOpacity(0.1) : Colors.grey[200],
-            child: Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  const CircularProgressIndicator(),
-                  const SizedBox(height: 8),
-                  Text(
-                    l10n.chatLoadingAttachment,
-                    style: const TextStyle(fontSize: 12, color: Colors.grey),
-                  ),
-                ],
-              ),
+          color: widget.isMe ? Colors.white.withOpacity(0.1) : Colors.grey[200],
+          child: Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const CircularProgressIndicator(),
+                const SizedBox(height: 8),
+                Text(
+                  l10n.chatLoadingAttachment,
+                  style: const TextStyle(fontSize: 12, color: Colors.grey),
+                ),
+              ],
             ),
           ),
         ),
