@@ -917,7 +917,7 @@ class ChatService extends ChangeNotifier {
         _messages[index].reaction = reaction;
 
         // Aggiorna anche la cache SQLite
-        await _messageCacheService.saveMessage(_messages[index], familyChatId);
+        await _cacheService.saveMessage(_messages[index], familyChatId);
 
         notifyListeners();
       }
