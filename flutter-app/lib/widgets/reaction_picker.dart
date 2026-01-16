@@ -78,7 +78,7 @@ class ReactionPicker extends StatelessWidget {
           padding: const EdgeInsets.all(12.0),
           child: ReactionIcon(
             type: type,
-            size: 52,
+            size: 44,
           ),
         ),
       ),

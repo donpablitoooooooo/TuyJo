@@ -14,11 +14,11 @@ class ReactionOverlay extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Positioned(
-      bottom: -8,
-      right: -8,
+      bottom: -6,
+      right: -6,
       child: ReactionIcon(
         type: reaction.type,
-        size: 36,
+        size: 32,
       ),
     );
   }

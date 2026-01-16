@@ -9,7 +9,7 @@ class ReactionIcon extends StatelessWidget {
   const ReactionIcon({
     super.key,
     required this.type,
-    this.size = 40,
+    this.size = 32,
   });
 
   @override
