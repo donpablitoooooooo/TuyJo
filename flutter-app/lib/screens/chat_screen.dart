@@ -2157,6 +2157,7 @@ class _MessageBubble extends StatelessWidget {
                   highlightColor: Colors.white.withOpacity(0.1),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
                     children: [
                       // Allegati (se presenti) - senza padding per occupare tutta la larghezza
                       if (attachments != null && attachments!.isNotEmpty)
