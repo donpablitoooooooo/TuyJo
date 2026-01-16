@@ -176,5 +176,13 @@
     "calendarNoTodos": "Sense TODOs",
     "calendarNoTodosDescription": "Els teus TODOs apareixeran aquí",
     "calendarTodosForDate": "TODOs per {date}",
-    "calendarMarkAsCompleted": "Marca com a completat"
+    "calendarMarkAsCompleted": "Marca com a completat",
+    "notificationNewMessage": "Nou missatge",
+    "notificationNewMessageBody": "Has rebut un nou missatge xifrat",
+    "notificationNewTodo": "Nou To Do",
+    "notificationNewTodoBody": "La teva parella ha creat un nou recordatori",
+    "notificationChannelMessages": "Missatges",
+    "notificationChannelMessagesDescription": "Notificacions de nous missatges",
+    "notificationChannelTodos": "Recordatoris To Do",
+    "notificationChannelTodosDescription": "Notificacions de recordatoris d'esdeveniments"
 }

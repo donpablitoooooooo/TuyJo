@@ -176,5 +176,13 @@
     "calendarNoTodos": "Sin TODOs",
     "calendarNoTodosDescription": "Tus TODOs aparecerán aquí",
     "calendarTodosForDate": "TODOs para {date}",
-    "calendarMarkAsCompleted": "Marcar como completado"
+    "calendarMarkAsCompleted": "Marcar como completado",
+    "notificationNewMessage": "Nuevo mensaje",
+    "notificationNewMessageBody": "Has recibido un nuevo mensaje cifrado",
+    "notificationNewTodo": "Nuevo To Do",
+    "notificationNewTodoBody": "Tu pareja ha creado un nuevo recordatorio",
+    "notificationChannelMessages": "Mensajes",
+    "notificationChannelMessagesDescription": "Notificaciones de nuevos mensajes",
+    "notificationChannelTodos": "Recordatorios To Do",
+    "notificationChannelTodosDescription": "Notificaciones de recordatorios de eventos"
 }

@@ -3,6 +3,56 @@ const admin = require('firebase-admin');
 
 admin.initializeApp();
 
+// 🌍 Localizzazione notifiche push (IT, EN, ES, CA)
+const NOTIFICATION_TEXTS = {
+  it: {
+    newMessage: {
+      title: '💬 Nuovo messaggio',
+      body: 'Hai ricevuto un nuovo messaggio crittografato',
+    },
+    newTodo: {
+      title: '📅 Nuovo To Do',
+      body: 'Il tuo partner ha creato un nuovo promemoria',
+    },
+  },
+  en: {
+    newMessage: {
+      title: '💬 New message',
+      body: 'You have received a new encrypted message',
+    },
+    newTodo: {
+      title: '📅 New To Do',
+      body: 'Your partner has created a new reminder',
+    },
+  },
+  es: {
+    newMessage: {
+      title: '💬 Nuevo mensaje',
+      body: 'Has recibido un nuevo mensaje cifrado',
+    },
+    newTodo: {
+      title: '📅 Nuevo To Do',
+      body: 'Tu pareja ha creado un nuevo recordatorio',
+    },
+  },
+  ca: {
+    newMessage: {
+      title: '💬 Nou missatge',
+      body: 'Has rebut un nou missatge xifrat',
+    },
+    newTodo: {
+      title: '📅 Nou To Do',
+      body: 'La teva parella ha creat un nou recordatori',
+    },
+  },
+};
+
+// Funzione helper per ottenere i testi localizzati (default: italiano)
+function getLocalizedText(language, messageType) {
+  const lang = NOTIFICATION_TEXTS[language] || NOTIFICATION_TEXTS.it;
+  return messageType === 'todo' ? lang.newTodo : lang.newMessage;
+}
+
 /**
  * Cloud Function che invia una notifica push quando viene creato un nuovo messaggio
  * Triggered da: Firestore onCreate su /families/{familyChatId}/messages/{messageId}
@@ -50,6 +100,7 @@ exports.sendMessageNotification = functions
           recipients.push({
             userId,
             token: userData.fcm_token,
+            language: userData.language || 'it', // Default: italiano
           });
         }
       });
@@ -63,28 +114,22 @@ exports.sendMessageNotification = functions
 
       // 3. Determina il tipo di notifica in base al message_type
       const messageType = messageData.message_type || 'text';
-      let notificationTitle, notificationBody;
 
-      switch (messageType) {
-        case 'todo':
-          notificationTitle = '📅 Nuovo To Do';
-          notificationBody = 'Il tuo partner ha creato un nuovo promemoria';
-          break;
-        case 'todo_completed':
-          // Non inviare notifiche per i completamenti
-          console.log('⏭️  Skipping notification for todo_completed message');
-          return null;
-        default:
-          notificationTitle = '💬 Nuovo messaggio';
-          notificationBody = 'Hai ricevuto un nuovo messaggio crittografato';
+      // Salta le notifiche per i completamenti
+      if (messageType === 'todo_completed') {
+        console.log('⏭️  Skipping notification for todo_completed message');
+        return null;
       }
 
-      // 4. Invia la notifica a ciascun destinatario
+      // 4. Invia la notifica a ciascun destinatario (con testo localizzato)
       const notifications = recipients.map((recipient) => {
+        // Ottieni testi localizzati per la lingua del destinatario
+        const localizedText = getLocalizedText(recipient.language, messageType);
+
         const message = {
           notification: {
-            title: notificationTitle,
-            body: notificationBody,
+            title: localizedText.title,
+            body: localizedText.body,
           },
           data: {
             familyChatId: familyChatId,

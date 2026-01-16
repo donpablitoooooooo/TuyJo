@@ -4,6 +4,7 @@ import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:timezone/data/latest_all.dart' as tz;
 import 'package:timezone/timezone.dart' as tz;
+import 'dart:ui' as ui;
 
 // Handler per i messaggi in background (deve essere top-level function)
 @pragma('vm:entry-point')
@@ -150,6 +151,10 @@ class NotificationService {
     try {
       String? token = await getToken();
 
+      // Ottieni la lingua del dispositivo
+      final locale = ui.PlatformDispatcher.instance.locale;
+      String languageCode = locale.languageCode; // es: 'it', 'en', 'es', 'ca'
+
       // 🔧 FIX: Crea sempre il documento user, anche senza token
       // Questo è necessario per typing indicator e altri features
       await _firestore
@@ -159,12 +164,13 @@ class NotificationService {
           .doc(userId)
           .set({
         if (token != null) 'fcm_token': token,
+        'language': languageCode, // Salva la lingua per notifiche localizzate
         'updated_at': FieldValue.serverTimestamp(),
       }, SetOptions(merge: true));
 
       if (kDebugMode) {
         if (token != null) {
-          print('✅ FCM token saved');
+          print('✅ FCM token saved (language: $languageCode)');
         } else {
           print('⚠️ User document created without FCM token (token not available)');
         }

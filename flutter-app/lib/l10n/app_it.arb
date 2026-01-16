@@ -175,5 +175,13 @@
     "calendarNoTodos": "Nessun TODO",
     "calendarNoTodosDescription": "I tuoi TODO appariranno qui",
     "calendarTodosForDate": "TODO per {date}",
-    "calendarMarkAsCompleted": "Segna come completato"
+    "calendarMarkAsCompleted": "Segna come completato",
+    "notificationNewMessage": "Nuovo messaggio",
+    "notificationNewMessageBody": "Hai ricevuto un nuovo messaggio crittografato",
+    "notificationNewTodo": "Nuovo To Do",
+    "notificationNewTodoBody": "Il tuo partner ha creato un nuovo promemoria",
+    "notificationChannelMessages": "Messaggi",
+    "notificationChannelMessagesDescription": "Notifiche per i nuovi messaggi",
+    "notificationChannelTodos": "Promemoria To Do",
+    "notificationChannelTodosDescription": "Notifiche per i promemoria degli eventi"
 }
