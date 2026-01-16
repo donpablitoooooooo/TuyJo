@@ -107,6 +107,9 @@ class TodoMessageBubble extends StatelessWidget {
                     context,
                     onReactionSelected: onReact,
                     message: message,
+                    attachmentService: attachmentService,
+                    currentUserId: currentUserId,
+                    senderId: senderId,
                   );
                 },
                 child: Container(

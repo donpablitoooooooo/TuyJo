@@ -2088,6 +2088,9 @@ class _MessageBubble extends StatelessWidget {
                           context,
                           onReactionSelected: onReact!,
                           message: messageObject!,
+                          attachmentService: attachmentService,
+                          currentUserId: currentUserId,
+                          senderId: senderId,
                         );
                       }
                     : null,

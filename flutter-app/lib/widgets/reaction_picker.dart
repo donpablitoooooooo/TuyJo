@@ -1,6 +1,8 @@
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../models/message.dart';
+import '../services/attachment_service.dart';
 import 'reaction_icon.dart';
 
 /// Bottom sheet per selezionare una reaction
@@ -8,11 +10,17 @@ import 'reaction_icon.dart';
 class ReactionPicker extends StatelessWidget {
   final Function(String reactionType) onReactionSelected;
   final Message message;
+  final AttachmentService? attachmentService;
+  final String? currentUserId;
+  final String? senderId;
 
   const ReactionPicker({
     super.key,
     required this.onReactionSelected,
     required this.message,
+    this.attachmentService,
+    this.currentUserId,
+    this.senderId,
   });
 
   @override
@@ -101,19 +109,14 @@ class ReactionPicker extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           // Thumbnail se c'è una foto
-          if (message.attachments != null && message.attachments!.isNotEmpty)
+          if (message.attachments != null &&
+              message.attachments!.isNotEmpty &&
+              attachmentService != null &&
+              currentUserId != null &&
+              senderId != null)
             Padding(
               padding: const EdgeInsets.only(right: 8),
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(6),
-                child: Image.network(
-                  message.attachments!.first.thumbnailUrl ?? message.attachments!.first.url,
-                  width: 40,
-                  height: 40,
-                  fit: BoxFit.cover,
-                  errorBuilder: (context, error, stackTrace) => const SizedBox.shrink(),
-                ),
-              ),
+              child: _buildThumbnail(message.attachments!.first),
             ),
           // Testo e data
           Expanded(
@@ -152,11 +155,64 @@ class ReactionPicker extends StatelessWidget {
     );
   }
 
+  /// Costruisce la thumbnail decifrata dell'allegato
+  Widget _buildThumbnail(Attachment attachment) {
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(6),
+      child: FutureBuilder<Uint8List?>(
+        future: attachmentService!.downloadAndDecryptAttachment(
+          attachment,
+          currentUserId!,
+          senderId!,
+          useThumbnail: true,
+        ),
+        builder: (context, snapshot) {
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return Container(
+              width: 40,
+              height: 40,
+              color: Colors.white.withOpacity(0.2),
+              child: const Center(
+                child: SizedBox(
+                  width: 16,
+                  height: 16,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    color: Colors.white,
+                  ),
+                ),
+              ),
+            );
+          }
+
+          if (snapshot.hasError || !snapshot.hasData || snapshot.data == null) {
+            return Container(
+              width: 40,
+              height: 40,
+              color: Colors.white.withOpacity(0.2),
+              child: const Icon(Icons.image, color: Colors.white, size: 20),
+            );
+          }
+
+          return Image.memory(
+            snapshot.data!,
+            width: 40,
+            height: 40,
+            fit: BoxFit.cover,
+          );
+        },
+      ),
+    );
+  }
+
   /// Mostra il picker come bottom sheet
   static void show(
     BuildContext context, {
     required Function(String) onReactionSelected,
     required Message message,
+    AttachmentService? attachmentService,
+    String? currentUserId,
+    String? senderId,
   }) {
     showModalBottomSheet(
       context: context,
@@ -164,6 +220,9 @@ class ReactionPicker extends StatelessWidget {
       builder: (context) => ReactionPicker(
         onReactionSelected: onReactionSelected,
         message: message,
+        attachmentService: attachmentService,
+        currentUserId: currentUserId,
+        senderId: senderId,
       ),
     );
   }
