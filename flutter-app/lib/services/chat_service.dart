@@ -240,13 +240,29 @@ class ChatService extends ChangeNotifier {
                 print('📎 Message ${message.id.substring(0, 8)} has ${message.attachments!.length} attachments');
               }
 
-              // Aggiungi solo se non esiste già in memoria
-              if (!_messages.any((m) => m.id == message.id)) {
-                // Decrypt e popola i campi
-                if (_myDeviceId != null) {
-                  _decryptAndPopulateMessage(message, _myDeviceId!);
-                }
+              // Log se il messaggio ha reaction
+              if (kDebugMode && message.reaction != null) {
+                print('⭐ Message ${message.id.substring(0, 8)} has reaction: ${message.reaction!.type}');
+              }
 
+              // Decrypt e popola i campi
+              if (_myDeviceId != null) {
+                _decryptAndPopulateMessage(message, _myDeviceId!);
+              }
+
+              // Controlla se il messaggio esiste già in memoria (caricato dalla cache)
+              final existingIndex = _messages.indexWhere((m) => m.id == message.id);
+
+              if (existingIndex != -1) {
+                // Messaggio esiste: SOSTITUISCILO con quello da Firestore
+                // Firestore è la fonte di verità e ha reactions/attachments aggiornati
+                if (kDebugMode) {
+                  print('🔄 Updating existing message ${message.id.substring(0, 8)} from Firestore');
+                }
+                _messages[existingIndex] = message;
+                newMessages.add(message); // Aggiungilo per batch save cache
+              } else {
+                // Messaggio nuovo: aggiungilo
                 _messages.add(message);
                 newMessages.add(message);
               }
