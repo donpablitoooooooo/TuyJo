@@ -354,13 +354,14 @@ class _AttachmentDocumentState extends State<AttachmentDocument> {
     return GestureDetector(
       onTap: _openDocument,
       child: Container(
-        width: 200,
+        constraints: const BoxConstraints(minWidth: 200),
         padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(12),
           color: widget.isMe ? Colors.white.withOpacity(0.1) : Colors.grey[200],
         ),
         child: Row(
+          mainAxisSize: MainAxisSize.min,
           children: [
             Container(
               width: 40,
@@ -385,7 +386,7 @@ class _AttachmentDocumentState extends State<AttachmentDocument> {
                     ),
             ),
             const SizedBox(width: 12),
-            Expanded(
+            Flexible(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [

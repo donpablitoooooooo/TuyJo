@@ -109,15 +109,11 @@ class ReactionPicker extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
         children: [
-          // Thumbnail se c'è una foto
-          if (message.attachments != null &&
-              message.attachments!.isNotEmpty &&
-              attachmentService != null &&
-              currentUserId != null &&
-              senderId != null)
+          // Thumbnail foto o icona documento
+          if (message.attachments != null && message.attachments!.isNotEmpty)
             Padding(
               padding: const EdgeInsets.only(right: 8),
-              child: _buildThumbnail(message.attachments!.first),
+              child: _buildAttachmentPreview(message.attachments!.first),
             ),
           // Testo e data
           Expanded(
@@ -157,52 +153,107 @@ class ReactionPicker extends StatelessWidget {
     );
   }
 
-  /// Costruisce la thumbnail decifrata dell'allegato
-  Widget _buildThumbnail(Attachment attachment) {
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(6),
-      child: FutureBuilder<Uint8List?>(
-        future: attachmentService!.downloadAndDecryptAttachment(
-          attachment,
-          currentUserId!,
-          senderId!,
-          useThumbnail: true,
+  /// Costruisce la preview dell'allegato (thumbnail foto o icona documento)
+  Widget _buildAttachmentPreview(Attachment attachment) {
+    // Se è un documento, mostra icona file
+    if (attachment.type == 'document') {
+      return Container(
+        width: 40,
+        height: 40,
+        decoration: BoxDecoration(
+          color: Colors.white.withOpacity(0.2),
+          borderRadius: BorderRadius.circular(6),
         ),
-        builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return Container(
-              width: 40,
-              height: 40,
-              color: Colors.white.withOpacity(0.2),
-              child: const Center(
-                child: SizedBox(
-                  width: 16,
-                  height: 16,
-                  child: CircularProgressIndicator(
-                    strokeWidth: 2,
-                    color: Colors.white,
+        child: const Icon(
+          Icons.insert_drive_file,
+          color: Colors.white,
+          size: 20,
+        ),
+      );
+    }
+
+    // Se è un video, mostra icona video
+    if (attachment.type == 'video') {
+      return Container(
+        width: 40,
+        height: 40,
+        decoration: BoxDecoration(
+          color: Colors.white.withOpacity(0.2),
+          borderRadius: BorderRadius.circular(6),
+        ),
+        child: const Icon(
+          Icons.videocam,
+          color: Colors.white,
+          size: 20,
+        ),
+      );
+    }
+
+    // Se è una foto, mostra thumbnail decifrata
+    if (attachment.type == 'photo' &&
+        attachmentService != null &&
+        currentUserId != null &&
+        senderId != null) {
+      return ClipRRect(
+        borderRadius: BorderRadius.circular(6),
+        child: FutureBuilder<Uint8List?>(
+          future: attachmentService!.downloadAndDecryptAttachment(
+            attachment,
+            currentUserId!,
+            senderId!,
+            useThumbnail: true,
+          ),
+          builder: (context, snapshot) {
+            if (snapshot.connectionState == ConnectionState.waiting) {
+              return Container(
+                width: 40,
+                height: 40,
+                color: Colors.white.withOpacity(0.2),
+                child: const Center(
+                  child: SizedBox(
+                    width: 16,
+                    height: 16,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: Colors.white,
+                    ),
                   ),
                 ),
-              ),
-            );
-          }
+              );
+            }
 
-          if (snapshot.hasError || !snapshot.hasData || snapshot.data == null) {
-            return Container(
+            if (snapshot.hasError || !snapshot.hasData || snapshot.data == null) {
+              return Container(
+                width: 40,
+                height: 40,
+                color: Colors.white.withOpacity(0.2),
+                child: const Icon(Icons.image, color: Colors.white, size: 20),
+              );
+            }
+
+            return Image.memory(
+              snapshot.data!,
               width: 40,
               height: 40,
-              color: Colors.white.withOpacity(0.2),
-              child: const Icon(Icons.image, color: Colors.white, size: 20),
+              fit: BoxFit.cover,
             );
-          }
+          },
+        ),
+      );
+    }
 
-          return Image.memory(
-            snapshot.data!,
-            width: 40,
-            height: 40,
-            fit: BoxFit.cover,
-          );
-        },
+    // Fallback: icona generica
+    return Container(
+      width: 40,
+      height: 40,
+      decoration: BoxDecoration(
+        color: Colors.white.withOpacity(0.2),
+        borderRadius: BorderRadius.circular(6),
+      ),
+      child: const Icon(
+        Icons.attach_file,
+        color: Colors.white,
+        size: 20,
       ),
     );
   }
