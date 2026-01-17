@@ -77,6 +77,7 @@ class _AttachmentImageState extends State<AttachmentImage> {
       return ClipRRect(
         borderRadius: BorderRadius.circular(12),
         child: Container(
+          width: 200,
           height: 200,
           color: widget.isMe ? Colors.white.withOpacity(0.1) : Colors.grey[200],
           child: Center(
@@ -129,6 +130,7 @@ class _AttachmentImageState extends State<AttachmentImage> {
             if (snapshot.connectionState == ConnectionState.waiting) {
               // Caricamento
               return Container(
+                width: 200,
                 height: 200,
                 color: widget.isMe ? Colors.white.withOpacity(0.1) : Colors.grey[200],
                 child: const Center(
@@ -140,6 +142,7 @@ class _AttachmentImageState extends State<AttachmentImage> {
             if (snapshot.hasError || !snapshot.hasData || snapshot.data == null) {
               // Errore decifratura
               return Container(
+                width: 200,
                 height: 200,
                 color: Colors.red.withOpacity(0.1),
                 child: const Center(
@@ -351,6 +354,7 @@ class _AttachmentDocumentState extends State<AttachmentDocument> {
     return GestureDetector(
       onTap: _openDocument,
       child: Container(
+        width: 200,
         padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(12),
