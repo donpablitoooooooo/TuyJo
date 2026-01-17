@@ -2078,10 +2078,9 @@ class _MessageBubble extends StatelessWidget {
         mainAxisAlignment:
             isMe ? MainAxisAlignment.end : MainAxisAlignment.start,
         children: [
-          Flexible(
-            child: Stack(
-              clipBehavior: Clip.none,
-              children: [
+          Stack(
+            clipBehavior: Clip.none,
+            children: [
               GestureDetector(
                 onLongPress: onReact != null && messageObject != null
                     ? () {
@@ -2158,7 +2157,6 @@ class _MessageBubble extends StatelessWidget {
                   highlightColor: Colors.white.withOpacity(0.1),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisSize: MainAxisSize.min,
                     children: [
                       // Allegati (se presenti) - senza padding per occupare tutta la larghezza
                       if (attachments != null && attachments!.isNotEmpty)
@@ -2245,7 +2243,6 @@ class _MessageBubble extends StatelessWidget {
               // Reaction overlay se presente
               if (reaction != null) ReactionOverlay(reaction: reaction!),
             ],
-            ),
           ),
         ],
       ),

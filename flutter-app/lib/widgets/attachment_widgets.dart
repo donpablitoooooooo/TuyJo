@@ -77,7 +77,7 @@ class _AttachmentImageState extends State<AttachmentImage> {
       return ClipRRect(
         borderRadius: BorderRadius.circular(12),
         child: Container(
-          height: 150, // Ridotto da 200 a 150 per evitare overflow con foto multiple
+          height: 200,
           color: widget.isMe ? Colors.white.withOpacity(0.1) : Colors.grey[200],
           child: Center(
             child: Column(
@@ -129,7 +129,7 @@ class _AttachmentImageState extends State<AttachmentImage> {
             if (snapshot.connectionState == ConnectionState.waiting) {
               // Caricamento
               return Container(
-                height: 150,
+                height: 200,
                 color: widget.isMe ? Colors.white.withOpacity(0.1) : Colors.grey[200],
                 child: const Center(
                   child: CircularProgressIndicator(),
@@ -140,7 +140,7 @@ class _AttachmentImageState extends State<AttachmentImage> {
             if (snapshot.hasError || !snapshot.hasData || snapshot.data == null) {
               // Errore decifratura
               return Container(
-                height: 150,
+                height: 200,
                 color: Colors.red.withOpacity(0.1),
                 child: const Center(
                   child: Icon(Icons.error, color: Colors.red),
@@ -151,7 +151,7 @@ class _AttachmentImageState extends State<AttachmentImage> {
             // Immagine decifrata visualizzata - usa tutta la larghezza della bubble
             return SizedBox(
               width: double.infinity,
-              height: 150,
+              height: 200,
               child: Image.memory(
                 snapshot.data!,
                 fit: BoxFit.cover, // Taglia per riempire tutta l'area
@@ -195,7 +195,7 @@ class AttachmentVideo extends StatelessWidget {
       },
       child: Container(
         width: 200,
-        height: 150,
+        height: 200,
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(12),
           color: isMe ? Colors.white.withOpacity(0.1) : Colors.grey[200],
