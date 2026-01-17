@@ -123,12 +123,22 @@ class AttachmentService {
       final image = img.decodeImage(imageBytes);
       if (image == null) return null;
 
+      if (kDebugMode) {
+        print('📐 Original image dimensions: ${image.width}x${image.height}');
+        print('   Aspect ratio: ${(image.width / image.height).toStringAsFixed(2)}');
+      }
+
       // Ridimensiona mantenendo aspect ratio (300px per qualità migliore)
       final thumbnail = img.copyResize(
         image,
         width: image.width > image.height ? 300 : null,
         height: image.height > image.width ? 300 : null,
       );
+
+      if (kDebugMode) {
+        print('📐 Thumbnail dimensions: ${thumbnail.width}x${thumbnail.height}');
+        print('   Aspect ratio: ${(thumbnail.width / thumbnail.height).toStringAsFixed(2)}');
+      }
 
       // Encode come JPEG con qualità 90 per migliore visualizzazione
       final thumbnailBytes = img.encodeJpg(thumbnail, quality: 90);
