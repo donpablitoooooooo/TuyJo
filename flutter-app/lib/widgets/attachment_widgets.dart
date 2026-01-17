@@ -148,11 +148,14 @@ class _AttachmentImageState extends State<AttachmentImage> {
               );
             }
 
-            // Immagine decifrata visualizzata - mantiene aspect ratio originale
-            return Image.memory(
-              snapshot.data!,
+            // Immagine decifrata visualizzata - usa tutta la larghezza della bubble
+            return SizedBox(
               width: double.infinity,
-              fit: BoxFit.cover, // Cover mantiene proporzioni e riempie larghezza
+              height: 200,
+              child: Image.memory(
+                snapshot.data!,
+                fit: BoxFit.cover, // Taglia per riempire tutta l'area
+              ),
             );
           },
         ),
