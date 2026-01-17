@@ -293,21 +293,6 @@ class TodoMessageBubble extends StatelessWidget {
                               ],
                             ],
                           ),
-
-                          // Hint per long press (solo se non c'è reaction)
-                          if (message.reaction == null) ...[
-                            const SizedBox(height: 6),
-                            Text(
-                              l10n.chatLongPressToReact,
-                              style: TextStyle(
-                                fontSize: 10,
-                                color: isMe
-                                    ? Colors.white.withOpacity(0.6)
-                                    : Colors.black38,
-                                fontStyle: FontStyle.italic,
-                              ),
-                            ),
-                          ],
                         ],
                       ),
                     ),
