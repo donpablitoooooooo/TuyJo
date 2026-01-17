@@ -2099,9 +2099,9 @@ class _MessageBubble extends StatelessWidget {
                     : null,
                 child: Container(
             constraints: BoxConstraints(
-              maxWidth: (attachments != null && attachments!.isNotEmpty)
-                  ? 200 // Larghezza fissa quando c'è un attachment
-                  : MediaQuery.of(context).size.width * 0.75, // Larghezza variabile per solo testo
+              maxWidth: (attachments != null && attachments!.any((a) => a.type == 'photo'))
+                  ? 200 // Larghezza fissa quando c'è una foto
+                  : MediaQuery.of(context).size.width * 0.75, // Larghezza variabile senza foto
             ),
             decoration: BoxDecoration(
               gradient: isMe

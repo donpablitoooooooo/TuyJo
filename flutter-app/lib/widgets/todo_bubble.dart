@@ -114,7 +114,10 @@ class TodoMessageBubble extends StatelessWidget {
                 },
                 child: Container(
               constraints: BoxConstraints(
-                maxWidth: MediaQuery.of(context).size.width * 0.75,
+                maxWidth: (message.attachments != null &&
+                           message.attachments!.any((a) => a.type == 'photo'))
+                    ? 200 // Larghezza fissa quando c'è una foto
+                    : MediaQuery.of(context).size.width * 0.75, // Larghezza variabile senza foto
               ),
               decoration: BoxDecoration(
                 gradient: isMe
