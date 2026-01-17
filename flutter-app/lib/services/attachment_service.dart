@@ -23,23 +23,22 @@ class AttachmentService {
     _cacheService.initialize();
   }
 
-  /// Seleziona una foto dalla galleria
-  Future<File?> pickImageFromGallery() async {
+  /// Seleziona una o più foto dalla galleria (selezione multipla)
+  Future<List<File>> pickImageFromGallery() async {
     try {
-      final XFile? image = await _imagePicker.pickImage(
-        source: ImageSource.gallery,
+      final List<XFile> images = await _imagePicker.pickMultiImage(
         maxWidth: 4096,  // Qualità stampa
         maxHeight: 4096, // Qualità stampa
         imageQuality: 95, // Alta qualità per stampa
       );
 
-      if (image != null) {
-        return File(image.path);
+      if (images.isNotEmpty) {
+        return images.map((xfile) => File(xfile.path)).toList();
       }
-      return null;
+      return [];
     } catch (e) {
-      if (kDebugMode) print('❌ Error picking image: $e');
-      return null;
+      if (kDebugMode) print('❌ Error picking images: $e');
+      return [];
     }
   }
 

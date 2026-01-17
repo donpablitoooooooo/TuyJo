@@ -775,10 +775,10 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                 color: Colors.blue,
                 onTap: () async {
                   Navigator.pop(context);
-                  final file = await _attachmentService!.pickImageFromGallery();
-                  if (file != null) {
+                  final files = await _attachmentService!.pickImageFromGallery();
+                  if (files.isNotEmpty) {
                     setState(() {
-                      _selectedAttachments.add(file);
+                      _selectedAttachments.addAll(files);
                     });
                   }
                 },

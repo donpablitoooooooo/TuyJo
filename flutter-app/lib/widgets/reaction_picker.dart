@@ -105,48 +105,56 @@ class ReactionPicker extends StatelessWidget {
   Widget _buildMessagePreview() {
     return Padding(
       padding: const EdgeInsets.only(top: 8),
-      child: Row(
+      child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
         children: [
-          // Thumbnail foto o icona documento
+          // Thumbnails di tutti gli allegati (orizzontali)
           if (message.attachments != null && message.attachments!.isNotEmpty)
             Padding(
-              padding: const EdgeInsets.only(right: 8),
-              child: _buildAttachmentPreview(message.attachments!.first),
+              padding: const EdgeInsets.only(bottom: 8),
+              child: SizedBox(
+                height: 40,
+                child: ListView.separated(
+                  scrollDirection: Axis.horizontal,
+                  itemCount: message.attachments!.length,
+                  separatorBuilder: (context, index) => const SizedBox(width: 6),
+                  itemBuilder: (context, index) {
+                    return _buildAttachmentPreview(message.attachments![index]);
+                  },
+                ),
+              ),
             ),
           // Testo e data
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                // Prima riga del testo
-                if (message.decryptedContent != null && message.decryptedContent!.isNotEmpty)
-                  Text(
-                    message.decryptedContent!,
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 14,
-                      fontWeight: FontWeight.w500,
-                    ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Prima riga del testo
+              if (message.decryptedContent != null && message.decryptedContent!.isNotEmpty)
+                Text(
+                  message.decryptedContent!,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w500,
                   ),
-                // Data se è un todo
-                if (message.messageType == 'todo' && message.dueDate != null)
-                  Padding(
-                    padding: const EdgeInsets.only(top: 4),
-                    child: Text(
-                      DateFormat('dd/MM/yyyy').format(message.dueDate!),
-                      style: TextStyle(
-                        color: Colors.white.withOpacity(0.8),
-                        fontSize: 12,
-                      ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              // Data se è un todo
+              if (message.messageType == 'todo' && message.dueDate != null)
+                Padding(
+                  padding: const EdgeInsets.only(top: 4),
+                  child: Text(
+                    DateFormat('dd/MM/yyyy').format(message.dueDate!),
+                    style: TextStyle(
+                      color: Colors.white.withOpacity(0.8),
+                      fontSize: 12,
                     ),
                   ),
-              ],
-            ),
+                ),
+            ],
           ),
         ],
       ),
