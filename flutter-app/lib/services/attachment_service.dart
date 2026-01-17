@@ -7,6 +7,7 @@ import 'package:file_picker/file_picker.dart';
 import 'package:mime/mime.dart';
 import 'package:uuid/uuid.dart';
 import 'package:image/image.dart' as img;
+import 'package:flutter_image_compress/flutter_image_compress.dart';
 import '../models/message.dart';
 import 'encryption_service.dart';
 import 'attachment_cache_service.dart';
@@ -119,7 +120,7 @@ class AttachmentService {
   /// Genera thumbnail da immagine (300px lato più lungo, qualità 90)
   Future<Uint8List?> _generateThumbnail(Uint8List imageBytes) async {
     try {
-      // Decodifica immagine
+      // Decodifica immagine per log dimensioni originali
       final image = img.decodeImage(imageBytes);
       if (image == null) return null;
 
@@ -128,20 +129,22 @@ class AttachmentService {
         print('   Aspect ratio: ${(image.width / image.height).toStringAsFixed(2)}');
       }
 
-      // Ridimensiona mantenendo aspect ratio (300px per qualità migliore)
-      final thumbnail = img.copyResize(
-        image,
-        width: image.width > image.height ? 300 : null,
-        height: image.height > image.width ? 300 : null,
+      // Usa flutter_image_compress per resize di alta qualità mantenendo aspect ratio
+      final thumbnailBytes = await FlutterImageCompress.compressWithList(
+        imageBytes,
+        minWidth: 300,
+        minHeight: 300,
+        quality: 90,
+        format: CompressFormat.jpeg,
+        keepExif: false,
       );
 
-      if (kDebugMode) {
+      // Decodifica thumbnail per log dimensioni finali
+      final thumbnail = img.decodeImage(thumbnailBytes);
+      if (thumbnail != null && kDebugMode) {
         print('📐 Thumbnail dimensions: ${thumbnail.width}x${thumbnail.height}');
         print('   Aspect ratio: ${(thumbnail.width / thumbnail.height).toStringAsFixed(2)}');
       }
-
-      // Encode come JPEG con qualità 90 per migliore visualizzazione
-      final thumbnailBytes = img.encodeJpg(thumbnail, quality: 90);
 
       if (kDebugMode) {
         print('📐 Generated thumbnail:');
@@ -149,7 +152,7 @@ class AttachmentService {
         print('   Thumbnail: ${(thumbnailBytes.length / 1024).toStringAsFixed(1)} KB');
       }
 
-      return Uint8List.fromList(thumbnailBytes);
+      return thumbnailBytes;
     } catch (e) {
       if (kDebugMode) print('❌ Error generating thumbnail: $e');
       return null;
