@@ -77,7 +77,6 @@ class _AttachmentImageState extends State<AttachmentImage> {
       return ClipRRect(
         borderRadius: BorderRadius.circular(12),
         child: Container(
-          width: double.infinity,
           height: 200,
           color: widget.isMe ? Colors.white.withOpacity(0.1) : Colors.grey[200],
           child: Center(
@@ -129,28 +128,22 @@ class _AttachmentImageState extends State<AttachmentImage> {
 
             if (snapshot.connectionState == ConnectionState.waiting) {
               // Caricamento
-              return SizedBox(
-                width: double.infinity,
+              return Container(
                 height: 200,
-                child: Container(
-                  color: widget.isMe ? Colors.white.withOpacity(0.1) : Colors.grey[200],
-                  child: const Center(
-                    child: CircularProgressIndicator(),
-                  ),
+                color: widget.isMe ? Colors.white.withOpacity(0.1) : Colors.grey[200],
+                child: const Center(
+                  child: CircularProgressIndicator(),
                 ),
               );
             }
 
             if (snapshot.hasError || !snapshot.hasData || snapshot.data == null) {
               // Errore decifratura
-              return SizedBox(
-                width: double.infinity,
+              return Container(
                 height: 200,
-                child: Container(
-                  color: Colors.red.withOpacity(0.1),
-                  child: const Center(
-                    child: Icon(Icons.error, color: Colors.red),
-                  ),
+                color: Colors.red.withOpacity(0.1),
+                child: const Center(
+                  child: Icon(Icons.error, color: Colors.red),
                 ),
               );
             }
