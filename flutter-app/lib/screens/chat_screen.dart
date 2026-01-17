@@ -2078,9 +2078,10 @@ class _MessageBubble extends StatelessWidget {
         mainAxisAlignment:
             isMe ? MainAxisAlignment.end : MainAxisAlignment.start,
         children: [
-          Stack(
-            clipBehavior: Clip.none,
-            children: [
+          Flexible(
+            child: Stack(
+              clipBehavior: Clip.none,
+              children: [
               GestureDetector(
                 onLongPress: onReact != null && messageObject != null
                     ? () {
@@ -2244,6 +2245,7 @@ class _MessageBubble extends StatelessWidget {
               // Reaction overlay se presente
               if (reaction != null) ReactionOverlay(reaction: reaction!),
             ],
+            ),
           ),
         ],
       ),
