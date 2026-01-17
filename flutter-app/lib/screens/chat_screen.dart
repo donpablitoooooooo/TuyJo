@@ -1189,10 +1189,13 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     // Crea allegati placeholder per invio ottimistico
     List<Attachment>? placeholderAttachments;
     if (attachments.isNotEmpty) {
-      placeholderAttachments = attachments.map((file) {
+      final timestamp = DateTime.now().millisecondsSinceEpoch;
+      placeholderAttachments = attachments.asMap().entries.map((entry) {
+        final index = entry.key;
+        final file = entry.value;
         final fileName = file.path.split('/').last;
         return Attachment(
-          id: 'uploading_${DateTime.now().millisecondsSinceEpoch}',
+          id: 'uploading_${timestamp}_$index', // Aggiunge index per evitare duplicate keys
           type: file.path.endsWith('.pdf') ? 'document' :
                 file.path.contains('video') ? 'video' : 'photo',
           url: '', // URL vuoto indica che è in upload
