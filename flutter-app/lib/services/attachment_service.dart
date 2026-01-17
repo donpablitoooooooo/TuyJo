@@ -117,7 +117,7 @@ class AttachmentService {
     }
   }
 
-  /// Genera thumbnail da immagine (300px lato più lungo, qualità 90)
+  /// Genera thumbnail quadrato 300x300 con center crop
   Future<Uint8List?> _generateThumbnail(Uint8List imageBytes) async {
     try {
       // Decodifica immagine per log dimensioni originali
@@ -129,9 +129,30 @@ class AttachmentService {
         print('   Aspect ratio: ${(image.width / image.height).toStringAsFixed(2)}');
       }
 
-      // Usa flutter_image_compress per resize di alta qualità mantenendo aspect ratio
+      // 1) Center crop a quadrato (usa il lato più corto come dimensione)
+      final int cropSize = image.width < image.height ? image.width : image.height;
+      final int offsetX = (image.width - cropSize) ~/ 2;
+      final int offsetY = (image.height - cropSize) ~/ 2;
+
+      final img.Image croppedImage = img.copyCrop(
+        image,
+        x: offsetX,
+        y: offsetY,
+        width: cropSize,
+        height: cropSize,
+      );
+
+      if (kDebugMode) {
+        print('✂️ Center cropped to: ${croppedImage.width}x${croppedImage.height}');
+        print('   Aspect ratio: ${(croppedImage.width / croppedImage.height).toStringAsFixed(2)}');
+      }
+
+      // 2) Converti a bytes per compressione
+      final Uint8List croppedBytes = Uint8List.fromList(img.encodeJpg(croppedImage, quality: 95));
+
+      // 3) Resize a 300x300 con flutter_image_compress (alta qualità)
       final thumbnailBytes = await FlutterImageCompress.compressWithList(
-        imageBytes,
+        croppedBytes,
         minWidth: 300,
         minHeight: 300,
         quality: 90,
@@ -142,8 +163,8 @@ class AttachmentService {
       // Decodifica thumbnail per log dimensioni finali
       final thumbnail = img.decodeImage(thumbnailBytes);
       if (thumbnail != null && kDebugMode) {
-        print('📐 Thumbnail dimensions: ${thumbnail.width}x${thumbnail.height}');
-        print('   Aspect ratio: ${(thumbnail.width / thumbnail.height).toStringAsFixed(2)}');
+        print('📐 Final thumbnail dimensions: ${thumbnail.width}x${thumbnail.height}');
+        print('   Aspect ratio: ${(thumbnail.width / thumbnail.height).toStringAsFixed(2)} (should be 1.00)');
       }
 
       if (kDebugMode) {

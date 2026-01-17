@@ -148,13 +148,13 @@ class _AttachmentImageState extends State<AttachmentImage> {
               );
             }
 
-            // Immagine decifrata visualizzata - usa tutta la larghezza della bubble
+            // Immagine decifrata visualizzata - box quadrato 200x200 (matcha thumbnail 300x300)
             return SizedBox(
-              width: double.infinity,
+              width: 200,
               height: 200,
               child: Image.memory(
                 snapshot.data!,
-                fit: BoxFit.cover, // Taglia per riempire tutta l'area
+                fit: BoxFit.cover, // Aspect ratio 1:1 → nessuna deformazione
               ),
             );
           },
