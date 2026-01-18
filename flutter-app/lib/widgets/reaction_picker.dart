@@ -85,6 +85,8 @@ class ReactionPicker extends StatelessWidget {
       color: Colors.transparent,
       child: InkWell(
         onTap: () {
+          // Rimuovi focus dalla tastiera prima di chiudere (Android)
+          FocusScope.of(context).unfocus();
           Navigator.pop(context);
           onReactionSelected(type);
         },
