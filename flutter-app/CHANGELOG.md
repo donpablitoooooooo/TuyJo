@@ -2,6 +2,23 @@
 
 Tutte le modifiche notevoli a questo progetto saranno documentate in questo file.
 
+## [1.13.1] - 2026-01-18
+
+### 🐛 Bug Fix
+
+#### Notifiche
+- **Fix badge notifiche persistente**: Risolto problema del badge che rimaneva visibile anche dopo aver letto tutti i messaggi
+  - Aggiunto metodo `clearBadge()` in `NotificationService`
+  - Badge si azzera automaticamente quando l'app viene aperta
+  - Badge si azzera quando l'app ritorna in foreground (resumed)
+  - Cancellazione automatica di tutte le notifiche dalla barra notifiche
+  - File modificati: `notification_service.dart:209-218`, `chat_screen.dart:249,383`
+
+### 🔧 Modifiche Tecniche
+- Integrazione `FlutterLocalNotificationsPlugin.cancelAll()` per pulizia notifiche
+- Chiamate automatiche a `clearBadge()` nei lifecycle hooks dell'app
+- Sincronizzazione tra stato "messaggio letto" e pulizia badge OS
+
 ## [1.8.0] - 2024-12-22
 
 ### 🍎 Supporto iOS

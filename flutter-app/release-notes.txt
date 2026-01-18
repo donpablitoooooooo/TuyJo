@@ -1,22 +1,12 @@
-Private Messaging v1.7.0
-
-NOVITÀ:
-✨ URL e indirizzi cliccabili - Tap sui link nei messaggi per aprirli nel browser
-📤 Condividi da altre app - Condividi foto/PDF da qualsiasi app in Private Messaging
-📄 Viewer PDF integrato - Visualizza PDF direttamente nell'app con zoom
-🎨 Media unificati - Tutti i media (foto, video, PDF) in un'unica pagina
-💾 Cache offline - Foto profilo visibile anche senza connessione
-
-MIGLIORAMENTI:
-⚡ Caricamento messaggi più veloce con placeholder animati
-📐 Layout documenti ottimizzato con titoli troncati
-🚀 Performance generali migliorate
+TuyJo v1.13.1
 
 BUG FIX:
-🐛 Risolto schermo bianco quando si condividono PDF
-🐛 Fix cache foto profilo che non appariva offline
-🐛 Fix layout documenti con nomi lunghi
+🔔 Risolto badge notifiche che non scompariva - Ora il badge e le notifiche si cancellano automaticamente quando apri l'app o leggi i messaggi
+
+MIGLIORAMENTI:
+✨ Pulizia automatica notifiche quando ritorni alla chat
+⚡ Migliore sincronizzazione tra messaggi letti e badge
 
 NOTE:
-⚠️ Richiede rebuild completo dell'app dopo aggiornamento
-📱 Compatibilità: Android 6.0+ (API 23)
+📱 Compatibilità: Android 6.0+ (API 23) e iOS 15.0+
+🔐 Crittografia end-to-end garantita
