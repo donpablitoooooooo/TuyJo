@@ -243,7 +243,10 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     if (state == AppLifecycleState.resumed) {
       if (_familyChatId != null && _myDeviceId != null) {
         final chatService = Provider.of<ChatService>(context, listen: false);
+        final notificationService = Provider.of<NotificationService>(context, listen: false);
         chatService.markAllMessagesAsRead(_familyChatId!, _myDeviceId!);
+        // 🔴 Azzera badge notifiche
+        notificationService.clearBadge();
         if (kDebugMode) print('📱 App resumed - marking messages as read');
       }
     }
@@ -379,6 +382,8 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       // ✅ Marca tutti i messaggi ricevuti come letti quando l'utente apre la chat
       if (_myDeviceId != null) {
         chatService.markAllMessagesAsRead(_familyChatId!, _myDeviceId!);
+        // 🔴 Azzera badge notifiche
+        notificationService.clearBadge();
       }
 
       final totalDuration = DateTime.now().difference(startTime);
