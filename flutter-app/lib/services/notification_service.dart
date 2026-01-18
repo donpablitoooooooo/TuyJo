@@ -60,7 +60,7 @@ class NotificationService {
     // 3. Richiedi permessi FCM
     NotificationSettings settings = await _firebaseMessaging.requestPermission(
       alert: true,
-      badge: true,
+      badge: false,  // Disabilitato: il badge non si resetta correttamente
       sound: true,
     );
 
@@ -98,7 +98,7 @@ class NotificationService {
     const DarwinInitializationSettings iosSettings =
         DarwinInitializationSettings(
       requestAlertPermission: true,
-      requestBadgePermission: true,
+      requestBadgePermission: false,  // Disabilitato: il badge non si resetta correttamente
       requestSoundPermission: true,
     );
 
