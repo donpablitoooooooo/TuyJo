@@ -2,7 +2,7 @@
 
 Tutte le modifiche notevoli a questo progetto saranno documentate in questo file.
 
-## [1.13.1] - 2026-01-18
+## [1.13.2] - 2026-01-18
 
 ### 🐛 Bug Fix
 
@@ -14,10 +14,18 @@ Tutte le modifiche notevoli a questo progetto saranno documentate in questo file
   - Cancellazione automatica di tutte le notifiche dalla barra notifiche
   - File modificati: `notification_service.dart:209-218`, `chat_screen.dart:249,383`
 
+#### Android
+- **Rimossa autorizzazione AD_ID**: Eliminata autorizzazione pubblicitaria non necessaria
+  - Aggiunto `tools:node="remove"` per AD_ID in AndroidManifest
+  - TuyJo non usa pubblicità né tracciamento
+  - Risolve warning Google Play Console
+  - File modificato: `AndroidManifest.xml:52-54`
+
 ### 🔧 Modifiche Tecniche
 - Integrazione `FlutterLocalNotificationsPlugin.cancelAll()` per pulizia notifiche
 - Chiamate automatiche a `clearBadge()` nei lifecycle hooks dell'app
 - Sincronizzazione tra stato "messaggio letto" e pulizia badge OS
+- Rimozione esplicita autorizzazioni pubblicitarie da manifest Android
 
 ## [1.8.0] - 2024-12-22
 
