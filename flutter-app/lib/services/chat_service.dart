@@ -240,13 +240,29 @@ class ChatService extends ChangeNotifier {
                 print('📎 Message ${message.id.substring(0, 8)} has ${message.attachments!.length} attachments');
               }
 
-              // Aggiungi solo se non esiste già in memoria
-              if (!_messages.any((m) => m.id == message.id)) {
-                // Decrypt e popola i campi
-                if (_myDeviceId != null) {
-                  _decryptAndPopulateMessage(message, _myDeviceId!);
-                }
+              // Log se il messaggio ha reaction
+              if (kDebugMode && message.reaction != null) {
+                print('⭐ Message ${message.id.substring(0, 8)} has reaction: ${message.reaction!.type}');
+              }
 
+              // Decrypt e popola i campi
+              if (_myDeviceId != null) {
+                _decryptAndPopulateMessage(message, _myDeviceId!);
+              }
+
+              // Controlla se il messaggio esiste già in memoria (caricato dalla cache)
+              final existingIndex = _messages.indexWhere((m) => m.id == message.id);
+
+              if (existingIndex != -1) {
+                // Messaggio esiste: SOSTITUISCILO con quello da Firestore
+                // Firestore è la fonte di verità e ha reactions/attachments aggiornati
+                if (kDebugMode) {
+                  print('🔄 Updating existing message ${message.id.substring(0, 8)} from Firestore');
+                }
+                _messages[existingIndex] = message;
+                newMessages.add(message); // Aggiungilo per batch save cache
+              } else {
+                // Messaggio nuovo: aggiungilo
                 _messages.add(message);
                 newMessages.add(message);
               }
@@ -881,6 +897,80 @@ class ChatService extends ChangeNotifier {
       return true;
     } catch (e) {
       if (kDebugMode) print('❌ Send message error: $e');
+      return false;
+    }
+  }
+
+  /// Aggiunge o aggiorna una reaction a un messaggio
+  Future<bool> addReaction(
+    String messageId,
+    String familyChatId,
+    String userId,
+    String reactionType, // 'love', 'ok', 'shit', 'done'
+  ) async {
+    try {
+      if (kDebugMode) {
+        print('🔄 [addReaction] Starting...');
+        print('   messageId: $messageId');
+        print('   familyChatId: $familyChatId');
+        print('   userId: $userId');
+        print('   reactionType: $reactionType');
+      }
+
+      // Crea l'oggetto reaction
+      final reaction = Reaction(
+        type: reactionType,
+        userId: userId,
+        timestamp: DateTime.now(),
+      );
+
+      // Aggiorna il messaggio in Firestore
+      final messageRef = _firestore
+          .collection('families')
+          .doc(familyChatId)
+          .collection('messages')
+          .doc(messageId);
+
+      if (kDebugMode) {
+        print('📤 [addReaction] Updating Firestore...');
+      }
+
+      await messageRef.update({
+        'reaction': reaction.toJson(),
+      });
+
+      if (kDebugMode) {
+        print('✅ [addReaction] Firestore updated successfully');
+      }
+
+      // Aggiorna il messaggio locale nella lista
+      final index = _messages.indexWhere((m) => m.id == messageId);
+      if (index != -1) {
+        _messages[index].reaction = reaction;
+
+        // Aggiorna anche la cache SQLite
+        await _cacheService.saveMessage(_messages[index], familyChatId);
+
+        if (kDebugMode) {
+          print('✅ [addReaction] Local cache updated successfully');
+        }
+
+        notifyListeners();
+      } else {
+        if (kDebugMode) {
+          print('⚠️ [addReaction] Message not found in local list');
+        }
+      }
+
+      if (kDebugMode) {
+        print('✅ [addReaction] Reaction $reactionType added to message $messageId');
+      }
+      return true;
+    } catch (e, stackTrace) {
+      if (kDebugMode) {
+        print('❌ [addReaction] Error: $e');
+        print('Stack trace: $stackTrace');
+      }
       return false;
     }
   }

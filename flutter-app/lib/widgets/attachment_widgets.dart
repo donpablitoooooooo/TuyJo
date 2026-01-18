@@ -76,23 +76,22 @@ class _AttachmentImageState extends State<AttachmentImage> {
     if (widget.attachment.url.isEmpty) {
       return ClipRRect(
         borderRadius: BorderRadius.circular(12),
-        child: SizedBox(
-          width: double.infinity,
+        child: Container(
+          width: 200,
           height: 200,
-          child: Container(
-            color: widget.isMe ? Colors.white.withOpacity(0.1) : Colors.grey[200],
-            child: Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  const CircularProgressIndicator(),
-                  const SizedBox(height: 8),
-                  Text(
-                    l10n.chatLoadingAttachment,
-                    style: const TextStyle(fontSize: 12, color: Colors.grey),
-                  ),
-                ],
-              ),
+          color: widget.isMe ? Colors.white.withOpacity(0.1) : Colors.grey[200],
+          child: Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const CircularProgressIndicator(),
+                const SizedBox(height: 8),
+                Text(
+                  l10n.chatLoadingAttachment,
+                  style: const TextStyle(fontSize: 12, color: Colors.grey),
+                ),
+              ],
             ),
           ),
         ),
@@ -130,39 +129,35 @@ class _AttachmentImageState extends State<AttachmentImage> {
 
             if (snapshot.connectionState == ConnectionState.waiting) {
               // Caricamento
-              return SizedBox(
-                width: double.infinity,
+              return Container(
+                width: 200,
                 height: 200,
-                child: Container(
-                  color: widget.isMe ? Colors.white.withOpacity(0.1) : Colors.grey[200],
-                  child: const Center(
-                    child: CircularProgressIndicator(),
-                  ),
+                color: widget.isMe ? Colors.white.withOpacity(0.1) : Colors.grey[200],
+                child: const Center(
+                  child: CircularProgressIndicator(),
                 ),
               );
             }
 
             if (snapshot.hasError || !snapshot.hasData || snapshot.data == null) {
               // Errore decifratura
-              return SizedBox(
-                width: double.infinity,
+              return Container(
+                width: 200,
                 height: 200,
-                child: Container(
-                  color: Colors.red.withOpacity(0.1),
-                  child: const Center(
-                    child: Icon(Icons.error, color: Colors.red),
-                  ),
+                color: Colors.red.withOpacity(0.1),
+                child: const Center(
+                  child: Icon(Icons.error, color: Colors.red),
                 ),
               );
             }
 
-            // Immagine decifrata visualizzata - usa tutta la larghezza della bubble
+            // Immagine decifrata visualizzata - box quadrato 200x200 (matcha thumbnail 300x300)
             return SizedBox(
-              width: double.infinity,
+              width: 200,
               height: 200,
               child: Image.memory(
                 snapshot.data!,
-                fit: BoxFit.cover, // Taglia per riempire tutta l'area
+                fit: BoxFit.cover, // Aspect ratio 1:1 → nessuna deformazione
               ),
             );
           },
@@ -203,7 +198,7 @@ class AttachmentVideo extends StatelessWidget {
       },
       child: Container(
         width: 200,
-        height: 150,
+        height: 200,
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(12),
           color: isMe ? Colors.white.withOpacity(0.1) : Colors.grey[200],
@@ -359,12 +354,14 @@ class _AttachmentDocumentState extends State<AttachmentDocument> {
     return GestureDetector(
       onTap: _openDocument,
       child: Container(
+        constraints: const BoxConstraints(minWidth: 200),
         padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(12),
           color: widget.isMe ? Colors.white.withOpacity(0.1) : Colors.grey[200],
         ),
         child: Row(
+          mainAxisSize: MainAxisSize.min,
           children: [
             Container(
               width: 40,
@@ -389,7 +386,7 @@ class _AttachmentDocumentState extends State<AttachmentDocument> {
                     ),
             ),
             const SizedBox(width: 12),
-            Expanded(
+            Flexible(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [

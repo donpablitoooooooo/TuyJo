@@ -130,6 +130,7 @@
     "chatLoadingAttachment": "Cargando...",
     "chatTodoDefault": "Todo",
     "chatLongPressToComplete": "Mantenga pulsado para completar",
+    "chatLongPressToReact": "Mantenga pulsado para reaccionar",
     "chatConfirm": "Él confirma",
     "chatLoadingImage": "Cargando imagen...",
     "chatImageLoadError": "Error al cargar la imagen",

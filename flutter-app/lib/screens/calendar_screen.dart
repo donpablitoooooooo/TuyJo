@@ -24,6 +24,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
   final Map<DateTime, List<Message>> _todosByDate = {};
   AttachmentService? _attachmentService;
   String? _myDeviceId;
+  String? _familyChatId;
   bool _isInitialized = false;
 
   @override
@@ -45,6 +46,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
     final encryptionService = Provider.of<EncryptionService>(context, listen: false);
 
     _myDeviceId = await pairingService.getMyUserId();
+    _familyChatId = await pairingService.getFamilyChatId();
 
     if (mounted) {
       setState(() {
@@ -103,6 +105,24 @@ class _CalendarScreenState extends State<CalendarScreen> {
   List<Message> _getTodosForDay(DateTime day) {
     final normalizedDay = DateTime(day.year, day.month, day.day);
     return _todosByDate[normalizedDay] ?? [];
+  }
+
+  /// Aggiunge una reaction a un messaggio
+  void _addReaction(String messageId, String reactionType) async {
+    if (_familyChatId == null || _myDeviceId == null) {
+      return;
+    }
+
+    final chatService = Provider.of<ChatService>(context, listen: false);
+
+    await chatService.addReaction(
+      messageId,
+      _familyChatId!,
+      _myDeviceId!,
+      reactionType,
+    );
+
+    if (kDebugMode) print('✅ Reaction $reactionType added to message: $messageId');
   }
 
   /// Formatta un range di date in modo intelligente
@@ -359,10 +379,11 @@ class _CalendarScreenState extends State<CalendarScreen> {
                                 itemBuilder: (context, index) {
                                   final todo = todosForSelectedDay[index];
 
-                                  // Verifica se è completato
-                                  final isCompleted = chatService.messages.any((m) =>
-                                      m.messageType == 'todo_completed' &&
-                                      m.originalTodoId == todo.id);
+                                  // Verifica se è completato (reaction DONE o messaggio todo_completed)
+                                  final isCompleted = todo.reaction?.type == 'done' ||
+                                      chatService.messages.any((m) =>
+                                          m.messageType == 'todo_completed' &&
+                                          m.originalTodoId == todo.id);
 
                                   // Determina se è stato creato da me
                                   final isMe = todo.senderId == _myDeviceId;
@@ -392,7 +413,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
                                     message: todo,
                                     isMe: isMe,
                                     isCompleted: isCompleted,
-                                    onComplete: () => _completeTodo(todo.id),
+                                    onReact: (reactionType) => _addReaction(todo.id, reactionType),
                                     formattedDate: formattedDate,
                                     attachmentService: _attachmentService,
                                     senderId: todo.senderId,

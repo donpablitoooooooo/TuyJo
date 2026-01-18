@@ -7,6 +7,7 @@ import 'package:file_picker/file_picker.dart';
 import 'package:mime/mime.dart';
 import 'package:uuid/uuid.dart';
 import 'package:image/image.dart' as img;
+import 'package:flutter_image_compress/flutter_image_compress.dart';
 import '../models/message.dart';
 import 'encryption_service.dart';
 import 'attachment_cache_service.dart';
@@ -22,23 +23,22 @@ class AttachmentService {
     _cacheService.initialize();
   }
 
-  /// Seleziona una foto dalla galleria
-  Future<File?> pickImageFromGallery() async {
+  /// Seleziona una o più foto dalla galleria (selezione multipla)
+  Future<List<File>> pickImageFromGallery() async {
     try {
-      final XFile? image = await _imagePicker.pickImage(
-        source: ImageSource.gallery,
+      final List<XFile> images = await _imagePicker.pickMultiImage(
         maxWidth: 4096,  // Qualità stampa
         maxHeight: 4096, // Qualità stampa
         imageQuality: 95, // Alta qualità per stampa
       );
 
-      if (image != null) {
-        return File(image.path);
+      if (images.isNotEmpty) {
+        return images.map((xfile) => File(xfile.path)).toList();
       }
-      return null;
+      return [];
     } catch (e) {
-      if (kDebugMode) print('❌ Error picking image: $e');
-      return null;
+      if (kDebugMode) print('❌ Error picking images: $e');
+      return [];
     }
   }
 
@@ -116,22 +116,55 @@ class AttachmentService {
     }
   }
 
-  /// Genera thumbnail da immagine (300px lato più lungo, qualità 90)
+  /// Genera thumbnail quadrato 300x300 con center crop
   Future<Uint8List?> _generateThumbnail(Uint8List imageBytes) async {
     try {
-      // Decodifica immagine
+      // Decodifica immagine per log dimensioni originali
       final image = img.decodeImage(imageBytes);
       if (image == null) return null;
 
-      // Ridimensiona mantenendo aspect ratio (300px per qualità migliore)
-      final thumbnail = img.copyResize(
+      if (kDebugMode) {
+        print('📐 Original image dimensions: ${image.width}x${image.height}');
+        print('   Aspect ratio: ${(image.width / image.height).toStringAsFixed(2)}');
+      }
+
+      // 1) Center crop a quadrato (usa il lato più corto come dimensione)
+      final int cropSize = image.width < image.height ? image.width : image.height;
+      final int offsetX = (image.width - cropSize) ~/ 2;
+      final int offsetY = (image.height - cropSize) ~/ 2;
+
+      final img.Image croppedImage = img.copyCrop(
         image,
-        width: image.width > image.height ? 300 : null,
-        height: image.height > image.width ? 300 : null,
+        x: offsetX,
+        y: offsetY,
+        width: cropSize,
+        height: cropSize,
       );
 
-      // Encode come JPEG con qualità 90 per migliore visualizzazione
-      final thumbnailBytes = img.encodeJpg(thumbnail, quality: 90);
+      if (kDebugMode) {
+        print('✂️ Center cropped to: ${croppedImage.width}x${croppedImage.height}');
+        print('   Aspect ratio: ${(croppedImage.width / croppedImage.height).toStringAsFixed(2)}');
+      }
+
+      // 2) Converti a bytes per compressione
+      final Uint8List croppedBytes = Uint8List.fromList(img.encodeJpg(croppedImage, quality: 95));
+
+      // 3) Resize a 300x300 con flutter_image_compress (alta qualità)
+      final thumbnailBytes = await FlutterImageCompress.compressWithList(
+        croppedBytes,
+        minWidth: 300,
+        minHeight: 300,
+        quality: 90,
+        format: CompressFormat.jpeg,
+        keepExif: false,
+      );
+
+      // Decodifica thumbnail per log dimensioni finali
+      final thumbnail = img.decodeImage(thumbnailBytes);
+      if (thumbnail != null && kDebugMode) {
+        print('📐 Final thumbnail dimensions: ${thumbnail.width}x${thumbnail.height}');
+        print('   Aspect ratio: ${(thumbnail.width / thumbnail.height).toStringAsFixed(2)} (should be 1.00)');
+      }
 
       if (kDebugMode) {
         print('📐 Generated thumbnail:');
@@ -139,7 +172,7 @@ class AttachmentService {
         print('   Thumbnail: ${(thumbnailBytes.length / 1024).toStringAsFixed(1)} KB');
       }
 
-      return Uint8List.fromList(thumbnailBytes);
+      return thumbnailBytes;
     } catch (e) {
       if (kDebugMode) print('❌ Error generating thumbnail: $e');
       return null;

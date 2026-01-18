@@ -130,6 +130,7 @@
     "chatLoadingAttachment": "Loading...",
     "chatTodoDefault": "Todo",
     "chatLongPressToComplete": "Press and hold to complete",
+    "chatLongPressToReact": "Press and hold to react",
     "chatConfirm": "He confirms",
     "chatLoadingImage": "Loading image...",
     "chatImageLoadError": "Image loading error",

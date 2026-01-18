@@ -7,6 +7,8 @@ import 'package:private_messaging/generated/l10n/app_localizations.dart';
 import '../models/message.dart';
 import '../services/attachment_service.dart';
 import 'attachment_widgets.dart';
+import 'reaction_picker.dart';
+import 'reaction_overlay.dart';
 
 /// Widget riutilizzabile per le bubble TODO
 /// Utilizzato sia in chat_screen che in calendar_screen
@@ -14,7 +16,7 @@ class TodoMessageBubble extends StatelessWidget {
   final Message message;
   final bool isMe;
   final bool isCompleted;
-  final VoidCallback onComplete;
+  final Function(String reactionType) onReact;
   final String? formattedDate;
   final AttachmentService? attachmentService;
   final String? senderId;
@@ -25,7 +27,7 @@ class TodoMessageBubble extends StatelessWidget {
     required this.message,
     required this.isMe,
     required this.isCompleted,
-    required this.onComplete,
+    required this.onReact,
     this.formattedDate,
     this.attachmentService,
     this.senderId,
@@ -95,11 +97,27 @@ class TodoMessageBubble extends StatelessWidget {
       child: Row(
         mainAxisAlignment: isMe ? MainAxisAlignment.end : MainAxisAlignment.start,
         children: [
-          GestureDetector(
-            onLongPress: isCompleted ? null : onComplete, // Long press per completare
-            child: Container(
+          Stack(
+            clipBehavior: Clip.none,
+            children: [
+              GestureDetector(
+                onLongPress: () {
+                  // Mostra il reaction picker
+                  ReactionPicker.show(
+                    context,
+                    onReactionSelected: onReact,
+                    message: message,
+                    attachmentService: attachmentService,
+                    currentUserId: currentUserId,
+                    senderId: senderId,
+                  );
+                },
+                child: Container(
               constraints: BoxConstraints(
-                maxWidth: MediaQuery.of(context).size.width * 0.75,
+                maxWidth: (message.attachments != null &&
+                           message.attachments!.any((a) => a.type == 'photo'))
+                    ? 200 // Larghezza fissa quando c'è una foto
+                    : MediaQuery.of(context).size.width * 0.75, // Larghezza variabile senza foto
               ),
               decoration: BoxDecoration(
                 gradient: isMe
@@ -278,21 +296,6 @@ class TodoMessageBubble extends StatelessWidget {
                               ],
                             ],
                           ),
-
-                          // Hint per long press (solo se non completato)
-                          if (!isCompleted) ...[
-                            const SizedBox(height: 6),
-                            Text(
-                              l10n.chatLongPressToComplete,
-                              style: TextStyle(
-                                fontSize: 10,
-                                color: isMe
-                                    ? Colors.white.withOpacity(0.6)
-                                    : Colors.black38,
-                                fontStyle: FontStyle.italic,
-                              ),
-                            ),
-                          ],
                         ],
                       ),
                     ),
@@ -300,6 +303,11 @@ class TodoMessageBubble extends StatelessWidget {
                 ),
               ),
             ),
+              ),
+              // Reaction overlay se presente
+              if (message.reaction != null)
+                ReactionOverlay(reaction: message.reaction!),
+            ],
           ),
         ],
       ),

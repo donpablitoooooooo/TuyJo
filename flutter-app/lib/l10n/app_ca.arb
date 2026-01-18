@@ -130,6 +130,7 @@
     "chatLoadingAttachment": "S'està carregant...",
     "chatTodoDefault": "Todo",
     "chatLongPressToComplete": "Mantingueu premut per completar",
+    "chatLongPressToReact": "Mantingueu premut per reaccionar",
     "chatConfirm": "Ell confirma",
     "chatLoadingImage": "S'està carregant la imatge...",
     "chatImageLoadError": "Error de càrrega de la imatge",

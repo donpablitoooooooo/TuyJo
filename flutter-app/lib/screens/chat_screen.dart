@@ -22,6 +22,8 @@ import '../services/attachment_service.dart';
 import '../models/message.dart';
 import '../widgets/todo_bubble.dart';
 import '../widgets/attachment_widgets.dart';
+import '../widgets/reaction_picker.dart';
+import '../widgets/reaction_overlay.dart';
 import 'pdf_viewer_screen.dart';
 
 class ChatScreen extends StatefulWidget {
@@ -521,6 +523,24 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     if (kDebugMode) print('✅ Todo marked as completed: $todoId');
   }
 
+  /// Aggiunge una reaction a un messaggio
+  void _addReaction(String messageId, String reactionType) async {
+    if (_familyChatId == null || _myDeviceId == null) {
+      return;
+    }
+
+    final chatService = Provider.of<ChatService>(context, listen: false);
+
+    await chatService.addReaction(
+      messageId,
+      _familyChatId!,
+      _myDeviceId!,
+      reactionType,
+    );
+
+    if (kDebugMode) print('✅ Reaction $reactionType added to message: $messageId');
+  }
+
   /// Formatta la data in modo colloquiale per il separatore
   /// Ritorna: "Oggi", "Ieri", "Domani", nome giorno, o data senza anno
   String _formatDateSeparator(DateTime date) {
@@ -755,10 +775,10 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                 color: Colors.blue,
                 onTap: () async {
                   Navigator.pop(context);
-                  final file = await _attachmentService!.pickImageFromGallery();
-                  if (file != null) {
+                  final files = await _attachmentService!.pickImageFromGallery();
+                  if (files.isNotEmpty) {
                     setState(() {
-                      _selectedAttachments.add(file);
+                      _selectedAttachments.addAll(files);
                     });
                   }
                 },
@@ -1169,10 +1189,13 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     // Crea allegati placeholder per invio ottimistico
     List<Attachment>? placeholderAttachments;
     if (attachments.isNotEmpty) {
-      placeholderAttachments = attachments.map((file) {
+      final timestamp = DateTime.now().millisecondsSinceEpoch;
+      placeholderAttachments = attachments.asMap().entries.map((entry) {
+        final index = entry.key;
+        final file = entry.value;
         final fileName = file.path.split('/').last;
         return Attachment(
-          id: 'uploading_${DateTime.now().millisecondsSinceEpoch}',
+          id: 'uploading_${timestamp}_$index', // Aggiunge index per evitare duplicate keys
           type: file.path.endsWith('.pdf') ? 'document' :
                 file.path.contains('video') ? 'video' : 'photo',
           url: '', // URL vuoto indica che è in upload
@@ -1575,9 +1598,11 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                             // Verifica se il todo è stato completato
                             bool isTodoCompleted = false;
                             if (message.messageType == 'todo') {
-                              isTodoCompleted = chatService.messages.any((m) =>
-                                  m.messageType == 'todo_completed' &&
-                                  m.originalTodoId == message.id);
+                              // TODO completato se ha reaction DONE oppure messaggio todo_completed
+                              isTodoCompleted = message.reaction?.type == 'done' ||
+                                  chatService.messages.any((m) =>
+                                      m.messageType == 'todo_completed' &&
+                                      m.originalTodoId == message.id);
                             }
 
                             // Determina se mostrare il separatore di data
@@ -1626,7 +1651,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                                 message: message,
                                 isMe: isMe,
                                 isCompleted: isTodoCompleted,
-                                onComplete: () => _completeTodo(message.id),
+                                onReact: (reactionType) => _addReaction(message.id, reactionType),
                                 formattedDate: formattedDate,
                                 attachmentService: _attachmentService,
                                 senderId: message.senderId,
@@ -1647,6 +1672,9 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                                 senderId: message.senderId,
                                 currentUserId: _myDeviceId,
                                 attachmentService: _attachmentService,
+                                reaction: message.reaction,
+                                onReact: (reactionType) => _addReaction(message.id, reactionType),
+                                messageObject: message,
                               );
                             }
 
@@ -1981,6 +2009,9 @@ class _MessageBubble extends StatelessWidget {
   final String? senderId; // ID del mittente del messaggio
   final String? currentUserId; // ID dell'utente corrente
   final AttachmentService? attachmentService;
+  final Reaction? reaction; // Reaction al messaggio
+  final Function(String reactionType)? onReact; // Callback per aggiungere reaction
+  final Message? messageObject; // Oggetto Message completo per il ReactionPicker
 
   const _MessageBubble({
     super.key,
@@ -1993,6 +2024,9 @@ class _MessageBubble extends StatelessWidget {
     this.senderId,
     this.currentUserId,
     this.attachmentService,
+    this.reaction,
+    this.onReact,
+    this.messageObject,
   });
 
   /// Costruisce i widget per mostrare gli allegati (decifrati)
@@ -2047,9 +2081,27 @@ class _MessageBubble extends StatelessWidget {
         mainAxisAlignment:
             isMe ? MainAxisAlignment.end : MainAxisAlignment.start,
         children: [
-          Container(
+          Stack(
+            clipBehavior: Clip.none,
+            children: [
+              GestureDetector(
+                onLongPress: onReact != null && messageObject != null
+                    ? () {
+                        ReactionPicker.show(
+                          context,
+                          onReactionSelected: onReact!,
+                          message: messageObject!,
+                          attachmentService: attachmentService,
+                          currentUserId: currentUserId,
+                          senderId: senderId,
+                        );
+                      }
+                    : null,
+                child: Container(
             constraints: BoxConstraints(
-              maxWidth: MediaQuery.of(context).size.width * 0.75,
+              maxWidth: (attachments != null && attachments!.any((a) => a.type == 'photo'))
+                  ? 200 // Larghezza fissa quando c'è una foto
+                  : MediaQuery.of(context).size.width * 0.75, // Larghezza variabile senza foto
             ),
             decoration: BoxDecoration(
               gradient: isMe
@@ -2191,6 +2243,11 @@ class _MessageBubble extends StatelessWidget {
                 ),
               ),
             ),
+                ),
+              ),
+              // Reaction overlay se presente
+              if (reaction != null) ReactionOverlay(reaction: reaction!),
+            ],
           ),
         ],
       ),

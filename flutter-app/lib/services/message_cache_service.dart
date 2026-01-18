@@ -7,7 +7,7 @@ import '../models/message.dart';
 /// Permette caricamento istantaneo, ricerca con LIKE, e lazy loading
 class MessageCacheService {
   static const String _dbName = 'messages_cache.db';
-  static const int _dbVersion = 4; // Incrementato per aggiungere colonna attachments
+  static const int _dbVersion = 5; // Incrementato per aggiungere colonna reaction
   static const String _messagesTable = 'messages';
 
   Database? _database;
@@ -66,7 +66,8 @@ class MessageCacheService {
         delivered INTEGER DEFAULT 0,
         read INTEGER DEFAULT 0,
         read_at INTEGER,
-        attachments_json TEXT
+        attachments_json TEXT,
+        reaction_json TEXT
       )
     ''');
 
@@ -101,6 +102,10 @@ class MessageCacheService {
       // Aggiungi colonna attachments_json per salvare allegati come JSON
       await db.execute('ALTER TABLE $_messagesTable ADD COLUMN attachments_json TEXT');
     }
+    if (oldVersion < 5) {
+      // Aggiungi colonna reaction_json per salvare reactions come JSON
+      await db.execute('ALTER TABLE $_messagesTable ADD COLUMN reaction_json TEXT');
+    }
   }
 
   /// Salva un messaggio nella cache
@@ -113,6 +118,12 @@ class MessageCacheService {
       attachmentsJson = json.encode(
         message.attachments!.map((a) => a.toJson()).toList(),
       );
+    }
+
+    // Serializza reaction come JSON se presente
+    String? reactionJson;
+    if (message.reaction != null) {
+      reactionJson = json.encode(message.reaction!.toJson());
     }
 
     final data = {
@@ -138,6 +149,7 @@ class MessageCacheService {
       'read': message.read == true ? 1 : 0,
       'read_at': message.readAt?.millisecondsSinceEpoch,
       'attachments_json': attachmentsJson,
+      'reaction_json': reactionJson,
     };
 
     // Inserisci o aggiorna il messaggio
@@ -160,6 +172,12 @@ class MessageCacheService {
         attachmentsJson = json.encode(
           message.attachments!.map((a) => a.toJson()).toList(),
         );
+      }
+
+      // Serializza reaction come JSON se presente
+      String? reactionJson;
+      if (message.reaction != null) {
+        reactionJson = json.encode(message.reaction!.toJson());
       }
 
       final data = {
@@ -185,6 +203,7 @@ class MessageCacheService {
         'read': message.read == true ? 1 : 0,
         'read_at': message.readAt?.millisecondsSinceEpoch,
         'attachments_json': attachmentsJson,
+        'reaction_json': reactionJson,
       };
 
       batch.insert(_messagesTable, data, conflictAlgorithm: ConflictAlgorithm.replace);
@@ -372,6 +391,19 @@ class MessageCacheService {
       }
     }
 
+    // Deserializza reaction dal JSON se presente
+    Reaction? reaction;
+    final reactionJsonString = map['reaction_json'] as String?;
+    if (reactionJsonString != null && reactionJsonString.isNotEmpty) {
+      try {
+        final Map<String, dynamic> reactionMap = json.decode(reactionJsonString);
+        reaction = Reaction.fromJson(reactionMap);
+      } catch (e) {
+        // Se c'è un errore nel parsing, ignora la reaction invece di crashare
+        reaction = null;
+      }
+    }
+
     return Message(
       id: map['id'] as String,
       senderId: map['sender_id'] as String,
@@ -398,6 +430,7 @@ class MessageCacheService {
           ? DateTime.fromMillisecondsSinceEpoch(map['read_at'] as int)
           : null,
       attachments: attachments,
+      reaction: reaction,
     );
   }
 
