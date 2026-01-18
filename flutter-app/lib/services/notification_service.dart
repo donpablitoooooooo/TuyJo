@@ -206,6 +206,17 @@ class NotificationService {
     }
   }
 
+  /// Azzera il badge dell'app (icona notifiche)
+  Future<void> clearBadge() async {
+    try {
+      // Cancella tutte le notifiche dalla barra di notifica
+      await _localNotifications.cancelAll();
+      if (kDebugMode) print('🔴 Badge cleared');
+    } catch (e) {
+      if (kDebugMode) print('❌ Error clearing badge: $e');
+    }
+  }
+
   /// Schedula una notifica con androidAllowWhileIdle per bypassare Doze mode
   Future<void> scheduleNotification({
     required int id,
