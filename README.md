@@ -2,7 +2,7 @@
 
 App di messaggistica privata per due persone con crittografia end-to-end e pairing tramite QR code.
 
-[![Status](https://img.shields.io/badge/status-v1.12.0--stable-success)](./README.md)
+[![Status](https://img.shields.io/badge/status-v1.12.1--stable-success)](./README.md)
 [![Flutter](https://img.shields.io/badge/Flutter-3.x-blue)](https://flutter.dev)
 [![Firebase](https://img.shields.io/badge/Firebase-Firestore-orange)](https://firebase.google.com)
 
@@ -62,6 +62,25 @@ App di messaggistica privata per due persone con crittografia end-to-end e pairi
 ---
 
 ## 📦 Aggiornamenti Recenti (Gennaio 2026)
+
+### 🔔 v1.12.1 - Notification Badge Fix (10 Gennaio 2026)
+
+**Bug Fix:**
+
+1. **🚫 Notification Badge Disabled**
+   - Rimosso badge notifiche che non si resettava correttamente dopo apertura app
+   - Badge rimaneva visibile anche con app aperta e messaggi letti
+   - Disabilitato `badge: false` in FCM requestPermission (Android)
+   - Disabilitato `requestBadgePermission: false` per iOS DarwinInitializationSettings
+   - Risultato: notifiche senza badge, solo alert e suono
+
+**File Modificati:**
+- `pubspec.yaml`: Version 1.12.0+13 → **1.12.1+14**
+- `notification_service.dart`:
+  - FCM: `badge: false` invece di `true`
+  - iOS: `requestBadgePermission: false` invece di `true`
+
+---
 
 ### ✨ v1.12.0 - UI/UX Polish & Real-time Sync Fixes (10 Gennaio 2026)
 
