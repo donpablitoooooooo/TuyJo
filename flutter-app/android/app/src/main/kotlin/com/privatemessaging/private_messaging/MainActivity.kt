@@ -73,7 +73,7 @@ class MainActivity: FlutterActivity() {
             }
         }
 
-        if (uris.isNotEmpty) {
+        if (uris.isNotEmpty()) {
             handleSharedMedia(uris)
         }
     }
