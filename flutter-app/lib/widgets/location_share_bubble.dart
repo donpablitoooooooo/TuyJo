@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../models/message.dart';
 import 'reaction_picker.dart';
+import 'reaction_overlay.dart';
 import '../services/attachment_service.dart';
 
 /// Widget per il bubble di condivisione posizione

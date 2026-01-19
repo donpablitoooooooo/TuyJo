@@ -890,10 +890,11 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
         // Invia messaggio di condivisione posizione
         final chatService = Provider.of<ChatService>(context, listen: false);
         final pairingService = Provider.of<PairingService>(context, listen: false);
+        final encryptionService = Provider.of<EncryptionService>(context, listen: false);
 
         final familyChatId = await pairingService.getFamilyChatId();
         final myDeviceId = await pairingService.getMyUserId();
-        final myPublicKey = pairingService.myPublicKey;
+        final myPublicKey = await encryptionService.getPublicKey();
         final partnerPublicKey = pairingService.partnerPublicKey;
 
         if (familyChatId != null &&

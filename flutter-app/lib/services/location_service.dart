@@ -16,7 +16,7 @@ class LocationService extends ChangeNotifier {
 
   // Stream subscriptions
   StreamSubscription<Position>? _positionStreamSubscription;
-  StreamSubscription<DocumentSnapshot>? _partnerLocationSubscription;
+  StreamSubscription<QuerySnapshot<Map<String, dynamic>>>? _partnerLocationSubscription;
 
   // State
   LocationShare? _myLocation;
