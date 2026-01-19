@@ -52,17 +52,26 @@ class LocationService extends ChangeNotifier {
   /// Verifica e richiede permessi di localizzazione
   Future<bool> requestLocationPermission() async {
     try {
+      if (kDebugMode) print('🔍 [LOCATION] Checking location permissions...');
+
       // Verifica se i servizi di localizzazione sono abilitati
       bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
+      if (kDebugMode) print('   GPS enabled: $serviceEnabled');
+
       if (!serviceEnabled) {
-        if (kDebugMode) print('❌ [LOCATION] Location services are disabled');
+        if (kDebugMode) print('❌ [LOCATION] Location services are disabled - user needs to enable GPS');
         return false;
       }
 
       // Verifica permessi
       LocationPermission permission = await Geolocator.checkPermission();
+      if (kDebugMode) print('   Current permission: $permission');
+
       if (permission == LocationPermission.denied) {
+        if (kDebugMode) print('   Requesting permission...');
         permission = await Geolocator.requestPermission();
+        if (kDebugMode) print('   Permission result: $permission');
+
         if (permission == LocationPermission.denied) {
           if (kDebugMode) print('❌ [LOCATION] Location permissions are denied');
           return false;
@@ -70,11 +79,11 @@ class LocationService extends ChangeNotifier {
       }
 
       if (permission == LocationPermission.deniedForever) {
-        if (kDebugMode) print('❌ [LOCATION] Location permissions are permanently denied');
+        if (kDebugMode) print('❌ [LOCATION] Location permissions are permanently denied - user needs to enable in settings');
         return false;
       }
 
-      if (kDebugMode) print('✅ [LOCATION] Location permissions granted');
+      if (kDebugMode) print('✅ [LOCATION] Location permissions granted: $permission');
       return true;
     } catch (e) {
       if (kDebugMode) print('❌ [LOCATION] Error requesting permission: $e');
@@ -108,18 +117,31 @@ class LocationService extends ChangeNotifier {
   /// duration: Duration.hours(1) o Duration.hours(8)
   Future<bool> startSharingLocation(Duration duration) async {
     try {
+      if (kDebugMode) print('🌍 [LOCATION] Attempting to start location sharing...');
+
       final hasPermission = await requestLocationPermission();
       if (!hasPermission) {
         if (kDebugMode) print('❌ [LOCATION] Cannot start sharing: no permission');
         return false;
       }
 
+      if (kDebugMode) print('✅ [LOCATION] Permissions OK, checking pairing...');
+
       // Ottieni deviceId e familyChatId
       final myUserId = await _getMyUserId();
       final familyChatId = await _getFamilyChatId();
 
+      if (kDebugMode) {
+        print('   myUserId: ${myUserId != null ? "✅ ${myUserId.substring(0, 8)}..." : "❌ NULL"}');
+        print('   familyChatId: ${familyChatId != null ? "✅ ${familyChatId.substring(0, 8)}..." : "❌ NULL"}');
+      }
+
       if (myUserId == null || familyChatId == null) {
-        if (kDebugMode) print('❌ [LOCATION] Cannot start sharing: not paired');
+        if (kDebugMode) {
+          print('❌ [LOCATION] Cannot start sharing: not paired or missing data');
+          print('   myUserId is null: ${myUserId == null}');
+          print('   familyChatId is null: ${familyChatId == null}');
+        }
         return false;
       }
 

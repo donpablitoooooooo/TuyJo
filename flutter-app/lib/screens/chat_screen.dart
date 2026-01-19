@@ -923,12 +923,25 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
           }
         }
       } else {
-        // Errore o permessi negati
+        // Errore - controlla se è un problema di pairing o permessi
         if (mounted) {
+          String errorMessage = 'Impossibile condividere la posizione.';
+
+          // Controlla se l'utente è paired
+          if (_partnerPublicKey == null) {
+            errorMessage = 'Impossibile condividere: accoppiamento mancante. Effettua il pairing prima.';
+          } else {
+            errorMessage = 'Impossibile condividere la posizione. Verifica:\n'
+                '- Permessi localizzazione attivi\n'
+                '- GPS abilitato\n'
+                '- Servizi di localizzazione attivi';
+          }
+
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Impossibile condividere la posizione. Verifica i permessi.'),
-              duration: Duration(seconds: 3),
+            SnackBar(
+              content: Text(errorMessage),
+              duration: const Duration(seconds: 5),
+              backgroundColor: Colors.red[700],
             ),
           );
         }
