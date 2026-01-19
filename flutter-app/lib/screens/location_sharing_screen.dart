@@ -29,7 +29,23 @@ class _LocationSharingScreenState extends State<LocationSharingScreen> {
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       final locationService = Provider.of<LocationService>(context, listen: false);
       locationService.startTrackingPartner();
-      await locationService.getCurrentPosition();
+
+      // Retry loop per ottenere la mia posizione
+      int retries = 0;
+      while (retries < 10 && mounted) {
+        print('📍 [NAV] Tentativo ${retries + 1} di ottenere myLocation...');
+        await locationService.getCurrentPosition();
+
+        if (locationService.myLocation != null) {
+          print('✅ [NAV] myLocation ottenuta!');
+          break;
+        }
+
+        retries++;
+        if (retries < 10) {
+          await Future.delayed(Duration(seconds: 1));
+        }
+      }
     });
   }
 
@@ -204,6 +220,11 @@ class _LocationSharingScreenState extends State<LocationSharingScreen> {
 
   /// Vista principale di navigazione
   Widget _buildNavigationView(BuildContext context, partnerLocation, myLocation) {
+    print('📍 [NAV] _buildNavigationView chiamato:');
+    print('   partnerLocation: ${partnerLocation != null ? "✅" : "❌"}');
+    print('   myLocation: ${myLocation != null ? "✅" : "❌"}');
+    print('   _heading: ${_heading != null ? "✅ ${_heading}°" : "❌"}');
+
     // Calcola distanza e direzione verso il partner
     double? distance;
     double? targetBearing;
@@ -222,6 +243,10 @@ class _LocationSharingScreenState extends State<LocationSharingScreen> {
         partnerLocation.latitude,
         partnerLocation.longitude,
       );
+      print('   targetBearing: ✅ ${targetBearing}°');
+      print('   distance: ✅ ${distance}m');
+    } else {
+      print('   ⚠️ myLocation è NULL - non posso calcolare bearing!');
     }
 
     return SafeArea(
@@ -239,7 +264,7 @@ class _LocationSharingScreenState extends State<LocationSharingScreen> {
             child: Center(
               child: _heading != null && targetBearing != null
                   ? _buildNavigationArrow(targetBearing, _heading!)
-                  : _buildCompassWarning(),
+                  : _buildWaitingForData(myLocation),
             ),
           ),
 
@@ -334,8 +359,25 @@ class _LocationSharingScreenState extends State<LocationSharingScreen> {
     );
   }
 
-  /// Warning se la bussola non è disponibile
-  Widget _buildCompassWarning() {
+  /// Messaggio di attesa quando mancano dati (GPS o bussola)
+  Widget _buildWaitingForData(myLocation) {
+    String message;
+    String hint;
+
+    if (myLocation == null) {
+      // Problema: non ho la mia posizione GPS
+      message = 'Acquisizione GPS...';
+      hint = 'Assicurati di essere all\'aperto';
+    } else if (_heading == null) {
+      // Problema: non ho la bussola
+      message = 'Calibrazione bussola...';
+      hint = 'Muovi il telefono a forma di 8';
+    } else {
+      // Problema generico
+      message = 'Caricamento...';
+      hint = '';
+    }
+
     return Column(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
@@ -350,7 +392,7 @@ class _LocationSharingScreenState extends State<LocationSharingScreen> {
         ),
         SizedBox(height: 30),
         Text(
-          'Calibrazione bussola...',
+          message,
           style: TextStyle(
             color: Colors.white,
             fontSize: 18,
@@ -358,15 +400,17 @@ class _LocationSharingScreenState extends State<LocationSharingScreen> {
             letterSpacing: 1.2,
           ),
         ),
-        SizedBox(height: 12),
-        Text(
-          'Muovi il telefono a forma di 8',
-          style: TextStyle(
-            color: Colors.white60,
-            fontSize: 14,
-            fontWeight: FontWeight.w300,
+        if (hint.isNotEmpty) ...[
+          SizedBox(height: 12),
+          Text(
+            hint,
+            style: TextStyle(
+              color: Colors.white60,
+              fontSize: 14,
+              fontWeight: FontWeight.w300,
+            ),
           ),
-        ),
+        ],
         if (_compassRetryCount > 5) ...[
           SizedBox(height: 20),
           Text(
