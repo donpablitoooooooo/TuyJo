@@ -154,7 +154,23 @@ class LocationService extends ChangeNotifier {
         print('   Expires at: $_sharingExpiresAt');
       }
 
-      // Avvia stream di posizione
+      // IMPORTANTE: Ottieni posizione iniziale PRIMA di avviare lo stream
+      // Se non riesci ad ottenere GPS, non permettere la condivisione
+      if (kDebugMode) print('📍 [LOCATION] Verifico disponibilità GPS...');
+      final initialPosition = await getCurrentPosition();
+
+      if (initialPosition == null) {
+        if (kDebugMode) print('❌ [LOCATION] GPS non disponibile - impossibile condividere');
+        _isSharingLocation = false;
+        return false;
+      }
+
+      if (kDebugMode) print('✅ [LOCATION] GPS disponibile, avvio condivisione');
+
+      // Salva posizione iniziale
+      await _updateMyLocationToFirestore(initialPosition, myUserId, familyChatId);
+
+      // Avvia stream di posizione per aggiornamenti continui
       _positionStreamSubscription = Geolocator.getPositionStream(
         locationSettings: const LocationSettings(
           accuracy: LocationAccuracy.high,
@@ -163,12 +179,6 @@ class LocationService extends ChangeNotifier {
       ).listen((Position position) {
         _updateMyLocationToFirestore(position, myUserId, familyChatId);
       });
-
-      // Ottieni e salva posizione iniziale immediatamente
-      final initialPosition = await getCurrentPosition();
-      if (initialPosition != null) {
-        await _updateMyLocationToFirestore(initialPosition, myUserId, familyChatId);
-      }
 
       notifyListeners();
       return true;

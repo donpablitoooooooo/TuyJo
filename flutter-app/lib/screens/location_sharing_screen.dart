@@ -33,11 +33,9 @@ class _LocationSharingScreenState extends State<LocationSharingScreen> {
       // Retry loop per ottenere la mia posizione
       int retries = 0;
       while (retries < 10 && mounted) {
-        print('📍 [NAV] Tentativo ${retries + 1} di ottenere myLocation...');
         await locationService.getCurrentPosition();
 
         if (locationService.myLocation != null) {
-          print('✅ [NAV] myLocation ottenuta!');
           break;
         }
 
@@ -61,22 +59,13 @@ class _LocationSharingScreenState extends State<LocationSharingScreen> {
     final compassStream = FlutterCompass.events;
 
     if (compassStream != null) {
-      print('🧭 [COMPASS] Stream disponibile, avvio listener');
       _compassSubscription = compassStream.listen(
         (CompassEvent event) {
-          if (mounted) {
-            if (event.heading != null) {
-              print('🧭 [COMPASS] Heading ricevuto: ${event.heading}°');
-              setState(() {
-                _heading = event.heading;
-              });
-            } else {
-              print('🧭 [COMPASS] Evento ricevuto ma heading è NULL');
-            }
+          if (mounted && event.heading != null) {
+            setState(() {
+              _heading = event.heading;
+            });
           }
-        },
-        onError: (error) {
-          print('❌ [COMPASS] ERRORE nel listener: $error');
         },
         cancelOnError: false,
       );
@@ -86,7 +75,6 @@ class _LocationSharingScreenState extends State<LocationSharingScreen> {
     } else {
       // Stream non disponibile, riprova ogni secondo
       _compassRetryCount++;
-      print('🧭 [COMPASS] Stream è NULL, retry #$_compassRetryCount');
 
       if (_compassRetryTimer == null) {
         _compassRetryTimer = Timer.periodic(Duration(seconds: 1), (timer) {
@@ -184,9 +172,10 @@ class _LocationSharingScreenState extends State<LocationSharingScreen> {
             ],
           ),
         ),
-        child: partnerLocation == null
-            ? _buildWaitingView()
-            : _buildNavigationView(context, partnerLocation, myLocation),
+        // Rimuoviamo il check su partnerLocation - SEMPRE mostra navigazione
+        child: partnerLocation != null
+            ? _buildNavigationView(context, partnerLocation, myLocation)
+            : _buildWaitingView(), // Solo se partner non ha ancora condiviso
       ),
     );
   }
@@ -220,11 +209,6 @@ class _LocationSharingScreenState extends State<LocationSharingScreen> {
 
   /// Vista principale di navigazione
   Widget _buildNavigationView(BuildContext context, partnerLocation, myLocation) {
-    print('📍 [NAV] _buildNavigationView chiamato:');
-    print('   partnerLocation: ${partnerLocation != null ? "✅" : "❌"}');
-    print('   myLocation: ${myLocation != null ? "✅" : "❌"}');
-    print('   _heading: ${_heading != null ? "✅ ${_heading}°" : "❌"}');
-
     // Calcola distanza e direzione verso il partner
     double? distance;
     double? targetBearing;
@@ -243,10 +227,6 @@ class _LocationSharingScreenState extends State<LocationSharingScreen> {
         partnerLocation.latitude,
         partnerLocation.longitude,
       );
-      print('   targetBearing: ✅ ${targetBearing}°');
-      print('   distance: ✅ ${distance}m');
-    } else {
-      print('   ⚠️ myLocation è NULL - non posso calcolare bearing!');
     }
 
     return SafeArea(
@@ -259,18 +239,17 @@ class _LocationSharingScreenState extends State<LocationSharingScreen> {
 
           SizedBox(height: 80),
 
-          // FRECCIA CHE RUOTA = DIREZIONE IN CUI STO ANDANDO
+          // FRECCIA o CERCHIO
           Expanded(
             child: Center(
               child: _heading != null && targetBearing != null
-                  ? _buildNavigationArrow(targetBearing, _heading!)
-                  : _buildWaitingForData(myLocation),
+                  ? _buildNavigationArrow(targetBearing, _heading!) // Freccia che ruota
+                  : _buildStaticCircle(), // Cerchio fisso se bussola non disponibile
             ),
           ),
 
-          // INFO: DISTANZA E TIMESTAMP
-          if (distance != null)
-            _buildInfoPanel(distance, partnerLocation.timestamp),
+          // INFO: DISTANZA E TIMESTAMP (sempre visibile)
+          _buildInfoPanel(distance, partnerLocation.timestamp, myLocation == null),
 
           SizedBox(height: 40),
         ],
@@ -359,75 +338,46 @@ class _LocationSharingScreenState extends State<LocationSharingScreen> {
     );
   }
 
-  /// Messaggio di attesa quando mancano dati (GPS o bussola)
-  Widget _buildWaitingForData(myLocation) {
-    String message;
-    String hint;
-
-    if (myLocation == null) {
-      // Problema: non ho la mia posizione GPS
-      message = 'Acquisizione GPS...';
-      hint = 'Assicurati di essere all\'aperto';
-    } else if (_heading == null) {
-      // Problema: non ho la bussola
-      message = 'Calibrazione bussola...';
-      hint = 'Muovi il telefono a forma di 8';
-    } else {
-      // Problema generico
-      message = 'Caricamento...';
-      hint = '';
-    }
-
+  /// Cerchio fisso quando la bussola non è disponibile
+  Widget _buildStaticCircle() {
     return Column(
-      mainAxisAlignment: MainAxisAlignment.center,
+      mainAxisSize: MainAxisSize.min,
       children: [
-        // Loading indicator animato
-        SizedBox(
-          width: 80,
-          height: 80,
-          child: CircularProgressIndicator(
-            color: Colors.white38,
-            strokeWidth: 2,
+        Container(
+          width: 140,
+          height: 140,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            color: Colors.white.withOpacity(0.3),
+            border: Border.all(
+              color: Colors.white,
+              width: 3,
+            ),
+          ),
+          child: Center(
+            child: Icon(
+              Icons.explore_off,
+              size: 60,
+              color: Colors.white,
+            ),
           ),
         ),
-        SizedBox(height: 30),
+        SizedBox(height: 40),
         Text(
-          message,
+          'Bussola non disponibile',
           style: TextStyle(
             color: Colors.white,
-            fontSize: 18,
+            fontSize: 16,
             fontWeight: FontWeight.w300,
             letterSpacing: 1.2,
           ),
         ),
-        if (hint.isNotEmpty) ...[
-          SizedBox(height: 12),
-          Text(
-            hint,
-            style: TextStyle(
-              color: Colors.white60,
-              fontSize: 14,
-              fontWeight: FontWeight.w300,
-            ),
-          ),
-        ],
-        if (_compassRetryCount > 5) ...[
-          SizedBox(height: 20),
-          Text(
-            'Tentativo ${_compassRetryCount}...',
-            style: TextStyle(
-              color: Colors.white38,
-              fontSize: 12,
-              fontWeight: FontWeight.w300,
-            ),
-          ),
-        ],
       ],
     );
   }
 
   /// Pannello info minimal in basso
-  Widget _buildInfoPanel(double distance, DateTime timestamp) {
+  Widget _buildInfoPanel(double? distance, DateTime timestamp, bool gpsUnavailable) {
     return Container(
       margin: EdgeInsets.symmetric(horizontal: 32),
       padding: EdgeInsets.symmetric(vertical: 24, horizontal: 32),
@@ -441,13 +391,14 @@ class _LocationSharingScreenState extends State<LocationSharingScreen> {
       ),
       child: Column(
         children: [
+          // Distanza o messaggio GPS non disponibile
           Text(
-            _formatDistance(distance),
+            gpsUnavailable ? 'GPS non disponibile' : (distance != null ? _formatDistance(distance) : '---'),
             style: TextStyle(
               color: Colors.white,
-              fontSize: 48,
+              fontSize: gpsUnavailable ? 24 : 48,
               fontWeight: FontWeight.w200,
-              letterSpacing: 2,
+              letterSpacing: gpsUnavailable ? 1.0 : 2.0,
             ),
           ),
           SizedBox(height: 16),
