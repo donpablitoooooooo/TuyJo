@@ -801,6 +801,7 @@ class ChatService extends ChangeNotifier {
   /// Invia messaggio di condivisione posizione
   Future<bool> sendLocationShare(
     DateTime expiresAt,
+    String sessionId,
     String familyChatId,
     String senderId,
     String senderPublicKey,
@@ -809,13 +810,14 @@ class ChatService extends ChangeNotifier {
     try {
       final timestamp = DateTime.now();
 
-      // Costruisci il plaintext con type='location_share' e expires_at
+      // Costruisci il plaintext con type='location_share', expires_at e session_id
       final locationData = {
         'sender': senderId,
         'timestamp': timestamp.millisecondsSinceEpoch ~/ 1000,
         'type': 'location_share',
-        'body': 'location_share|${expiresAt.toIso8601String()}',
+        'body': 'location_share|${expiresAt.toIso8601String()}|$sessionId',
         'expires_at': expiresAt.toIso8601String(),
+        'session_id': sessionId,
       };
 
       final plaintext = json.encode(locationData);

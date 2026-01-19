@@ -899,9 +899,11 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
         if (familyChatId != null &&
             myDeviceId != null &&
             myPublicKey != null &&
-            partnerPublicKey != null) {
+            partnerPublicKey != null &&
+            locationService.currentSessionId != null) {
           final messageSent = await chatService.sendLocationShare(
             expiresAt,
+            locationService.currentSessionId!, // Session ID univoco
             familyChatId,
             myDeviceId,
             myPublicKey,
