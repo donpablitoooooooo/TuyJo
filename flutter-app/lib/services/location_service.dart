@@ -241,8 +241,17 @@ class LocationService extends ChangeNotifier {
           .collection('locations')
           .snapshots()
           .listen((querySnapshot) {
+        if (kDebugMode) {
+          print('👀 [LOCATION] Locations snapshot received:');
+          print('   Total docs: ${querySnapshot.docs.length}');
+          print('   My userId: $myUserId');
+          for (var doc in querySnapshot.docs) {
+            print('   - Doc ID: ${doc.id} ${doc.id == myUserId ? "(ME)" : "(PARTNER)"}');
+          }
+        }
+
         if (querySnapshot.docs.isEmpty) {
-          if (kDebugMode) print('👀 [LOCATION] No partner location found');
+          if (kDebugMode) print('❌ [LOCATION] No locations found in collection');
           _partnerLocation = null;
           notifyListeners();
           return;
@@ -256,7 +265,7 @@ class LocationService extends ChangeNotifier {
 
         if (partnerDoc.id == myUserId) {
           // Non c'è il partner, solo io
-          if (kDebugMode) print('👀 [LOCATION] Only my location found, no partner');
+          if (kDebugMode) print('⚠️ [LOCATION] Only my location found, no partner yet');
           _partnerLocation = null;
           notifyListeners();
           return;
@@ -331,6 +340,12 @@ class LocationService extends ChangeNotifier {
         isActive: true,
       );
 
+      if (kDebugMode) {
+        print('📤 [LOCATION] Writing to Firestore:');
+        print('   Path: families/$familyChatId/locations/$myUserId');
+        print('   Position: ${position.latitude}, ${position.longitude}');
+      }
+
       await _firestore
           .collection('families')
           .doc(familyChatId)
@@ -341,8 +356,7 @@ class LocationService extends ChangeNotifier {
       _myLocation = locationShare;
 
       if (kDebugMode) {
-        print('📍 [LOCATION] Updated my location to Firestore');
-        print('   Position: ${position.latitude}, ${position.longitude}');
+        print('✅ [LOCATION] Successfully wrote location to Firestore');
         print('   Speed: ${position.speed} m/s, Heading: ${position.heading}°');
       }
 
