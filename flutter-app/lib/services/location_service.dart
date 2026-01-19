@@ -214,9 +214,15 @@ class LocationService extends ChangeNotifier {
 
   /// Inizia a monitorare la posizione del partner
   Future<void> startTrackingPartner() async {
+    if (kDebugMode) print('🎯 [LOCATION] startTrackingPartner() CALLED');
     try {
       final familyChatId = await _getFamilyChatId();
       final myUserId = await _getMyUserId();
+
+      if (kDebugMode) {
+        print('   familyChatId: ${familyChatId != null ? "✅ ${familyChatId.substring(0, 8)}..." : "❌ NULL"}');
+        print('   myUserId: ${myUserId != null ? "✅ ${myUserId.substring(0, 8)}..." : "❌ NULL"}');
+      }
 
       if (familyChatId == null || myUserId == null) {
         if (kDebugMode) print('❌ [LOCATION] Cannot track partner: not paired');
@@ -288,6 +294,12 @@ class LocationService extends ChangeNotifier {
         }
 
         notifyListeners();
+      }, onError: (error) {
+        if (kDebugMode) {
+          print('❌ [LOCATION] Firestore listener ERROR:');
+          print('   Error: $error');
+          print('   This likely means Firestore rules are not deployed yet!');
+        }
       });
 
       notifyListeners();
