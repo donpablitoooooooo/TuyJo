@@ -681,20 +681,28 @@ class AttachmentLocationShare extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final locationService = Provider.of<LocationService>(context);
-    final customText = _getCustomText();
-    final timeRemaining = _getTimeRemaining();
-    final isExpired = _isExpired();
     final messageSessionId = _getSessionId();
+    final isExpired = _isExpired();
 
     // Verifica se questa è una sessione vecchia (non più attiva)
     final isOldSession = locationService.currentSessionId != null &&
         messageSessionId.isNotEmpty &&
         messageSessionId != locationService.currentSessionId;
 
-    // Mostra testo barrato se scaduta O se è una sessione vecchia
-    final shouldStrikethrough = isExpired || isOldSession;
+    // Verifica se la condivisione è stata interrotta tramite reaction "done"
+    final hasStopReaction = message.reaction?.type == 'done';
 
-    final bubbleColor = isMe ? const Color(0xFF3BA8B0) : Colors.grey.shade300;
+    // Condivisione terminata se:
+    // - Scaduta
+    // - Sessione vecchia (ne è stata aperta una nuova)
+    // - Reaction "done" presente
+    final isTerminated = isExpired || isOldSession || hasStopReaction;
+
+    // Testo della bubble
+    final String statusText = isTerminated
+        ? 'Condivisione posizione terminata'
+        : 'Condivisione posizione attiva';
+
     final textColor = isMe ? Colors.white : Colors.black87;
 
     return GestureDetector(
@@ -702,27 +710,30 @@ class AttachmentLocationShare extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Thumbnail con gradiente e icona pin (100px height)
+          // Thumbnail con gradiente (attivo) o grigio (terminato)
           ClipRRect(
             borderRadius: BorderRadius.circular(12),
             child: Container(
               width: 200,
               height: 100,
-              decoration: const BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  colors: [
-                    Color(0xFF3BA8B0),
-                    Color(0xFF145A60),
-                  ],
-                ),
+              decoration: BoxDecoration(
+                gradient: isTerminated
+                    ? null // No gradient se terminato
+                    : const LinearGradient(
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                        colors: [
+                          Color(0xFF3BA8B0),
+                          Color(0xFF145A60),
+                        ],
+                      ),
+                color: isTerminated ? Colors.grey.shade400 : null, // Grigio se terminato
               ),
-              child: const Center(
+              child: Center(
                 child: Icon(
                   Icons.location_on,
                   size: 48,
-                  color: Colors.white,
+                  color: isTerminated ? Colors.white70 : Colors.white,
                 ),
               ),
             ),
@@ -734,24 +745,23 @@ class AttachmentLocationShare extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Testo (con strikethrough se scaduto o sessione vecchia)
-                // Stile identico ai todo: fontSize 15, height 1.4
-                // Italic se è il testo di default "Posizione"
+                // Testo stato condivisione
+                // Stile identico ai todo: fontSize 15, height 1.4, italic
                 Text(
-                  customText,
+                  statusText,
                   style: TextStyle(
                     color: textColor,
                     fontSize: 15,
                     height: 1.4,
-                    fontStyle: customText == 'Posizione' ? FontStyle.italic : null,
-                    decoration: shouldStrikethrough ? TextDecoration.lineThrough : null,
+                    fontStyle: FontStyle.italic,
+                    decoration: isTerminated ? TextDecoration.lineThrough : null,
                   ),
                 ),
 
                 const SizedBox(height: 6),
 
-                // Countdown con icona orologio
-                if (timeRemaining.isNotEmpty)
+                // Countdown con icona orologio (solo se attiva)
+                if (!isTerminated)
                   Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
@@ -762,7 +772,7 @@ class AttachmentLocationShare extends StatelessWidget {
                       ),
                       const SizedBox(width: 4),
                       Text(
-                        timeRemaining,
+                        _getTimeRemaining(),
                         style: TextStyle(
                           color: isMe ? Colors.white70 : Colors.black54,
                           fontSize: 12,
@@ -771,7 +781,7 @@ class AttachmentLocationShare extends StatelessWidget {
                     ],
                   ),
 
-                const SizedBox(height: 6),
+                if (!isTerminated) const SizedBox(height: 6),
 
                 // Orario e spunte
                 Row(
