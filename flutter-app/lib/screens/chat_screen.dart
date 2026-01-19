@@ -2167,8 +2167,7 @@ class _MessageBubble extends StatelessWidget {
           isMe: isMe,
           onTap: () {
             // Apri schermata di navigazione
-            final locationService = Provider.of<LocationService>(context, listen: false);
-            locationService.startTrackingPartner();
+            // startTrackingPartner viene chiamato in LocationSharingScreen.initState
             Navigator.push(
               context,
               MaterialPageRoute(

@@ -115,6 +115,11 @@ class _LocationSharingScreenState extends State<LocationSharingScreen> {
     final partnerLocation = locationService.partnerLocation;
     final myLocation = locationService.myLocation;
 
+    // Debug: verifica quando il widget rebuilda e quali valori ha
+    print('🔄 [UI] LocationSharingScreen rebuild:');
+    print('   partnerLocation: ${partnerLocation != null ? "✅ FOUND (${partnerLocation.latitude}, ${partnerLocation.longitude})" : "❌ NULL"}');
+    print('   myLocation: ${myLocation != null ? "✅ FOUND" : "❌ NULL"}');
+
     return Scaffold(
       backgroundColor: Colors.black,
       appBar: AppBar(

@@ -223,6 +223,13 @@ class LocationService extends ChangeNotifier {
         return;
       }
 
+      // Cancella subscription esistente se presente
+      if (_partnerLocationSubscription != null) {
+        if (kDebugMode) print('👀 [LOCATION] Canceling existing partner tracking subscription');
+        await _partnerLocationSubscription?.cancel();
+        _partnerLocationSubscription = null;
+      }
+
       if (kDebugMode) print('👀 [LOCATION] Starting to track partner location');
 
       _isTrackingPartner = true;

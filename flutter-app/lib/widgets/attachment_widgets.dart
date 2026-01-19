@@ -647,19 +647,14 @@ class AttachmentLocationShare extends StatelessWidget {
         child: Container(
           width: 200,
           height: 200,
-          decoration: BoxDecoration(
+          decoration: const BoxDecoration(
             gradient: LinearGradient(
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
-              colors: isMe
-                  ? [
-                      const Color(0xFFFF9800),
-                      const Color(0xFFF57C00),
-                    ]
-                  : [
-                      Colors.orange[300]!,
-                      Colors.orange[200]!,
-                    ],
+              colors: [
+                Color(0xFF3BA8B0), // Colore app
+                Color(0xFF145A60), // Colore app scuro
+              ],
             ),
           ),
           child: Stack(
@@ -675,22 +670,21 @@ class AttachmentLocationShare extends StatelessWidget {
                 ),
               ),
               // Contenuto
-              Padding(
-                padding: const EdgeInsets.all(16),
+              Center(
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Icon(
+                    const Icon(
                       Icons.location_on,
-                      size: 48,
-                      color: isMe ? Colors.white : Colors.orange[900],
+                      size: 56,
+                      color: Colors.white,
                     ),
                     const SizedBox(height: 12),
-                    Text(
-                      isMe ? 'La mia posizione' : 'Posizione',
+                    const Text(
+                      'Posizione',
                       style: TextStyle(
-                        color: isMe ? Colors.white : Colors.orange[900],
-                        fontSize: 16,
+                        color: Colors.white,
+                        fontSize: 18,
                         fontWeight: FontWeight.bold,
                       ),
                       textAlign: TextAlign.center,
@@ -700,28 +694,10 @@ class AttachmentLocationShare extends StatelessWidget {
                       Text(
                         expiresText,
                         style: TextStyle(
-                          color: isMe ? Colors.white.withOpacity(0.9) : Colors.orange[800],
-                          fontSize: 13,
+                          color: Colors.white.withOpacity(0.85),
+                          fontSize: 14,
                         ),
                         textAlign: TextAlign.center,
-                      ),
-                    ],
-                    if (!isMe) ...[
-                      const SizedBox(height: 16),
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                        decoration: BoxDecoration(
-                          color: Colors.orange[900],
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: const Text(
-                          'Tocca per visualizzare',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 11,
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
                       ),
                     ],
                   ],
