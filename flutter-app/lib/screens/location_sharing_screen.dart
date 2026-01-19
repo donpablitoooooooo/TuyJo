@@ -318,25 +318,75 @@ class _LocationSharingScreenState extends State<LocationSharingScreen> {
         children: [
           SizedBox(height: 60),
 
-          // PUNTO FISSO IN ALTO = DESTINAZIONE
-          _buildDestinationPoint(),
+          // Se è il mittente, mostra solo messaggio statico
+          // Se è il destinatario, mostra punto destinazione + freccia
+          if (widget.isSender) ...[
+            // MITTENTE: messaggio statico
+            _buildSenderView(partnerLocation.expiresAt),
+          ] else ...[
+            // DESTINATARIO: punto fisso in alto + freccia navigazione
+            _buildDestinationPoint(),
 
-          SizedBox(height: 80),
+            SizedBox(height: 80),
 
-          // FRECCIA o CERCHIO
-          Expanded(
-            child: Center(
-              child: _heading != null && targetBearing != null
-                  ? _buildNavigationArrow(targetBearing, _heading!) // Freccia che ruota
-                  : _buildStaticCircle(), // Cerchio fisso se bussola non disponibile
+            // FRECCIA o CERCHIO
+            Expanded(
+              child: Center(
+                child: _heading != null && targetBearing != null
+                    ? _buildNavigationArrow(targetBearing, _heading!) // Freccia che ruota
+                    : _buildStaticCircle(), // Cerchio fisso se bussola non disponibile
+              ),
             ),
-          ),
+          ],
 
-          // INFO: DISTANZA E TIMESTAMP (sempre visibile)
+          // INFO: DISTANZA E TIMESTAMP (sempre visibile per entrambi)
           _buildInfoPanel(distance, partnerLocation.timestamp, _myPosition == null),
 
           SizedBox(height: 40),
         ],
+      ),
+    );
+  }
+
+  /// Vista per il mittente (chi condivide)
+  Widget _buildSenderView(DateTime expiresAt) {
+    final timeFormat = DateFormat('HH:mm');
+    final expiresAtFormatted = timeFormat.format(expiresAt);
+
+    return Expanded(
+      child: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              Icons.share_location,
+              size: 80,
+              color: Colors.white.withOpacity(0.9),
+            ),
+            SizedBox(height: 40),
+            Text(
+              'Stai condividendo la\ntua posizione fino alle',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                color: Colors.white.withOpacity(0.9),
+                fontSize: 20,
+                fontWeight: FontWeight.w300,
+                height: 1.4,
+                letterSpacing: 0.5,
+              ),
+            ),
+            SizedBox(height: 16),
+            Text(
+              expiresAtFormatted,
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 48,
+                fontWeight: FontWeight.w200,
+                letterSpacing: 2.0,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
