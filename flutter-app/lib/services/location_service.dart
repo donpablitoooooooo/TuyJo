@@ -264,12 +264,15 @@ class LocationService extends ChangeNotifier {
         }
 
         // Trova il documento del partner (non il mio)
-        final partnerDoc = querySnapshot.docs.firstWhere(
-          (doc) => doc.id != myUserId,
-          orElse: () => querySnapshot.docs.first, // fallback
-        );
+        QueryDocumentSnapshot<Map<String, dynamic>>? partnerDoc;
+        for (var doc in querySnapshot.docs) {
+          if (doc.id != myUserId) {
+            partnerDoc = doc;
+            break;
+          }
+        }
 
-        if (partnerDoc.id == myUserId) {
+        if (partnerDoc == null) {
           // Non c'è il partner, solo io
           if (kDebugMode) print('⚠️ [LOCATION] Only my location found, no partner yet');
           _partnerLocation = null;
