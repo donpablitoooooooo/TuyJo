@@ -342,10 +342,13 @@ class LocationService extends ChangeNotifier {
         return;
       }
 
+      // ⚠️ TEST: Aggiungi offset di 1km alla latitudine per testare navigazione
+      final testLatOffset = 0.009; // circa 1km
+
       final locationShare = LocationShare(
         id: myUserId,
         userId: myUserId,
-        latitude: position.latitude,
+        latitude: position.latitude + testLatOffset, // OFFSET TEST
         longitude: position.longitude,
         accuracy: position.accuracy,
         timestamp: DateTime.now(),
@@ -358,7 +361,8 @@ class LocationService extends ChangeNotifier {
       if (kDebugMode) {
         print('📤 [LOCATION] Writing to Firestore:');
         print('   Path: families/$familyChatId/locations/$myUserId');
-        print('   Position: ${position.latitude}, ${position.longitude}');
+        print('   Position REALE: ${position.latitude}, ${position.longitude}');
+        print('   Position TEST (+1km): ${position.latitude + testLatOffset}, ${position.longitude}');
       }
 
       await _firestore

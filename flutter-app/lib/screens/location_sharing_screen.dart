@@ -46,20 +46,31 @@ class _LocationSharingScreenState extends State<LocationSharingScreen> {
 
     if (compassStream != null) {
       print('🧭 [COMPASS] Stream disponibile, avvio listener');
-      _compassSubscription = compassStream.listen((CompassEvent event) {
-        if (mounted && event.heading != null) {
-          setState(() {
-            _heading = event.heading;
-          });
-        }
-      });
+      _compassSubscription = compassStream.listen(
+        (CompassEvent event) {
+          if (mounted) {
+            if (event.heading != null) {
+              print('🧭 [COMPASS] Heading ricevuto: ${event.heading}°');
+              setState(() {
+                _heading = event.heading;
+              });
+            } else {
+              print('🧭 [COMPASS] Evento ricevuto ma heading è NULL');
+            }
+          }
+        },
+        onError: (error) {
+          print('❌ [COMPASS] ERRORE nel listener: $error');
+        },
+        cancelOnError: false,
+      );
       // Annulla il retry timer se la bussola è disponibile
       _compassRetryTimer?.cancel();
       _compassRetryTimer = null;
     } else {
       // Stream non disponibile, riprova ogni secondo
       _compassRetryCount++;
-      print('🧭 [COMPASS] Stream non disponibile, retry #$_compassRetryCount');
+      print('🧭 [COMPASS] Stream è NULL, retry #$_compassRetryCount');
 
       if (_compassRetryTimer == null) {
         _compassRetryTimer = Timer.periodic(Duration(seconds: 1), (timer) {
