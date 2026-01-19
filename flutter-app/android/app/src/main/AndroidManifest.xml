@@ -142,6 +142,11 @@
             android:name="com.google.firebase.messaging.default_notification_channel_id"
             android:value="messages_channel" />
 
+        <!-- Disabilita raccolta AD_ID da Google Play Services / Analytics -->
+        <meta-data
+            android:name="google_analytics_adid_collection_enabled"
+            android:value="false" />
+
         <!-- Receivers per scheduled notifications -->
         <receiver android:exported="false" android:name="com.dexterous.flutterlocalnotifications.ScheduledNotificationReceiver" />
         <receiver android:exported="false" android:name="com.dexterous.flutterlocalnotifications.ScheduledNotificationBootReceiver">
