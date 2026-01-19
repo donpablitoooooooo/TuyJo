@@ -24,10 +24,13 @@ class _LocationSharingScreenState extends State<LocationSharingScreen> {
     super.initState();
     _startCompass();
 
-    // Avvia tracking del partner
-    WidgetsBinding.instance.addPostFrameCallback((_) {
+    // Avvia tracking del partner E ottieni la mia posizione per calcolare distanza
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
       final locationService = Provider.of<LocationService>(context, listen: false);
       locationService.startTrackingPartner();
+
+      // Ottieni la mia posizione corrente per calcolare distanza
+      await locationService.getCurrentPosition();
     });
   }
 
@@ -142,17 +145,35 @@ class _LocationSharingScreenState extends State<LocationSharingScreen> {
   /// Vista quando non c'è posizione del partner
   Widget _buildWaitingView() {
     return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(Icons.location_searching, size: 80, color: Colors.white54),
-          SizedBox(height: 20),
-          Text(
-            'In attesa della posizione del partner...',
-            style: TextStyle(color: Colors.white70, fontSize: 18),
-            textAlign: TextAlign.center,
-          ),
-        ],
+      child: Padding(
+        padding: const EdgeInsets.all(32.0),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            CircularProgressIndicator(
+              color: Colors.tealAccent,
+              strokeWidth: 3,
+            ),
+            SizedBox(height: 30),
+            Icon(Icons.location_searching, size: 60, color: Colors.white54),
+            SizedBox(height: 20),
+            Text(
+              'In attesa della posizione del partner...',
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            SizedBox(height: 12),
+            Text(
+              'Il partner deve avere il GPS attivo e la condivisione in corso',
+              style: TextStyle(color: Colors.white54, fontSize: 14),
+              textAlign: TextAlign.center,
+            ),
+          ],
+        ),
       ),
     );
   }
