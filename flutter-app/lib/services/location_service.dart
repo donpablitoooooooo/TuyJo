@@ -348,9 +348,21 @@ class LocationService extends ChangeNotifier {
   /// Helper: ottiene il deviceId corrente
   Future<String?> _getMyUserId() async {
     try {
-      return await _storage.read(key: 'device_id');
+      // userId = SHA-256(rsa_public_key) - stesso algoritmo di PairingService
+      final myPublicKey = await _storage.read(key: 'rsa_public_key');
+      if (myPublicKey == null) {
+        if (kDebugMode) print('❌ [LOCATION] rsa_public_key not found in storage');
+        return null;
+      }
+
+      final bytes = utf8.encode(myPublicKey);
+      final digest = sha256.convert(bytes);
+      final userId = digest.toString();
+
+      if (kDebugMode) print('   Calculated userId: ${userId.substring(0, 8)}...');
+      return userId;
     } catch (e) {
-      if (kDebugMode) print('❌ [LOCATION] Error getting device_id: $e');
+      if (kDebugMode) print('❌ [LOCATION] Error getting userId: $e');
       return null;
     }
   }
@@ -361,7 +373,13 @@ class LocationService extends ChangeNotifier {
       final myPublicKey = await _storage.read(key: 'rsa_public_key');
       final partnerPublicKey = await _storage.read(key: 'partner_public_key');
 
+      if (kDebugMode) {
+        print('   myPublicKey found: ${myPublicKey != null}');
+        print('   partnerPublicKey found: ${partnerPublicKey != null}');
+      }
+
       if (myPublicKey == null || partnerPublicKey == null) {
+        if (kDebugMode) print('❌ [LOCATION] Missing public keys in storage');
         return null;
       }
 
@@ -370,7 +388,10 @@ class LocationService extends ChangeNotifier {
       final concatenated = keys.join('|');
       final bytes = utf8.encode(concatenated);
       final hash = sha256.convert(bytes);
-      return hash.toString();
+      final familyChatId = hash.toString();
+
+      if (kDebugMode) print('   Calculated familyChatId: ${familyChatId.substring(0, 8)}...');
+      return familyChatId;
     } catch (e) {
       if (kDebugMode) print('❌ [LOCATION] Error calculating familyChatId: $e');
       return null;
