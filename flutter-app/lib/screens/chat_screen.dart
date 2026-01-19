@@ -22,6 +22,7 @@ import '../services/attachment_service.dart';
 import '../services/location_service.dart';
 import '../models/message.dart';
 import '../widgets/todo_bubble.dart';
+import '../widgets/location_share_bubble.dart';
 import '../widgets/attachment_widgets.dart';
 import '../widgets/reaction_picker.dart';
 import '../widgets/reaction_overlay.dart';
@@ -883,25 +884,42 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       final success = await locationService.startSharingLocation(result);
 
       if (success) {
-        // Apri schermata di visualizzazione
-        if (mounted) {
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (context) => const LocationSharingScreen(),
-            ),
-          );
-        }
+        // Calcola expiresAt
+        final expiresAt = DateTime.now().add(result);
 
-        // Mostra notifica
-        if (mounted) {
-          final hours = result.inHours;
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('Posizione condivisa per $hours or${hours > 1 ? 'e' : 'a'}'),
-              duration: const Duration(seconds: 2),
-            ),
+        // Invia messaggio di condivisione posizione
+        final chatService = Provider.of<ChatService>(context, listen: false);
+        final pairingService = Provider.of<PairingService>(context, listen: false);
+
+        final familyChatId = await pairingService.getFamilyChatId();
+        final myDeviceId = await pairingService.getMyUserId();
+        final myPublicKey = pairingService.myPublicKey;
+        final partnerPublicKey = pairingService.partnerPublicKey;
+
+        if (familyChatId != null &&
+            myDeviceId != null &&
+            myPublicKey != null &&
+            partnerPublicKey != null) {
+          final messageSent = await chatService.sendLocationShare(
+            expiresAt,
+            familyChatId,
+            myDeviceId,
+            myPublicKey,
+            partnerPublicKey,
           );
+
+          if (messageSent) {
+            // Mostra notifica successo
+            if (mounted) {
+              final hours = result.inHours;
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text('Posizione condivisa per $hours or${hours > 1 ? 'e' : 'a'}'),
+                  duration: const Duration(seconds: 2),
+                ),
+              );
+            }
+          }
         }
       } else {
         // Errore o permessi negati
@@ -1644,59 +1662,6 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                   )
                 : Column(
                     children: [
-                      // 🌍 Banner posizione partner
-                      Consumer<LocationService>(
-                        builder: (context, locationService, child) {
-                          final partnerLocation = locationService.partnerLocation;
-                          if (partnerLocation != null && !partnerLocation.isExpired) {
-                            return GestureDetector(
-                              onTap: () {
-                                Navigator.push(
-                                  context,
-                                  MaterialPageRoute(
-                                    builder: (context) => const LocationSharingScreen(),
-                                  ),
-                                );
-                              },
-                              child: Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                                color: Colors.orange.withOpacity(0.9),
-                                child: Row(
-                                  children: [
-                                    const Icon(Icons.location_on, color: Colors.white, size: 24),
-                                    const SizedBox(width: 12),
-                                    Expanded(
-                                      child: Column(
-                                        crossAxisAlignment: CrossAxisAlignment.start,
-                                        children: [
-                                          const Text(
-                                            'Il partner sta condividendo la posizione',
-                                            style: TextStyle(
-                                              color: Colors.white,
-                                              fontWeight: FontWeight.bold,
-                                              fontSize: 14,
-                                            ),
-                                          ),
-                                          const SizedBox(height: 2),
-                                          Text(
-                                            'Tocca per visualizzare',
-                                            style: TextStyle(
-                                              color: Colors.white.withOpacity(0.9),
-                                              fontSize: 12,
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                    const Icon(Icons.chevron_right, color: Colors.white),
-                                  ],
-                                ),
-                              ),
-                            );
-                          }
-                          return const SizedBox.shrink();
-                        },
-                      ),
                       // 📜 Indicatore caricamento messaggi vecchi
                       if (_isLoadingOlderMessages)
                         Container(
@@ -1806,6 +1771,28 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                                 attachmentService: _attachmentService,
                                 senderId: message.senderId,
                                 currentUserId: _myDeviceId,
+                              );
+                            } else if (message.messageType == 'location_share') {
+                              // Messaggio di condivisione posizione
+                              messageWidget = LocationShareBubble(
+                                key: ValueKey(message.id),
+                                message: message,
+                                isMe: isMe,
+                                onTap: () {
+                                  // Apri schermata di navigazione
+                                  final locationService = Provider.of<LocationService>(context, listen: false);
+                                  locationService.startTrackingPartner();
+                                  Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder: (context) => const LocationSharingScreen(),
+                                    ),
+                                  );
+                                },
+                                onReact: (reactionType) => _addReaction(message.id, reactionType),
+                                attachmentService: _attachmentService,
+                                currentUserId: _myDeviceId,
+                                senderId: message.senderId,
                               );
                             } else {
                               // Messaggio normale

@@ -798,6 +798,65 @@ class ChatService extends ChangeNotifier {
     }
   }
 
+  /// Invia messaggio di condivisione posizione
+  Future<bool> sendLocationShare(
+    DateTime expiresAt,
+    String familyChatId,
+    String senderId,
+    String senderPublicKey,
+    String recipientPublicKey,
+  ) async {
+    try {
+      final timestamp = DateTime.now();
+
+      // Costruisci il plaintext con type='location_share' e expires_at
+      final locationData = {
+        'sender': senderId,
+        'timestamp': timestamp.millisecondsSinceEpoch ~/ 1000,
+        'type': 'location_share',
+        'body': 'location_share|${expiresAt.toIso8601String()}',
+        'expires_at': expiresAt.toIso8601String(),
+      };
+
+      final plaintext = json.encode(locationData);
+
+      // Cifra con dual encryption
+      final encryptedPayload = _encryptionService.encryptMessageDual(
+        plaintext,
+        senderPublicKey,
+        recipientPublicKey,
+      );
+
+      // Scrivi nella chat condivisa
+      final messageRef = _firestore
+          .collection('families')
+          .doc(familyChatId)
+          .collection('messages')
+          .doc();
+
+      await messageRef.set({
+        'sender_id': senderId,
+        'encrypted_key_recipient': encryptedPayload['encryptedKeyRecipient'],
+        'encrypted_key_sender': encryptedPayload['encryptedKeySender'],
+        'iv': encryptedPayload['iv'],
+        'message': encryptedPayload['message'],
+        'created_at': timestamp.toIso8601String(),
+        'message_type': 'location_share',
+        'delivered': true,
+        'read': false,
+      });
+
+      if (kDebugMode) {
+        print('✅ Location share message sent');
+        print('   Expires at: $expiresAt');
+      }
+      return true;
+    } catch (e) {
+      if (kDebugMode) print('❌ Send location share error: $e');
+      return false;
+    }
+  }
+
   /// Aggiunge un messaggio pending alla lista (per invio ottimistico)
   String addPendingMessage(
     String content,
