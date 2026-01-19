@@ -19,12 +19,14 @@ import '../services/chat_service.dart';
 import '../services/encryption_service.dart';
 import '../services/notification_service.dart';
 import '../services/attachment_service.dart';
+import '../services/location_service.dart';
 import '../models/message.dart';
 import '../widgets/todo_bubble.dart';
 import '../widgets/attachment_widgets.dart';
 import '../widgets/reaction_picker.dart';
 import '../widgets/reaction_overlay.dart';
 import 'pdf_viewer_screen.dart';
+import 'location_sharing_screen.dart';
 
 class ChatScreen extends StatefulWidget {
   const ChatScreen({super.key});
@@ -816,6 +818,15 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                   }
                 },
               ),
+              _AttachmentOption(
+                icon: Icons.location_on,
+                label: 'Condividi Posizione',
+                color: Colors.orange,
+                onTap: () {
+                  Navigator.pop(context);
+                  _showLocationSharingDialog();
+                },
+              ),
               const SizedBox(height: 16),
             ],
           ), // Chiude Column
@@ -824,6 +835,87 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     ), // Chiude ClipRRect
     ); // Chiude showModalBottomSheet
   } // Chiude _showAttachmentPicker
+
+  /// Mostra dialog per scegliere durata condivisione posizione
+  void _showLocationSharingDialog() async {
+    final result = await showDialog<Duration>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Condividi Posizione'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: const [
+            Text('Per quanto tempo vuoi condividere la tua posizione?'),
+            SizedBox(height: 8),
+            Text(
+              'Il partner potrà vedere la tua posizione in tempo reale e riceverà indicazioni per raggiungerti.',
+              style: TextStyle(fontSize: 12, color: Colors.grey),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Annulla'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, const Duration(hours: 1)),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF3BA8B0),
+            ),
+            child: const Text('1 ora'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, const Duration(hours: 8)),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF3BA8B0),
+            ),
+            child: const Text('8 ore'),
+          ),
+        ],
+      ),
+    );
+
+    if (result != null && mounted) {
+      // Avvia condivisione posizione
+      final locationService = Provider.of<LocationService>(context, listen: false);
+      final success = await locationService.startSharingLocation(result);
+
+      if (success) {
+        // Apri schermata di visualizzazione
+        if (mounted) {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => const LocationSharingScreen(),
+            ),
+          );
+        }
+
+        // Mostra notifica
+        if (mounted) {
+          final hours = result.inHours;
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Posizione condivisa per $hours or${hours > 1 ? 'e' : 'a'}'),
+              duration: const Duration(seconds: 2),
+            ),
+          );
+        }
+      } else {
+        // Errore o permessi negati
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Impossibile condividere la posizione. Verifica i permessi.'),
+              duration: Duration(seconds: 3),
+            ),
+          );
+        }
+      }
+    }
+  }
 
   void _showDateTimePicker() async {
     final l10n = AppLocalizations.of(context)!;
@@ -1552,6 +1644,59 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                   )
                 : Column(
                     children: [
+                      // 🌍 Banner posizione partner
+                      Consumer<LocationService>(
+                        builder: (context, locationService, child) {
+                          final partnerLocation = locationService.partnerLocation;
+                          if (partnerLocation != null && !partnerLocation.isExpired) {
+                            return GestureDetector(
+                              onTap: () {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (context) => const LocationSharingScreen(),
+                                  ),
+                                );
+                              },
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                                color: Colors.orange.withOpacity(0.9),
+                                child: Row(
+                                  children: [
+                                    const Icon(Icons.location_on, color: Colors.white, size: 24),
+                                    const SizedBox(width: 12),
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          const Text(
+                                            'Il partner sta condividendo la posizione',
+                                            style: TextStyle(
+                                              color: Colors.white,
+                                              fontWeight: FontWeight.bold,
+                                              fontSize: 14,
+                                            ),
+                                          ),
+                                          const SizedBox(height: 2),
+                                          Text(
+                                            'Tocca per visualizzare',
+                                            style: TextStyle(
+                                              color: Colors.white.withOpacity(0.9),
+                                              fontSize: 12,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                    const Icon(Icons.chevron_right, color: Colors.white),
+                                  ],
+                                ),
+                              ),
+                            );
+                          }
+                          return const SizedBox.shrink();
+                        },
+                      ),
                       // 📜 Indicatore caricamento messaggi vecchi
                       if (_isLoadingOlderMessages)
                         Container(
