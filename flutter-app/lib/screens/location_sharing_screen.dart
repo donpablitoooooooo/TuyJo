@@ -5,9 +5,8 @@ import 'package:provider/provider.dart';
 import 'package:flutter_compass/flutter_compass.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../services/location_service.dart';
-import '../generated/l10n/app_localizations.dart';
 
-/// Schermata per visualizzare la posizione del partner con frecce direzionali
+/// Schermata minimal per navigazione verso il partner
 class LocationSharingScreen extends StatefulWidget {
   const LocationSharingScreen({Key? key}) : super(key: key);
 
@@ -16,7 +15,7 @@ class LocationSharingScreen extends StatefulWidget {
 }
 
 class _LocationSharingScreenState extends State<LocationSharingScreen> {
-  double? _heading; // Direzione della bussola (0-360)
+  double? _heading; // Direzione corrente dalla bussola (0-360°)
   StreamSubscription<CompassEvent>? _compassSubscription;
 
   @override
@@ -24,12 +23,10 @@ class _LocationSharingScreenState extends State<LocationSharingScreen> {
     super.initState();
     _startCompass();
 
-    // Avvia tracking del partner E ottieni la mia posizione per calcolare distanza
+    // Avvia tracking del partner e ottieni la mia posizione
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       final locationService = Provider.of<LocationService>(context, listen: false);
       locationService.startTrackingPartner();
-
-      // Ottieni la mia posizione corrente per calcolare distanza
       await locationService.getCurrentPosition();
     });
   }
@@ -40,7 +37,6 @@ class _LocationSharingScreenState extends State<LocationSharingScreen> {
     super.dispose();
   }
 
-  /// Avvia il compass stream
   void _startCompass() {
     _compassSubscription = FlutterCompass.events?.listen((CompassEvent event) {
       if (mounted) {
@@ -51,42 +47,31 @@ class _LocationSharingScreenState extends State<LocationSharingScreen> {
     });
   }
 
-  /// Apre le mappe native con le indicazioni
+  /// Apre Google Maps con le indicazioni
   Future<void> _openMaps(double lat, double lon) async {
     final url = 'https://www.google.com/maps/dir/?api=1&destination=$lat,$lon';
     final uri = Uri.parse(url);
 
     if (await canLaunchUrl(uri)) {
       await launchUrl(uri, mode: LaunchMode.externalApplication);
-    } else {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Impossibile aprire le mappe')),
-        );
-      }
     }
   }
 
-  /// Calcola l'opacità della freccia basandosi sull'allineamento
-  /// Ritorna 1.0 se perfettamente allineato, diminuisce man mano che si allontana
+  /// Calcola opacità della freccia basandosi sull'allineamento con destinazione
+  /// 1.0 = perfettamente allineato, 0.2 = direzione opposta
   double _calculateArrowOpacity(double targetBearing, double currentHeading) {
-    // Calcola differenza angolare (normalizzata -180 a +180)
     double diff = ((targetBearing - currentHeading + 180) % 360) - 180;
     double absDiff = diff.abs();
 
-    // Se perfettamente allineato (±5°), opacità = 1.0
-    // Se completamente disallineato (180°), opacità = 0.2
     if (absDiff <= 5) {
-      return 1.0;
-    } else if (absDiff >= 180) {
-      return 0.2;
+      return 1.0; // Perfettamente allineato
+    } else if (absDiff >= 170) {
+      return 0.15; // Direzione opposta
     } else {
-      // Interpolazione lineare tra 1.0 e 0.2
-      return 1.0 - (absDiff / 180.0) * 0.8;
+      return 1.0 - (absDiff / 170.0) * 0.85;
     }
   }
 
-  /// Formatta la distanza in modo leggibile
   String _formatDistance(double meters) {
     if (meters < 1000) {
       return '${meters.toInt()} m';
@@ -95,7 +80,6 @@ class _LocationSharingScreenState extends State<LocationSharingScreen> {
     }
   }
 
-  /// Formatta il tempo trascorso
   String _formatTimestamp(DateTime timestamp) {
     final now = DateTime.now();
     final diff = now.difference(timestamp);
@@ -115,25 +99,20 @@ class _LocationSharingScreenState extends State<LocationSharingScreen> {
     final partnerLocation = locationService.partnerLocation;
     final myLocation = locationService.myLocation;
 
-    // Debug: verifica quando il widget rebuilda e quali valori ha
-    print('🔄 [UI] LocationSharingScreen rebuild:');
-    print('   partnerLocation: ${partnerLocation != null ? "✅ FOUND (${partnerLocation.latitude}, ${partnerLocation.longitude})" : "❌ NULL"}');
-    print('   myLocation: ${myLocation != null ? "✅ FOUND" : "❌ NULL"}');
-
     return Scaffold(
-      backgroundColor: Colors.black,
+      extendBodyBehindAppBar: true,
+      backgroundColor: Colors.transparent,
       appBar: AppBar(
-        backgroundColor: Colors.black,
-        title: Text(
-          'Posizione Partner',
-          style: TextStyle(color: Colors.white),
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        leading: IconButton(
+          icon: Icon(Icons.close, color: Colors.white),
+          onPressed: () => Navigator.pop(context),
         ),
-        iconTheme: IconThemeData(color: Colors.white),
         actions: [
-          // Bottone per aprire le mappe
           if (partnerLocation != null)
             IconButton(
-              icon: Icon(Icons.map, color: Colors.white),
+              icon: Icon(Icons.map_outlined, color: Colors.white),
               onPressed: () => _openMaps(
                 partnerLocation.latitude,
                 partnerLocation.longitude,
@@ -141,51 +120,54 @@ class _LocationSharingScreenState extends State<LocationSharingScreen> {
             ),
         ],
       ),
-      body: partnerLocation == null
-          ? _buildWaitingView()
-          : _buildNavigationView(partnerLocation, myLocation),
-    );
-  }
-
-  /// Vista quando non c'è posizione del partner
-  Widget _buildWaitingView() {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(32.0),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            CircularProgressIndicator(
-              color: Colors.tealAccent,
-              strokeWidth: 3,
-            ),
-            SizedBox(height: 30),
-            Icon(Icons.location_searching, size: 60, color: Colors.white54),
-            SizedBox(height: 20),
-            Text(
-              'In attesa della posizione del partner...',
-              style: TextStyle(
-                color: Colors.white,
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-              ),
-              textAlign: TextAlign.center,
-            ),
-            SizedBox(height: 12),
-            Text(
-              'Il partner deve avere il GPS attivo e la condivisione in corso',
-              style: TextStyle(color: Colors.white54, fontSize: 14),
-              textAlign: TextAlign.center,
-            ),
-          ],
+      body: Container(
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [
+              Color(0xFF3BA8B0), // Teal app
+              Color(0xFF145A60), // Teal scuro app
+            ],
+          ),
         ),
+        child: partnerLocation == null
+            ? _buildWaitingView()
+            : _buildNavigationView(context, partnerLocation, myLocation),
       ),
     );
   }
 
-  /// Vista principale con navigazione
-  Widget _buildNavigationView(partnerLocation, myLocation) {
-    // Calcola distanza e direzione solo se ho anche la mia posizione
+  /// Vista di attesa
+  Widget _buildWaitingView() {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          CircularProgressIndicator(
+            color: Colors.white,
+            strokeWidth: 2,
+          ),
+          SizedBox(height: 40),
+          Icon(Icons.location_searching, size: 80, color: Colors.white38),
+          SizedBox(height: 24),
+          Text(
+            'In attesa...',
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: 22,
+              fontWeight: FontWeight.w300,
+              letterSpacing: 1.2,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Vista principale di navigazione
+  Widget _buildNavigationView(BuildContext context, partnerLocation, myLocation) {
+    // Calcola distanza e direzione verso il partner
     double? distance;
     double? targetBearing;
 
@@ -205,86 +187,110 @@ class _LocationSharingScreenState extends State<LocationSharingScreen> {
       );
     }
 
-    return Column(
-      children: [
-        // Top: Marker direzionale (indica dove andare)
-        SizedBox(height: 40),
-        if (targetBearing != null && _heading != null)
-          _buildDirectionMarker(targetBearing, _heading!),
+    return SafeArea(
+      child: Column(
+        children: [
+          SizedBox(height: 60),
 
-        // Center: Grande freccia (indica direzione corrente)
-        Expanded(
-          child: Center(
-            child: _heading != null && targetBearing != null
-                ? _buildDirectionArrow(targetBearing, _heading!)
-                : _buildCompassWarning(),
+          // PUNTO FISSO IN ALTO = DESTINAZIONE
+          _buildDestinationPoint(),
+
+          SizedBox(height: 80),
+
+          // FRECCIA CHE RUOTA = DIREZIONE IN CUI STO ANDANDO
+          Expanded(
+            child: Center(
+              child: _heading != null && targetBearing != null
+                  ? _buildNavigationArrow(targetBearing, _heading!)
+                  : _buildCompassWarning(),
+            ),
           ),
-        ),
 
-        // Bottom: Info distanza e timestamp
-        _buildInfoPanel(distance, partnerLocation.timestamp),
-        SizedBox(height: 40),
-      ],
+          // INFO: DISTANZA E TIMESTAMP
+          if (distance != null)
+            _buildInfoPanel(distance, partnerLocation.timestamp),
+
+          SizedBox(height: 40),
+        ],
+      ),
     );
   }
 
-  /// Marker in alto che indica la direzione da seguire
-  Widget _buildDirectionMarker(double targetBearing, double currentHeading) {
-    // Calcola rotazione relativa
-    double rotation = (targetBearing - currentHeading) * math.pi / 180;
-
+  /// Punto fisso in alto che rappresenta la destinazione (partner)
+  Widget _buildDestinationPoint() {
     return Column(
       children: [
-        Transform.rotate(
-          angle: rotation,
-          child: Icon(
-            Icons.navigation,
-            size: 60,
-            color: Colors.tealAccent,
+        Container(
+          width: 16,
+          height: 16,
+          decoration: BoxDecoration(
+            color: Colors.white,
+            shape: BoxShape.circle,
+            boxShadow: [
+              BoxShadow(
+                color: Colors.white.withOpacity(0.5),
+                blurRadius: 20,
+                spreadRadius: 5,
+              ),
+            ],
           ),
         ),
-        SizedBox(height: 8),
+        SizedBox(height: 12),
         Text(
-          '${targetBearing.toInt()}°',
+          'Destinazione',
           style: TextStyle(
-            color: Colors.tealAccent,
-            fontSize: 16,
-            fontWeight: FontWeight.bold,
+            color: Colors.white.withOpacity(0.7),
+            fontSize: 12,
+            fontWeight: FontWeight.w300,
+            letterSpacing: 1.5,
           ),
         ),
       ],
     );
   }
 
-  /// Grande freccia centrale che mostra la direzione di movimento
-  Widget _buildDirectionArrow(double targetBearing, double currentHeading) {
+  /// Freccia di navigazione che ruota in base alla direzione
+  Widget _buildNavigationArrow(double targetBearing, double currentHeading) {
+    // Calcola opacità basandosi sull'allineamento
     double opacity = _calculateArrowOpacity(targetBearing, currentHeading);
 
-    // Calcola rotazione (punta sempre verso l'alto = nord)
-    double rotation = -currentHeading * math.pi / 180;
+    // Rotazione: la freccia punta nella direzione in cui sto andando
+    // Quando sono allineato con la destinazione, punta verso l'alto (verso il punto)
+    double rotationAngle = (targetBearing - currentHeading) * math.pi / 180;
 
     return Column(
-      mainAxisAlignment: MainAxisAlignment.center,
+      mainAxisSize: MainAxisSize.min,
       children: [
         AnimatedOpacity(
-          duration: Duration(milliseconds: 300),
+          duration: Duration(milliseconds: 200),
           opacity: opacity,
           child: Transform.rotate(
-            angle: rotation,
+            angle: rotationAngle,
             child: Icon(
-              Icons.arrow_upward,
-              size: 200,
+              Icons.navigation,
+              size: 140,
               color: Colors.white,
+              shadows: [
+                Shadow(
+                  color: Colors.black.withOpacity(0.3),
+                  blurRadius: 10,
+                ),
+              ],
             ),
           ),
         ),
-        SizedBox(height: 20),
-        Text(
-          opacity > 0.8 ? 'Direzione corretta!' : 'Gira verso la freccia verde',
-          style: TextStyle(
-            color: opacity > 0.8 ? Colors.green : Colors.orange,
-            fontSize: 18,
-            fontWeight: FontWeight.bold,
+        SizedBox(height: 40),
+        AnimatedOpacity(
+          duration: Duration(milliseconds: 300),
+          opacity: opacity > 0.8 ? 1.0 : 0.4,
+          child: Text(
+            opacity > 0.8 ? 'Direzione corretta' : 'Allineati con la destinazione',
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: 16,
+              fontWeight: FontWeight.w300,
+              letterSpacing: 1.2,
+            ),
           ),
         ),
       ],
@@ -296,57 +302,67 @@ class _LocationSharingScreenState extends State<LocationSharingScreen> {
     return Column(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
-        Icon(Icons.explore_off, size: 80, color: Colors.orange),
+        Icon(Icons.explore_off, size: 80, color: Colors.white54),
         SizedBox(height: 20),
         Text(
           'Bussola non disponibile',
-          style: TextStyle(color: Colors.orange, fontSize: 18),
+          style: TextStyle(
+            color: Colors.white,
+            fontSize: 18,
+            fontWeight: FontWeight.w300,
+          ),
         ),
         SizedBox(height: 10),
         Text(
           'Muovi il telefono per calibrare',
-          style: TextStyle(color: Colors.white54, fontSize: 14),
-          textAlign: TextAlign.center,
+          style: TextStyle(
+            color: Colors.white60,
+            fontSize: 14,
+            fontWeight: FontWeight.w300,
+          ),
         ),
       ],
     );
   }
 
-  /// Pannello info in basso con distanza e timestamp
-  Widget _buildInfoPanel(double? distance, DateTime timestamp) {
+  /// Pannello info minimal in basso
+  Widget _buildInfoPanel(double distance, DateTime timestamp) {
     return Container(
-      padding: EdgeInsets.all(20),
-      margin: EdgeInsets.symmetric(horizontal: 20),
+      margin: EdgeInsets.symmetric(horizontal: 32),
+      padding: EdgeInsets.symmetric(vertical: 24, horizontal: 32),
       decoration: BoxDecoration(
-        color: Colors.white10,
-        borderRadius: BorderRadius.circular(15),
+        color: Colors.white.withOpacity(0.15),
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(
+          color: Colors.white.withOpacity(0.2),
+          width: 1,
+        ),
       ),
       child: Column(
         children: [
-          if (distance != null) ...[
-            Text(
-              _formatDistance(distance),
-              style: TextStyle(
-                color: Colors.white,
-                fontSize: 36,
-                fontWeight: FontWeight.bold,
-              ),
+          Text(
+            _formatDistance(distance),
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: 48,
+              fontWeight: FontWeight.w200,
+              letterSpacing: 2,
             ),
-            SizedBox(height: 5),
-            Text(
-              'distanza',
-              style: TextStyle(color: Colors.white54, fontSize: 14),
-            ),
-            SizedBox(height: 15),
-          ],
+          ),
+          SizedBox(height: 16),
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(Icons.access_time, color: Colors.white54, size: 16),
-              SizedBox(width: 5),
+              Icon(Icons.access_time, color: Colors.white60, size: 16),
+              SizedBox(width: 8),
               Text(
-                _formatTimestamp(timestamp),
-                style: TextStyle(color: Colors.white54, fontSize: 14),
+                'Aggiornato ${_formatTimestamp(timestamp)}',
+                style: TextStyle(
+                  color: Colors.white60,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w300,
+                  letterSpacing: 0.5,
+                ),
               ),
             ],
           ),
