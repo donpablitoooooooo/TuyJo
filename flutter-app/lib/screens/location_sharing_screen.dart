@@ -3,6 +3,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:flutter_compass/flutter_compass.dart';
+import 'package:geolocator/geolocator.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../services/location_service.dart';
 
@@ -26,6 +27,7 @@ class _LocationSharingScreenState extends State<LocationSharingScreen> {
   StreamSubscription<CompassEvent>? _compassSubscription;
   Timer? _compassRetryTimer;
   int _compassRetryCount = 0;
+  Position? _myPosition; // Posizione corrente dell'utente (locale, non condivisa)
 
   @override
   void initState() {
@@ -37,21 +39,28 @@ class _LocationSharingScreenState extends State<LocationSharingScreen> {
       final locationService = Provider.of<LocationService>(context, listen: false);
       locationService.startTrackingPartner();
 
-      // Retry loop per ottenere la mia posizione
-      int retries = 0;
-      while (retries < 10 && mounted) {
-        await locationService.getCurrentPosition();
+      // Ottieni la mia posizione corrente
+      _updateMyPosition();
 
-        if (locationService.myLocation != null) {
-          break;
+      // Aggiorna posizione ogni 5 secondi
+      Timer.periodic(Duration(seconds: 5), (timer) {
+        if (!mounted) {
+          timer.cancel();
+          return;
         }
-
-        retries++;
-        if (retries < 10) {
-          await Future.delayed(Duration(seconds: 1));
-        }
-      }
+        _updateMyPosition();
+      });
     });
+  }
+
+  Future<void> _updateMyPosition() async {
+    final locationService = Provider.of<LocationService>(context, listen: false);
+    final position = await locationService.getCurrentPosition();
+    if (mounted && position != null) {
+      setState(() {
+        _myPosition = position;
+      });
+    }
   }
 
   @override
@@ -284,21 +293,21 @@ class _LocationSharingScreenState extends State<LocationSharingScreen> {
 
   /// Vista principale di navigazione
   Widget _buildNavigationView(BuildContext context, partnerLocation, myLocation) {
-    // Calcola distanza e direzione verso il partner
+    // Calcola distanza e direzione verso il partner usando _myPosition locale
     double? distance;
     double? targetBearing;
 
-    if (myLocation != null) {
+    if (_myPosition != null) {
       final locationService = Provider.of<LocationService>(context, listen: false);
       distance = locationService.calculateDistance(
-        myLocation.latitude,
-        myLocation.longitude,
+        _myPosition!.latitude,
+        _myPosition!.longitude,
         partnerLocation.latitude,
         partnerLocation.longitude,
       );
       targetBearing = locationService.calculateBearing(
-        myLocation.latitude,
-        myLocation.longitude,
+        _myPosition!.latitude,
+        _myPosition!.longitude,
         partnerLocation.latitude,
         partnerLocation.longitude,
       );
@@ -324,7 +333,7 @@ class _LocationSharingScreenState extends State<LocationSharingScreen> {
           ),
 
           // INFO: DISTANZA E TIMESTAMP (sempre visibile)
-          _buildInfoPanel(distance, partnerLocation.timestamp, myLocation == null),
+          _buildInfoPanel(distance, partnerLocation.timestamp, _myPosition == null),
 
           SizedBox(height: 40),
         ],
