@@ -8,7 +8,12 @@ import '../services/location_service.dart';
 
 /// Schermata minimal per navigazione verso il partner
 class LocationSharingScreen extends StatefulWidget {
-  const LocationSharingScreen({Key? key}) : super(key: key);
+  final String expectedSessionId; // Session ID dal messaggio
+
+  const LocationSharingScreen({
+    Key? key,
+    required this.expectedSessionId,
+  }) : super(key: key);
 
   @override
   State<LocationSharingScreen> createState() => _LocationSharingScreenState();
@@ -140,6 +145,10 @@ class _LocationSharingScreenState extends State<LocationSharingScreen> {
     final partnerLocation = locationService.partnerLocation;
     final myLocation = locationService.myLocation;
 
+    // VERIFICA SESSION ID: se partner ha sessionId diverso, sessione terminata
+    final bool isSessionValid = partnerLocation != null &&
+        partnerLocation.sessionId == widget.expectedSessionId;
+
     return Scaffold(
       extendBodyBehindAppBar: true,
       backgroundColor: Colors.transparent,
@@ -151,7 +160,7 @@ class _LocationSharingScreenState extends State<LocationSharingScreen> {
           onPressed: () => Navigator.pop(context),
         ),
         actions: [
-          if (partnerLocation != null)
+          if (partnerLocation != null && isSessionValid)
             IconButton(
               icon: Icon(Icons.map_outlined, color: Colors.white),
               onPressed: () => _openMaps(
@@ -172,10 +181,11 @@ class _LocationSharingScreenState extends State<LocationSharingScreen> {
             ],
           ),
         ),
-        // Rimuoviamo il check su partnerLocation - SEMPRE mostra navigazione
-        child: partnerLocation != null
-            ? _buildNavigationView(context, partnerLocation, myLocation)
-            : _buildWaitingView(), // Solo se partner non ha ancora condiviso
+        child: partnerLocation == null
+            ? _buildWaitingView()
+            : !isSessionValid
+                ? _buildSessionExpiredView() // Sessione non valida
+                : _buildNavigationView(context, partnerLocation, myLocation),
       ),
     );
   }
@@ -203,6 +213,67 @@ class _LocationSharingScreenState extends State<LocationSharingScreen> {
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  /// Vista sessione terminata (quando A riavvia condivisione)
+  Widget _buildSessionExpiredView() {
+    return Center(
+      child: Padding(
+        padding: EdgeInsets.all(40),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              Icons.cancel_outlined,
+              size: 100,
+              color: Colors.white,
+            ),
+            SizedBox(height: 40),
+            Text(
+              'Sessione terminata',
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 28,
+                fontWeight: FontWeight.w200,
+                letterSpacing: 1.5,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            SizedBox(height: 20),
+            Text(
+              'Il partner ha avviato una nuova condivisione',
+              style: TextStyle(
+                color: Colors.white70,
+                fontSize: 16,
+                fontWeight: FontWeight.w300,
+                letterSpacing: 0.5,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            SizedBox(height: 40),
+            ElevatedButton(
+              onPressed: () => Navigator.pop(context),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.white,
+                foregroundColor: Color(0xFF3BA8B0),
+                padding: EdgeInsets.symmetric(horizontal: 40, vertical: 16),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+              child: Text(
+                'Torna alla chat',
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w500,
+                  letterSpacing: 0.5,
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

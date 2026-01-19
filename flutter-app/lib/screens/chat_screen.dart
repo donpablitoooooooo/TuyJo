@@ -2168,12 +2168,23 @@ class _MessageBubble extends StatelessWidget {
           message: messageObject!,
           isMe: isMe,
           onTap: () {
-            // Apri schermata di navigazione
-            // startTrackingPartner viene chiamato in LocationSharingScreen.initState
+            // Estrai sessionId dal body del messaggio
+            // Formato: "location_share|expiresAt|sessionId"
+            String sessionId = '';
+            if (messageObject.decryptedContent != null) {
+              final parts = messageObject.decryptedContent!.split('|');
+              if (parts.length >= 3) {
+                sessionId = parts[2]; // sessionId è il terzo elemento
+              }
+            }
+
+            // Apri schermata di navigazione con sessionId
             Navigator.push(
               context,
               MaterialPageRoute(
-                builder: (context) => const LocationSharingScreen(),
+                builder: (context) => LocationSharingScreen(
+                  expectedSessionId: sessionId,
+                ),
               ),
             );
           },
