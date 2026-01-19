@@ -862,23 +862,35 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
           ],
         ),
         actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Annulla'),
-          ),
-          ElevatedButton(
-            onPressed: () => Navigator.pop(context, const Duration(hours: 1)),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF3BA8B0),
-            ),
-            child: const Text('1 ora'),
-          ),
-          ElevatedButton(
-            onPressed: () => Navigator.pop(context, const Duration(hours: 8)),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF3BA8B0),
-            ),
-            child: const Text('8 ore'),
+          Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              ElevatedButton(
+                onPressed: () => Navigator.pop(context, const Duration(hours: 1)),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF3BA8B0),
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                ),
+                child: const Text('1 ora', style: TextStyle(fontSize: 16)),
+              ),
+              const SizedBox(height: 8),
+              ElevatedButton(
+                onPressed: () => Navigator.pop(context, const Duration(hours: 8)),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF3BA8B0),
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                ),
+                child: const Text('8 ore', style: TextStyle(fontSize: 16)),
+              ),
+              const SizedBox(height: 8),
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('Annulla'),
+              ),
+            ],
           ),
         ],
       ),
@@ -918,16 +930,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
           );
 
           if (messageSent) {
-            // Mostra notifica successo
-            if (mounted) {
-              final hours = result.inHours;
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: Text('Posizione condivisa per $hours or${hours > 1 ? 'e' : 'a'}'),
-                  duration: const Duration(seconds: 2),
-                ),
-              );
-            }
+            // Messaggio inviato con successo (nessun toast)
           }
         }
       } else {
