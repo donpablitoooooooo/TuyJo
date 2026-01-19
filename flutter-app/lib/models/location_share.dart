@@ -4,6 +4,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 class LocationShare {
   final String id;
   final String userId; // deviceId di chi condivide la posizione
+  final String sessionId; // ID univoco della sessione di condivisione
   final double latitude;
   final double longitude;
   final double accuracy; // Precisione in metri
@@ -16,6 +17,7 @@ class LocationShare {
   LocationShare({
     required this.id,
     required this.userId,
+    required this.sessionId,
     required this.latitude,
     required this.longitude,
     required this.accuracy,
@@ -31,6 +33,7 @@ class LocationShare {
     return LocationShare(
       id: docId,
       userId: data['user_id'] ?? '',
+      sessionId: data['session_id'] ?? '',
       latitude: (data['latitude'] ?? 0.0).toDouble(),
       longitude: (data['longitude'] ?? 0.0).toDouble(),
       accuracy: (data['accuracy'] ?? 0.0).toDouble(),
@@ -47,6 +50,7 @@ class LocationShare {
     return LocationShare(
       id: json['id'] ?? '',
       userId: json['user_id'] ?? '',
+      sessionId: json['session_id'] ?? '',
       latitude: (json['latitude'] ?? 0.0).toDouble(),
       longitude: (json['longitude'] ?? 0.0).toDouble(),
       accuracy: (json['accuracy'] ?? 0.0).toDouble(),
@@ -62,6 +66,7 @@ class LocationShare {
   Map<String, dynamic> toJson() {
     return {
       'user_id': userId,
+      'session_id': sessionId,
       'latitude': latitude,
       'longitude': longitude,
       'accuracy': accuracy,
@@ -82,6 +87,7 @@ class LocationShare {
   LocationShare copyWith({
     String? id,
     String? userId,
+    String? sessionId,
     double? latitude,
     double? longitude,
     double? accuracy,
@@ -94,6 +100,7 @@ class LocationShare {
     return LocationShare(
       id: id ?? this.id,
       userId: userId ?? this.userId,
+      sessionId: sessionId ?? this.sessionId,
       latitude: latitude ?? this.latitude,
       longitude: longitude ?? this.longitude,
       accuracy: accuracy ?? this.accuracy,

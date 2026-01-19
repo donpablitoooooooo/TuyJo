@@ -7,6 +7,7 @@ import 'package:geolocator/geolocator.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:crypto/crypto.dart';
+import 'package:uuid/uuid.dart';
 import '../models/location_share.dart';
 
 /// Servizio per gestire la condivisione della posizione in tempo reale
@@ -24,10 +25,12 @@ class LocationService extends ChangeNotifier {
   bool _isSharingLocation = false;
   bool _isTrackingPartner = false;
   DateTime? _sharingExpiresAt;
+  String? _currentSessionId; // Session ID univoco per ogni condivisione
 
   // Getters
   LocationShare? get myLocation => _myLocation;
   LocationShare? get partnerLocation => _partnerLocation;
+  String? get currentSessionId => _currentSessionId;
   bool get isSharingLocation => _isSharingLocation;
   bool get isTrackingPartner => _isTrackingPartner;
   DateTime? get sharingExpiresAt => _sharingExpiresAt;
@@ -145,14 +148,21 @@ class LocationService extends ChangeNotifier {
         return false;
       }
 
-      // Imposta scadenza
-      _sharingExpiresAt = DateTime.now().add(duration);
-      _isSharingLocation = true;
+      // Genera nuovo session ID univoco per questa condivisione
+      _currentSessionId = const Uuid().v4();
 
       if (kDebugMode) {
         print('🌍 [LOCATION] Starting location sharing for ${duration.inHours}h');
-        print('   Expires at: $_sharingExpiresAt');
+        print('   Session ID: $_currentSessionId');
+        print('   Expires at: ${DateTime.now().add(duration)}');
       }
+
+      // IMPORTANTE: Chiudi vecchie sessioni PRIMA di iniziare nuova
+      await _closeOldSessions(myUserId, familyChatId);
+
+      // Imposta scadenza
+      _sharingExpiresAt = DateTime.now().add(duration);
+      _isSharingLocation = true;
 
       // IMPORTANTE: Ottieni posizione iniziale PRIMA di avviare lo stream
       // Se non riesci ad ottenere GPS, non permettere la condivisione
@@ -162,6 +172,7 @@ class LocationService extends ChangeNotifier {
       if (initialPosition == null) {
         if (kDebugMode) print('❌ [LOCATION] GPS non disponibile - impossibile condividere');
         _isSharingLocation = false;
+        _currentSessionId = null;
         return false;
       }
 
@@ -215,6 +226,7 @@ class LocationService extends ChangeNotifier {
       _isSharingLocation = false;
       _sharingExpiresAt = null;
       _myLocation = null;
+      _currentSessionId = null; // Reset session ID
 
       notifyListeners();
     } catch (e) {
@@ -358,6 +370,7 @@ class LocationService extends ChangeNotifier {
       final locationShare = LocationShare(
         id: myUserId,
         userId: myUserId,
+        sessionId: _currentSessionId!, // ID univoco sessione
         latitude: position.latitude + testLatOffset, // OFFSET TEST
         longitude: position.longitude,
         accuracy: position.accuracy,
@@ -392,6 +405,35 @@ class LocationService extends ChangeNotifier {
       notifyListeners();
     } catch (e) {
       if (kDebugMode) print('❌ [LOCATION] Error updating location to Firestore: $e');
+    }
+  }
+
+  /// Chiude tutte le vecchie sessioni di condivisione (marca come inactive)
+  Future<void> _closeOldSessions(String myUserId, String familyChatId) async {
+    try {
+      if (kDebugMode) print('🔒 [LOCATION] Closing old location sharing sessions...');
+
+      // Ottieni tutti i documenti location dell'utente
+      final snapshot = await _firestore
+          .collection('families')
+          .doc(familyChatId)
+          .collection('locations')
+          .doc(myUserId)
+          .get();
+
+      if (snapshot.exists) {
+        // Marca come inactive
+        await _firestore
+            .collection('families')
+            .doc(familyChatId)
+            .collection('locations')
+            .doc(myUserId)
+            .update({'is_active': false});
+
+        if (kDebugMode) print('✅ [LOCATION] Old sessions closed');
+      }
+    } catch (e) {
+      if (kDebugMode) print('❌ [LOCATION] Error closing old sessions: $e');
     }
   }
 
