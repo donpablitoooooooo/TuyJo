@@ -17,6 +17,8 @@ class LocationSharingScreen extends StatefulWidget {
 class _LocationSharingScreenState extends State<LocationSharingScreen> {
   double? _heading; // Direzione corrente dalla bussola (0-360°)
   StreamSubscription<CompassEvent>? _compassSubscription;
+  Timer? _compassRetryTimer;
+  int _compassRetryCount = 0;
 
   @override
   void initState() {
@@ -34,17 +36,41 @@ class _LocationSharingScreenState extends State<LocationSharingScreen> {
   @override
   void dispose() {
     _compassSubscription?.cancel();
+    _compassRetryTimer?.cancel();
     super.dispose();
   }
 
   void _startCompass() {
-    _compassSubscription = FlutterCompass.events?.listen((CompassEvent event) {
-      if (mounted) {
-        setState(() {
-          _heading = event.heading;
+    // Prova a ottenere lo stream della bussola
+    final compassStream = FlutterCompass.events;
+
+    if (compassStream != null) {
+      print('🧭 [COMPASS] Stream disponibile, avvio listener');
+      _compassSubscription = compassStream.listen((CompassEvent event) {
+        if (mounted && event.heading != null) {
+          setState(() {
+            _heading = event.heading;
+          });
+        }
+      });
+      // Annulla il retry timer se la bussola è disponibile
+      _compassRetryTimer?.cancel();
+      _compassRetryTimer = null;
+    } else {
+      // Stream non disponibile, riprova ogni secondo
+      _compassRetryCount++;
+      print('🧭 [COMPASS] Stream non disponibile, retry #$_compassRetryCount');
+
+      if (_compassRetryTimer == null) {
+        _compassRetryTimer = Timer.periodic(Duration(seconds: 1), (timer) {
+          if (!mounted) {
+            timer.cancel();
+            return;
+          }
+          _startCompass();
         });
       }
-    });
+    }
   }
 
   /// Apre Google Maps con le indicazioni
@@ -302,25 +328,45 @@ class _LocationSharingScreenState extends State<LocationSharingScreen> {
     return Column(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
-        Icon(Icons.explore_off, size: 80, color: Colors.white54),
-        SizedBox(height: 20),
+        // Loading indicator animato
+        SizedBox(
+          width: 80,
+          height: 80,
+          child: CircularProgressIndicator(
+            color: Colors.white38,
+            strokeWidth: 2,
+          ),
+        ),
+        SizedBox(height: 30),
         Text(
-          'Bussola non disponibile',
+          'Calibrazione bussola...',
           style: TextStyle(
             color: Colors.white,
             fontSize: 18,
             fontWeight: FontWeight.w300,
+            letterSpacing: 1.2,
           ),
         ),
-        SizedBox(height: 10),
+        SizedBox(height: 12),
         Text(
-          'Muovi il telefono per calibrare',
+          'Muovi il telefono a forma di 8',
           style: TextStyle(
             color: Colors.white60,
             fontSize: 14,
             fontWeight: FontWeight.w300,
           ),
         ),
+        if (_compassRetryCount > 5) ...[
+          SizedBox(height: 20),
+          Text(
+            'Tentativo ${_compassRetryCount}...',
+            style: TextStyle(
+              color: Colors.white38,
+              fontSize: 12,
+              fontWeight: FontWeight.w300,
+            ),
+          ),
+        ],
       ],
     );
   }
