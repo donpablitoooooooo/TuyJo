@@ -702,12 +702,12 @@ class AttachmentLocationShare extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Thumbnail piccola (100px invece di 200px)
+          // Thumbnail con gradiente e icona pin (100px height)
           ClipRRect(
             borderRadius: BorderRadius.circular(12),
             child: Container(
               width: 200,
-              height: 100, // Metà altezza
+              height: 100,
               decoration: const BoxDecoration(
                 gradient: LinearGradient(
                   begin: Alignment.topLeft,
@@ -728,16 +728,9 @@ class AttachmentLocationShare extends StatelessWidget {
             ),
           ),
 
-          const SizedBox(height: 8),
-
-          // Bubble con testo, countdown e orario
-          Container(
-            width: 200, // Stessa larghezza del thumbnail
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-            decoration: BoxDecoration(
-              color: bubbleColor,
-              borderRadius: BorderRadius.circular(12),
-            ),
+          // Contenuto sotto (senza bubble - sarà dentro la bubble di _MessageBubble)
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
