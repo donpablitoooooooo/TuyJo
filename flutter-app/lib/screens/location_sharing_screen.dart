@@ -9,10 +9,12 @@ import '../services/location_service.dart';
 /// Schermata minimal per navigazione verso il partner
 class LocationSharingScreen extends StatefulWidget {
   final String expectedSessionId; // Session ID dal messaggio
+  final bool isSender; // true se l'utente corrente è il mittente del messaggio
 
   const LocationSharingScreen({
     Key? key,
     required this.expectedSessionId,
+    this.isSender = false,
   }) : super(key: key);
 
   @override
@@ -146,8 +148,10 @@ class _LocationSharingScreenState extends State<LocationSharingScreen> {
     final myLocation = locationService.myLocation;
 
     // VERIFICA SESSION ID: se partner ha sessionId diverso, sessione terminata
-    final bool isSessionValid = partnerLocation != null &&
-        partnerLocation.sessionId == widget.expectedSessionId;
+    // NOTA: Se l'utente è il mittente (sta aprendo la propria condivisione),
+    // non verifichiamo il sessionId perché potrebbe aver riavviato la condivisione
+    final bool isSessionValid = widget.isSender || (partnerLocation != null &&
+        partnerLocation.sessionId == widget.expectedSessionId);
 
     return Scaffold(
       extendBodyBehindAppBar: true,

@@ -2184,6 +2184,7 @@ class _MessageBubble extends StatelessWidget {
               MaterialPageRoute(
                 builder: (context) => LocationSharingScreen(
                   expectedSessionId: sessionId,
+                  isSender: isMe, // Passa se l'utente è il mittente
                 ),
               ),
             );
