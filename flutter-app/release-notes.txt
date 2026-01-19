@@ -1,11 +1,13 @@
-TuyJo v1.13.1
+TuyJo v1.13.2
 
 BUG FIX:
 🔔 Risolto badge notifiche che non scompariva - Ora il badge e le notifiche si cancellano automaticamente quando apri l'app o leggi i messaggi
+🚫 Rimossa autorizzazione pubblicitaria AD_ID - TuyJo non traccia né mostra pubblicità
 
 MIGLIORAMENTI:
 ✨ Pulizia automatica notifiche quando ritorni alla chat
 ⚡ Migliore sincronizzazione tra messaggi letti e badge
+🔒 Privacy migliorata con rimozione permessi pubblicitari non necessari
 
 NOTE:
 📱 Compatibilità: Android 6.0+ (API 23) e iOS 15.0+
