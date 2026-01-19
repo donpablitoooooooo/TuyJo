@@ -22,7 +22,6 @@ import '../services/attachment_service.dart';
 import '../services/location_service.dart';
 import '../models/message.dart';
 import '../widgets/todo_bubble.dart';
-import '../widgets/location_share_bubble.dart';
 import '../widgets/attachment_widgets.dart';
 import '../widgets/reaction_picker.dart';
 import '../widgets/reaction_overlay.dart';
@@ -1786,28 +1785,6 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                                 senderId: message.senderId,
                                 currentUserId: _myDeviceId,
                               );
-                            } else if (message.messageType == 'location_share') {
-                              // Messaggio di condivisione posizione
-                              messageWidget = LocationShareBubble(
-                                key: ValueKey(message.id),
-                                message: message,
-                                isMe: isMe,
-                                onTap: () {
-                                  // Apri schermata di navigazione
-                                  final locationService = Provider.of<LocationService>(context, listen: false);
-                                  locationService.startTrackingPartner();
-                                  Navigator.push(
-                                    context,
-                                    MaterialPageRoute(
-                                      builder: (context) => const LocationSharingScreen(),
-                                    ),
-                                  );
-                                },
-                                onReact: (reactionType) => _addReaction(message.id, reactionType),
-                                attachmentService: _attachmentService,
-                                currentUserId: _myDeviceId,
-                                senderId: message.senderId,
-                              );
                             } else {
                               // Messaggio normale
                               final decryptedContent = message.decryptedContent ?? '[Messaggio non decifrabile]';
@@ -2181,7 +2158,28 @@ class _MessageBubble extends StatelessWidget {
   });
 
   /// Costruisce i widget per mostrare gli allegati (decifrati)
-  List<Widget> _buildAttachments() {
+  List<Widget> _buildAttachments(BuildContext context) {
+    // Caso speciale: location_share
+    if (messageObject?.messageType == 'location_share') {
+      return [
+        AttachmentLocationShare(
+          message: messageObject!,
+          isMe: isMe,
+          onTap: () {
+            // Apri schermata di navigazione
+            final locationService = Provider.of<LocationService>(context, listen: false);
+            locationService.startTrackingPartner();
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => const LocationSharingScreen(),
+              ),
+            );
+          },
+        ),
+      ];
+    }
+
     if (attachments == null || attachments!.isEmpty) {
       return [];
     }
@@ -2315,19 +2313,20 @@ class _MessageBubble extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       // Allegati (se presenti) - senza padding per occupare tutta la larghezza
-                      if (attachments != null && attachments!.isNotEmpty)
-                        ..._buildAttachments(),
-                      // Testo e timestamp con padding
-                      Padding(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 16,
-                          vertical: 10,
-                        ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            // Testo del messaggio (se presente)
-                            if (message.isNotEmpty) ...[
+                      if (attachments != null && attachments!.isNotEmpty || messageObject?.messageType == 'location_share')
+                        ..._buildAttachments(context),
+                      // Testo e timestamp con padding (nascondi testo per location_share)
+                      if (messageObject?.messageType != 'location_share')
+                        Padding(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 10,
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              // Testo del messaggio (se presente)
+                              if (message.isNotEmpty) ...[
                               Linkify(
                                 onOpen: (link) async {
                                   try {

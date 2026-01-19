@@ -594,3 +594,143 @@ class _FullscreenImageViewerState extends State<FullscreenImageViewer> {
     );
   }
 }
+
+/// Widget per visualizzare allegato condivisione posizione
+class AttachmentLocationShare extends StatelessWidget {
+  final Message message;
+  final bool isMe;
+  final VoidCallback onTap;
+
+  const AttachmentLocationShare({
+    Key? key,
+    required this.message,
+    required this.isMe,
+    required this.onTap,
+  }) : super(key: key);
+
+  String _getExpiresText() {
+    // Estrai expiresAt dal messaggio
+    if (message.decryptedContent != null && message.decryptedContent!.contains('|')) {
+      final parts = message.decryptedContent!.split('|');
+      if (parts.length >= 2) {
+        try {
+          final expiresAt = DateTime.parse(parts[1]);
+          final now = DateTime.now();
+          final isExpired = now.isAfter(expiresAt);
+
+          if (isExpired) {
+            return 'Scaduta';
+          } else {
+            final diff = expiresAt.difference(now);
+            if (diff.inHours > 0) {
+              return 'Scade tra ${diff.inHours}h';
+            } else {
+              return 'Scade tra ${diff.inMinutes}m';
+            }
+          }
+        } catch (e) {
+          return '';
+        }
+      }
+    }
+    return '';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final expiresText = _getExpiresText();
+
+    return GestureDetector(
+      onTap: onTap,
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(12),
+        child: Container(
+          width: 200,
+          height: 200,
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: isMe
+                  ? [
+                      const Color(0xFFFF9800),
+                      const Color(0xFFF57C00),
+                    ]
+                  : [
+                      Colors.orange[300]!,
+                      Colors.orange[200]!,
+                    ],
+            ),
+          ),
+          child: Stack(
+            children: [
+              // Icona grande in background
+              Positioned(
+                right: -20,
+                bottom: -20,
+                child: Icon(
+                  Icons.location_on,
+                  size: 120,
+                  color: Colors.white.withOpacity(0.1),
+                ),
+              ),
+              // Contenuto
+              Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(
+                      Icons.location_on,
+                      size: 48,
+                      color: isMe ? Colors.white : Colors.orange[900],
+                    ),
+                    const SizedBox(height: 12),
+                    Text(
+                      isMe ? 'La mia posizione' : 'Posizione',
+                      style: TextStyle(
+                        color: isMe ? Colors.white : Colors.orange[900],
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                    if (expiresText.isNotEmpty) ...[
+                      const SizedBox(height: 8),
+                      Text(
+                        expiresText,
+                        style: TextStyle(
+                          color: isMe ? Colors.white.withOpacity(0.9) : Colors.orange[800],
+                          fontSize: 13,
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                    ],
+                    if (!isMe) ...[
+                      const SizedBox(height: 16),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                        decoration: BoxDecoration(
+                          color: Colors.orange[900],
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: const Text(
+                          'Tocca per visualizzare',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 11,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
