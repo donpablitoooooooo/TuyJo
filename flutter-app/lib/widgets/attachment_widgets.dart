@@ -732,7 +732,7 @@ class AttachmentLocationShare extends StatelessWidget {
 
           // Bubble con testo, countdown e orario
           Container(
-            constraints: const BoxConstraints(maxWidth: 200),
+            width: 200, // Stessa larghezza del thumbnail
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
             decoration: BoxDecoration(
               color: bubbleColor,
@@ -743,12 +743,14 @@ class AttachmentLocationShare extends StatelessWidget {
               children: [
                 // Testo (con strikethrough se scaduto o sessione vecchia)
                 // Stile identico ai todo: fontSize 15, height 1.4
+                // Italic se è il testo di default "Posizione"
                 Text(
                   customText,
                   style: TextStyle(
                     color: textColor,
                     fontSize: 15,
                     height: 1.4,
+                    fontStyle: customText == 'Posizione' ? FontStyle.italic : null,
                     decoration: shouldStrikethrough ? TextDecoration.lineThrough : null,
                   ),
                 ),
