@@ -700,8 +700,8 @@ class AttachmentLocationShare extends StatelessWidget {
 
     // Testo della bubble
     final String statusText = isTerminated
-        ? 'Condivisione posizione terminata'
-        : 'Condivisione posizione attiva';
+        ? 'Condivisione terminata'
+        : 'Condivisione attiva';
 
     final textColor = isMe ? Colors.white : Colors.black87;
 
