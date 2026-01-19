@@ -2171,8 +2171,8 @@ class _MessageBubble extends StatelessWidget {
             // Estrai sessionId dal body del messaggio
             // Formato: "location_share|expiresAt|sessionId"
             String sessionId = '';
-            if (messageObject.decryptedContent != null) {
-              final parts = messageObject.decryptedContent!.split('|');
+            if (messageObject?.decryptedContent != null) {
+              final parts = messageObject?.decryptedContent?.split('|') ?? [];
               if (parts.length >= 3) {
                 sessionId = parts[2]; // sessionId è il terzo elemento
               }
