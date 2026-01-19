@@ -531,7 +531,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   }
 
   /// Aggiunge una reaction a un messaggio
-  void _addReaction(String messageId, String reactionType) async {
+  void _addReaction(String messageId, String reactionType, [Message? message]) async {
     if (_familyChatId == null || _myDeviceId == null) {
       return;
     }
@@ -546,6 +546,13 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     );
 
     if (kDebugMode) print('✅ Reaction $reactionType added to message: $messageId');
+
+    // Se la reaction è "done" (✓) su un messaggio location_share, interrompi la condivisione
+    if (reactionType == 'done' && message?.messageType == 'location_share') {
+      final locationService = Provider.of<LocationService>(context, listen: false);
+      await locationService.stopSharingLocation();
+      if (kDebugMode) print('🛑 Location sharing stopped via reaction');
+    }
   }
 
   /// Formatta la data in modo colloquiale per il separatore
@@ -1781,7 +1788,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                                 message: message,
                                 isMe: isMe,
                                 isCompleted: isTodoCompleted,
-                                onReact: (reactionType) => _addReaction(message.id, reactionType),
+                                onReact: (reactionType) => _addReaction(message.id, reactionType, message),
                                 formattedDate: formattedDate,
                                 attachmentService: _attachmentService,
                                 senderId: message.senderId,
@@ -1803,7 +1810,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                                 currentUserId: _myDeviceId,
                                 attachmentService: _attachmentService,
                                 reaction: message.reaction,
-                                onReact: (reactionType) => _addReaction(message.id, reactionType),
+                                onReact: (reactionType) => _addReaction(message.id, reactionType, message),
                                 messageObject: message,
                               );
                             }

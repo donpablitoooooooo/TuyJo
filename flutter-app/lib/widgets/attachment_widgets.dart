@@ -4,10 +4,12 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:open_filex/open_filex.dart';
+import 'package:provider/provider.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:private_messaging/generated/l10n/app_localizations.dart';
 import '../models/message.dart';
 import '../services/attachment_service.dart';
+import '../services/location_service.dart';
 import '../screens/pdf_viewer_screen.dart';
 
 /// Widget per visualizzare allegati immagine (decifrato)
@@ -650,6 +652,17 @@ class AttachmentLocationShare extends StatelessWidget {
     return '';
   }
 
+  /// Estrae il sessionId dal messaggio
+  String _getSessionId() {
+    if (message.decryptedContent != null && message.decryptedContent!.contains('|')) {
+      final parts = message.decryptedContent!.split('|');
+      if (parts.length >= 3) {
+        return parts[2]; // sessionId è il terzo elemento
+      }
+    }
+    return '';
+  }
+
   bool _isExpired() {
     if (message.decryptedContent != null && message.decryptedContent!.contains('|')) {
       final parts = message.decryptedContent!.split('|');
@@ -667,9 +680,20 @@ class AttachmentLocationShare extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final locationService = Provider.of<LocationService>(context);
     final customText = _getCustomText();
     final timeRemaining = _getTimeRemaining();
     final isExpired = _isExpired();
+    final messageSessionId = _getSessionId();
+
+    // Verifica se questa è una sessione vecchia (non più attiva)
+    final isOldSession = locationService.currentSessionId != null &&
+        messageSessionId.isNotEmpty &&
+        messageSessionId != locationService.currentSessionId;
+
+    // Mostra testo barrato se scaduta O se è una sessione vecchia
+    final shouldStrikethrough = isExpired || isOldSession;
+
     final bubbleColor = isMe ? const Color(0xFF3BA8B0) : Colors.grey.shade300;
     final textColor = isMe ? Colors.white : Colors.black87;
 
@@ -717,14 +741,15 @@ class AttachmentLocationShare extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Testo (con strikethrough se scaduto)
+                // Testo (con strikethrough se scaduto o sessione vecchia)
+                // Stile identico ai todo: fontSize 15, height 1.4
                 Text(
                   customText,
                   style: TextStyle(
                     color: textColor,
-                    fontSize: 14,
-                    fontWeight: FontWeight.w500,
-                    decoration: isExpired ? TextDecoration.lineThrough : null,
+                    fontSize: 15,
+                    height: 1.4,
+                    decoration: shouldStrikethrough ? TextDecoration.lineThrough : null,
                   ),
                 ),
 
