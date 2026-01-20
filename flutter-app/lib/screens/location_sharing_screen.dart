@@ -163,6 +163,31 @@ class _LocationSharingScreenState extends State<LocationSharingScreen> {
     final bool isSessionValid = widget.isSender || (partnerLocation != null &&
         partnerLocation.sessionId == widget.expectedSessionId);
 
+    // Verifica se la condivisione è terminata
+    // - Sessione non valida (sessionId diverso)
+    // - Partner location null e non siamo in attesa iniziale
+    final bool isTerminated = !isSessionValid ||
+        (partnerLocation == null && !widget.isSender && locationService.isTrackingPartner);
+
+    // Colore sfondo: grigio se terminata, teal se attiva
+    final backgroundColor = isTerminated
+        ? LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [
+              Colors.grey.shade600,
+              Colors.grey.shade800,
+            ],
+          )
+        : const LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [
+              Color(0xFF3BA8B0), // Teal app
+              Color(0xFF145A60), // Teal scuro app
+            ],
+          );
+
     return Scaffold(
       extendBodyBehindAppBar: true,
       backgroundColor: Colors.transparent,
@@ -174,7 +199,7 @@ class _LocationSharingScreenState extends State<LocationSharingScreen> {
           onPressed: () => Navigator.pop(context),
         ),
         actions: [
-          if (partnerLocation != null && isSessionValid)
+          if (partnerLocation != null && isSessionValid && !widget.isSender)
             IconButton(
               icon: Icon(Icons.map_outlined, color: Colors.white),
               onPressed: () => _openMaps(
@@ -185,20 +210,11 @@ class _LocationSharingScreenState extends State<LocationSharingScreen> {
         ],
       ),
       body: Container(
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [
-              Color(0xFF3BA8B0), // Teal app
-              Color(0xFF145A60), // Teal scuro app
-            ],
-          ),
-        ),
-        child: partnerLocation == null
-            ? _buildWaitingView()
-            : !isSessionValid
-                ? _buildSessionExpiredView() // Sessione non valida
+        decoration: BoxDecoration(gradient: backgroundColor),
+        child: isTerminated
+            ? _buildTerminatedView() // Condivisione terminata
+            : partnerLocation == null
+                ? _buildWaitingView() // In attesa della posizione del partner
                 : _buildNavigationView(context, partnerLocation, myLocation),
       ),
     );
@@ -231,8 +247,8 @@ class _LocationSharingScreenState extends State<LocationSharingScreen> {
     );
   }
 
-  /// Vista sessione terminata (quando A riavvia condivisione)
-  Widget _buildSessionExpiredView() {
+  /// Vista condivisione terminata (sfondo grigio)
+  Widget _buildTerminatedView() {
     return Center(
       child: Padding(
         padding: EdgeInsets.all(40),
@@ -240,13 +256,13 @@ class _LocationSharingScreenState extends State<LocationSharingScreen> {
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Icon(
-              Icons.cancel_outlined,
+              Icons.location_off,
               size: 100,
-              color: Colors.white,
+              color: Colors.white70,
             ),
             SizedBox(height: 40),
             Text(
-              'Sessione terminata',
+              'Condivisione terminata',
               style: TextStyle(
                 color: Colors.white,
                 fontSize: 28,
@@ -257,7 +273,7 @@ class _LocationSharingScreenState extends State<LocationSharingScreen> {
             ),
             SizedBox(height: 20),
             Text(
-              'Il partner ha avviato una nuova condivisione',
+              'La condivisione della posizione è stata interrotta',
               style: TextStyle(
                 color: Colors.white70,
                 fontSize: 16,
@@ -271,7 +287,7 @@ class _LocationSharingScreenState extends State<LocationSharingScreen> {
               onPressed: () => Navigator.pop(context),
               style: ElevatedButton.styleFrom(
                 backgroundColor: Colors.white,
-                foregroundColor: Color(0xFF3BA8B0),
+                foregroundColor: Colors.grey.shade700,
                 padding: EdgeInsets.symmetric(horizontal: 40, vertical: 16),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(12),
@@ -384,6 +400,33 @@ class _LocationSharingScreenState extends State<LocationSharingScreen> {
                 fontSize: 48,
                 fontWeight: FontWeight.w200,
                 letterSpacing: 2.0,
+              ),
+            ),
+            SizedBox(height: 60),
+            ElevatedButton.icon(
+              onPressed: () async {
+                final locationService = Provider.of<LocationService>(context, listen: false);
+                await locationService.stopSharingLocation();
+                if (mounted) {
+                  Navigator.pop(context);
+                }
+              },
+              icon: Icon(Icons.stop_circle_outlined, size: 24),
+              label: Text(
+                'Interrompi condivisione',
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w500,
+                  letterSpacing: 0.5,
+                ),
+              ),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.white,
+                foregroundColor: Color(0xFF3BA8B0),
+                padding: EdgeInsets.symmetric(horizontal: 32, vertical: 16),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
               ),
             ),
           ],
