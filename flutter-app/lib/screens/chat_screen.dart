@@ -920,7 +920,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
             myPublicKey != null &&
             partnerPublicKey != null &&
             locationService.currentSessionId != null) {
-          final messageSent = await chatService.sendLocationShare(
+          final messageId = await chatService.sendLocationShare(
             expiresAt,
             locationService.currentSessionId!, // Session ID univoco
             familyChatId,
@@ -929,8 +929,9 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
             partnerPublicKey,
           );
 
-          if (messageSent) {
-            // Messaggio inviato con successo (nessun toast)
+          if (messageId != null) {
+            // Salva il messageId nel LocationService per poterlo usare quando si ferma la condivisione
+            locationService.setLocationShareMessageId(messageId);
           }
         }
       } else {

@@ -10,6 +10,7 @@ import 'package:provider/provider.dart';
 import 'package:flutter_compass/flutter_compass.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:url_launcher/url_launcher.dart';
+import '../services/chat_service.dart';
 import '../services/encryption_service.dart';
 import '../services/location_service.dart';
 import '../services/pairing_service.dart';
@@ -559,7 +560,23 @@ class _LocationSharingScreenState extends State<LocationSharingScreen> {
             ElevatedButton.icon(
               onPressed: () async {
                 final locationService = Provider.of<LocationService>(context, listen: false);
+                final chatService = Provider.of<ChatService>(context, listen: false);
+                final pairingService = Provider.of<PairingService>(context, listen: false);
+
+                // Ottieni il messageId prima di fermare la condivisione
+                final messageId = locationService.getLocationShareMessageId();
+                final familyChatId = await pairingService.getFamilyChatId();
+                final myUserId = await pairingService.getMyUserId();
+
+                // Ferma la condivisione
                 await locationService.stopSharingLocation();
+
+                // Aggiungi reaction "done" al messaggio per notificare entrambi gli utenti
+                if (messageId != null && familyChatId != null && myUserId != null) {
+                  await chatService.addReaction(messageId, familyChatId, myUserId, 'done');
+                  if (kDebugMode) print('✅ [LOCATION] Added "done" reaction to message');
+                }
+
                 // Non chiudiamo la schermata - diventerà grigia automaticamente
                 // L'utente può tornare alla chat manualmente cliccando la X
               },

@@ -799,7 +799,7 @@ class ChatService extends ChangeNotifier {
   }
 
   /// Invia messaggio di condivisione posizione
-  Future<bool> sendLocationShare(
+  Future<String?> sendLocationShare(
     DateTime expiresAt,
     String sessionId,
     String familyChatId,
@@ -851,11 +851,12 @@ class ChatService extends ChangeNotifier {
       if (kDebugMode) {
         print('✅ Location share message sent');
         print('   Expires at: $expiresAt');
+        print('   Message ID: ${messageRef.id}');
       }
-      return true;
+      return messageRef.id; // Ritorna l'ID del messaggio
     } catch (e) {
       if (kDebugMode) print('❌ Send location share error: $e');
-      return false;
+      return null;
     }
   }
 

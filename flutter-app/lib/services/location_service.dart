@@ -26,6 +26,7 @@ class LocationService extends ChangeNotifier {
   bool _isTrackingPartner = false;
   DateTime? _sharingExpiresAt;
   String? _currentSessionId; // Session ID univoco per ogni condivisione
+  String? _locationShareMessageId; // ID del messaggio di location share
 
   // Getters
   LocationShare? get myLocation => _myLocation;
@@ -201,6 +202,17 @@ class LocationService extends ChangeNotifier {
     }
   }
 
+  /// Imposta l'ID del messaggio di location share
+  void setLocationShareMessageId(String messageId) {
+    _locationShareMessageId = messageId;
+    if (kDebugMode) print('📝 [LOCATION] Message ID set: $messageId');
+  }
+
+  /// Ottiene l'ID del messaggio di location share corrente
+  String? getLocationShareMessageId() {
+    return _locationShareMessageId;
+  }
+
   /// Ferma la condivisione della posizione
   Future<void> stopSharingLocation() async {
     try {
@@ -227,6 +239,7 @@ class LocationService extends ChangeNotifier {
       _sharingExpiresAt = null;
       _myLocation = null;
       _currentSessionId = null; // Reset session ID
+      _locationShareMessageId = null; // Reset message ID
 
       notifyListeners();
     } catch (e) {
