@@ -657,9 +657,10 @@ class _LocationSharingScreenState extends State<LocationSharingScreen> {
       child: SizedBox(
         width: double.infinity,
         child: Center(
-          child: SizedBox(
+          child: Container(
             width: 400,
             height: 400,
+            color: Colors.black, // DEBUG: container nero per vedere se freccia è tagliata
             child: Center(
               child: _heading != null && targetBearing != null
                   ? AnimatedOpacity(
@@ -778,32 +779,13 @@ class _LocationSharingScreenState extends State<LocationSharingScreen> {
                     print('   MyUserId: ${myUserId != null ? "OK" : "NULL"}');
                   }
 
-                  // Se sono mittente, ferma la condivisione
-                  if (widget.isSender) {
-                    await locationService.stopSharingLocation();
-                  } else {
-                    // Se sono destinatario, ferma la mia condivisione position tracking
+                  // LOGICA SEMPLIFICATA: stopSharingLocation() marca ENTRAMBI come inattivi (come pairing)
+                  // Sia mittente che destinatario chiamano la stessa funzione
+                  await locationService.stopSharingLocation();
+
+                  // Se sono destinatario, ferma anche il timer locale di update posizione
+                  if (!widget.isSender) {
                     await _stopSharingMyPosition();
-
-                    // Ferma anche la condivisione del mittente (partner)
-                    final partnerLocation = locationService.partnerLocation;
-                    if (familyChatId != null && partnerLocation != null) {
-                      try {
-                        await FirebaseFirestore.instance
-                            .collection('families')
-                            .doc(familyChatId)
-                            .collection('locations')
-                            .doc(partnerLocation.userId)
-                            .update({'is_active': false});
-
-                        if (kDebugMode) {
-                          print('✅ [STOP] Partner location marked as inactive');
-                          print('   PartnerId: ${partnerLocation.userId.substring(0, 8)}...');
-                        }
-                      } catch (e) {
-                        if (kDebugMode) print('❌ [STOP] Error stopping partner location: $e');
-                      }
-                    }
                   }
 
                   // Se messageId è null (destinatario), cerca il messaggio con sessionId

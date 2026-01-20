@@ -193,26 +193,6 @@ class LocationService extends ChangeNotifier {
         _updateMyLocationToFirestore(position, myUserId, familyChatId);
       });
 
-      // Avvia listener sul proprio documento per rilevare se partner ferma la condivisione
-      _myLocationSubscription = _firestore
-          .collection('families')
-          .doc(familyChatId)
-          .collection('locations')
-          .doc(myUserId)
-          .snapshots()
-          .listen((snapshot) {
-        if (snapshot.exists) {
-          final data = snapshot.data();
-          final isActive = data?['is_active'] ?? true;
-
-          if (!isActive && _isSharingLocation) {
-            // Partner ha fermato la condivisione esternamente
-            if (kDebugMode) print('🛑 [LOCATION] Detected external stop request, stopping...');
-            stopSharingLocation();
-          }
-        }
-      });
-
       notifyListeners();
       return true;
     } catch (e) {
@@ -243,21 +223,34 @@ class LocationService extends ChangeNotifier {
       await _positionStreamSubscription?.cancel();
       _positionStreamSubscription = null;
 
-      // Ferma il listener sul proprio documento
-      await _myLocationSubscription?.cancel();
-      _myLocationSubscription = null;
-
-      // Aggiorna Firestore: imposta is_active = false
+      // Aggiorna Firestore: imposta is_active = false per ENTRAMBI (come pairing)
       final myUserId = await _getMyUserId();
       final familyChatId = await _getFamilyChatId();
 
       if (myUserId != null && familyChatId != null) {
+        // Marca il MIO documento come inattivo
         await _firestore
             .collection('families')
             .doc(familyChatId)
             .collection('locations')
             .doc(myUserId)
             .update({'is_active': false});
+
+        // Marca anche il documento del PARTNER come inattivo (come pairing)
+        // Trova tutti i documenti nella collection e marca come inattivi quelli che non sono i miei
+        final locationsSnapshot = await _firestore
+            .collection('families')
+            .doc(familyChatId)
+            .collection('locations')
+            .get();
+
+        for (var doc in locationsSnapshot.docs) {
+          if (doc.id != myUserId) {
+            // Questo è il partner
+            await doc.reference.update({'is_active': false});
+            if (kDebugMode) print('🛑 [LOCATION] Marked partner location as inactive: ${doc.id.substring(0, 8)}...');
+          }
+        }
       }
 
       _isSharingLocation = false;
@@ -342,10 +335,20 @@ class LocationService extends ChangeNotifier {
 
         final locationShare = LocationShare.fromFirestore(partnerDoc.id, partnerDoc.data());
 
-        // Verifica se è scaduta
+        // Verifica se è scaduta o inattiva
         if (locationShare.isExpired || !locationShare.isActive) {
-          if (kDebugMode) print('👀 [LOCATION] Partner location expired or inactive');
+          if (kDebugMode) print('👀 [LOCATION] Partner location expired or inactive - STOPPING ALL');
           _partnerLocation = null;
+
+          // Partner ha fermato: fermiamo TUTTO (come pairing)
+          if (_isSharingLocation) {
+            if (kDebugMode) print('🛑 [LOCATION] Partner stopped, stopping my sharing too');
+            stopSharingLocation();
+          }
+          if (_isTrackingPartner) {
+            if (kDebugMode) print('🛑 [LOCATION] Partner stopped, stopping tracking');
+            stopTrackingPartner();
+          }
         } else {
           if (kDebugMode) {
             print('👀 [LOCATION] Partner location updated:');
