@@ -1016,13 +1016,15 @@ class ChatService extends ChangeNotifier {
         if (kDebugMode) {
           print('✅ [addReaction] Local cache updated successfully');
         }
-
-        notifyListeners();
       } else {
         if (kDebugMode) {
-          print('⚠️ [addReaction] Message not found in local list');
+          print('⚠️ [addReaction] Message not found in local list, will be updated by Firestore listener');
         }
       }
+
+      // IMPORTANTE: chiama sempre notifyListeners() per forzare rebuild
+      // Il listener Firestore aggiornerà il messaggio quando riceve l'evento modified
+      notifyListeners();
 
       if (kDebugMode) {
         print('✅ [addReaction] Reaction $reactionType added to message $messageId');
