@@ -10,6 +10,7 @@ import 'package:provider/provider.dart';
 import 'package:flutter_compass/flutter_compass.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:url_launcher/url_launcher.dart';
+import '../models/message.dart';
 import '../services/chat_service.dart';
 import '../services/encryption_service.dart';
 import '../services/location_service.dart';
@@ -797,13 +798,9 @@ class _LocationSharingScreenState extends State<LocationSharingScreen> {
 
                       for (var doc in messagesSnapshot.docs) {
                         final decrypted = chatService.decryptMessage(
-                          chatService.messages.firstWhere((m) => m.id == doc.id, orElse: () =>
-                            Message(
-                              id: doc.id,
-                              senderId: doc.data()['sender_id'],
-                              timestamp: DateTime.parse(doc.data()['created_at']),
-                              messageType: 'location_share',
-                            )
+                          chatService.messages.firstWhere(
+                            (m) => m.id == doc.id,
+                            orElse: () => Message.fromFirestore(doc.id, doc.data()),
                           ),
                           myUserId,
                         );
