@@ -654,21 +654,19 @@ class _LocationSharingScreenState extends State<LocationSharingScreen> {
     }
 
     return Expanded(
-      child: Center(
-        // Container con overflow per evitare clipping della freccia (220px)
-        // Aumentato a 350px per gestire la rotazione diagonale (220 * √2 ≈ 311px)
-        child: OverflowBox(
-          maxWidth: 350,
-          maxHeight: 350,
+      child: Container(
+        clipBehavior: Clip.none, // NON clippare la freccia
+        child: Center(
           child: _heading != null && targetBearing != null
               ? AnimatedOpacity(
                   duration: Duration(milliseconds: 200),
                   opacity: opacity,
                   child: Transform.rotate(
+                    alignment: Alignment.center,
                     angle: (targetBearing - _heading!) * math.pi / 180,
                     child: Icon(
                       Icons.navigation,
-                      size: 220, // Freccia più grossa
+                      size: 280, // Freccia più grossa per evitare taglio intrinseco
                       color: Colors.white,
                       shadows: [
                         Shadow(
@@ -681,7 +679,7 @@ class _LocationSharingScreenState extends State<LocationSharingScreen> {
                 )
               : Icon(
                   Icons.navigation,
-                  size: 220,
+                  size: 280,
                   color: Colors.white.withOpacity(0.5),
                 ),
         ),

@@ -18,6 +18,7 @@ class LocationService extends ChangeNotifier {
   // Stream subscriptions
   StreamSubscription<Position>? _positionStreamSubscription;
   StreamSubscription<QuerySnapshot<Map<String, dynamic>>>? _partnerLocationSubscription;
+  StreamSubscription<DocumentSnapshot<Map<String, dynamic>>>? _myLocationSubscription; // Listener per rilevare stop esterno
 
   // State
   LocationShare? _myLocation;
@@ -192,6 +193,26 @@ class LocationService extends ChangeNotifier {
         _updateMyLocationToFirestore(position, myUserId, familyChatId);
       });
 
+      // Avvia listener sul proprio documento per rilevare se partner ferma la condivisione
+      _myLocationSubscription = _firestore
+          .collection('families')
+          .doc(familyChatId)
+          .collection('locations')
+          .doc(myUserId)
+          .snapshots()
+          .listen((snapshot) {
+        if (snapshot.exists) {
+          final data = snapshot.data();
+          final isActive = data?['is_active'] ?? true;
+
+          if (!isActive && _isSharingLocation) {
+            // Partner ha fermato la condivisione esternamente
+            if (kDebugMode) print('🛑 [LOCATION] Detected external stop request, stopping...');
+            stopSharingLocation();
+          }
+        }
+      });
+
       notifyListeners();
       return true;
     } catch (e) {
@@ -218,9 +239,13 @@ class LocationService extends ChangeNotifier {
     try {
       if (kDebugMode) print('🛑 [LOCATION] Stopping location sharing');
 
-      // Ferma lo stream
+      // Ferma lo stream posizione
       await _positionStreamSubscription?.cancel();
       _positionStreamSubscription = null;
+
+      // Ferma il listener sul proprio documento
+      await _myLocationSubscription?.cancel();
+      _myLocationSubscription = null;
 
       // Aggiorna Firestore: imposta is_active = false
       final myUserId = await _getMyUserId();
