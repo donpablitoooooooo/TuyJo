@@ -27,6 +27,7 @@ class _LocationSharingScreenState extends State<LocationSharingScreen> {
   double? _heading; // Direzione corrente dalla bussola (0-360°)
   StreamSubscription<CompassEvent>? _compassSubscription;
   Timer? _compassRetryTimer;
+  Timer? _positionUpdateTimer; // Timer per aggiornare la posizione
   int _compassRetryCount = 0;
   Position? _myPosition; // Posizione corrente dell'utente (locale, non condivisa)
 
@@ -40,11 +41,11 @@ class _LocationSharingScreenState extends State<LocationSharingScreen> {
       final locationService = Provider.of<LocationService>(context, listen: false);
       locationService.startTrackingPartner();
 
-      // Ottieni la mia posizione corrente
+      // Ottieni la mia posizione corrente subito
       _updateMyPosition();
 
       // Aggiorna posizione ogni 5 secondi
-      Timer.periodic(Duration(seconds: 5), (timer) {
+      _positionUpdateTimer = Timer.periodic(Duration(seconds: 5), (timer) {
         if (!mounted) {
           timer.cancel();
           return;
@@ -68,6 +69,7 @@ class _LocationSharingScreenState extends State<LocationSharingScreen> {
   void dispose() {
     _compassSubscription?.cancel();
     _compassRetryTimer?.cancel();
+    _positionUpdateTimer?.cancel(); // Cancella il timer posizione
     super.dispose();
   }
 
@@ -251,61 +253,89 @@ class _LocationSharingScreenState extends State<LocationSharingScreen> {
 
   /// Vista condivisione terminata (sfondo grigio)
   Widget _buildTerminatedView() {
-    return Center(
-      child: Padding(
-        padding: EdgeInsets.all(40),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(
-              Icons.location_off,
-              size: 100,
-              color: Colors.white70,
-            ),
-            SizedBox(height: 40),
-            Text(
-              'Condivisione terminata',
-              style: TextStyle(
-                color: Colors.white,
-                fontSize: 28,
-                fontWeight: FontWeight.w200,
-                letterSpacing: 1.5,
-              ),
-              textAlign: TextAlign.center,
-            ),
-            SizedBox(height: 20),
-            Text(
-              'La condivisione della posizione è stata interrotta',
-              style: TextStyle(
-                color: Colors.white70,
-                fontSize: 16,
-                fontWeight: FontWeight.w300,
-                letterSpacing: 0.5,
-              ),
-              textAlign: TextAlign.center,
-            ),
-            SizedBox(height: 40),
-            ElevatedButton(
-              onPressed: () => Navigator.pop(context),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.white,
-                foregroundColor: Colors.grey.shade700,
-                padding: EdgeInsets.symmetric(horizontal: 40, vertical: 16),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
+    final locationService = Provider.of<LocationService>(context);
+    final partnerLocation = locationService.partnerLocation;
+
+    // Calcola distanza se entrambe le posizioni sono disponibili
+    double? distance;
+    if (_myPosition != null && partnerLocation != null) {
+      distance = locationService.calculateDistance(
+        _myPosition!.latitude,
+        _myPosition!.longitude,
+        partnerLocation.latitude,
+        partnerLocation.longitude,
+      );
+    }
+
+    return SafeArea(
+      child: Column(
+        children: [
+          Expanded(
+            child: Center(
+              child: Padding(
+                padding: EdgeInsets.all(40),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(
+                      Icons.location_off,
+                      size: 100,
+                      color: Colors.white70,
+                    ),
+                    SizedBox(height: 40),
+                    Text(
+                      'Condivisione terminata',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 28,
+                        fontWeight: FontWeight.w200,
+                        letterSpacing: 1.5,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                    SizedBox(height: 20),
+                    Text(
+                      'La condivisione della posizione è stata interrotta',
+                      style: TextStyle(
+                        color: Colors.white70,
+                        fontSize: 16,
+                        fontWeight: FontWeight.w300,
+                        letterSpacing: 0.5,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                    SizedBox(height: 40),
+                    ElevatedButton(
+                      onPressed: () => Navigator.pop(context),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.white,
+                        foregroundColor: Colors.grey.shade700,
+                        padding: EdgeInsets.symmetric(horizontal: 40, vertical: 16),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                      child: Text(
+                        'Torna alla chat',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w500,
+                          letterSpacing: 0.5,
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
               ),
-              child: Text(
-                'Torna alla chat',
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w500,
-                  letterSpacing: 0.5,
-                ),
-              ),
             ),
-          ],
-        ),
+          ),
+
+          // Box distanza in basso (se disponibile)
+          if (distance != null)
+            _buildInfoPanel(distance, null, false),
+
+          SizedBox(height: 40),
+        ],
       ),
     );
   }
@@ -417,9 +447,8 @@ class _LocationSharingScreenState extends State<LocationSharingScreen> {
               onPressed: () async {
                 final locationService = Provider.of<LocationService>(context, listen: false);
                 await locationService.stopSharingLocation();
-                if (mounted) {
-                  Navigator.pop(context);
-                }
+                // Non chiudiamo la schermata - diventerà grigia automaticamente
+                // L'utente può tornare alla chat manualmente cliccando la X
               },
               icon: Icon(Icons.stop_circle_outlined, size: 24),
               label: Text(
