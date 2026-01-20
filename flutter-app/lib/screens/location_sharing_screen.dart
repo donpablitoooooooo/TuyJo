@@ -166,10 +166,12 @@ class _LocationSharingScreenState extends State<LocationSharingScreen> {
         partnerLocation.sessionId == widget.expectedSessionId);
 
     // Verifica se la condivisione è terminata
-    // - Sessione non valida (sessionId diverso)
-    // - Partner location null e non siamo in attesa iniziale
-    final bool isTerminated = !isSessionValid ||
-        (partnerLocation == null && !widget.isSender && locationService.isTrackingPartner);
+    // - Mittente: controlla se isSharingLocation è false
+    // - Destinatario: controlla sessionId o se partnerLocation è null
+    final bool isTerminated = widget.isSender
+        ? !locationService.isSharingLocation // Mittente: controlla se ha fermato
+        : (!isSessionValid || // Destinatario: sessione non valida
+            (partnerLocation == null && locationService.isTrackingPartner)); // O partner ha fermato
 
     // Colore sfondo: grigio se terminata, teal se attiva
     final backgroundColor = isTerminated
