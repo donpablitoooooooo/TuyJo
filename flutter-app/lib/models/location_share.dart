@@ -30,6 +30,22 @@ class LocationShare {
 
   /// Factory per creare da Firestore
   factory LocationShare.fromFirestore(String docId, Map<String, dynamic> data) {
+    // Timestamp può essere Timestamp Firestore o int (secondi)
+    DateTime parseTimestamp(dynamic value) {
+      if (value == null) return DateTime.now();
+      if (value is Timestamp) return value.toDate();
+      if (value is int) return DateTime.fromMillisecondsSinceEpoch(value * 1000);
+      return DateTime.now();
+    }
+
+    // ExpiresAt può essere Timestamp o String ISO8601
+    DateTime parseExpiresAt(dynamic value) {
+      if (value == null) return DateTime.now();
+      if (value is Timestamp) return value.toDate();
+      if (value is String) return DateTime.parse(value);
+      return DateTime.now();
+    }
+
     return LocationShare(
       id: docId,
       userId: data['user_id'] ?? '',
@@ -37,8 +53,8 @@ class LocationShare {
       latitude: (data['latitude'] ?? 0.0).toDouble(),
       longitude: (data['longitude'] ?? 0.0).toDouble(),
       accuracy: (data['accuracy'] ?? 0.0).toDouble(),
-      timestamp: (data['timestamp'] as Timestamp?)?.toDate() ?? DateTime.now(),
-      expiresAt: (data['expires_at'] as Timestamp?)?.toDate() ?? DateTime.now(),
+      timestamp: parseTimestamp(data['timestamp']),
+      expiresAt: parseExpiresAt(data['expires_at']),
       speed: data['speed'] != null ? (data['speed'] as num).toDouble() : null,
       heading: data['heading'] != null ? (data['heading'] as num).toDouble() : null,
       isActive: data['is_active'] ?? true,
