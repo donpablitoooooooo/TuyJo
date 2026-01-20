@@ -654,30 +654,35 @@ class _LocationSharingScreenState extends State<LocationSharingScreen> {
 
     return Expanded(
       child: Center(
-        child: _heading != null && targetBearing != null
-            ? AnimatedOpacity(
-                duration: Duration(milliseconds: 200),
-                opacity: opacity,
-                child: Transform.rotate(
-                  angle: (targetBearing - _heading!) * math.pi / 180,
-                  child: Icon(
-                    Icons.navigation,
-                    size: 220, // Freccia più grossa
-                    color: Colors.white,
-                    shadows: [
-                      Shadow(
-                        color: Colors.black.withOpacity(0.3),
-                        blurRadius: 10,
-                      ),
-                    ],
+        // Container con overflow per evitare clipping della freccia (220px)
+        child: OverflowBox(
+          maxWidth: 300,
+          maxHeight: 300,
+          child: _heading != null && targetBearing != null
+              ? AnimatedOpacity(
+                  duration: Duration(milliseconds: 200),
+                  opacity: opacity,
+                  child: Transform.rotate(
+                    angle: (targetBearing - _heading!) * math.pi / 180,
+                    child: Icon(
+                      Icons.navigation,
+                      size: 220, // Freccia più grossa
+                      color: Colors.white,
+                      shadows: [
+                        Shadow(
+                          color: Colors.black.withOpacity(0.3),
+                          blurRadius: 10,
+                        ),
+                      ],
+                    ),
                   ),
+                )
+              : Icon(
+                  Icons.navigation,
+                  size: 220,
+                  color: Colors.white.withOpacity(0.5),
                 ),
-              )
-            : Icon(
-                Icons.navigation,
-                size: 220,
-                color: Colors.white.withOpacity(0.5),
-              ),
+        ),
       ),
     );
   }
@@ -756,9 +761,16 @@ class _LocationSharingScreenState extends State<LocationSharingScreen> {
                   final chatService = Provider.of<ChatService>(context, listen: false);
                   final pairingService = Provider.of<PairingService>(context, listen: false);
 
-                  final messageId = locationService.getLocationShareMessageId();
+                  var messageId = locationService.getLocationShareMessageId();
                   final familyChatId = await pairingService.getFamilyChatId();
                   final myUserId = await pairingService.getMyUserId();
+
+                  if (kDebugMode) {
+                    print('🛑 [STOP] Button pressed by ${widget.isSender ? "SENDER" : "RECEIVER"}');
+                    print('   MessageId: ${messageId ?? "NULL"}');
+                    print('   FamilyChatId: ${familyChatId != null ? "OK" : "NULL"}');
+                    print('   MyUserId: ${myUserId != null ? "OK" : "NULL"}');
+                  }
 
                   // Se sono mittente, ferma la condivisione
                   if (widget.isSender) {
@@ -768,10 +780,51 @@ class _LocationSharingScreenState extends State<LocationSharingScreen> {
                     await _stopSharingMyPosition();
                   }
 
+                  // Se messageId è null (destinatario), cerca il messaggio con sessionId
+                  if (messageId == null && familyChatId != null && myUserId != null) {
+                    if (kDebugMode) print('⚠️ [STOP] MessageId null, searching by sessionId: ${widget.expectedSessionId}');
+
+                    // Cerca il messaggio nella chat con questo sessionId
+                    try {
+                      final messagesSnapshot = await FirebaseFirestore.instance
+                          .collection('families')
+                          .doc(familyChatId)
+                          .collection('messages')
+                          .where('message_type', isEqualTo: 'location_share')
+                          .orderBy('created_at', descending: true)
+                          .limit(20)
+                          .get();
+
+                      for (var doc in messagesSnapshot.docs) {
+                        final decrypted = chatService.decryptMessage(
+                          chatService.messages.firstWhere((m) => m.id == doc.id, orElse: () =>
+                            Message(
+                              id: doc.id,
+                              senderId: doc.data()['sender_id'],
+                              timestamp: DateTime.parse(doc.data()['created_at']),
+                              messageType: 'location_share',
+                            )
+                          ),
+                          myUserId,
+                        );
+
+                        if (decrypted.contains(widget.expectedSessionId)) {
+                          messageId = doc.id;
+                          if (kDebugMode) print('✅ [STOP] Found message by sessionId: $messageId');
+                          break;
+                        }
+                      }
+                    } catch (e) {
+                      if (kDebugMode) print('❌ [STOP] Error searching message: $e');
+                    }
+                  }
+
                   // Aggiungi reaction "done" per fermare per ENTRAMBI
                   if (messageId != null && familyChatId != null && myUserId != null) {
                     await chatService.addReaction(messageId, familyChatId, myUserId, 'done');
-                    if (kDebugMode) print('✅ [LOCATION] Added "done" reaction to message');
+                    if (kDebugMode) print('✅ [LOCATION] Added "done" reaction to message $messageId');
+                  } else {
+                    if (kDebugMode) print('❌ [STOP] Cannot add reaction: messageId=$messageId, familyChatId=$familyChatId, myUserId=$myUserId');
                   }
                 },
                 child: Text(
