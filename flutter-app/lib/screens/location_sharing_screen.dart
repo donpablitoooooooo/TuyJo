@@ -420,7 +420,7 @@ class _LocationSharingScreenState extends State<LocationSharingScreen> {
 
           // Box distanza in basso (se disponibile)
           if (distance != null)
-            _buildDistancePanel(distance),
+            _buildDistancePanel(distance, null, DateTime.now()),
 
           SizedBox(height: 40),
         ],
