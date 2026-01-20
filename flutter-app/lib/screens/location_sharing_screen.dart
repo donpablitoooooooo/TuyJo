@@ -522,14 +522,17 @@ class _LocationSharingScreenState extends State<LocationSharingScreen> {
     }
 
     // Calcola rotazione freccia in base a dove sta andando il partner
-    // Se partnerHeading non è disponibile o è -1 (fermo), usa targetBearing (direzione verso mittente)
+    // IMPORTANTE: La freccia deve ruotare RELATIVAMENTE alla sua posizione radiale!
+    // Formula: partnerHeading - targetBearing
+    // - Se va verso mittente (opposto): differenza ~180° → punta al centro ✓
+    // - Se va lontano (stesso verso): differenza ~0° → punta verso esterno ✓
     double arrowRotation = 0;
-    if (partnerHeading != null && partnerHeading >= 0) {
-      // Usa heading del destinatario (dove sta andando)
-      arrowRotation = (partnerHeading - myHeading) * math.pi / 180;
+    if (partnerHeading != null && partnerHeading >= 0 && targetBearing != null) {
+      // Rotazione RELATIVA alla posizione sul radar
+      arrowRotation = (partnerHeading - targetBearing) * math.pi / 180;
     } else if (targetBearing != null) {
-      // Fallback: punta verso il mittente (come se stesse venendo verso di lui)
-      arrowRotation = (targetBearing - myHeading) * math.pi / 180;
+      // Fallback: punta verso il mittente (180° dalla sua posizione radiale)
+      arrowRotation = math.pi; // 180° rispetto alla radiale
     }
 
     // LOG DETTAGLIATO PER DEBUG
@@ -540,7 +543,10 @@ class _LocationSharingScreenState extends State<LocationSharingScreen> {
       print('   MyHeading (mittente): ${myHeading.toStringAsFixed(1)}° ${_heading == null ? "(Nord fisso)" : ""}');
       print('   PartnerHeading (destinatario): ${partnerHeading?.toStringAsFixed(1) ?? "null"}°');
       print('   TargetBearing (dove si trova): ${targetBearing?.toStringAsFixed(1) ?? "null"}°');
-      print('   ArrowRotation: ${(arrowRotation * 180 / math.pi).toStringAsFixed(1)}° (${partnerHeading != null && partnerHeading >= 0 ? "da heading" : "fallback bearing"})');
+      if (partnerHeading != null && targetBearing != null) {
+        print('   Differenza: ${(partnerHeading - targetBearing).toStringAsFixed(1)}°');
+      }
+      print('   ArrowRotation: ${(arrowRotation * 180 / math.pi).toStringAsFixed(1)}° (${partnerHeading != null && partnerHeading >= 0 && targetBearing != null ? "heading-bearing" : "fallback 180°"})');
       print('   Position (x,y): (${offsetX.toStringAsFixed(1)}, ${offsetY.toStringAsFixed(1)})');
       print('==========================================');
     }
