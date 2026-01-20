@@ -420,7 +420,7 @@ class _LocationSharingScreenState extends State<LocationSharingScreen> {
 
           // Box distanza in basso (se disponibile)
           if (distance != null)
-            _buildInfoPanel(distance, null, false),
+            _buildDistancePanel(distance),
 
           SizedBox(height: 40),
         ],
@@ -518,9 +518,9 @@ class _LocationSharingScreenState extends State<LocationSharingScreen> {
             ),
 
             // Freccia del partner al centro (ruotata verso dove si trova)
-            if (targetBearing != null && _currentHeading != null)
+            if (targetBearing != null && _heading != null)
               Transform.rotate(
-                angle: (targetBearing - _currentHeading!) * math.pi / 180,
+                angle: (targetBearing - _heading!) * math.pi / 180,
                 child: Icon(
                   Icons.navigation,
                   size: 100,
