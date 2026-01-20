@@ -696,14 +696,6 @@ class AttachmentLocationShare extends StatelessWidget {
         locationService.currentSessionId == null &&
         !locationService.isSharingLocation;
 
-    // Verifica se il PARTNER ha fermato la condivisione
-    // Controlla se partnerLocation è null o non attivo per questo sessionId
-    final partnerLocation = locationService.partnerLocation;
-    final isPartnerStopped = messageSessionId.isNotEmpty &&
-        (partnerLocation == null ||
-            !partnerLocation.isActive ||
-            partnerLocation.sessionId != messageSessionId);
-
     // Verifica se la condivisione è stata interrotta tramite reaction "done"
     final hasStopReaction = message.reaction?.type == 'done';
 
@@ -711,9 +703,8 @@ class AttachmentLocationShare extends StatelessWidget {
     // - Scaduta
     // - Sessione vecchia (ne è stata aperta una nuova)
     // - Reaction "done" presente
-    // - IO ho fermato manualmente (solo se isMe)
-    // - Il PARTNER ha fermato (partnerLocation null o non attivo)
-    final isTerminated = isExpired || isOldSession || hasStopReaction || isSharingStoppedByOwner || isPartnerStopped;
+    // - IO (mittente) ho fermato manualmente (solo se isMe)
+    final isTerminated = isExpired || isOldSession || hasStopReaction || isSharingStoppedByOwner;
 
     // Testo della bubble
     final String statusText = isTerminated
@@ -727,75 +718,102 @@ class AttachmentLocationShare extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Icona pin (senza sfondo - la bubble è creata da _MessageBubble)
-          Center(
-            child: Icon(
-              Icons.location_on,
-              size: 64,
-              color: isTerminated ? Colors.white54 : Colors.white,
-            ),
-          ),
-
-          const SizedBox(height: 12),
-
-          // Testo stato condivisione
-          // Stile identico ai todo: fontSize 15, height 1.4, italic
-          Text(
-            statusText,
-            style: TextStyle(
-              color: textColor,
-              fontSize: 15,
-              height: 1.4,
-              fontStyle: FontStyle.italic,
-              decoration: isTerminated ? TextDecoration.lineThrough : null,
-            ),
-          ),
-
-          const SizedBox(height: 6),
-
-          // Countdown con icona orologio (solo se attiva)
-          if (!isTerminated)
-            Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(
-                  Icons.access_time,
-                  size: 14,
-                  color: isMe ? Colors.white70 : Colors.black54,
-                ),
-                const SizedBox(width: 4),
-                Text(
-                  _getTimeRemaining(),
-                  style: TextStyle(
-                    color: isMe ? Colors.white70 : Colors.black54,
-                    fontSize: 12,
-                  ),
-                ),
-              ],
-            ),
-
-          if (!isTerminated) const SizedBox(height: 6),
-
-          // Orario e spunte
-          Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                DateFormat('HH:mm').format(message.timestamp),
-                style: TextStyle(
-                  color: isMe ? Colors.white70 : Colors.black54,
-                  fontSize: 11,
+          // Thumbnail con gradiente (attivo) o grigio (terminato)
+          ClipRRect(
+            borderRadius: BorderRadius.circular(12),
+            child: Container(
+              width: 200,
+              height: 100,
+              decoration: BoxDecoration(
+                gradient: isTerminated
+                    ? null // No gradient se terminato
+                    : const LinearGradient(
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                        colors: [
+                          Color(0xFF3BA8B0),
+                          Color(0xFF145A60),
+                        ],
+                      ),
+                color: isTerminated ? Colors.grey.shade400 : null, // Grigio se terminato
+              ),
+              child: Center(
+                child: Icon(
+                  Icons.location_on,
+                  size: 48,
+                  color: isTerminated ? Colors.white70 : Colors.white,
                 ),
               ),
-              if (isMe) ...[
-                const SizedBox(width: 4),
-                Icon(
-                  (message.read ?? false) ? Icons.done_all : Icons.done,
-                  size: 16,
-                  color: (message.read ?? false) ? Colors.lightBlueAccent : Colors.white70,
+            ),
+          ),
+
+          // Contenuto sotto (senza bubble - sarà dentro la bubble di _MessageBubble)
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Testo stato condivisione
+                // Stile identico ai todo: fontSize 15, height 1.4, italic
+                Text(
+                  statusText,
+                  style: TextStyle(
+                    color: textColor,
+                    fontSize: 15,
+                    height: 1.4,
+                    fontStyle: FontStyle.italic,
+                    decoration: isTerminated ? TextDecoration.lineThrough : null,
+                  ),
+                ),
+
+                const SizedBox(height: 6),
+
+                // Countdown con icona orologio (solo se attiva)
+                if (!isTerminated)
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        Icons.access_time,
+                        size: 14,
+                        color: isMe ? Colors.white70 : Colors.black54,
+                      ),
+                      const SizedBox(width: 4),
+                      Text(
+                        _getTimeRemaining(),
+                        style: TextStyle(
+                          color: isMe ? Colors.white70 : Colors.black54,
+                          fontSize: 12,
+                        ),
+                      ),
+                    ],
+                  ),
+
+                if (!isTerminated) const SizedBox(height: 6),
+
+                // Orario e spunte
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      DateFormat('HH:mm').format(message.timestamp),
+                      style: TextStyle(
+                        color: isMe ? Colors.white70 : Colors.black54,
+                        fontSize: 11,
+                      ),
+                    ),
+                    if (isMe) ...[
+                      const SizedBox(width: 4),
+                      Icon(
+                        (message.read ?? false) ? Icons.done_all : Icons.done,
+                        size: 16,
+                        color: (message.read ?? false) ? Colors.lightBlueAccent : Colors.white70,
+                      ),
+                    ],
+                  ],
                 ),
               ],
-            ],
+            ),
           ),
         ],
       ),
