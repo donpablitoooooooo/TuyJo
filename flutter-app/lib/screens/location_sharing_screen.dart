@@ -213,9 +213,11 @@ class _LocationSharingScreenState extends State<LocationSharingScreen> {
         decoration: BoxDecoration(gradient: backgroundColor),
         child: isTerminated
             ? _buildTerminatedView() // Condivisione terminata
-            : partnerLocation == null
-                ? _buildWaitingView() // In attesa della posizione del partner
-                : _buildNavigationView(context, partnerLocation, myLocation),
+            : widget.isSender
+                ? _buildNavigationView(context, partnerLocation, myLocation) // Mittente vede sempre la sua schermata
+                : partnerLocation == null
+                    ? _buildWaitingView() // Destinatario in attesa della posizione del partner
+                    : _buildNavigationView(context, partnerLocation, myLocation),
       ),
     );
   }
