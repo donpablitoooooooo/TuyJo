@@ -689,9 +689,10 @@ class AttachmentLocationShare extends StatelessWidget {
         messageSessionId.isNotEmpty &&
         messageSessionId != locationService.currentSessionId;
 
-    // Verifica se il mittente ha fermato la condivisione
-    // (currentSessionId null E non sta condividendo)
-    final isSharingStoppedByOwner = messageSessionId.isNotEmpty &&
+    // Verifica se il mittente (isMe) ha fermato la condivisione
+    // IMPORTANTE: controlla solo per i MIEI messaggi, non quelli ricevuti!
+    final isSharingStoppedByOwner = isMe &&
+        messageSessionId.isNotEmpty &&
         locationService.currentSessionId == null &&
         !locationService.isSharingLocation;
 
@@ -702,7 +703,7 @@ class AttachmentLocationShare extends StatelessWidget {
     // - Scaduta
     // - Sessione vecchia (ne è stata aperta una nuova)
     // - Reaction "done" presente
-    // - Mittente ha fermato manualmente (currentSessionId null)
+    // - IO (mittente) ho fermato manualmente (solo se isMe)
     final isTerminated = isExpired || isOldSession || hasStopReaction || isSharingStoppedByOwner;
 
     // Testo della bubble
