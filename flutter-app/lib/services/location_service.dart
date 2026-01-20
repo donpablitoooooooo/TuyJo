@@ -286,7 +286,7 @@ class LocationService extends ChangeNotifier {
           .doc(familyChatId)
           .collection('locations')
           .snapshots()
-          .listen((querySnapshot) {
+          .listen((querySnapshot) async {
         if (kDebugMode) {
           print('👀 [LOCATION] Locations snapshot received:');
           print('   Total docs: ${querySnapshot.docs.length}');
@@ -331,23 +331,19 @@ class LocationService extends ChangeNotifier {
           if (_partnerLocation != null && _partnerLocation!.isActive && _isSharingLocation) {
             if (kDebugMode) print('🛑 [LOCATION] Partner stopped, marking myself as inactive too');
 
-            final myUserId = await _getMyUserId();
-            final familyChatId = await _getFamilyChatId();
+            // Usa myUserId e familyChatId dal contesto esterno (già disponibili)
+            try {
+              await _firestore
+                  .collection('families')
+                  .doc(familyChatId)
+                  .collection('locations')
+                  .doc(myUserId)
+                  .update({'is_active': false});
 
-            if (myUserId != null && familyChatId != null) {
-              try {
-                await _firestore
-                    .collection('families')
-                    .doc(familyChatId)
-                    .collection('locations')
-                    .doc(myUserId)
-                    .update({'is_active': false});
-
-                _isSharingLocation = false;
-                if (kDebugMode) print('✅ [LOCATION] Marked myself as inactive (partner stopped)');
-              } catch (e) {
-                if (kDebugMode) print('❌ [LOCATION] Error marking as inactive: $e');
-              }
+              _isSharingLocation = false;
+              if (kDebugMode) print('✅ [LOCATION] Marked myself as inactive (partner stopped)');
+            } catch (e) {
+              if (kDebugMode) print('❌ [LOCATION] Error marking as inactive: $e');
             }
           }
 
