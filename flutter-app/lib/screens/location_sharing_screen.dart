@@ -1,12 +1,18 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:math' as math;
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:crypto/crypto.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import 'package:flutter_compass/flutter_compass.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:url_launcher/url_launcher.dart';
+import '../services/encryption_service.dart';
 import '../services/location_service.dart';
+import '../services/pairing_service.dart';
 
 /// Schermata minimal per navigazione verso il partner
 class LocationSharingScreen extends StatefulWidget {
@@ -62,6 +68,49 @@ class _LocationSharingScreenState extends State<LocationSharingScreen> {
       setState(() {
         _myPosition = position;
       });
+
+      // Se sono il destinatario (non mittente), condividi la mia posizione
+      // così il mittente può vedere la distanza
+      if (!widget.isSender) {
+        await _shareMyPositionWithPartner(position);
+      }
+    }
+  }
+
+  /// Condivide la posizione del destinatario con il mittente (solo per destinatario)
+  Future<void> _shareMyPositionWithPartner(Position position) async {
+    try {
+      final pairingService = Provider.of<PairingService>(context, listen: false);
+      final encryptionService = Provider.of<EncryptionService>(context, listen: false);
+
+      final familyChatId = await pairingService.getFamilyChatId();
+      final myPublicKey = await encryptionService.getPublicKey();
+
+      if (familyChatId == null || myPublicKey == null) return;
+
+      // Calcola userId da public key
+      final myUserId = sha256.convert(utf8.encode(myPublicKey)).toString();
+
+      // Aggiorna Firestore con la mia posizione (per tracking del partner)
+      await FirebaseFirestore.instance
+          .collection('families')
+          .doc(familyChatId)
+          .collection('locations')
+          .doc(myUserId)
+          .set({
+        'latitude': position.latitude,
+        'longitude': position.longitude,
+        'accuracy': position.accuracy,
+        'timestamp': FieldValue.serverTimestamp(),
+        'expires_at': DateTime.now().add(Duration(minutes: 5)).toIso8601String(), // Scade tra 5 min
+        'session_id': widget.expectedSessionId, // Usa lo stesso sessionId
+        'is_active': true,
+        'speed': position.speed,
+        'heading': position.heading,
+        'user_id': myUserId,
+      }, SetOptions(merge: true));
+    } catch (e) {
+      if (kDebugMode) print('❌ Error sharing position with partner: $e');
     }
   }
 
