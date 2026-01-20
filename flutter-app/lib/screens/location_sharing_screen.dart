@@ -465,10 +465,10 @@ class _LocationSharingScreenState extends State<LocationSharingScreen> {
           // Se è il mittente, mostra radar
           // Se è il destinatario, mostra cerchi concentrici + freccia
           if (widget.isSender) ...[
-            // MITTENTE: radar con partner che si avvicina (TEST: sempre 1km)
-            _buildRadarView(1000, targetBearing),
+            // MITTENTE: radar con partner che si avvicina
+            _buildRadarView(distance, targetBearing),
           ] else ...[
-            // DESTINATARIO: cerchi concentrici + freccia navigazione
+            // DESTINATARIO: freccia navigazione
             _buildReceiverView(targetBearing),
           ],
 
@@ -476,7 +476,7 @@ class _LocationSharingScreenState extends State<LocationSharingScreen> {
 
           // Box distanza in basso con pin + timestamp + STOP
           _buildDistancePanel(
-            widget.isSender ? 1000 : (distance ?? 0), // TEST mittente: sempre 1km
+            distance ?? 0,
             partnerLocation?.timestamp,
             locationService.sharingExpiresAt ?? DateTime.now(),
           ),
@@ -489,6 +489,31 @@ class _LocationSharingScreenState extends State<LocationSharingScreen> {
 
   /// Vista radar per il mittente (cerchi concentrici con freccia partner)
   Widget _buildRadarView(double? distance, double? targetBearing) {
+    // Calcola offset radiale in base alla distanza
+    // A 1km o più: freccia sul bordo (140px dal centro)
+    // Vicino: freccia al centro (0px)
+    double radialOffset = 0;
+    if (distance != null) {
+      const maxDistance = 1000.0; // 1 km in metri
+      const maxRadius = 140.0; // Raggio del cerchio grande
+
+      if (distance >= maxDistance) {
+        radialOffset = maxRadius; // Sul bordo
+      } else {
+        // Interpola linearmente: 0m -> 0px, 1000m -> 140px
+        radialOffset = (distance / maxDistance) * maxRadius;
+      }
+    }
+
+    // Converti bearing in radianti e calcola offset x,y
+    double offsetX = 0;
+    double offsetY = 0;
+    if (targetBearing != null && _heading != null) {
+      final angleRad = (targetBearing - _heading!) * math.pi / 180;
+      offsetX = radialOffset * math.sin(angleRad);
+      offsetY = -radialOffset * math.cos(angleRad); // -Y perché lo schermo ha Y invertito
+    }
+
     return Expanded(
       child: Center(
         child: Stack(
@@ -518,26 +543,29 @@ class _LocationSharingScreenState extends State<LocationSharingScreen> {
               ),
             ),
 
-            // Freccia del partner al centro (ruotata verso dove si trova) - PIÙ PICCOLA
+            // Freccia del partner che si muove verso il centro - PIÙ PICCOLA
             if (targetBearing != null && _heading != null)
-              Transform.rotate(
-                angle: (targetBearing - _heading!) * math.pi / 180,
-                child: Icon(
-                  Icons.navigation,
-                  size: 80, // Più piccola rispetto al destinatario (160)
-                  color: Colors.white,
-                  shadows: [
-                    Shadow(
-                      color: Colors.black.withOpacity(0.3),
-                      blurRadius: 10,
-                    ),
-                  ],
+              Transform.translate(
+                offset: Offset(offsetX, offsetY),
+                child: Transform.rotate(
+                  angle: (targetBearing - _heading!) * math.pi / 180,
+                  child: Icon(
+                    Icons.navigation,
+                    size: 60, // Più piccola
+                    color: Colors.white,
+                    shadows: [
+                      Shadow(
+                        color: Colors.black.withOpacity(0.3),
+                        blurRadius: 10,
+                      ),
+                    ],
+                  ),
                 ),
               )
             else
               Icon(
                 Icons.navigation,
-                size: 80,
+                size: 60,
                 color: Colors.white.withOpacity(0.5),
               ),
           ],
@@ -546,7 +574,7 @@ class _LocationSharingScreenState extends State<LocationSharingScreen> {
     );
   }
 
-  /// Vista per il destinatario (cerchi concentrici + freccia)
+  /// Vista per il destinatario (solo freccia grossa)
   Widget _buildReceiverView(double? targetBearing) {
     // Calcola opacità basandosi sull'allineamento
     double opacity = 1.0;
@@ -567,43 +595,15 @@ class _LocationSharingScreenState extends State<LocationSharingScreen> {
 
     return Expanded(
       child: Center(
-        child: Stack(
-          alignment: Alignment.center,
-          children: [
-            // Cerchi concentrici (destinazione)
-            Container(
-              width: 280,
-              height: 280,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                border: Border.all(
-                  color: Colors.white.withOpacity(0.3),
-                  width: 2,
-                ),
-              ),
-            ),
-            Container(
-              width: 180,
-              height: 180,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                border: Border.all(
-                  color: Colors.white.withOpacity(0.4),
-                  width: 2,
-                ),
-              ),
-            ),
-
-            // Freccia di navigazione più grossa con opacità variabile
-            if (_heading != null && targetBearing != null)
-              AnimatedOpacity(
+        child: _heading != null && targetBearing != null
+            ? AnimatedOpacity(
                 duration: Duration(milliseconds: 200),
                 opacity: opacity,
                 child: Transform.rotate(
                   angle: (targetBearing - _heading!) * math.pi / 180,
                   child: Icon(
                     Icons.navigation,
-                    size: 160, // Più grossa rispetto al mittente (80)
+                    size: 160, // Freccia grossa
                     color: Colors.white,
                     shadows: [
                       Shadow(
@@ -614,14 +614,11 @@ class _LocationSharingScreenState extends State<LocationSharingScreen> {
                   ),
                 ),
               )
-            else
-              Icon(
+            : Icon(
                 Icons.navigation,
                 size: 160,
                 color: Colors.white.withOpacity(0.5),
               ),
-          ],
-        ),
       ),
     );
   }
@@ -729,22 +726,33 @@ class _LocationSharingScreenState extends State<LocationSharingScreen> {
   }
 
   /// Punto fisso in alto che rappresenta la destinazione (partner)
+  /// Cerchi concentrici piccoli che indicano la destinazione
   Widget _buildDestinationPoint() {
-    return Column(
+    return Stack(
+      alignment: Alignment.center,
       children: [
+        // Cerchio esterno
         Container(
-          width: 16,
-          height: 16,
+          width: 40,
+          height: 40,
           decoration: BoxDecoration(
-            color: Colors.white,
             shape: BoxShape.circle,
-            boxShadow: [
-              BoxShadow(
-                color: Colors.white.withOpacity(0.5),
-                blurRadius: 20,
-                spreadRadius: 5,
-              ),
-            ],
+            border: Border.all(
+              color: Colors.white.withOpacity(0.5),
+              width: 2,
+            ),
+          ),
+        ),
+        // Cerchio interno
+        Container(
+          width: 24,
+          height: 24,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            border: Border.all(
+              color: Colors.white.withOpacity(0.7),
+              width: 2,
+            ),
           ),
         ),
       ],
