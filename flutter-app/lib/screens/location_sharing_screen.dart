@@ -312,12 +312,14 @@ class _LocationSharingScreenState extends State<LocationSharingScreen> {
 
   /// Vista principale di navigazione
   Widget _buildNavigationView(BuildContext context, partnerLocation, myLocation) {
+    final locationService = Provider.of<LocationService>(context, listen: false);
+
     // Calcola distanza e direzione verso il partner usando _myPosition locale
     double? distance;
     double? targetBearing;
 
-    if (_myPosition != null) {
-      final locationService = Provider.of<LocationService>(context, listen: false);
+    // Calcola distanza solo se entrambe le posizioni sono disponibili
+    if (_myPosition != null && partnerLocation != null) {
       distance = locationService.calculateDistance(
         _myPosition!.latitude,
         _myPosition!.longitude,
@@ -340,8 +342,8 @@ class _LocationSharingScreenState extends State<LocationSharingScreen> {
           // Se è il mittente, mostra solo messaggio statico
           // Se è il destinatario, mostra punto destinazione + freccia
           if (widget.isSender) ...[
-            // MITTENTE: messaggio statico
-            _buildSenderView(partnerLocation.expiresAt),
+            // MITTENTE: messaggio statico con expiresAt da locationService
+            _buildSenderView(locationService.sharingExpiresAt ?? DateTime.now()),
           ] else ...[
             // DESTINATARIO: punto fisso in alto + freccia navigazione
             _buildDestinationPoint(),
@@ -359,7 +361,13 @@ class _LocationSharingScreenState extends State<LocationSharingScreen> {
           ],
 
           // INFO: DISTANZA E TIMESTAMP (sempre visibile per entrambi)
-          _buildInfoPanel(distance, partnerLocation.timestamp, _myPosition == null),
+          // Per mittente: timestamp può essere null (non mostra timestamp partner)
+          // Per destinatario: usa partnerLocation.timestamp
+          _buildInfoPanel(
+            distance,
+            partnerLocation?.timestamp,
+            _myPosition == null,
+          ),
 
           SizedBox(height: 40),
         ],
@@ -557,7 +565,7 @@ class _LocationSharingScreenState extends State<LocationSharingScreen> {
   }
 
   /// Pannello info minimal in basso
-  Widget _buildInfoPanel(double? distance, DateTime timestamp, bool gpsUnavailable) {
+  Widget _buildInfoPanel(double? distance, DateTime? timestamp, bool gpsUnavailable) {
     return Container(
       margin: EdgeInsets.symmetric(horizontal: 32),
       padding: EdgeInsets.symmetric(vertical: 24, horizontal: 32),
@@ -581,23 +589,26 @@ class _LocationSharingScreenState extends State<LocationSharingScreen> {
               letterSpacing: gpsUnavailable ? 1.0 : 2.0,
             ),
           ),
-          SizedBox(height: 16),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(Icons.access_time, color: Colors.white60, size: 16),
-              SizedBox(width: 8),
-              Text(
-                'Aggiornato ${_formatTimestamp(timestamp)}',
-                style: TextStyle(
-                  color: Colors.white60,
-                  fontSize: 13,
-                  fontWeight: FontWeight.w300,
-                  letterSpacing: 0.5,
+          // Timestamp solo se disponibile (destinatario)
+          if (timestamp != null) ...[
+            SizedBox(height: 16),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(Icons.access_time, color: Colors.white60, size: 16),
+                SizedBox(width: 8),
+                Text(
+                  'Aggiornato ${_formatTimestamp(timestamp)}',
+                  style: TextStyle(
+                    color: Colors.white60,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w300,
+                    letterSpacing: 0.5,
+                  ),
                 ),
-              ),
-            ],
-          ),
+              ],
+            ),
+          ],
         ],
       ),
     );
