@@ -71,8 +71,21 @@ class _LocationSharingScreenState extends State<LocationSharingScreen> {
 
       // Se sono il destinatario (non mittente), condividi la mia posizione
       // così il mittente può vedere la distanza
+      // MA solo se la condivisione è ancora attiva (partner non ha fermato)
       if (!widget.isSender) {
-        await _shareMyPositionWithPartner(position);
+        final partnerLocation = locationService.partnerLocation;
+        final isPartnerActive = partnerLocation != null &&
+            partnerLocation.isActive &&
+            partnerLocation.sessionId == widget.expectedSessionId;
+
+        if (isPartnerActive) {
+          await _shareMyPositionWithPartner(position);
+        } else {
+          // Partner ha fermato o sessione terminata - ferma la condivisione
+          if (kDebugMode) print('🛑 [RECIPIENT] Partner stopped, stopping my position share');
+          await _stopSharingMyPosition();
+          _positionUpdateTimer?.cancel(); // Ferma il timer
+        }
       }
     }
   }
@@ -135,7 +148,40 @@ class _LocationSharingScreenState extends State<LocationSharingScreen> {
     _compassSubscription?.cancel();
     _compassRetryTimer?.cancel();
     _positionUpdateTimer?.cancel(); // Cancella il timer posizione
+
+    // Se sono il destinatario, ferma la condivisione della mia posizione
+    if (!widget.isSender) {
+      _stopSharingMyPosition();
+    }
+
     super.dispose();
+  }
+
+  /// Ferma la condivisione della posizione del destinatario (cleanup)
+  Future<void> _stopSharingMyPosition() async {
+    try {
+      final pairingService = Provider.of<PairingService>(context, listen: false);
+      final encryptionService = Provider.of<EncryptionService>(context, listen: false);
+
+      final familyChatId = await pairingService.getFamilyChatId();
+      final myPublicKey = await encryptionService.getPublicKey();
+
+      if (familyChatId == null || myPublicKey == null) return;
+
+      final myUserId = sha256.convert(utf8.encode(myPublicKey)).toString();
+
+      // Ferma la condivisione su Firestore
+      await FirebaseFirestore.instance
+          .collection('families')
+          .doc(familyChatId)
+          .collection('locations')
+          .doc(myUserId)
+          .update({'is_active': false});
+
+      if (kDebugMode) print('🛑 [RECIPIENT] Stopped sharing my position');
+    } catch (e) {
+      if (kDebugMode) print('❌ [RECIPIENT] Error stopping position share: $e');
+    }
   }
 
   void _startCompass() {
