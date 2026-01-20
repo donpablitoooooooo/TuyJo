@@ -50,6 +50,15 @@
     <uses-permission android:name="android.permission.WAKE_LOCK"/>
     <uses-permission android:name="android.permission.VIBRATE"/>
 
+    <!-- Permessi per localizzazione -->
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION"/>
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION"/>
+    <!-- Per tracking in background (Android 10+) -->
+    <uses-permission android:name="android.permission.ACCESS_BACKGROUND_LOCATION"/>
+    <!-- Per servizio foreground -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE"/>
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_LOCATION"/>
+
     <!-- Rimuove autorizzazione AD_ID aggiunta automaticamente da librerie Google -->
     <!-- TuyJo non usa pubblicità né tracciamento -->
     <uses-permission android:name="com.google.android.gms.permission.AD_ID" tools:node="remove" />

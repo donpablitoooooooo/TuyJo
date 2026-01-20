@@ -2,11 +2,14 @@ import 'dart:io';
 import 'dart:typed_data';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 import 'package:open_filex/open_filex.dart';
+import 'package:provider/provider.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:private_messaging/generated/l10n/app_localizations.dart';
 import '../models/message.dart';
 import '../services/attachment_service.dart';
+import '../services/location_service.dart';
 import '../screens/pdf_viewer_screen.dart';
 
 /// Widget per visualizzare allegati immagine (decifrato)
@@ -590,6 +593,229 @@ class _FullscreenImageViewerState extends State<FullscreenImageViewer> {
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+/// Widget per visualizzare allegato condivisione posizione
+class AttachmentLocationShare extends StatelessWidget {
+  final Message message;
+  final bool isMe;
+  final VoidCallback onTap;
+
+  const AttachmentLocationShare({
+    Key? key,
+    required this.message,
+    required this.isMe,
+    required this.onTap,
+  }) : super(key: key);
+
+  /// Estrae il testo personalizzato dal messaggio (se presente)
+  String _getCustomText() {
+    if (message.decryptedContent != null && message.decryptedContent!.contains('|')) {
+      final parts = message.decryptedContent!.split('|');
+      // Formato: location_share|expiresAt|sessionId|customText
+      if (parts.length >= 4 && parts[3].isNotEmpty) {
+        return parts[3];
+      }
+    }
+    return 'Posizione'; // Default
+  }
+
+  /// Calcola il tempo rimanente prima della scadenza
+  String _getTimeRemaining() {
+    if (message.decryptedContent != null && message.decryptedContent!.contains('|')) {
+      final parts = message.decryptedContent!.split('|');
+      if (parts.length >= 2) {
+        try {
+          final expiresAt = DateTime.parse(parts[1]);
+          final now = DateTime.now();
+
+          if (now.isAfter(expiresAt)) {
+            return 'Scaduta';
+          }
+
+          final diff = expiresAt.difference(now);
+          if (diff.inHours > 0) {
+            return '${diff.inHours}h';
+          } else if (diff.inMinutes > 0) {
+            return '${diff.inMinutes}m';
+          } else {
+            return '< 1m';
+          }
+        } catch (e) {
+          return '';
+        }
+      }
+    }
+    return '';
+  }
+
+  /// Estrae il sessionId dal messaggio
+  String _getSessionId() {
+    if (message.decryptedContent != null && message.decryptedContent!.contains('|')) {
+      final parts = message.decryptedContent!.split('|');
+      if (parts.length >= 3) {
+        return parts[2]; // sessionId è il terzo elemento
+      }
+    }
+    return '';
+  }
+
+  bool _isExpired() {
+    if (message.decryptedContent != null && message.decryptedContent!.contains('|')) {
+      final parts = message.decryptedContent!.split('|');
+      if (parts.length >= 2) {
+        try {
+          final expiresAt = DateTime.parse(parts[1]);
+          return DateTime.now().isAfter(expiresAt);
+        } catch (e) {
+          return false;
+        }
+      }
+    }
+    return false;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final locationService = Provider.of<LocationService>(context);
+    final messageSessionId = _getSessionId();
+    final isExpired = _isExpired();
+
+    // Verifica se questa è una sessione vecchia (non più attiva)
+    final isOldSession = locationService.currentSessionId != null &&
+        messageSessionId.isNotEmpty &&
+        messageSessionId != locationService.currentSessionId;
+
+    // Verifica se il mittente (isMe) ha fermato la condivisione
+    // IMPORTANTE: controlla solo per i MIEI messaggi, non quelli ricevuti!
+    final isSharingStoppedByOwner = isMe &&
+        messageSessionId.isNotEmpty &&
+        locationService.currentSessionId == null &&
+        !locationService.isSharingLocation;
+
+    // Verifica se la condivisione è stata interrotta tramite reaction "done"
+    final hasStopReaction = message.reaction?.type == 'done';
+
+    // Condivisione terminata se:
+    // - Scaduta
+    // - Sessione vecchia (ne è stata aperta una nuova)
+    // - Reaction "done" presente
+    // - IO (mittente) ho fermato manualmente (solo se isMe)
+    final isTerminated = isExpired || isOldSession || hasStopReaction || isSharingStoppedByOwner;
+
+    // Testo della bubble
+    final String statusText = isTerminated
+        ? 'Condivisione terminata'
+        : 'Condivisione attiva';
+
+    final textColor = isMe ? Colors.white : Colors.black87;
+
+    return GestureDetector(
+      onTap: onTap,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Thumbnail con gradiente (attivo) o grigio (terminato)
+          ClipRRect(
+            borderRadius: BorderRadius.circular(12),
+            child: Container(
+              width: 200,
+              height: 100,
+              decoration: BoxDecoration(
+                gradient: isTerminated
+                    ? null // No gradient se terminato
+                    : const LinearGradient(
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                        colors: [
+                          Color(0xFF3BA8B0),
+                          Color(0xFF145A60),
+                        ],
+                      ),
+                color: isTerminated ? Colors.grey.shade400 : null, // Grigio se terminato
+              ),
+              child: Center(
+                child: Icon(
+                  Icons.location_on,
+                  size: 48,
+                  color: isTerminated ? Colors.white70 : Colors.white,
+                ),
+              ),
+            ),
+          ),
+
+          // Contenuto sotto (senza bubble - sarà dentro la bubble di _MessageBubble)
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Testo stato condivisione
+                // Stile identico ai todo: fontSize 15, height 1.4, italic
+                Text(
+                  statusText,
+                  style: TextStyle(
+                    color: textColor,
+                    fontSize: 15,
+                    height: 1.4,
+                    fontStyle: FontStyle.italic,
+                    decoration: isTerminated ? TextDecoration.lineThrough : null,
+                  ),
+                ),
+
+                const SizedBox(height: 6),
+
+                // Countdown con icona orologio (solo se attiva)
+                if (!isTerminated)
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        Icons.access_time,
+                        size: 14,
+                        color: isMe ? Colors.white70 : Colors.black54,
+                      ),
+                      const SizedBox(width: 4),
+                      Text(
+                        _getTimeRemaining(),
+                        style: TextStyle(
+                          color: isMe ? Colors.white70 : Colors.black54,
+                          fontSize: 12,
+                        ),
+                      ),
+                    ],
+                  ),
+
+                if (!isTerminated) const SizedBox(height: 6),
+
+                // Orario e spunte
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      DateFormat('HH:mm').format(message.timestamp),
+                      style: TextStyle(
+                        color: isMe ? Colors.white70 : Colors.black54,
+                        fontSize: 11,
+                      ),
+                    ),
+                    if (isMe) ...[
+                      const SizedBox(width: 4),
+                      Icon(
+                        (message.read ?? false) ? Icons.done_all : Icons.done,
+                        size: 16,
+                        color: (message.read ?? false) ? Colors.lightBlueAccent : Colors.white70,
+                      ),
+                    ],
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }

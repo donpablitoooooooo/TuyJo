@@ -46,6 +46,16 @@ service cloud.firestore {
         // Usato per tracciare quali messaggi sono stati letti
         allow read, write: if true;
       }
+
+      // ───────────────────────────────────────────────────────────
+      // LOCATIONS SUBCOLLECTION (Real-time location sharing)
+      // ───────────────────────────────────────────────────────────
+      match /locations/{userId} {
+        // ✅ Leggi/scrivi posizioni GPS SE conosci familyId
+        // userId = SHA256(publicKey)
+        // Usato per condivisione posizione temporanea (1h/8h)
+        allow read, write: if true;
+      }
     }
   }
 }

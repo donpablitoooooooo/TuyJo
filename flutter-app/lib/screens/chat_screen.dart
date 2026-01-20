@@ -19,12 +19,14 @@ import '../services/chat_service.dart';
 import '../services/encryption_service.dart';
 import '../services/notification_service.dart';
 import '../services/attachment_service.dart';
+import '../services/location_service.dart';
 import '../models/message.dart';
 import '../widgets/todo_bubble.dart';
 import '../widgets/attachment_widgets.dart';
 import '../widgets/reaction_picker.dart';
 import '../widgets/reaction_overlay.dart';
 import 'pdf_viewer_screen.dart';
+import 'location_sharing_screen.dart';
 
 class ChatScreen extends StatefulWidget {
   const ChatScreen({super.key});
@@ -529,7 +531,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   }
 
   /// Aggiunge una reaction a un messaggio
-  void _addReaction(String messageId, String reactionType) async {
+  void _addReaction(String messageId, String reactionType, [Message? message]) async {
     if (_familyChatId == null || _myDeviceId == null) {
       return;
     }
@@ -544,6 +546,13 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     );
 
     if (kDebugMode) print('✅ Reaction $reactionType added to message: $messageId');
+
+    // Se la reaction è "done" (✓) su un messaggio location_share, interrompi la condivisione
+    if (reactionType == 'done' && message?.messageType == 'location_share') {
+      final locationService = Provider.of<LocationService>(context, listen: false);
+      await locationService.stopSharingLocation();
+      if (kDebugMode) print('🛑 Location sharing stopped via reaction');
+    }
   }
 
   /// Formatta la data in modo colloquiale per il separatore
@@ -816,6 +825,15 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                   }
                 },
               ),
+              _AttachmentOption(
+                icon: Icons.location_on,
+                label: 'Condividi Posizione',
+                color: Colors.orange,
+                onTap: () {
+                  Navigator.pop(context);
+                  _showLocationSharingDialog();
+                },
+              ),
               const SizedBox(height: 16),
             ],
           ), // Chiude Column
@@ -824,6 +842,124 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     ), // Chiude ClipRRect
     ); // Chiude showModalBottomSheet
   } // Chiude _showAttachmentPicker
+
+  /// Mostra dialog per scegliere durata condivisione posizione
+  void _showLocationSharingDialog() async {
+    final result = await showDialog<Duration>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Condividi Posizione'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: const [
+            Text('Per quanto tempo vuoi condividere la tua posizione?'),
+            SizedBox(height: 8),
+            Text(
+              'Il partner potrà vedere la tua posizione in tempo reale e riceverà indicazioni per raggiungerti.',
+              style: TextStyle(fontSize: 12, color: Colors.grey),
+            ),
+          ],
+        ),
+        actions: [
+          Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              ElevatedButton(
+                onPressed: () => Navigator.pop(context, const Duration(hours: 1)),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF3BA8B0),
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                ),
+                child: const Text('1 ora', style: TextStyle(fontSize: 16)),
+              ),
+              const SizedBox(height: 8),
+              ElevatedButton(
+                onPressed: () => Navigator.pop(context, const Duration(hours: 8)),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF3BA8B0),
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                ),
+                child: const Text('8 ore', style: TextStyle(fontSize: 16)),
+              ),
+              const SizedBox(height: 8),
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('Annulla'),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+
+    if (result != null && mounted) {
+      // Avvia condivisione posizione
+      final locationService = Provider.of<LocationService>(context, listen: false);
+      final success = await locationService.startSharingLocation(result);
+
+      if (success) {
+        // Calcola expiresAt
+        final expiresAt = DateTime.now().add(result);
+
+        // Invia messaggio di condivisione posizione
+        final chatService = Provider.of<ChatService>(context, listen: false);
+        final pairingService = Provider.of<PairingService>(context, listen: false);
+        final encryptionService = Provider.of<EncryptionService>(context, listen: false);
+
+        final familyChatId = await pairingService.getFamilyChatId();
+        final myDeviceId = await pairingService.getMyUserId();
+        final myPublicKey = await encryptionService.getPublicKey();
+        final partnerPublicKey = pairingService.partnerPublicKey;
+
+        if (familyChatId != null &&
+            myDeviceId != null &&
+            myPublicKey != null &&
+            partnerPublicKey != null &&
+            locationService.currentSessionId != null) {
+          final messageId = await chatService.sendLocationShare(
+            expiresAt,
+            locationService.currentSessionId!, // Session ID univoco
+            familyChatId,
+            myDeviceId,
+            myPublicKey,
+            partnerPublicKey,
+          );
+
+          if (messageId != null) {
+            // Salva il messageId nel LocationService per poterlo usare quando si ferma la condivisione
+            locationService.setLocationShareMessageId(messageId);
+          }
+        }
+      } else {
+        // Errore - controlla se è un problema di pairing o permessi
+        if (mounted) {
+          String errorMessage = 'Impossibile condividere la posizione.';
+
+          // Controlla se l'utente è paired
+          if (_partnerPublicKey == null) {
+            errorMessage = 'Impossibile condividere: accoppiamento mancante. Effettua il pairing prima.';
+          } else {
+            errorMessage = 'Impossibile condividere la posizione. Verifica:\n'
+                '- Permessi localizzazione attivi\n'
+                '- GPS abilitato\n'
+                '- Servizi di localizzazione attivi';
+          }
+
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(errorMessage),
+              duration: const Duration(seconds: 5),
+              backgroundColor: Colors.red[700],
+            ),
+          );
+        }
+      }
+    }
+  }
 
   void _showDateTimePicker() async {
     final l10n = AppLocalizations.of(context)!;
@@ -1656,7 +1792,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                                 message: message,
                                 isMe: isMe,
                                 isCompleted: isTodoCompleted,
-                                onReact: (reactionType) => _addReaction(message.id, reactionType),
+                                onReact: (reactionType) => _addReaction(message.id, reactionType, message),
                                 formattedDate: formattedDate,
                                 attachmentService: _attachmentService,
                                 senderId: message.senderId,
@@ -1678,7 +1814,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                                 currentUserId: _myDeviceId,
                                 attachmentService: _attachmentService,
                                 reaction: message.reaction,
-                                onReact: (reactionType) => _addReaction(message.id, reactionType),
+                                onReact: (reactionType) => _addReaction(message.id, reactionType, message),
                                 messageObject: message,
                               );
                             }
@@ -2035,7 +2171,39 @@ class _MessageBubble extends StatelessWidget {
   });
 
   /// Costruisce i widget per mostrare gli allegati (decifrati)
-  List<Widget> _buildAttachments() {
+  List<Widget> _buildAttachments(BuildContext context) {
+    // Caso speciale: location_share
+    if (messageObject?.messageType == 'location_share') {
+      return [
+        AttachmentLocationShare(
+          message: messageObject!,
+          isMe: isMe,
+          onTap: () {
+            // Estrai sessionId dal body del messaggio
+            // Formato: "location_share|expiresAt|sessionId"
+            String sessionId = '';
+            if (messageObject?.decryptedContent != null) {
+              final parts = messageObject?.decryptedContent?.split('|') ?? [];
+              if (parts.length >= 3) {
+                sessionId = parts[2]; // sessionId è il terzo elemento
+              }
+            }
+
+            // Apri schermata di navigazione con sessionId
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => LocationSharingScreen(
+                  expectedSessionId: sessionId,
+                  isSender: isMe, // Passa se l'utente è il mittente
+                ),
+              ),
+            );
+          },
+        ),
+      ];
+    }
+
     if (attachments == null || attachments!.isEmpty) {
       return [];
     }
@@ -2169,19 +2337,20 @@ class _MessageBubble extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       // Allegati (se presenti) - senza padding per occupare tutta la larghezza
-                      if (attachments != null && attachments!.isNotEmpty)
-                        ..._buildAttachments(),
-                      // Testo e timestamp con padding
-                      Padding(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 16,
-                          vertical: 10,
-                        ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            // Testo del messaggio (se presente)
-                            if (message.isNotEmpty) ...[
+                      if (attachments != null && attachments!.isNotEmpty || messageObject?.messageType == 'location_share')
+                        ..._buildAttachments(context),
+                      // Testo e timestamp con padding (nascondi testo per location_share)
+                      if (messageObject?.messageType != 'location_share')
+                        Padding(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 10,
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              // Testo del messaggio (se presente)
+                              if (message.isNotEmpty) ...[
                               Linkify(
                                 onOpen: (link) async {
                                   try {

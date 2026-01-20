@@ -798,6 +798,68 @@ class ChatService extends ChangeNotifier {
     }
   }
 
+  /// Invia messaggio di condivisione posizione
+  Future<String?> sendLocationShare(
+    DateTime expiresAt,
+    String sessionId,
+    String familyChatId,
+    String senderId,
+    String senderPublicKey,
+    String recipientPublicKey,
+  ) async {
+    try {
+      final timestamp = DateTime.now();
+
+      // Costruisci il plaintext con type='location_share', expires_at e session_id
+      final locationData = {
+        'sender': senderId,
+        'timestamp': timestamp.millisecondsSinceEpoch ~/ 1000,
+        'type': 'location_share',
+        'body': 'location_share|${expiresAt.toIso8601String()}|$sessionId',
+        'expires_at': expiresAt.toIso8601String(),
+        'session_id': sessionId,
+      };
+
+      final plaintext = json.encode(locationData);
+
+      // Cifra con dual encryption
+      final encryptedPayload = _encryptionService.encryptMessageDual(
+        plaintext,
+        senderPublicKey,
+        recipientPublicKey,
+      );
+
+      // Scrivi nella chat condivisa
+      final messageRef = _firestore
+          .collection('families')
+          .doc(familyChatId)
+          .collection('messages')
+          .doc();
+
+      await messageRef.set({
+        'sender_id': senderId,
+        'encrypted_key_recipient': encryptedPayload['encryptedKeyRecipient'],
+        'encrypted_key_sender': encryptedPayload['encryptedKeySender'],
+        'iv': encryptedPayload['iv'],
+        'message': encryptedPayload['message'],
+        'created_at': timestamp.toIso8601String(),
+        'message_type': 'location_share',
+        'delivered': true,
+        'read': false,
+      });
+
+      if (kDebugMode) {
+        print('✅ Location share message sent');
+        print('   Expires at: $expiresAt');
+        print('   Message ID: ${messageRef.id}');
+      }
+      return messageRef.id; // Ritorna l'ID del messaggio
+    } catch (e) {
+      if (kDebugMode) print('❌ Send location share error: $e');
+      return null;
+    }
+  }
+
   /// Aggiunge un messaggio pending alla lista (per invio ottimistico)
   String addPendingMessage(
     String content,
