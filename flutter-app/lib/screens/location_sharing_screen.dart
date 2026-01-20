@@ -472,7 +472,7 @@ class _LocationSharingScreenState extends State<LocationSharingScreen> {
           // Se è il destinatario, mostra cerchi concentrici + freccia
           if (widget.isSender) ...[
             // MITTENTE: radar con partner che si avvicina
-            _buildRadarView(distance, targetBearing),
+            _buildRadarView(distance, targetBearing, partnerLocation?.heading),
           ] else ...[
             // DESTINATARIO: freccia navigazione
             _buildReceiverView(targetBearing),
@@ -494,7 +494,7 @@ class _LocationSharingScreenState extends State<LocationSharingScreen> {
   }
 
   /// Vista radar per il mittente (cerchi concentrici con freccia partner)
-  Widget _buildRadarView(double? distance, double? targetBearing) {
+  Widget _buildRadarView(double? distance, double? targetBearing, double? partnerHeading) {
     // Calcola offset radiale in base alla distanza
     // A 1km o più: freccia sul bordo (140px dal centro)
     // Vicino: freccia al centro (0px)
@@ -511,7 +511,7 @@ class _LocationSharingScreenState extends State<LocationSharingScreen> {
       }
     }
 
-    // Converti bearing in radianti e calcola offset x,y
+    // Converti bearing in radianti e calcola offset x,y della POSIZIONE della freccia
     double offsetX = 0;
     double offsetY = 0;
     if (targetBearing != null && _heading != null) {
@@ -550,11 +550,16 @@ class _LocationSharingScreenState extends State<LocationSharingScreen> {
             ),
 
             // Freccia del partner che si muove verso il centro - PIÙ PICCOLA
+            // La POSIZIONE dipende da targetBearing (dove si trova)
+            // La ROTAZIONE dipende da partnerHeading (dove sta andando)
             if (targetBearing != null && _heading != null)
               Transform.translate(
                 offset: Offset(offsetX, offsetY),
                 child: Transform.rotate(
-                  angle: (targetBearing - _heading!) * math.pi / 180,
+                  // Ruota in base a DOVE STA ANDANDO il partner (heading)
+                  angle: partnerHeading != null && _heading != null
+                      ? (partnerHeading - _heading!) * math.pi / 180
+                      : 0,
                   child: Icon(
                     Icons.navigation,
                     size: 60, // Più piccola
