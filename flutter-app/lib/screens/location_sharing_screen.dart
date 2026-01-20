@@ -86,10 +86,24 @@ class _LocationSharingScreenState extends State<LocationSharingScreen> {
       final familyChatId = await pairingService.getFamilyChatId();
       final myPublicKey = await encryptionService.getPublicKey();
 
-      if (familyChatId == null || myPublicKey == null) return;
+      if (familyChatId == null || myPublicKey == null) {
+        if (kDebugMode) print('❌ [RECIPIENT] Cannot share position: familyChatId or publicKey null');
+        return;
+      }
 
       // Calcola userId da public key
       final myUserId = sha256.convert(utf8.encode(myPublicKey)).toString();
+
+      final now = DateTime.now();
+      final nowMillis = now.millisecondsSinceEpoch ~/ 1000; // Timestamp in secondi (compatibile con LocationShare)
+
+      if (kDebugMode) {
+        print('📍 [RECIPIENT] Sharing my position with partner:');
+        print('   Position: ${position.latitude}, ${position.longitude}');
+        print('   FamilyChatId: ${familyChatId.substring(0, 8)}...');
+        print('   MyUserId: ${myUserId.substring(0, 8)}...');
+        print('   SessionId: ${widget.expectedSessionId}');
+      }
 
       // Aggiorna Firestore con la mia posizione (per tracking del partner)
       await FirebaseFirestore.instance
@@ -101,16 +115,18 @@ class _LocationSharingScreenState extends State<LocationSharingScreen> {
         'latitude': position.latitude,
         'longitude': position.longitude,
         'accuracy': position.accuracy,
-        'timestamp': FieldValue.serverTimestamp(),
-        'expires_at': DateTime.now().add(Duration(minutes: 5)).toIso8601String(), // Scade tra 5 min
-        'session_id': widget.expectedSessionId, // Usa lo stesso sessionId
+        'timestamp': nowMillis, // Usa timestamp in secondi (come location_service.dart)
+        'expires_at': now.add(Duration(minutes: 5)).toIso8601String(),
+        'session_id': widget.expectedSessionId,
         'is_active': true,
         'speed': position.speed,
         'heading': position.heading,
         'user_id': myUserId,
       }, SetOptions(merge: true));
+
+      if (kDebugMode) print('✅ [RECIPIENT] Position shared successfully');
     } catch (e) {
-      if (kDebugMode) print('❌ Error sharing position with partner: $e');
+      if (kDebugMode) print('❌ [RECIPIENT] Error sharing position with partner: $e');
     }
   }
 
