@@ -444,6 +444,12 @@ class _LocationSharingScreenState extends State<LocationSharingScreen> {
         partnerLocation.latitude,
         partnerLocation.longitude,
       );
+
+      // TEST: mittente vede +1km per testare in casa
+      if (widget.isSender && distance != null) {
+        distance = distance + 1000;
+      }
+
       targetBearing = locationService.calculateBearing(
         _myPosition!.latitude,
         _myPosition!.longitude,
@@ -603,7 +609,7 @@ class _LocationSharingScreenState extends State<LocationSharingScreen> {
                   angle: (targetBearing - _heading!) * math.pi / 180,
                   child: Icon(
                     Icons.navigation,
-                    size: 160, // Freccia grossa
+                    size: 220, // Freccia più grossa
                     color: Colors.white,
                     shadows: [
                       Shadow(
@@ -616,7 +622,7 @@ class _LocationSharingScreenState extends State<LocationSharingScreen> {
               )
             : Icon(
                 Icons.navigation,
-                size: 160,
+                size: 220,
                 color: Colors.white.withOpacity(0.5),
               ),
       ),
