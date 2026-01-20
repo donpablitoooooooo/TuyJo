@@ -656,9 +656,10 @@ class _LocationSharingScreenState extends State<LocationSharingScreen> {
     return Expanded(
       child: Center(
         // Container con overflow per evitare clipping della freccia (220px)
+        // Aumentato a 350px per gestire la rotazione diagonale (220 * √2 ≈ 311px)
         child: OverflowBox(
-          maxWidth: 300,
-          maxHeight: 300,
+          maxWidth: 350,
+          maxHeight: 350,
           child: _heading != null && targetBearing != null
               ? AnimatedOpacity(
                   duration: Duration(milliseconds: 200),
@@ -779,6 +780,26 @@ class _LocationSharingScreenState extends State<LocationSharingScreen> {
                   } else {
                     // Se sono destinatario, ferma la mia condivisione position tracking
                     await _stopSharingMyPosition();
+
+                    // Ferma anche la condivisione del mittente (partner)
+                    final partnerLocation = locationService.partnerLocation;
+                    if (familyChatId != null && partnerLocation != null) {
+                      try {
+                        await FirebaseFirestore.instance
+                            .collection('families')
+                            .doc(familyChatId)
+                            .collection('locations')
+                            .doc(partnerLocation.userId)
+                            .update({'is_active': false});
+
+                        if (kDebugMode) {
+                          print('✅ [STOP] Partner location marked as inactive');
+                          print('   PartnerId: ${partnerLocation.userId.substring(0, 8)}...');
+                        }
+                      } catch (e) {
+                        if (kDebugMode) print('❌ [STOP] Error stopping partner location: $e');
+                      }
+                    }
                   }
 
                   // Se messageId è null (destinatario), cerca il messaggio con sessionId
