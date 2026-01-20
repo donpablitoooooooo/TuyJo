@@ -495,6 +495,9 @@ class _LocationSharingScreenState extends State<LocationSharingScreen> {
 
   /// Vista radar per il mittente (cerchi concentrici con freccia partner)
   Widget _buildRadarView(double? distance, double? targetBearing, double? partnerHeading) {
+    // Fallback: se non abbiamo heading del mittente, usa Nord fisso (0°)
+    final myHeading = _heading ?? 0.0;
+
     // Calcola offset radiale in base alla distanza
     // A 1km o più: freccia sul bordo (140px dal centro)
     // Vicino: freccia al centro (0px)
@@ -514,10 +517,16 @@ class _LocationSharingScreenState extends State<LocationSharingScreen> {
     // Converti bearing in radianti e calcola offset x,y della POSIZIONE della freccia
     double offsetX = 0;
     double offsetY = 0;
-    if (targetBearing != null && _heading != null) {
-      final angleRad = (targetBearing - _heading!) * math.pi / 180;
+    if (targetBearing != null) {
+      final angleRad = (targetBearing - myHeading) * math.pi / 180;
       offsetX = radialOffset * math.sin(angleRad);
       offsetY = -radialOffset * math.cos(angleRad); // -Y perché lo schermo ha Y invertito
+    }
+
+    // Calcola rotazione freccia in base a dove sta andando il partner
+    double arrowRotation = 0;
+    if (partnerHeading != null) {
+      arrowRotation = (partnerHeading - myHeading) * math.pi / 180;
     }
 
     return Expanded(
@@ -549,20 +558,31 @@ class _LocationSharingScreenState extends State<LocationSharingScreen> {
               ),
             ),
 
+            // "N" in alto per indicare il Nord
+            Positioned(
+              top: -120,
+              child: Text(
+                'N',
+                style: TextStyle(
+                  color: Colors.white.withOpacity(0.7),
+                  fontSize: 24,
+                  fontWeight: FontWeight.bold,
+                  letterSpacing: 2.0,
+                ),
+              ),
+            ),
+
             // Freccia del partner che si muove verso il centro - PIÙ PICCOLA
             // La POSIZIONE dipende da targetBearing (dove si trova)
             // La ROTAZIONE dipende da partnerHeading (dove sta andando)
-            if (targetBearing != null && _heading != null)
+            if (targetBearing != null)
               Transform.translate(
                 offset: Offset(offsetX, offsetY),
                 child: Transform.rotate(
-                  // Ruota in base a DOVE STA ANDANDO il partner (heading)
-                  angle: partnerHeading != null && _heading != null
-                      ? (partnerHeading - _heading!) * math.pi / 180
-                      : 0,
+                  angle: arrowRotation,
                   child: Icon(
                     Icons.navigation,
-                    size: 60, // Più piccola
+                    size: 60,
                     color: Colors.white,
                     shadows: [
                       Shadow(
@@ -574,10 +594,11 @@ class _LocationSharingScreenState extends State<LocationSharingScreen> {
                 ),
               )
             else
+              // Nessuna posizione partner disponibile
               Icon(
                 Icons.navigation,
                 size: 60,
-                color: Colors.white.withOpacity(0.5),
+                color: Colors.white.withOpacity(0.3),
               ),
           ],
         ),
