@@ -304,7 +304,9 @@ class _LocationSharingScreenState extends State<LocationSharingScreen> {
         child: isTerminated
             ? _buildTerminatedView() // Condivisione terminata
             : widget.isSender
-                ? _buildNavigationView(context, partnerLocation, myLocation) // Mittente vede sempre la sua schermata
+                ? (partnerLocation == null
+                    ? _buildWaitingView() // Mittente in attesa che destinatario condivida
+                    : _buildNavigationView(context, partnerLocation, myLocation))
                 : partnerLocation == null
                     ? _buildWaitingView() // Destinatario in attesa della posizione del partner
                     : _buildNavigationView(context, partnerLocation, myLocation),
@@ -524,84 +526,94 @@ class _LocationSharingScreenState extends State<LocationSharingScreen> {
     }
 
     // Calcola rotazione freccia in base a dove sta andando il partner
+    // Se partnerHeading non è disponibile o è -1 (fermo), usa targetBearing (direzione verso mittente)
     double arrowRotation = 0;
-    if (partnerHeading != null) {
+    if (partnerHeading != null && partnerHeading >= 0) {
+      // Usa heading del destinatario (dove sta andando)
       arrowRotation = (partnerHeading - myHeading) * math.pi / 180;
+    } else if (targetBearing != null) {
+      // Fallback: punta verso il mittente (come se stesse venendo verso di lui)
+      arrowRotation = (targetBearing - myHeading) * math.pi / 180;
     }
 
     return Expanded(
-      child: Center(
-        child: Stack(
-          alignment: Alignment.center,
-          children: [
-            // Cerchi concentrici (radar)
-            Container(
-              width: 280,
-              height: 280,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                border: Border.all(
-                  color: Colors.white.withOpacity(0.3),
-                  width: 2,
-                ),
-              ),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          // "N" in alto per indicare il Nord
+          Text(
+            'N',
+            style: TextStyle(
+              color: Colors.white.withOpacity(0.7),
+              fontSize: 24,
+              fontWeight: FontWeight.bold,
+              letterSpacing: 2.0,
             ),
-            Container(
-              width: 180,
-              height: 180,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                border: Border.all(
-                  color: Colors.white.withOpacity(0.4),
-                  width: 2,
-                ),
-              ),
-            ),
+          ),
+          SizedBox(height: 20),
 
-            // "N" in alto per indicare il Nord
-            Positioned(
-              top: -120,
-              child: Text(
-                'N',
-                style: TextStyle(
-                  color: Colors.white.withOpacity(0.7),
-                  fontSize: 24,
-                  fontWeight: FontWeight.bold,
-                  letterSpacing: 2.0,
-                ),
-              ),
-            ),
-
-            // Freccia del partner che si muove verso il centro - PIÙ PICCOLA
-            // La POSIZIONE dipende da targetBearing (dove si trova)
-            // La ROTAZIONE dipende da partnerHeading (dove sta andando)
-            if (targetBearing != null)
-              Transform.translate(
-                offset: Offset(offsetX, offsetY),
-                child: Transform.rotate(
-                  angle: arrowRotation,
-                  child: Icon(
-                    Icons.navigation,
-                    size: 60,
-                    color: Colors.white,
-                    shadows: [
-                      Shadow(
-                        color: Colors.black.withOpacity(0.3),
-                        blurRadius: 10,
-                      ),
-                    ],
+          // Radar con freccia
+          Center(
+            child: Stack(
+              clipBehavior: Clip.none, // Permette overflow per frecce sui bordi
+              alignment: Alignment.center,
+              children: [
+                // Cerchi concentrici (radar)
+                Container(
+                  width: 280,
+                  height: 280,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    border: Border.all(
+                      color: Colors.white.withOpacity(0.3),
+                      width: 2,
+                    ),
                   ),
                 ),
-              )
-            else
-              // Nessuna posizione partner disponibile
-              Icon(
-                Icons.navigation,
-                size: 60,
-                color: Colors.white.withOpacity(0.3),
-              ),
-          ],
-        ),
+                Container(
+                  width: 180,
+                  height: 180,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    border: Border.all(
+                      color: Colors.white.withOpacity(0.4),
+                      width: 2,
+                    ),
+                  ),
+                ),
+
+                // Freccia del partner che si muove verso il centro - PIÙ PICCOLA
+                // La POSIZIONE dipende da targetBearing (dove si trova)
+                // La ROTAZIONE dipende da partnerHeading (dove sta andando)
+                if (targetBearing != null)
+                  Transform.translate(
+                    offset: Offset(offsetX, offsetY),
+                    child: Transform.rotate(
+                      angle: arrowRotation,
+                      child: Icon(
+                        Icons.navigation,
+                        size: 60,
+                        color: Colors.white,
+                        shadows: [
+                          Shadow(
+                            color: Colors.black.withOpacity(0.3),
+                            blurRadius: 10,
+                          ),
+                        ],
+                      ),
+                    ),
+                  )
+                else
+                  // Nessuna posizione partner disponibile
+                  Icon(
+                    Icons.navigation,
+                    size: 60,
+                    color: Colors.white.withOpacity(0.3),
+                  ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -733,8 +745,15 @@ class _LocationSharingScreenState extends State<LocationSharingScreen> {
                   final familyChatId = await pairingService.getFamilyChatId();
                   final myUserId = await pairingService.getMyUserId();
 
-                  await locationService.stopSharingLocation();
+                  // Se sono mittente, ferma la condivisione
+                  if (widget.isSender) {
+                    await locationService.stopSharingLocation();
+                  } else {
+                    // Se sono destinatario, ferma la mia condivisione position tracking
+                    await _stopSharingMyPosition();
+                  }
 
+                  // Aggiungi reaction "done" per fermare per ENTRAMBI
                   if (messageId != null && familyChatId != null && myUserId != null) {
                     await chatService.addReaction(messageId, familyChatId, myUserId, 'done');
                     if (kDebugMode) print('✅ [LOCATION] Added "done" reaction to message');
