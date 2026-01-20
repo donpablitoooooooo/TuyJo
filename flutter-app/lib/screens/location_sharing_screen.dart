@@ -231,37 +231,11 @@ class _LocationSharingScreenState extends State<LocationSharingScreen> {
 
   /// Calcola opacità della freccia basandosi sull'allineamento con destinazione
   /// 1.0 = perfettamente allineato, 0.2 = direzione opposta
-  double _calculateArrowOpacity(double targetBearing, double currentHeading) {
-    double diff = ((targetBearing - currentHeading + 180) % 360) - 180;
-    double absDiff = diff.abs();
-
-    if (absDiff <= 5) {
-      return 1.0; // Perfettamente allineato
-    } else if (absDiff >= 170) {
-      return 0.15; // Direzione opposta
-    } else {
-      return 1.0 - (absDiff / 170.0) * 0.85;
-    }
-  }
-
   String _formatDistance(double meters) {
     if (meters < 1000) {
       return '${meters.toInt()} m';
     } else {
       return '${(meters / 1000).toStringAsFixed(1)} km';
-    }
-  }
-
-  String _formatTimestamp(DateTime timestamp) {
-    final now = DateTime.now();
-    final diff = now.difference(timestamp);
-
-    if (diff.inSeconds < 60) {
-      return '${diff.inSeconds}s fa';
-    } else if (diff.inMinutes < 60) {
-      return '${diff.inMinutes}m fa';
-    } else {
-      return '${diff.inHours}h fa';
     }
   }
 
@@ -479,252 +453,240 @@ class _LocationSharingScreenState extends State<LocationSharingScreen> {
     }
 
     return SafeArea(
-      child: Column(
+      child: Stack(
         children: [
-          SizedBox(height: 60),
+          Column(
+            children: [
+              SizedBox(height: 60),
 
-          // Se è il mittente, mostra solo messaggio statico
-          // Se è il destinatario, mostra punto destinazione + freccia
-          if (widget.isSender) ...[
-            // MITTENTE: messaggio statico con expiresAt da locationService
-            _buildSenderView(locationService.sharingExpiresAt ?? DateTime.now()),
-          ] else ...[
-            // DESTINATARIO: punto fisso in alto + freccia navigazione
-            _buildDestinationPoint(),
+              // Se è il mittente, mostra radar
+              // Se è il destinatario, mostra cerchi concentrici + freccia
+              if (widget.isSender) ...[
+                // MITTENTE: radar con partner che si avvicina
+                _buildRadarView(distance, targetBearing),
+              ] else ...[
+                // DESTINATARIO: cerchi concentrici + freccia navigazione
+                _buildReceiverView(targetBearing),
+              ],
 
-            SizedBox(height: 80),
+              SizedBox(height: 40),
 
-            // FRECCIA o CERCHIO
-            Expanded(
-              child: Center(
-                child: _heading != null && targetBearing != null
-                    ? _buildNavigationArrow(targetBearing, _heading!) // Freccia che ruota
-                    : _buildStaticCircle(), // Cerchio fisso se bussola non disponibile
-              ),
-            ),
-          ],
+              // Box distanza in basso
+              if (distance != null)
+                _buildDistancePanel(distance),
 
-          // INFO: DISTANZA E TIMESTAMP (sempre visibile per entrambi)
-          // Per mittente: timestamp può essere null (non mostra timestamp partner)
-          // Per destinatario: usa partnerLocation.timestamp
-          _buildInfoPanel(
-            distance,
-            partnerLocation?.timestamp,
-            _myPosition == null,
+              SizedBox(height: 40),
+            ],
           ),
 
-          SizedBox(height: 40),
+          // Bottone STOP in alto a destra
+          _buildStopButton(locationService.sharingExpiresAt ?? DateTime.now()),
         ],
       ),
     );
   }
 
-  /// Vista per il mittente (chi condivide)
-  Widget _buildSenderView(DateTime expiresAt) {
-    final timeFormat = DateFormat('HH:mm');
-    final expiresAtFormatted = timeFormat.format(expiresAt);
-
+  /// Vista radar per il mittente (cerchi concentrici con freccia partner)
+  Widget _buildRadarView(double? distance, double? targetBearing) {
     return Expanded(
       child: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
+        child: Stack(
+          alignment: Alignment.center,
           children: [
-            Icon(
-              Icons.share_location,
-              size: 80,
-              color: Colors.white.withOpacity(0.9),
-            ),
-            SizedBox(height: 40),
-            Text(
-              'Stai condividendo la\ntua posizione fino alle',
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                color: Colors.white.withOpacity(0.9),
-                fontSize: 20,
-                fontWeight: FontWeight.w300,
-                height: 1.4,
-                letterSpacing: 0.5,
-              ),
-            ),
-            SizedBox(height: 16),
-            Text(
-              expiresAtFormatted,
-              style: TextStyle(
-                color: Colors.white,
-                fontSize: 48,
-                fontWeight: FontWeight.w200,
-                letterSpacing: 2.0,
-              ),
-            ),
-            SizedBox(height: 60),
-            ElevatedButton.icon(
-              onPressed: () async {
-                final locationService = Provider.of<LocationService>(context, listen: false);
-                final chatService = Provider.of<ChatService>(context, listen: false);
-                final pairingService = Provider.of<PairingService>(context, listen: false);
-
-                // Ottieni il messageId prima di fermare la condivisione
-                final messageId = locationService.getLocationShareMessageId();
-                final familyChatId = await pairingService.getFamilyChatId();
-                final myUserId = await pairingService.getMyUserId();
-
-                // Ferma la condivisione
-                await locationService.stopSharingLocation();
-
-                // Aggiungi reaction "done" al messaggio per notificare entrambi gli utenti
-                if (messageId != null && familyChatId != null && myUserId != null) {
-                  await chatService.addReaction(messageId, familyChatId, myUserId, 'done');
-                  if (kDebugMode) print('✅ [LOCATION] Added "done" reaction to message');
-                }
-
-                // Non chiudiamo la schermata - diventerà grigia automaticamente
-                // L'utente può tornare alla chat manualmente cliccando la X
-              },
-              icon: Icon(Icons.stop_circle_outlined, size: 24),
-              label: Text(
-                'Interrompi condivisione',
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w500,
-                  letterSpacing: 0.5,
-                ),
-              ),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.white,
-                foregroundColor: Color(0xFF3BA8B0),
-                padding: EdgeInsets.symmetric(horizontal: 32, vertical: 16),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
+            // Cerchi concentrici (radar)
+            Container(
+              width: 280,
+              height: 280,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                border: Border.all(
+                  color: Colors.white.withOpacity(0.3),
+                  width: 2,
                 ),
               ),
             ),
+            Container(
+              width: 180,
+              height: 180,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                border: Border.all(
+                  color: Colors.white.withOpacity(0.4),
+                  width: 2,
+                ),
+              ),
+            ),
+
+            // Freccia del partner al centro (ruotata verso dove si trova)
+            if (targetBearing != null && _currentHeading != null)
+              Transform.rotate(
+                angle: (targetBearing - _currentHeading!) * math.pi / 180,
+                child: Icon(
+                  Icons.navigation,
+                  size: 100,
+                  color: Colors.white,
+                  shadows: [
+                    Shadow(
+                      color: Colors.black.withOpacity(0.3),
+                      blurRadius: 10,
+                    ),
+                  ],
+                ),
+              )
+            else
+              Icon(
+                Icons.navigation,
+                size: 100,
+                color: Colors.white.withOpacity(0.5),
+              ),
           ],
         ),
       ),
     );
   }
 
-  /// Punto fisso in alto che rappresenta la destinazione (partner)
-  Widget _buildDestinationPoint() {
-    return Column(
-      children: [
-        Container(
-          width: 16,
-          height: 16,
-          decoration: BoxDecoration(
-            color: Colors.white,
-            shape: BoxShape.circle,
-            boxShadow: [
-              BoxShadow(
+  /// Vista per il destinatario (cerchi concentrici + freccia)
+  Widget _buildReceiverView(double? targetBearing) {
+    return Expanded(
+      child: Center(
+        child: Stack(
+          alignment: Alignment.center,
+          children: [
+            // Cerchi concentrici (destinazione)
+            Container(
+              width: 280,
+              height: 280,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                border: Border.all(
+                  color: Colors.white.withOpacity(0.3),
+                  width: 2,
+                ),
+              ),
+            ),
+            Container(
+              width: 180,
+              height: 180,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                border: Border.all(
+                  color: Colors.white.withOpacity(0.4),
+                  width: 2,
+                ),
+              ),
+            ),
+
+            // Freccia di navigazione più grossa
+            if (_heading != null && targetBearing != null)
+              Transform.rotate(
+                angle: (targetBearing - _heading!) * math.pi / 180,
+                child: Icon(
+                  Icons.navigation,
+                  size: 160, // Più grossa rispetto al mittente
+                  color: Colors.white,
+                  shadows: [
+                    Shadow(
+                      color: Colors.black.withOpacity(0.3),
+                      blurRadius: 10,
+                    ),
+                  ],
+                ),
+              )
+            else
+              Icon(
+                Icons.navigation,
+                size: 160,
                 color: Colors.white.withOpacity(0.5),
-                blurRadius: 20,
-                spreadRadius: 5,
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// Bottone STOP in alto a destra con countdown
+  Widget _buildStopButton(DateTime expiresAt) {
+    // Calcola tempo rimanente
+    final remaining = expiresAt.difference(DateTime.now());
+    final String timeText;
+
+    if (remaining.inHours > 0) {
+      timeText = '${remaining.inHours}h ${remaining.inMinutes % 60}min';
+    } else if (remaining.inMinutes > 0) {
+      timeText = '${remaining.inMinutes}min';
+    } else {
+      timeText = '< 1min';
+    }
+
+    return Positioned(
+      top: 16,
+      right: 16,
+      child: GestureDetector(
+        onTap: () async {
+          final locationService = Provider.of<LocationService>(context, listen: false);
+          final chatService = Provider.of<ChatService>(context, listen: false);
+          final pairingService = Provider.of<PairingService>(context, listen: false);
+
+          // Ottieni il messageId prima di fermare la condivisione
+          final messageId = locationService.getLocationShareMessageId();
+          final familyChatId = await pairingService.getFamilyChatId();
+          final myUserId = await pairingService.getMyUserId();
+
+          // Ferma la condivisione
+          await locationService.stopSharingLocation();
+
+          // Aggiungi reaction "done" al messaggio per notificare entrambi gli utenti
+          if (messageId != null && familyChatId != null && myUserId != null) {
+            await chatService.addReaction(messageId, familyChatId, myUserId, 'done');
+            if (kDebugMode) print('✅ [LOCATION] Added "done" reaction to message');
+          }
+        },
+        child: Container(
+          padding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          decoration: BoxDecoration(
+            color: Colors.white.withOpacity(0.2),
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(
+              color: Colors.white.withOpacity(0.3),
+              width: 1,
+            ),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                'STOP',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
+                  letterSpacing: 1.0,
+                ),
+              ),
+              SizedBox(width: 8),
+              Icon(
+                Icons.done,
+                color: Colors.white,
+                size: 20,
+              ),
+              SizedBox(width: 8),
+              Text(
+                timeText,
+                style: TextStyle(
+                  color: Colors.white.withOpacity(0.9),
+                  fontSize: 14,
+                  fontWeight: FontWeight.w400,
+                ),
               ),
             ],
           ),
         ),
-        SizedBox(height: 12),
-        Text(
-          'Destinazione',
-          style: TextStyle(
-            color: Colors.white.withOpacity(0.7),
-            fontSize: 12,
-            fontWeight: FontWeight.w300,
-            letterSpacing: 1.5,
-          ),
-        ),
-      ],
+      ),
     );
   }
 
-  /// Freccia di navigazione che ruota in base alla direzione
-  Widget _buildNavigationArrow(double targetBearing, double currentHeading) {
-    // Calcola opacità basandosi sull'allineamento
-    double opacity = _calculateArrowOpacity(targetBearing, currentHeading);
-
-    // Rotazione: la freccia punta nella direzione in cui sto andando
-    // Quando sono allineato con la destinazione, punta verso l'alto (verso il punto)
-    double rotationAngle = (targetBearing - currentHeading) * math.pi / 180;
-
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        AnimatedOpacity(
-          duration: Duration(milliseconds: 200),
-          opacity: opacity,
-          child: Transform.rotate(
-            angle: rotationAngle,
-            child: Icon(
-              Icons.navigation,
-              size: 140,
-              color: Colors.white,
-              shadows: [
-                Shadow(
-                  color: Colors.black.withOpacity(0.3),
-                  blurRadius: 10,
-                ),
-              ],
-            ),
-          ),
-        ),
-        SizedBox(height: 40),
-        AnimatedOpacity(
-          duration: Duration(milliseconds: 300),
-          opacity: opacity > 0.8 ? 1.0 : 0.4,
-          child: Text(
-            opacity > 0.8 ? 'Direzione corretta' : 'Allineati con la destinazione',
-            style: TextStyle(
-              color: Colors.white,
-              fontSize: 16,
-              fontWeight: FontWeight.w300,
-              letterSpacing: 1.2,
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-
-  /// Cerchio fisso quando la bussola non è disponibile
-  Widget _buildStaticCircle() {
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Container(
-          width: 140,
-          height: 140,
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            color: Colors.white.withOpacity(0.3),
-            border: Border.all(
-              color: Colors.white,
-              width: 3,
-            ),
-          ),
-          child: Center(
-            child: Icon(
-              Icons.explore_off,
-              size: 60,
-              color: Colors.white,
-            ),
-          ),
-        ),
-        SizedBox(height: 40),
-        Text(
-          'Bussola non disponibile',
-          style: TextStyle(
-            color: Colors.white,
-            fontSize: 16,
-            fontWeight: FontWeight.w300,
-            letterSpacing: 1.2,
-          ),
-        ),
-      ],
-    );
-  }
-
-  /// Pannello info minimal in basso
-  Widget _buildInfoPanel(double? distance, DateTime? timestamp, bool gpsUnavailable) {
+  /// Pannello distanza semplificato
+  Widget _buildDistancePanel(double distance) {
     return Container(
       margin: EdgeInsets.symmetric(horizontal: 32),
       padding: EdgeInsets.symmetric(vertical: 24, horizontal: 32),
@@ -736,40 +698,17 @@ class _LocationSharingScreenState extends State<LocationSharingScreen> {
           width: 1,
         ),
       ),
-      child: Column(
-        children: [
-          // Distanza o messaggio GPS non disponibile
-          Text(
-            gpsUnavailable ? 'GPS non disponibile' : (distance != null ? _formatDistance(distance) : '---'),
-            style: TextStyle(
-              color: Colors.white,
-              fontSize: gpsUnavailable ? 24 : 48,
-              fontWeight: FontWeight.w200,
-              letterSpacing: gpsUnavailable ? 1.0 : 2.0,
-            ),
-          ),
-          // Timestamp solo se disponibile (destinatario)
-          if (timestamp != null) ...[
-            SizedBox(height: 16),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(Icons.access_time, color: Colors.white60, size: 16),
-                SizedBox(width: 8),
-                Text(
-                  'Aggiornato ${_formatTimestamp(timestamp)}',
-                  style: TextStyle(
-                    color: Colors.white60,
-                    fontSize: 13,
-                    fontWeight: FontWeight.w300,
-                    letterSpacing: 0.5,
-                  ),
-                ),
-              ],
-            ),
-          ],
-        ],
+      child: Text(
+        _formatDistance(distance),
+        textAlign: TextAlign.center,
+        style: TextStyle(
+          color: Colors.white,
+          fontSize: 48,
+          fontWeight: FontWeight.w200,
+          letterSpacing: 2.0,
+        ),
       ),
     );
   }
+
 }
