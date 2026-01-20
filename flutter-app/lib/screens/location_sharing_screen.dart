@@ -320,21 +320,17 @@ class _LocationSharingScreenState extends State<LocationSharingScreen> {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          CircularProgressIndicator(
-            color: Colors.white,
-            strokeWidth: 2,
-          ),
+          Icon(Icons.location_on, size: 80, color: Colors.white70),
           SizedBox(height: 40),
-          Icon(Icons.location_searching, size: 80, color: Colors.white38),
-          SizedBox(height: 24),
           Text(
-            'In attesa...',
+            'In attesa del tuo amore ......',
             style: TextStyle(
               color: Colors.white,
               fontSize: 22,
               fontWeight: FontWeight.w300,
               letterSpacing: 1.2,
             ),
+            textAlign: TextAlign.center,
           ),
         ],
       ),
@@ -534,6 +530,19 @@ class _LocationSharingScreenState extends State<LocationSharingScreen> {
     } else if (targetBearing != null) {
       // Fallback: punta verso il mittente (come se stesse venendo verso di lui)
       arrowRotation = (targetBearing - myHeading) * math.pi / 180;
+    }
+
+    // LOG DETTAGLIATO PER DEBUG
+    if (kDebugMode) {
+      print('🎯 [RADAR] ========================================');
+      print('   Distance: ${distance?.toStringAsFixed(1)} m');
+      print('   RadialOffset: ${radialOffset.toStringAsFixed(1)} px');
+      print('   MyHeading (mittente): ${myHeading.toStringAsFixed(1)}° ${_heading == null ? "(Nord fisso)" : ""}');
+      print('   PartnerHeading (destinatario): ${partnerHeading?.toStringAsFixed(1) ?? "null"}°');
+      print('   TargetBearing (dove si trova): ${targetBearing?.toStringAsFixed(1) ?? "null"}°');
+      print('   ArrowRotation: ${(arrowRotation * 180 / math.pi).toStringAsFixed(1)}° (${partnerHeading != null && partnerHeading >= 0 ? "da heading" : "fallback bearing"})');
+      print('   Position (x,y): (${offsetX.toStringAsFixed(1)}, ${offsetY.toStringAsFixed(1)})');
+      print('==========================================');
     }
 
     return Expanded(
