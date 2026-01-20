@@ -223,7 +223,8 @@ class LocationService extends ChangeNotifier {
       await _positionStreamSubscription?.cancel();
       _positionStreamSubscription = null;
 
-      // Aggiorna Firestore: imposta is_active = false per ENTRAMBI (come pairing)
+      // Aggiorna Firestore: imposta is_active = false SOLO per ME
+      // L'altro utente rileverà tramite listener e fermerà la sua condivisione
       final myUserId = await _getMyUserId();
       final familyChatId = await _getFamilyChatId();
 
@@ -236,21 +237,7 @@ class LocationService extends ChangeNotifier {
             .doc(myUserId)
             .update({'is_active': false});
 
-        // Marca anche il documento del PARTNER come inattivo (come pairing)
-        // Trova tutti i documenti nella collection e marca come inattivi quelli che non sono i miei
-        final locationsSnapshot = await _firestore
-            .collection('families')
-            .doc(familyChatId)
-            .collection('locations')
-            .get();
-
-        for (var doc in locationsSnapshot.docs) {
-          if (doc.id != myUserId) {
-            // Questo è il partner
-            await doc.reference.update({'is_active': false});
-            if (kDebugMode) print('🛑 [LOCATION] Marked partner location as inactive: ${doc.id.substring(0, 8)}...');
-          }
-        }
+        if (kDebugMode) print('🛑 [LOCATION] Marked my location as inactive');
       }
 
       _isSharingLocation = false;
@@ -337,18 +324,34 @@ class LocationService extends ChangeNotifier {
 
         // Verifica se è scaduta o inattiva
         if (locationShare.isExpired || !locationShare.isActive) {
-          if (kDebugMode) print('👀 [LOCATION] Partner location expired or inactive - STOPPING ALL');
-          _partnerLocation = null;
+          if (kDebugMode) print('👀 [LOCATION] Partner location expired or inactive');
 
-          // Partner ha fermato: fermiamo TUTTO (come pairing)
-          if (_isSharingLocation) {
-            if (kDebugMode) print('🛑 [LOCATION] Partner stopped, stopping my sharing too');
-            stopSharingLocation();
+          // Partner ha fermato: se IO sto condividendo, marco anche me come inattivo
+          // Ma SOLO se partner ERA attivo prima (evita di fermare all'inizio)
+          if (_partnerLocation != null && _partnerLocation!.isActive && _isSharingLocation) {
+            if (kDebugMode) print('🛑 [LOCATION] Partner stopped, marking myself as inactive too');
+
+            final myUserId = await _getMyUserId();
+            final familyChatId = await _getFamilyChatId();
+
+            if (myUserId != null && familyChatId != null) {
+              try {
+                await _firestore
+                    .collection('families')
+                    .doc(familyChatId)
+                    .collection('locations')
+                    .doc(myUserId)
+                    .update({'is_active': false});
+
+                _isSharingLocation = false;
+                if (kDebugMode) print('✅ [LOCATION] Marked myself as inactive (partner stopped)');
+              } catch (e) {
+                if (kDebugMode) print('❌ [LOCATION] Error marking as inactive: $e');
+              }
+            }
           }
-          if (_isTrackingPartner) {
-            if (kDebugMode) print('🛑 [LOCATION] Partner stopped, stopping tracking');
-            stopTrackingPartner();
-          }
+
+          _partnerLocation = null;
         } else {
           if (kDebugMode) {
             print('👀 [LOCATION] Partner location updated:');
