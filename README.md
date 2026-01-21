@@ -1,6 +1,6 @@
 # Tuijo - Private Messaging & Family Organization App
 
-**Version:** 1.13.0 (Build 15) | **Status:** 🚀 Release Candidate - Ready for App Store
+**Version:** 1.14.0 (Build 19) | **Status:** 🚀 Production Ready
 
 [![Flutter](https://img.shields.io/badge/Flutter-3.x-blue)](https://flutter.dev)
 [![Firebase](https://img.shields.io/badge/Firebase-Firestore-orange)](https://firebase.google.com)
@@ -48,40 +48,39 @@ A secure, end-to-end encrypted messaging and family organization app built with 
 
 ---
 
-## 🚀 What's New in 1.13.0 - Release Candidate
+## 🚀 What's New in 1.14.0 - Full Localization & UX Improvements
 
-### iOS Photo Sharing Implementation
+### 🌍 Complete Localization (NEW!)
+- **All Texts Localized**: Every single UI element now supports all 4 languages (IT, ES, EN, CA)
+- **Message Actions**: Edit, Delete, Stop Sharing - fully localized
+- **Time & Alert Pickers**: Orario/Time/Hora labels and all alert options (1 hour before, 2 days before, etc.)
+- **Location Sharing**: "Expired", "Location" and time indicators translated
+- **Error Messages**: All user-facing errors now show in user's language
+- **17 New Keys**: Added to all .arb files for complete coverage
 
-**The Problem**: iOS apps can't directly receive shared photos without proper native integration.
+### 📝 Message Editing Improvements (NEW!)
+- **Edit Pending Messages**: Can now edit messages that are still uploading/failed
+- **Delete Pending Messages**: Remove stuck pending messages without errors
+- **Smart Handling**: Pending messages are removed locally, normal messages updated in Firestore
+- **Attachment Filtering**: Only successfully uploaded attachments shown during edit
 
-**Our Solution**: Custom AppDelegate + Method Channel architecture:
+### 🎨 UI Simplification
+- **Removed Calendar Screen**: Todo calendar now fully integrated into chat
+- **Streamlined Navigation**: 3-tab interface (Chat, Media, Settings) instead of 4
+- **Cleaner Drawer**: Simplified menu with essential sections only
+- **Better UX**: All todo management happens in chat where todos are created
 
-1. **AppDelegate intercepts share** from iOS Photos app
-2. **Security Scoped Resources** used for file access
-3. **File copied to Caches directory** (stable, not tmp)
-4. **Method Channel sends path to Flutter**
-5. **Flutter encrypts and uploads** to Firebase Storage
-6. **Cleanup after successful upload**
-
-**Key Files**:
-- `ios/Runner/AppDelegate.swift`: Native iOS file handling
-- `lib/screens/chat_screen.dart`: Flutter Method Channel receiver
-- `ios/Runner/Runner.entitlements`: App Groups + Push Notifications
-- `ios/Runner/Info.plist`: Document types + URL schemes
-
-### Bug Fixes
-- ✅ Fixed file cleanup timing (after upload, not before)
-- ✅ Fixed Xcode build cycle dependencies
-- ✅ Fixed localization file references (en/es/ca/it)
-- ✅ Added missing Base.lproj storyboard files
-- ✅ Restored Push Notifications entitlement
-- ✅ Cleaned ShareExtension remnants from project
+### 🐛 Bug Fixes
+- ✅ Fixed pending message deletion errors (empty attachment URLs)
+- ✅ Fixed Firestore NOT_FOUND errors on pending message operations
+- ✅ Fixed attachment URL validation before deletion attempts
+- ✅ Improved error messages for message updates
 
 ### Technical Improvements
-- Stable Caches directory instead of volatile /tmp/
-- Proper build phase ordering in Xcode project
-- Validated project.pbxproj structure (balanced braces)
-- Removed all orphan project entries
+- Localization keys organized and consistent across all languages
+- Better pending message state management
+- Improved attachment cleanup logic
+- Removed unused calendar_screen.dart and references
 
 ---
 
@@ -333,13 +332,15 @@ platform.setMethodCallHandler((call) async {
 - [x] iOS photo sharing working (Photos app integration)
 - [x] Push notifications configured and tested
 - [x] End-to-end encryption verified
-- [x] All localizations complete (en/es/ca/it)
+- [x] All UI texts localized (en/es/ca/it) - 100% coverage
 - [x] App Groups entitlements configured
 - [x] Caches directory cleanup verified
 - [x] Build cycle dependencies resolved
 - [x] Storyboard files present
 - [x] TestFlight beta testing completed
-- [x] Version bumped to 1.13.0 (Build 15)
+- [x] Pending message edit/delete functionality
+- [x] Calendar screen removed, integrated into chat
+- [x] Version bumped to 1.14.0 (Build 19)
 
 ### App Store Connect
 **Bundle ID**: `com.privatemessaging.tuyjo`
@@ -416,6 +417,13 @@ Proprietary - All rights reserved
 
 ## 🎉 Version History
 
+### 1.14.0 (Build 19) - January 21, 2026 - Production Ready
+**NEW**: Complete localization - all UI elements in 4 languages (IT, ES, EN, CA)
+**NEW**: Edit and delete pending messages (stuck uploads)
+**IMPROVED**: Removed separate calendar screen, fully integrated into chat
+**IMPROVED**: Streamlined 3-tab navigation (Chat, Media, Settings)
+**FIXED**: Pending message deletion errors, attachment URL validation
+
 ### 1.13.0 (Build 15) - January 15, 2026 - Release Candidate
 **NEW**: Native iOS photo sharing from Photos app
 **FIXED**: File cleanup timing, build dependencies, localizations
@@ -429,6 +437,6 @@ Android Firebase release
 
 ---
 
-**Status**: ✅ Ready for App Store submission
-**Last Updated**: January 15, 2026
-**Build**: Release Candidate (1.13.0+15)
+**Status**: ✅ Production Ready - App Store & Play Store
+**Last Updated**: January 21, 2026
+**Build**: 1.14.0+19

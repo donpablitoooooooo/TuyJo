@@ -6,7 +6,7 @@ Questa cartella contiene widget condivisi utilizzati in tutta l'applicazione per
 
 ### 1. TodoMessageBubble (`todo_bubble.dart`)
 
-Widget per visualizzare bubble di messaggi TODO, utilizzato sia in `chat_screen` che in `calendar_screen`.
+Widget per visualizzare bubble di messaggi TODO, utilizzato in `chat_screen` per mostrare i messaggi di tipo TODO.
 
 #### Utilizzo
 

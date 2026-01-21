@@ -11,7 +11,7 @@ import 'reaction_picker.dart';
 import 'reaction_overlay.dart';
 
 /// Widget riutilizzabile per le bubble TODO
-/// Utilizzato sia in chat_screen che in calendar_screen
+/// Utilizzato in chat_screen per visualizzare i messaggi TODO
 class TodoMessageBubble extends StatelessWidget {
   final Message message;
   final bool isMe;
