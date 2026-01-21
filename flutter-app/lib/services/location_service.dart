@@ -334,7 +334,11 @@ class LocationService extends ChangeNotifier {
           // Partner ha fermato: se IO sto condividendo, marco anche me come inattivo
           // Ma SOLO se partner ERA attivo prima (evita di fermare all'inizio)
           if (_partnerLocation != null && _partnerLocation!.isActive && _isSharingLocation) {
-            if (kDebugMode) print('🛑 [LOCATION] Partner stopped, marking myself as inactive too');
+            if (kDebugMode) print('🛑 [LOCATION] Partner stopped, stopping MY sharing completely');
+
+            // Ferma il position stream (altrimenti continua a scrivere su Firestore!)
+            await _positionStreamSubscription?.cancel();
+            _positionStreamSubscription = null;
 
             // Usa myUserId e familyChatId dal contesto esterno (già disponibili)
             try {
@@ -345,11 +349,17 @@ class LocationService extends ChangeNotifier {
                   .doc(myUserId)
                   .update({'is_active': false});
 
-              _isSharingLocation = false;
               if (kDebugMode) print('✅ [LOCATION] Marked myself as inactive (partner stopped)');
             } catch (e) {
               if (kDebugMode) print('❌ [LOCATION] Error marking as inactive: $e');
             }
+
+            // Reset stato locale
+            _isSharingLocation = false;
+            _sharingExpiresAt = null;
+            _myLocation = null;
+            _currentSessionId = null;
+            _locationShareMessageId = null;
           }
 
           _partnerLocation = null;
