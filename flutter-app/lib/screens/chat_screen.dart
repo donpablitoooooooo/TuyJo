@@ -2416,6 +2416,53 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                         ),
                       ),
                     ),
+                  // Indicatore modifica messaggio
+                  if (_editingMessageId != null)
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF3BA8B0).withOpacity(0.1),
+                        border: Border(
+                          bottom: BorderSide(color: const Color(0xFF3BA8B0).withOpacity(0.3)),
+                        ),
+                      ),
+                      child: Row(
+                        children: [
+                          const Icon(
+                            Icons.edit_outlined,
+                            size: 16,
+                            color: Color(0xFF3BA8B0),
+                          ),
+                          const SizedBox(width: 8),
+                          const Expanded(
+                            child: Text(
+                              'Modifica messaggio',
+                              style: TextStyle(
+                                color: Color(0xFF145A60),
+                                fontSize: 13,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ),
+                          IconButton(
+                            icon: const Icon(Icons.close, size: 18),
+                            color: const Color(0xFF3BA8B0),
+                            onPressed: () {
+                              setState(() {
+                                _editingMessageId = null;
+                                _messageController.clear();
+                                _selectedTodoDate = null;
+                                _selectedRangeStart = null;
+                                _selectedRangeEnd = null;
+                                _isRangeSelection = false;
+                              });
+                            },
+                            padding: EdgeInsets.zero,
+                            constraints: const BoxConstraints(),
+                          ),
+                        ],
+                      ),
+                    ),
                   Row(
                     crossAxisAlignment: CrossAxisAlignment.center,
                     children: [
