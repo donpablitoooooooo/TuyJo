@@ -1207,7 +1207,7 @@ class ChatService extends ChangeNotifier {
         // È un todo - crea JSON con tipo e data
         final Map<String, dynamic> todoData = {
           'type': 'todo',
-          'content': newContent,
+          'body': newContent,
           'due_date': dueDate.toIso8601String(),
         };
         if (rangeEnd != null) {
@@ -1215,8 +1215,8 @@ class ChatService extends ChangeNotifier {
         }
         contentToEncrypt = json.encode(todoData);
       } else {
-        // Messaggio normale - crea JSON semplice
-        contentToEncrypt = json.encode({'type': 'text', 'content': newContent});
+        // Messaggio normale - crea JSON semplice (usa 'body' per coerenza)
+        contentToEncrypt = json.encode({'type': 'text', 'body': newContent});
       }
 
       if (kDebugMode) {
