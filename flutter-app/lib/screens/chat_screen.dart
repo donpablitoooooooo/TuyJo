@@ -1014,6 +1014,52 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     );
   }
 
+  /// Costruisce un'opzione per il menu di selezione alert con stato selezionato (inline version)
+  Widget _buildAlertOptionInline(
+    BuildContext context,
+    int? hours,
+    String label,
+    int? currentSelection,
+    Function(int?) onSelect,
+  ) {
+    final isSelected = hours == currentSelection;
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: () => onSelect(hours),
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 24),
+          decoration: BoxDecoration(
+            color: isSelected ? Colors.white.withOpacity(0.2) : Colors.transparent,
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Row(
+            children: [
+              Icon(
+                hours == null ? Icons.notifications_off : Icons.notifications_outlined,
+                color: Colors.white,
+                size: 24,
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Text(
+                  label,
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 16,
+                    fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+                  ),
+                ),
+              ),
+              if (isSelected)
+                const Icon(Icons.check, color: Colors.white, size: 24),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   /// Recupera i todo per un giorno specifico per mostrare i marker nel calendario
   List<Message> _getTodosForDayInCalendar(DateTime day) {
     final chatService = Provider.of<ChatService>(context, listen: false);
@@ -1224,8 +1270,154 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                                 if (rangeStart != null)
                                   IconButton(
                                     onPressed: () async {
-                                      // Mostra menu per selezionare alert e orario
-                                      final result = await _showAlertAndTimePicker(context, selectedReminderHours);
+                                      // Mostra menu per selezionare alert e orario inline
+                                      int? alertHours = selectedReminderHours;
+                                      int selectedHour = 10;
+                                      int selectedMinute = 0;
+
+                                      final result = await showModalBottomSheet<Map<String, dynamic>?>(
+                                        context: context,
+                                        isScrollControlled: true,
+                                        backgroundColor: Colors.transparent,
+                                        builder: (context) => StatefulBuilder(
+                                          builder: (context, setAlertState) => Container(
+                                            height: MediaQuery.of(context).size.height * 0.6,
+                                            decoration: const BoxDecoration(
+                                              gradient: LinearGradient(
+                                                begin: Alignment.topCenter,
+                                                end: Alignment.bottomCenter,
+                                                colors: [Color(0xFF3BA8B0), Color(0xFF145A60)],
+                                              ),
+                                              borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+                                            ),
+                                            child: SafeArea(
+                                              child: Column(
+                                                children: [
+                                                  const Padding(
+                                                    padding: EdgeInsets.all(16),
+                                                    child: Text(
+                                                      'Quando vuoi ricevere l\'alert?',
+                                                      style: TextStyle(
+                                                        color: Colors.white,
+                                                        fontSize: 18,
+                                                        fontWeight: FontWeight.bold,
+                                                      ),
+                                                    ),
+                                                  ),
+                                                  // Sezione Alert
+                                                  Expanded(
+                                                    child: ListView(
+                                                      children: [
+                                                        _buildAlertOptionInline(context, 1, '1 ora prima', alertHours, (hours) {
+                                                          setAlertState(() => alertHours = hours);
+                                                        }),
+                                                        _buildAlertOptionInline(context, 2, '2 ore prima', alertHours, (hours) {
+                                                          setAlertState(() => alertHours = hours);
+                                                        }),
+                                                        _buildAlertOptionInline(context, 8, '8 ore prima', alertHours, (hours) {
+                                                          setAlertState(() => alertHours = hours);
+                                                        }),
+                                                        _buildAlertOptionInline(context, 24, '1 giorno prima', alertHours, (hours) {
+                                                          setAlertState(() => alertHours = hours);
+                                                        }),
+                                                        _buildAlertOptionInline(context, 48, '2 giorni prima', alertHours, (hours) {
+                                                          setAlertState(() => alertHours = hours);
+                                                        }),
+                                                        _buildAlertOptionInline(context, null, 'Nessun alert', alertHours, (hours) {
+                                                          setAlertState(() => alertHours = hours);
+                                                        }),
+                                                      ],
+                                                    ),
+                                                  ),
+                                                  const Divider(color: Colors.white30, height: 1),
+                                                  // Sezione Orario
+                                                  Padding(
+                                                    padding: const EdgeInsets.all(16),
+                                                    child: Column(
+                                                      children: [
+                                                        const Text(
+                                                          'Orario',
+                                                          style: TextStyle(
+                                                            color: Colors.white,
+                                                            fontSize: 16,
+                                                            fontWeight: FontWeight.bold,
+                                                          ),
+                                                        ),
+                                                        const SizedBox(height: 16),
+                                                        Row(
+                                                          mainAxisAlignment: MainAxisAlignment.center,
+                                                          children: [
+                                                            SizedBox(
+                                                              width: 80,
+                                                              height: 120,
+                                                              child: CupertinoPicker(
+                                                                scrollController: FixedExtentScrollController(initialItem: selectedHour),
+                                                                itemExtent: 40,
+                                                                onSelectedItemChanged: (index) {
+                                                                  selectedHour = index;
+                                                                },
+                                                                children: List.generate(24, (index) => Center(
+                                                                  child: Text(
+                                                                    index.toString().padLeft(2, '0'),
+                                                                    style: const TextStyle(color: Colors.white, fontSize: 24),
+                                                                  ),
+                                                                )),
+                                                              ),
+                                                            ),
+                                                            const Padding(
+                                                              padding: EdgeInsets.symmetric(horizontal: 8),
+                                                              child: Text(':', style: TextStyle(color: Colors.white, fontSize: 24)),
+                                                            ),
+                                                            SizedBox(
+                                                              width: 80,
+                                                              height: 120,
+                                                              child: CupertinoPicker(
+                                                                scrollController: FixedExtentScrollController(initialItem: selectedMinute),
+                                                                itemExtent: 40,
+                                                                onSelectedItemChanged: (index) {
+                                                                  selectedMinute = index;
+                                                                },
+                                                                children: List.generate(60, (index) => Center(
+                                                                  child: Text(
+                                                                    index.toString().padLeft(2, '0'),
+                                                                    style: const TextStyle(color: Colors.white, fontSize: 24),
+                                                                  ),
+                                                                )),
+                                                              ),
+                                                            ),
+                                                          ],
+                                                        ),
+                                                      ],
+                                                    ),
+                                                  ),
+                                                  // Bottone conferma
+                                                  Padding(
+                                                    padding: const EdgeInsets.all(16),
+                                                    child: ElevatedButton(
+                                                      onPressed: () {
+                                                        Navigator.pop(context, {
+                                                          'alertHours': alertHours,
+                                                          'hour': selectedHour,
+                                                          'minute': selectedMinute,
+                                                        });
+                                                      },
+                                                      style: ElevatedButton.styleFrom(
+                                                        backgroundColor: Colors.white,
+                                                        foregroundColor: const Color(0xFF3BA8B0),
+                                                        minimumSize: const Size(double.infinity, 50),
+                                                        shape: RoundedRectangleBorder(
+                                                          borderRadius: BorderRadius.circular(12),
+                                                        ),
+                                                      ),
+                                                      child: const Text('Conferma', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                                                    ),
+                                                  ),
+                                                ],
+                                              ),
+                                            ),
+                                          ),
+                                        ),
+                                      );
 
                                       if (result != null) {
                                         // Conferma e chiudi con i dati selezionati
@@ -2234,208 +2426,6 @@ class _AttachmentPreview extends StatelessWidget {
     );
   }
 
-  /// Mostra menu per selezionare alert e orario
-  Future<Map<String, dynamic>?> _showAlertAndTimePicker(BuildContext context, int? currentAlertHours) async {
-    int? alertHours = currentAlertHours;
-    int selectedHour = 10;
-    int selectedMinute = 0;
-
-    return await showModalBottomSheet<Map<String, dynamic>?>(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (context) => StatefulBuilder(
-        builder: (context, setState) => Container(
-          height: MediaQuery.of(context).size.height * 0.6,
-          decoration: const BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topCenter,
-              end: Alignment.bottomCenter,
-              colors: [Color(0xFF3BA8B0), Color(0xFF145A60)],
-            ),
-            borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-          ),
-          child: SafeArea(
-            child: Column(
-              children: [
-                Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Text(
-                    'Quando vuoi ricevere l\'alert?',
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ),
-
-                // Sezione Alert
-                Expanded(
-                  child: ListView(
-                    children: [
-                      _buildAlertOptionWithState(context, 1, '1 ora prima', alertHours, (hours) {
-                        setState(() => alertHours = hours);
-                      }),
-                      _buildAlertOptionWithState(context, 2, '2 ore prima', alertHours, (hours) {
-                        setState(() => alertHours = hours);
-                      }),
-                      _buildAlertOptionWithState(context, 8, '8 ore prima', alertHours, (hours) {
-                        setState(() => alertHours = hours);
-                      }),
-                      _buildAlertOptionWithState(context, 24, '1 giorno prima', alertHours, (hours) {
-                        setState(() => alertHours = hours);
-                      }),
-                      _buildAlertOptionWithState(context, 48, '2 giorni prima', alertHours, (hours) {
-                        setState(() => alertHours = hours);
-                      }),
-                      _buildAlertOptionWithState(context, null, 'Nessun alert', alertHours, (hours) {
-                        setState(() => alertHours = hours);
-                      }),
-                    ],
-                  ),
-                ),
-
-                const Divider(color: Colors.white30, height: 1),
-
-                // Sezione Orario
-                Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Column(
-                    children: [
-                      const Text(
-                        'Orario',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      const SizedBox(height: 16),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          // Hour
-                          SizedBox(
-                            width: 80,
-                            height: 120,
-                            child: CupertinoPicker(
-                              scrollController: FixedExtentScrollController(initialItem: selectedHour),
-                              itemExtent: 40,
-                              onSelectedItemChanged: (index) {
-                                selectedHour = index;
-                              },
-                              children: List.generate(24, (index) => Center(
-                                child: Text(
-                                  index.toString().padLeft(2, '0'),
-                                  style: const TextStyle(color: Colors.white, fontSize: 24),
-                                ),
-                              )),
-                            ),
-                          ),
-                          const Padding(
-                            padding: EdgeInsets.symmetric(horizontal: 8),
-                            child: Text(':', style: TextStyle(color: Colors.white, fontSize: 24)),
-                          ),
-                          // Minute
-                          SizedBox(
-                            width: 80,
-                            height: 120,
-                            child: CupertinoPicker(
-                              scrollController: FixedExtentScrollController(initialItem: selectedMinute),
-                              itemExtent: 40,
-                              onSelectedItemChanged: (index) {
-                                selectedMinute = index;
-                              },
-                              children: List.generate(60, (index) => Center(
-                                child: Text(
-                                  index.toString().padLeft(2, '0'),
-                                  style: const TextStyle(color: Colors.white, fontSize: 24),
-                                ),
-                              )),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                ),
-
-                // Bottone conferma
-                Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: ElevatedButton(
-                    onPressed: () {
-                      Navigator.pop(context, {
-                        'alertHours': alertHours,
-                        'hour': selectedHour,
-                        'minute': selectedMinute,
-                      });
-                    },
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.white,
-                      foregroundColor: const Color(0xFF3BA8B0),
-                      minimumSize: const Size(double.infinity, 50),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                    ),
-                    child: const Text('Conferma', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  /// Costruisce un'opzione per il menu di selezione alert con stato selezionato
-  Widget _buildAlertOptionWithState(
-    BuildContext context,
-    int? hours,
-    String label,
-    int? currentSelection,
-    Function(int?) onSelect,
-  ) {
-    final isSelected = hours == currentSelection;
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: () => onSelect(hours),
-        child: Container(
-          padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 24),
-          decoration: BoxDecoration(
-            color: isSelected ? Colors.white.withOpacity(0.2) : Colors.transparent,
-            borderRadius: BorderRadius.circular(8),
-          ),
-          child: Row(
-            children: [
-              Icon(
-                hours == null ? Icons.notifications_off : Icons.notifications_outlined,
-                color: Colors.white,
-                size: 24,
-              ),
-              const SizedBox(width: 16),
-              Expanded(
-                child: Text(
-                  label,
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 16,
-                    fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
-                  ),
-                ),
-              ),
-              if (isSelected)
-                const Icon(Icons.check, color: Colors.white, size: 24),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
 }
 
 /// Widget per mostrare preview data/range/alert selezionata per todo
