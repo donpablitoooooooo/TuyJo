@@ -324,7 +324,12 @@ class LocationService extends ChangeNotifier {
 
         // Verifica se è scaduta o inattiva
         if (locationShare.isExpired || !locationShare.isActive) {
-          if (kDebugMode) print('👀 [LOCATION] Partner location expired or inactive');
+          if (kDebugMode) {
+            print('👀 [LOCATION] Partner location expired or inactive');
+            print('   _partnerLocation != null: ${_partnerLocation != null}');
+            print('   _partnerLocation?.isActive: ${_partnerLocation?.isActive}');
+            print('   _isSharingLocation: $_isSharingLocation');
+          }
 
           // Partner ha fermato: se IO sto condividendo, marco anche me come inattivo
           // Ma SOLO se partner ERA attivo prima (evita di fermare all'inizio)

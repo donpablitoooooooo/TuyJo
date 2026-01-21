@@ -654,42 +654,32 @@ class _LocationSharingScreenState extends State<LocationSharingScreen> {
     }
 
     return Expanded(
-      child: SizedBox(
-        width: double.infinity,
-        child: Center(
-          child: Container(
-            width: 400,
-            height: 400,
-            color: Colors.black, // DEBUG: container nero per vedere se freccia è tagliata
-            child: Center(
-              child: _heading != null && targetBearing != null
-                  ? AnimatedOpacity(
-                      duration: Duration(milliseconds: 200),
-                      opacity: opacity,
-                      child: Transform.rotate(
-                        alignment: Alignment.center,
-                        angle: (targetBearing - _heading!) * math.pi / 180,
-                        child: Icon(
-                          Icons.navigation,
-                          size: 280,
-                          color: Colors.white,
-                          shadows: [
-                            Shadow(
-                              color: Colors.black.withOpacity(0.3),
-                              blurRadius: 10,
-                            ),
-                          ],
-                        ),
+      child: Center(
+        child: _heading != null && targetBearing != null
+            ? AnimatedOpacity(
+                duration: Duration(milliseconds: 200),
+                opacity: opacity,
+                child: Transform.rotate(
+                  alignment: Alignment.center,
+                  angle: (targetBearing - _heading!) * math.pi / 180,
+                  child: Icon(
+                    Icons.navigation,
+                    size: 280,
+                    color: Colors.white,
+                    shadows: [
+                      Shadow(
+                        color: Colors.black.withOpacity(0.3),
+                        blurRadius: 10,
                       ),
-                    )
-                  : Icon(
-                      Icons.navigation,
-                      size: 280,
-                      color: Colors.white.withOpacity(0.5),
-                    ),
-            ),
-          ),
-        ),
+                    ],
+                  ),
+                ),
+              )
+            : Icon(
+                Icons.navigation,
+                size: 280,
+                color: Colors.white.withOpacity(0.5),
+              ),
       ),
     );
   }
