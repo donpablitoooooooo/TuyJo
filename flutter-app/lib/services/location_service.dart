@@ -18,6 +18,7 @@ class LocationService extends ChangeNotifier {
   // Stream subscriptions
   StreamSubscription<Position>? _positionStreamSubscription;
   StreamSubscription<QuerySnapshot<Map<String, dynamic>>>? _partnerLocationSubscription;
+  StreamSubscription<DocumentSnapshot<Map<String, dynamic>>>? _myLocationSubscription; // Listener per rilevare stop esterno
 
   // State
   LocationShare? _myLocation;
@@ -218,21 +219,25 @@ class LocationService extends ChangeNotifier {
     try {
       if (kDebugMode) print('🛑 [LOCATION] Stopping location sharing');
 
-      // Ferma lo stream
+      // Ferma lo stream posizione
       await _positionStreamSubscription?.cancel();
       _positionStreamSubscription = null;
 
-      // Aggiorna Firestore: imposta is_active = false
+      // Aggiorna Firestore: imposta is_active = false SOLO per ME
+      // L'altro utente rileverà tramite listener e fermerà la sua condivisione
       final myUserId = await _getMyUserId();
       final familyChatId = await _getFamilyChatId();
 
       if (myUserId != null && familyChatId != null) {
+        // Marca il MIO documento come inattivo
         await _firestore
             .collection('families')
             .doc(familyChatId)
             .collection('locations')
             .doc(myUserId)
             .update({'is_active': false});
+
+        if (kDebugMode) print('🛑 [LOCATION] Marked my location as inactive');
       }
 
       _isSharingLocation = false;
@@ -281,7 +286,7 @@ class LocationService extends ChangeNotifier {
           .doc(familyChatId)
           .collection('locations')
           .snapshots()
-          .listen((querySnapshot) {
+          .listen((querySnapshot) async {
         if (kDebugMode) {
           print('👀 [LOCATION] Locations snapshot received:');
           print('   Total docs: ${querySnapshot.docs.length}');
@@ -317,9 +322,46 @@ class LocationService extends ChangeNotifier {
 
         final locationShare = LocationShare.fromFirestore(partnerDoc.id, partnerDoc.data());
 
-        // Verifica se è scaduta
+        // Verifica se è scaduta o inattiva
         if (locationShare.isExpired || !locationShare.isActive) {
-          if (kDebugMode) print('👀 [LOCATION] Partner location expired or inactive');
+          if (kDebugMode) {
+            print('👀 [LOCATION] Partner location expired or inactive');
+            print('   _partnerLocation != null: ${_partnerLocation != null}');
+            print('   _partnerLocation?.isActive: ${_partnerLocation?.isActive}');
+            print('   _isSharingLocation: $_isSharingLocation');
+          }
+
+          // Partner ha fermato: se IO sto condividendo, marco anche me come inattivo
+          // Ma SOLO se partner ERA attivo prima (evita di fermare all'inizio)
+          if (_partnerLocation != null && _partnerLocation!.isActive && _isSharingLocation) {
+            if (kDebugMode) print('🛑 [LOCATION] Partner stopped, stopping MY sharing completely');
+
+            // Ferma il position stream (altrimenti continua a scrivere su Firestore!)
+            await _positionStreamSubscription?.cancel();
+            _positionStreamSubscription = null;
+
+            // Usa myUserId e familyChatId dal contesto esterno (già disponibili)
+            try {
+              await _firestore
+                  .collection('families')
+                  .doc(familyChatId)
+                  .collection('locations')
+                  .doc(myUserId)
+                  .update({'is_active': false});
+
+              if (kDebugMode) print('✅ [LOCATION] Marked myself as inactive (partner stopped)');
+            } catch (e) {
+              if (kDebugMode) print('❌ [LOCATION] Error marking as inactive: $e');
+            }
+
+            // Reset stato locale
+            _isSharingLocation = false;
+            _sharingExpiresAt = null;
+            _myLocation = null;
+            _currentSessionId = null;
+            _locationShareMessageId = null;
+          }
+
           _partnerLocation = null;
         } else {
           if (kDebugMode) {
@@ -370,6 +412,12 @@ class LocationService extends ChangeNotifier {
     String familyChatId,
   ) async {
     try {
+      // IMPORTANTE: verifica se sto ancora condividendo (evita race condition)
+      if (!_isSharingLocation) {
+        if (kDebugMode) print('🛑 [LOCATION] Not sharing anymore, skipping Firestore write');
+        return;
+      }
+
       // Verifica se è scaduta
       if (isSharingExpired) {
         if (kDebugMode) print('⏰ [LOCATION] Sharing expired, stopping');

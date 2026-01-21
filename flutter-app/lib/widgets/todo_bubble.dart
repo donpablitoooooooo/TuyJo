@@ -11,12 +11,13 @@ import 'reaction_picker.dart';
 import 'reaction_overlay.dart';
 
 /// Widget riutilizzabile per le bubble TODO
-/// Utilizzato sia in chat_screen che in calendar_screen
+/// Utilizzato in chat_screen per visualizzare i messaggi TODO
 class TodoMessageBubble extends StatelessWidget {
   final Message message;
   final bool isMe;
   final bool isCompleted;
   final Function(String reactionType) onReact;
+  final Function(String actionType)? onAction;
   final String? formattedDate;
   final AttachmentService? attachmentService;
   final String? senderId;
@@ -28,6 +29,7 @@ class TodoMessageBubble extends StatelessWidget {
     required this.isMe,
     required this.isCompleted,
     required this.onReact,
+    this.onAction,
     this.formattedDate,
     this.attachmentService,
     this.senderId,
@@ -106,6 +108,7 @@ class TodoMessageBubble extends StatelessWidget {
                   ReactionPicker.show(
                     context,
                     onReactionSelected: onReact,
+                    onActionSelected: onAction,
                     message: message,
                     attachmentService: attachmentService,
                     currentUserId: currentUserId,
@@ -183,53 +186,66 @@ class TodoMessageBubble extends StatelessWidget {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          // Testo del todo (mostra "Todo" se vuoto)
-                          (message.decryptedContent?.isEmpty ?? true)
-                              ? Text(
-                                  l10n.chatTodoDefault,
-                                  style: TextStyle(
-                                    color: isMe ? Colors.white : Colors.black87,
-                                    fontSize: 15,
-                                    height: 1.4,
-                                    decoration: isCompleted ? TextDecoration.lineThrough : null,
-                                    fontStyle: FontStyle.italic,
-                                  ),
-                                )
-                              : Linkify(
-                                  onOpen: (link) async {
-                                    try {
-                                      final uri = Uri.parse(link.url);
-                                      await launchUrl(
-                                        uri,
-                                        mode: LaunchMode.externalApplication,
-                                      );
-                                    } catch (e) {
-                                      if (kDebugMode) {
-                                        print('Errore apertura URL: $e');
-                                      }
-                                    }
-                                  },
-                                  text: message.decryptedContent!,
-                                  style: TextStyle(
-                                    color: isMe ? Colors.white : Colors.black87,
-                                    fontSize: 15,
-                                    height: 1.4,
-                                    decoration: isCompleted ? TextDecoration.lineThrough : null,
-                                  ),
-                                  linkStyle: TextStyle(
-                                    color: isMe ? Colors.white : Colors.blue,
-                                    fontSize: 15,
-                                    height: 1.4,
-                                    decoration: TextDecoration.underline,
-                                  ),
-                                  options: const LinkifyOptions(
-                                    humanize: false,
-                                    looseUrl: true,
-                                  ),
-                                ),
+                          // Mostra "Messaggio eliminato" se deleted == true
+                          if (message.deleted == true)
+                            Text(
+                              l10n.messageDeleted,
+                              style: TextStyle(
+                                color: isMe ? Colors.white.withOpacity(0.7) : Colors.black54,
+                                fontSize: 15,
+                                height: 1.4,
+                                fontStyle: FontStyle.italic,
+                              ),
+                            )
+                          // Altrimenti mostra il contenuto normale
+                          else if (message.decryptedContent?.isEmpty ?? true)
+                            Text(
+                              l10n.chatTodoDefault,
+                              style: TextStyle(
+                                color: isMe ? Colors.white : Colors.black87,
+                                fontSize: 15,
+                                height: 1.4,
+                                decoration: isCompleted ? TextDecoration.lineThrough : null,
+                                fontStyle: FontStyle.italic,
+                              ),
+                            )
+                          else
+                            Linkify(
+                              onOpen: (link) async {
+                                try {
+                                  final uri = Uri.parse(link.url);
+                                  await launchUrl(
+                                    uri,
+                                    mode: LaunchMode.externalApplication,
+                                  );
+                                } catch (e) {
+                                  if (kDebugMode) {
+                                    print('Errore apertura URL: $e');
+                                  }
+                                }
+                              },
+                              text: message.decryptedContent!,
+                              style: TextStyle(
+                                color: isMe ? Colors.white : Colors.black87,
+                                fontSize: 15,
+                                height: 1.4,
+                                decoration: isCompleted ? TextDecoration.lineThrough : null,
+                              ),
+                              linkStyle: TextStyle(
+                                color: isMe ? Colors.white : Colors.blue,
+                                fontSize: 15,
+                                height: 1.4,
+                                decoration: TextDecoration.underline,
+                              ),
+                              options: const LinkifyOptions(
+                                humanize: false,
+                                looseUrl: true,
+                              ),
+                            ),
 
                           // Data e ora (icona campanello per reminder, calendario per evento)
-                          if (formattedDate != null) ...[
+                          // Non mostrare se il messaggio è eliminato
+                          if (message.deleted != true && formattedDate != null) ...[
                             const SizedBox(height: 8),
                             Row(
                               mainAxisSize: MainAxisSize.min,

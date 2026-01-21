@@ -968,7 +968,7 @@ class ChatService extends ChangeNotifier {
     String messageId,
     String familyChatId,
     String userId,
-    String reactionType, // 'love', 'ok', 'shit', 'done'
+    String reactionType, // 'love', 'ok', 'shit' (SOLO VISIVE)
   ) async {
     try {
       if (kDebugMode) {
@@ -1016,13 +1016,15 @@ class ChatService extends ChangeNotifier {
         if (kDebugMode) {
           print('✅ [addReaction] Local cache updated successfully');
         }
-
-        notifyListeners();
       } else {
         if (kDebugMode) {
-          print('⚠️ [addReaction] Message not found in local list');
+          print('⚠️ [addReaction] Message not found in local list, will be updated by Firestore listener');
         }
       }
+
+      // IMPORTANTE: chiama sempre notifyListeners() per forzare rebuild
+      // Il listener Firestore aggiornerà il messaggio quando riceve l'evento modified
+      notifyListeners();
 
       if (kDebugMode) {
         print('✅ [addReaction] Reaction $reactionType added to message $messageId');
@@ -1031,6 +1033,249 @@ class ChatService extends ChangeNotifier {
     } catch (e, stackTrace) {
       if (kDebugMode) {
         print('❌ [addReaction] Error: $e');
+        print('Stack trace: $stackTrace');
+      }
+      return false;
+    }
+  }
+
+  /// Aggiunge un'azione a un messaggio (con effetti logici)
+  /// actionType: 'complete' (todo), 'stop_sharing' (location)
+  Future<bool> addAction(
+    String messageId,
+    String familyChatId,
+    String userId,
+    String actionType, // 'complete', 'stop_sharing'
+  ) async {
+    try {
+      if (kDebugMode) {
+        print('🔄 [addAction] Starting...');
+        print('   messageId: $messageId');
+        print('   familyChatId: $familyChatId');
+        print('   userId: $userId');
+        print('   actionType: $actionType');
+      }
+
+      // Crea l'oggetto action
+      final action = MessageAction(
+        type: actionType,
+        userId: userId,
+        timestamp: DateTime.now(),
+      );
+
+      // Aggiorna il messaggio in Firestore
+      final messageRef = _firestore
+          .collection('families')
+          .doc(familyChatId)
+          .collection('messages')
+          .doc(messageId);
+
+      if (kDebugMode) {
+        print('📤 [addAction] Updating Firestore...');
+      }
+
+      await messageRef.update({
+        'action': action.toJson(),
+      });
+
+      if (kDebugMode) {
+        print('✅ [addAction] Firestore updated successfully');
+      }
+
+      // Aggiorna il messaggio locale nella lista
+      final index = _messages.indexWhere((m) => m.id == messageId);
+      if (index != -1) {
+        _messages[index].action = action;
+
+        // Aggiorna anche la cache SQLite
+        await _cacheService.saveMessage(_messages[index], familyChatId);
+
+        if (kDebugMode) {
+          print('✅ [addAction] Local cache updated successfully');
+        }
+      } else {
+        if (kDebugMode) {
+          print('⚠️ [addAction] Message not found in local list, will be updated by Firestore listener');
+        }
+      }
+
+      // IMPORTANTE: chiama sempre notifyListeners() per forzare rebuild
+      // Il listener Firestore aggiornerà il messaggio quando riceve l'evento modified
+      notifyListeners();
+
+      if (kDebugMode) {
+        print('✅ [addAction] Action $actionType added to message $messageId');
+      }
+      return true;
+    } catch (e, stackTrace) {
+      if (kDebugMode) {
+        print('❌ [addAction] Error: $e');
+        print('Stack trace: $stackTrace');
+      }
+      return false;
+    }
+  }
+
+  /// Marca un messaggio come eliminato
+  Future<bool> deleteMessage(
+    String messageId,
+    String familyChatId,
+  ) async {
+    try {
+      if (kDebugMode) {
+        print('🗑️ [deleteMessage] Starting...');
+        print('   messageId: $messageId');
+        print('   familyChatId: $familyChatId');
+      }
+
+      // Aggiorna il messaggio in Firestore con il flag deleted
+      final messageRef = _firestore
+          .collection('families')
+          .doc(familyChatId)
+          .collection('messages')
+          .doc(messageId);
+
+      if (kDebugMode) {
+        print('📤 [deleteMessage] Updating Firestore...');
+      }
+
+      await messageRef.update({
+        'deleted': true,
+      });
+
+      if (kDebugMode) {
+        print('✅ [deleteMessage] Firestore updated successfully');
+      }
+
+      // Aggiorna il messaggio locale nella lista
+      final index = _messages.indexWhere((m) => m.id == messageId);
+      if (index != -1) {
+        _messages[index].deleted = true;
+
+        // Aggiorna anche la cache SQLite
+        await _cacheService.saveMessage(_messages[index], familyChatId);
+
+        if (kDebugMode) {
+          print('✅ [deleteMessage] Local cache updated successfully');
+        }
+      } else {
+        if (kDebugMode) {
+          print('⚠️ [deleteMessage] Message not found in local list, will be updated by Firestore listener');
+        }
+      }
+
+      // Chiama notifyListeners per forzare rebuild
+      notifyListeners();
+
+      if (kDebugMode) {
+        print('✅ [deleteMessage] Message $messageId marked as deleted');
+      }
+      return true;
+    } catch (e, stackTrace) {
+      if (kDebugMode) {
+        print('❌ [deleteMessage] Error: $e');
+        print('Stack trace: $stackTrace');
+      }
+      return false;
+    }
+  }
+
+  /// Modifica un messaggio esistente
+  Future<bool> updateMessage(
+    String messageId,
+    String familyChatId,
+    String newContent,
+    String myDeviceId,
+    String myPublicKey,
+    String partnerPublicKey, {
+    DateTime? dueDate,
+    DateTime? rangeEnd,
+    List<Attachment>? attachments,
+  }) async {
+    try {
+      if (kDebugMode) {
+        print('✏️ [updateMessage] Starting...');
+        print('   messageId: $messageId');
+        print('   familyChatId: $familyChatId');
+        print('   newContent: $newContent');
+        print('   dueDate: $dueDate');
+        print('   rangeEnd: $rangeEnd');
+      }
+
+      // Prepara il contenuto da cifrare
+      String contentToEncrypt;
+      if (dueDate != null) {
+        // È un todo - crea JSON con tipo e data
+        final Map<String, dynamic> todoData = {
+          'type': 'todo',
+          'body': newContent,
+          'due_date': dueDate.toIso8601String(),
+        };
+        if (rangeEnd != null) {
+          todoData['range_end'] = rangeEnd.toIso8601String();
+        }
+        contentToEncrypt = json.encode(todoData);
+      } else {
+        // Messaggio normale - crea JSON semplice (usa 'body' per coerenza)
+        contentToEncrypt = json.encode({'type': 'text', 'body': newContent});
+      }
+
+      if (kDebugMode) {
+        print('📝 [updateMessage] Content to encrypt: $contentToEncrypt');
+      }
+
+      // Cifra il messaggio con dual encryption
+      final encrypted = _encryptionService.encryptMessageDual(
+        contentToEncrypt,
+        myPublicKey,
+        partnerPublicKey,
+      );
+
+      if (kDebugMode) {
+        print('🔐 [updateMessage] Message encrypted successfully');
+      }
+
+      // Aggiorna il messaggio in Firestore
+      final messageRef = _firestore
+          .collection('families')
+          .doc(familyChatId)
+          .collection('messages')
+          .doc(messageId);
+
+      final Map<String, dynamic> updateData = {
+        'message': encrypted['message'],
+        'encrypted_key_recipient': encrypted['encryptedKeyRecipient'],
+        'encrypted_key_sender': encrypted['encryptedKeySender'],
+        'iv': encrypted['iv'],
+      };
+
+      // Aggiorna gli allegati solo se forniti (null = non toccare gli allegati esistenti)
+      if (attachments != null) {
+        if (attachments.isEmpty) {
+          updateData['attachments'] = []; // Lista vuota = rimuovi tutti gli allegati
+        } else {
+          updateData['attachments'] = attachments.map((a) => a.toJson()).toList();
+        }
+      }
+      // Se attachments è null, non includiamo il campo quindi Firestore non lo modifica
+
+      await messageRef.update(updateData);
+
+      if (kDebugMode) {
+        print('✅ [updateMessage] Firestore updated successfully');
+        print('   Il listener Firestore aggiornerà il messaggio locale automaticamente');
+      }
+
+      // Il listener Firestore aggiornerà automaticamente il messaggio locale
+      // Non è necessario modificare _messages manualmente poiché i campi sono final
+
+      if (kDebugMode) {
+        print('✅ [updateMessage] Message $messageId updated successfully');
+      }
+      return true;
+    } catch (e, stackTrace) {
+      if (kDebugMode) {
+        print('❌ [updateMessage] Error: $e');
         print('Stack trace: $stackTrace');
       }
       return false;

@@ -4,7 +4,6 @@ import 'package:provider/provider.dart';
 import '../services/pairing_service.dart';
 import '../services/couple_selfie_service.dart';
 import 'chat_screen.dart';
-import 'calendar_screen.dart';
 import 'media_screen.dart';
 import 'settings_screen.dart';
 import 'couple_selfie_screen.dart';
@@ -89,8 +88,8 @@ class _MainScreenState extends State<MainScreen> {
 
     if (mounted) {
       setState(() {
-        // Se paired, mostra Chat (index 0), altrimenti Impostazioni (index 3)
-        _selectedIndex = pairingService.isPaired ? 0 : 3;
+        // Se paired, mostra Chat (index 0), altrimenti Impostazioni (index 2)
+        _selectedIndex = pairingService.isPaired ? 0 : 2;
         _isInitialized = true;
         _wasPaired = pairingService.isPaired; // Inizializza lo stato precedente
       });
@@ -130,7 +129,6 @@ class _MainScreenState extends State<MainScreen> {
 
     final List<Widget> screens = [
       const ChatScreen(),
-      const CalendarScreen(),
       const MediaScreen(),
       const SettingsScreen(),
     ];
@@ -194,8 +192,8 @@ class _MainScreenState extends State<MainScreen> {
               ),
               ListTile(
                 contentPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 0),
-                leading: const Icon(Icons.calendar_today, color: Colors.white),
-                title: Text(AppLocalizations.of(context)!.calendar, style: const TextStyle(color: Colors.white)),
+                leading: const Icon(Icons.perm_media, color: Colors.white),
+                title: const Text('Media', style: TextStyle(color: Colors.white)),
                 selected: _selectedIndex == 1,
                 selectedTileColor: Colors.white.withOpacity(0.2),
                 onTap: () {
@@ -205,23 +203,12 @@ class _MainScreenState extends State<MainScreen> {
               ),
               ListTile(
                 contentPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 0),
-                leading: const Icon(Icons.perm_media, color: Colors.white),
-                title: const Text('Media', style: TextStyle(color: Colors.white)),
+                leading: const Icon(Icons.settings, color: Colors.white),
+                title: Text(AppLocalizations.of(context)!.settings, style: const TextStyle(color: Colors.white)),
                 selected: _selectedIndex == 2,
                 selectedTileColor: Colors.white.withOpacity(0.2),
                 onTap: () {
                   _onItemTapped(2);
-                  Navigator.pop(context);
-                },
-              ),
-              ListTile(
-                contentPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 0),
-                leading: const Icon(Icons.settings, color: Colors.white),
-                title: Text(AppLocalizations.of(context)!.settings, style: const TextStyle(color: Colors.white)),
-                selected: _selectedIndex == 3,
-                selectedTileColor: Colors.white.withOpacity(0.2),
-                onTap: () {
-                  _onItemTapped(3);
                   Navigator.pop(context);
                 },
               ),

@@ -185,5 +185,22 @@
     "notificationChannelMessages": "Missatges",
     "notificationChannelMessagesDescription": "Notificacions de nous missatges",
     "notificationChannelTodos": "Recordatoris To Do",
-    "notificationChannelTodosDescription": "Notificacions de recordatoris d'esdeveniments"
+    "notificationChannelTodosDescription": "Notificacions de recordatoris d'esdeveniments",
+    "actionStopSharing": "Aturar compartir",
+    "actionMarkCompleted": "Marca com a completat",
+    "actionEdit": "Edita",
+    "actionDelete": "Elimina",
+    "messageDeleted": "Missatge eliminat",
+    "timePickerLabel": "Hora",
+    "alertPickerLabel": "Alerta",
+    "alertNone": "Sense alerta",
+    "alert1HourBefore": "1 hora abans",
+    "alert2HoursBefore": "2 hores abans",
+    "alert8HoursBefore": "8 hores abans",
+    "alert1DayBefore": "1 dia abans",
+    "alert2DaysBefore": "2 dies abans",
+    "chatUpdateMessageError": "Error en actualitzar el missatge",
+    "locationShareDefault": "Ubicació",
+    "locationShareExpired": "Caducada",
+    "locationShareLessThanMinute": "< 1m"
 }

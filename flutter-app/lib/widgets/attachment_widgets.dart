@@ -143,15 +143,11 @@ class _AttachmentImageState extends State<AttachmentImage> {
             }
 
             if (snapshot.hasError || !snapshot.hasData || snapshot.data == null) {
-              // Errore decifratura
-              return Container(
-                width: 200,
-                height: 200,
-                color: Colors.red.withOpacity(0.1),
-                child: const Center(
-                  child: Icon(Icons.error, color: Colors.red),
-                ),
-              );
+              // Errore decifratura - non mostrare nulla (come se l'allegato non esistesse)
+              if (kDebugMode) {
+                print('❌ [AttachmentImage] Failed to load, hiding attachment');
+              }
+              return const SizedBox.shrink();
             }
 
             // Immagine decifrata visualizzata - box quadrato 200x200 (matcha thumbnail 300x300)
@@ -612,7 +608,7 @@ class AttachmentLocationShare extends StatelessWidget {
   }) : super(key: key);
 
   /// Estrae il testo personalizzato dal messaggio (se presente)
-  String _getCustomText() {
+  String _getCustomText(BuildContext context) {
     if (message.decryptedContent != null && message.decryptedContent!.contains('|')) {
       final parts = message.decryptedContent!.split('|');
       // Formato: location_share|expiresAt|sessionId|customText
@@ -620,20 +616,22 @@ class AttachmentLocationShare extends StatelessWidget {
         return parts[3];
       }
     }
-    return 'Posizione'; // Default
+    final l10n = AppLocalizations.of(context)!;
+    return l10n.locationShareDefault; // Default
   }
 
   /// Calcola il tempo rimanente prima della scadenza
-  String _getTimeRemaining() {
+  String _getTimeRemaining(BuildContext context) {
     if (message.decryptedContent != null && message.decryptedContent!.contains('|')) {
       final parts = message.decryptedContent!.split('|');
       if (parts.length >= 2) {
         try {
           final expiresAt = DateTime.parse(parts[1]);
           final now = DateTime.now();
+          final l10n = AppLocalizations.of(context)!;
 
           if (now.isAfter(expiresAt)) {
-            return 'Scaduta';
+            return l10n.locationShareExpired;
           }
 
           final diff = expiresAt.difference(now);
@@ -642,7 +640,7 @@ class AttachmentLocationShare extends StatelessWidget {
           } else if (diff.inMinutes > 0) {
             return '${diff.inMinutes}m';
           } else {
-            return '< 1m';
+            return l10n.locationShareLessThanMinute;
           }
         } catch (e) {
           return '';
@@ -696,15 +694,24 @@ class AttachmentLocationShare extends StatelessWidget {
         locationService.currentSessionId == null &&
         !locationService.isSharingLocation;
 
-    // Verifica se la condivisione è stata interrotta tramite reaction "done"
-    final hasStopReaction = message.reaction?.type == 'done';
+    // Verifica se il PARTNER ha fermato (per destinatario che vede messaggio mittente)
+    // Se non sto condividendo E il partner location è null o inattiva, consideralo terminato
+    final isPartnerStopped = !isMe &&
+        messageSessionId.isNotEmpty &&
+        (locationService.partnerLocation == null ||
+         !locationService.partnerLocation!.isActive ||
+         locationService.partnerLocation!.sessionId != messageSessionId);
+
+    // Verifica se la condivisione è stata interrotta tramite action "stop_sharing"
+    final hasStopAction = message.action?.type == 'stop_sharing';
 
     // Condivisione terminata se:
     // - Scaduta
     // - Sessione vecchia (ne è stata aperta una nuova)
-    // - Reaction "done" presente
+    // - Action "stop_sharing" presente
     // - IO (mittente) ho fermato manualmente (solo se isMe)
-    final isTerminated = isExpired || isOldSession || hasStopReaction || isSharingStoppedByOwner;
+    // - PARTNER ha fermato (solo se !isMe)
+    final isTerminated = isExpired || isOldSession || hasStopAction || isSharingStoppedByOwner || isPartnerStopped;
 
     // Testo della bubble
     final String statusText = isTerminated
@@ -780,7 +787,7 @@ class AttachmentLocationShare extends StatelessWidget {
                       ),
                       const SizedBox(width: 4),
                       Text(
-                        _getTimeRemaining(),
+                        _getTimeRemaining(context),
                         style: TextStyle(
                           color: isMe ? Colors.white70 : Colors.black54,
                           fontSize: 12,

@@ -25,6 +25,7 @@ import '../widgets/todo_bubble.dart';
 import '../widgets/attachment_widgets.dart';
 import '../widgets/reaction_picker.dart';
 import '../widgets/reaction_overlay.dart';
+import 'chat_screen_dismissible.dart';
 import 'pdf_viewer_screen.dart';
 import 'location_sharing_screen.dart';
 
@@ -64,6 +65,9 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   List<File> _selectedAttachments = []; // Lista di file selezionati da inviare
   bool _isUploadingAttachments = false; // Stato di upload allegati
   Set<String> _iosSharedFiles = {}; // Traccia i file temporanei copiati su iOS per pulizia
+  String? _editingMessageId; // ID del messaggio che stiamo modificando (null = nuovo messaggio)
+  List<Attachment> _editingAttachments = []; // Allegati esistenti del messaggio in modifica
+  String? _editingMessageSenderId; // SenderId del messaggio in modifica (per decriptare allegati)
 
   // Method Channel per condivisione file da altre app (iOS)
   static const platform = MethodChannel('com.privatemessaging.tuyjo/shared_media');
@@ -530,8 +534,8 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     if (kDebugMode) print('✅ Todo marked as completed: $todoId');
   }
 
-  /// Aggiunge una reaction a un messaggio
-  void _addReaction(String messageId, String reactionType, [Message? message]) async {
+  /// Aggiunge una reaction a un messaggio (solo visiva)
+  void _addReaction(String messageId, String reactionType) async {
     if (_familyChatId == null || _myDeviceId == null) {
       return;
     }
@@ -546,12 +550,121 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     );
 
     if (kDebugMode) print('✅ Reaction $reactionType added to message: $messageId');
+  }
 
-    // Se la reaction è "done" (✓) su un messaggio location_share, interrompi la condivisione
-    if (reactionType == 'done' && message?.messageType == 'location_share') {
+  /// Aggiunge un'azione a un messaggio (con effetti logici)
+  void _addAction(String messageId, String actionType, Message message) async {
+    if (_familyChatId == null || _myDeviceId == null) {
+      return;
+    }
+
+    final chatService = Provider.of<ChatService>(context, listen: false);
+
+    // Gestisci effetti logici delle azioni
+    if (actionType == 'stop_sharing' && message.messageType == 'location_share') {
+      await chatService.addAction(
+        messageId,
+        _familyChatId!,
+        _myDeviceId!,
+        actionType,
+      );
       final locationService = Provider.of<LocationService>(context, listen: false);
       await locationService.stopSharingLocation();
-      if (kDebugMode) print('🛑 Location sharing stopped via reaction');
+      if (kDebugMode) print('🛑 Location sharing stopped via action');
+    } else if (actionType == 'complete' && message.messageType == 'todo') {
+      await chatService.addAction(
+        messageId,
+        _familyChatId!,
+        _myDeviceId!,
+        actionType,
+      );
+      if (kDebugMode) print('✅ Todo marked as completed via action');
+    } else if (actionType == 'edit') {
+      // Modifica: popola i campi (per tutti i messaggi tranne location_share)
+      if (kDebugMode) print('✏️ Editing message: $messageId');
+
+      final isPending = messageId.startsWith('pending_');
+
+      setState(() {
+        // Per i pending, non settiamo _editingMessageId perché non esiste in Firestore
+        // Il messaggio pending verrà rimosso e l'utente invierà un nuovo messaggio
+        _editingMessageId = isPending ? null : messageId;
+        _editingMessageSenderId = isPending ? null : message.senderId;
+        _messageController.text = message.decryptedContent ?? '';
+
+        // Popola gli allegati esistenti (solo quelli caricati con successo)
+        _editingAttachments = message.attachments != null
+            ? message.attachments!.where((a) => a.url.isNotEmpty).toList()
+            : [];
+
+        // Se è un todo, popola anche le date
+        if (message.messageType == 'todo') {
+          _selectedTodoDate = message.dueDate;
+          _selectedRangeStart = message.dueDate;
+          _selectedRangeEnd = message.rangeEnd;
+          _isRangeSelection = message.rangeEnd != null;
+        } else {
+          // Resetta le date per messaggi normali
+          _selectedTodoDate = null;
+          _selectedRangeStart = null;
+          _selectedRangeEnd = null;
+          _isRangeSelection = false;
+        }
+      });
+
+      // Se è pending, rimuovilo dalla lista (verrà ricreato al nuovo invio)
+      if (isPending) {
+        if (kDebugMode) print('🗑️ Removing pending message to allow re-send');
+        chatService.removePendingMessage(messageId);
+      }
+
+      // Se è un todo, apri anche il calendario
+      if (message.messageType == 'todo') {
+        _showDateTimePicker();
+      }
+    } else if (actionType == 'delete') {
+      // Elimina: marca come deleted
+      if (kDebugMode) print('🗑️ Deleting message: $messageId');
+
+      // Check if this is a pending message (still uploading)
+      final isPending = messageId.startsWith('pending_');
+
+      // Elimina prima gli allegati se presenti
+      if (message.attachments != null && message.attachments!.isNotEmpty && _attachmentService != null) {
+        for (final attachment in message.attachments!) {
+          // Skip attachment deletion if URL is empty (still uploading)
+          if (attachment.url.isEmpty) {
+            if (kDebugMode) print('⏭️ Skipping empty attachment URL (still uploading)');
+            continue;
+          }
+
+          try {
+            await _attachmentService!.deleteAttachment(attachment.url);
+            if (kDebugMode) print('🗑️ Deleted attachment: ${attachment.url}');
+          } catch (e) {
+            if (kDebugMode) print('❌ Failed to delete attachment: $e');
+          }
+        }
+      }
+
+      // Handle pending vs normal messages differently
+      if (isPending) {
+        // Pending message - just remove from local list, don't try to update Firestore
+        if (kDebugMode) print('🗑️ Removing pending message locally');
+        chatService.removePendingMessage(messageId);
+      } else {
+        // Normal message - mark as deleted in Firestore
+        await chatService.deleteMessage(messageId, _familyChatId!);
+      }
+    } else {
+      // Azione generica
+      await chatService.addAction(
+        messageId,
+        _familyChatId!,
+        _myDeviceId!,
+        actionType,
+      );
+      if (kDebugMode) print('✅ Action $actionType added to message: $messageId');
     }
   }
 
@@ -961,6 +1074,148 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     }
   }
 
+  /// Costruisce un'opzione per il menu di selezione alert
+  Widget _buildAlertOption(BuildContext context, int? hours, String label) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: () => Navigator.pop(context, hours),
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 24),
+          child: Row(
+            children: [
+              Icon(
+                hours == null ? Icons.notifications_off : Icons.notifications_outlined,
+                color: Colors.white,
+                size: 24,
+              ),
+              const SizedBox(width: 16),
+              Text(
+                label,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 16,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// Costruisce un'opzione per il menu di selezione alert con stato selezionato (inline version)
+  Widget _buildAlertOptionInline(
+    BuildContext context,
+    int? hours,
+    String label,
+    int? currentSelection,
+    Function(int?) onSelect,
+  ) {
+    final isSelected = hours == currentSelection;
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: () => onSelect(hours),
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 24),
+          decoration: BoxDecoration(
+            color: isSelected ? Colors.white.withOpacity(0.2) : Colors.transparent,
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Row(
+            children: [
+              Icon(
+                hours == null ? Icons.notifications_off : Icons.notifications_outlined,
+                color: Colors.white,
+                size: 24,
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Text(
+                  label,
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 16,
+                    fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+                  ),
+                ),
+              ),
+              if (isSelected)
+                const Icon(Icons.check, color: Colors.white, size: 24),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// Recupera i todo per un giorno specifico per mostrare i marker nel calendario
+  List<Message> _getTodosForDayInCalendar(DateTime day) {
+    final chatService = Provider.of<ChatService>(context, listen: false);
+    final normalizedDay = DateTime(day.year, day.month, day.day);
+
+    return chatService.messages.where((message) {
+      if (message.messageType != 'todo') return false;
+      if (message.dueDate == null) return false;
+      if (message.isReminder == true) return false; // Escludi gli alert
+
+      final todoDay = DateTime(
+        message.dueDate!.year,
+        message.dueDate!.month,
+        message.dueDate!.day,
+      );
+
+      // Check if todo is on this day or if this day is in the range
+      if (message.rangeEnd != null) {
+        final rangeEndDay = DateTime(
+          message.rangeEnd!.year,
+          message.rangeEnd!.month,
+          message.rangeEnd!.day,
+        );
+        return (normalizedDay.isAtSameMomentAs(todoDay) ||
+                normalizedDay.isAtSameMomentAs(rangeEndDay) ||
+                (normalizedDay.isAfter(todoDay) && normalizedDay.isBefore(rangeEndDay)));
+      } else {
+        return normalizedDay.isAtSameMomentAs(todoDay);
+      }
+    }).toList();
+  }
+
+  /// Recupera i todo per un range di date
+  List<Message> _getTodosForRange(DateTime rangeStart, DateTime rangeEnd) {
+    final chatService = Provider.of<ChatService>(context, listen: false);
+    final normalizedStart = DateTime(rangeStart.year, rangeStart.month, rangeStart.day);
+    final normalizedEnd = DateTime(rangeEnd.year, rangeEnd.month, rangeEnd.day);
+
+    return chatService.messages.where((message) {
+      if (message.messageType != 'todo') return false;
+      if (message.dueDate == null) return false;
+      if (message.isReminder == true) return false; // Escludi gli alert
+
+      final todoDay = DateTime(
+        message.dueDate!.year,
+        message.dueDate!.month,
+        message.dueDate!.day,
+      );
+
+      // Check if todo is in the selected range
+      if (message.rangeEnd != null) {
+        final todoRangeEnd = DateTime(
+          message.rangeEnd!.year,
+          message.rangeEnd!.month,
+          message.rangeEnd!.day,
+        );
+        // Include todo if it overlaps with selected range
+        return !(todoRangeEnd.isBefore(normalizedStart) || todoDay.isAfter(normalizedEnd));
+      } else {
+        // Single day todo: check if it's within the selected range
+        return !todoDay.isBefore(normalizedStart) && !todoDay.isAfter(normalizedEnd);
+      }
+    }).toList();
+  }
+
   void _showDateTimePicker() async {
     final l10n = AppLocalizations.of(context)!;
     // Sentinella per segnalare cancellazione
@@ -969,88 +1224,45 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     DateTime selectedDate = DateTime.now().add(const Duration(days: 1));
     DateTime? rangeStart;
     DateTime? rangeEnd;
-    int selectedHour = 10;
-    int selectedMinute = 0;
-    int? selectedReminderHours = _selectedReminderHours ?? 1; // Default: 1 ora prima
-
-    final hourController = FixedExtentScrollController(initialItem: selectedHour);
-    final minuteController = FixedExtentScrollController(initialItem: selectedMinute);
+    int? selectedReminderHours = _selectedReminderHours; // Mantieni l'alert precedente
+    DateTime? dayToShowTodos; // Giorno selezionato per mostrare i todo
+    final chatService = Provider.of<ChatService>(context, listen: false);
 
     final result = await showModalBottomSheet<Map<String, dynamic>>(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (context) => StatefulBuilder(
-        builder: (context, setModalState) => ClipRRect(
-          borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
-          child: Container(
-            height: MediaQuery.of(context).size.height * 0.80,
-            decoration: const BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
-                colors: [Color(0xFF3BA8B0), Color(0xFF145A60)],
-              ),
-            ),
-            child: Column(
-              children: [
-                // Header con X a sinistra e check a destra
-                SafeArea(
-                  bottom: false,
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        IconButton(
-                          onPressed: () {
-                            // Se c'è una data selezionata, cancellala
-                            if (_selectedTodoDate != null) {
-                              Navigator.pop(context, clearResult);
-                            } else {
-                              Navigator.pop(context);
-                            }
-                          },
-                          icon: const Icon(Icons.close, color: Colors.white, size: 28),
-                        ),
-                        IconButton(
-                          onPressed: () {
-                            if (rangeStart != null && rangeEnd != null) {
-                              // Range selezionato: ritorna range senza ora
-                              Navigator.pop(context, {
-                                'isRange': true,
-                                'rangeStart': rangeStart,
-                                'rangeEnd': rangeEnd,
-                                'reminderHours': selectedReminderHours,
-                              });
-                            } else if (rangeStart != null && rangeEnd == null) {
-                              // Data singola: ritorna con ora
-                              final dueDate = DateTime(
-                                selectedDate.year,
-                                selectedDate.month,
-                                selectedDate.day,
-                                selectedHour,
-                                selectedMinute,
-                              );
-                              Navigator.pop(context, {
-                                'isRange': false,
-                                'date': dueDate,
-                                'reminderHours': selectedReminderHours,
-                              });
-                            }
-                          },
-                          icon: const Icon(Icons.check_circle, color: Colors.white, size: 32),
-                          tooltip: l10n.chatConfirm,
-                        ),
-                      ],
-                    ),
-                  ),
+        builder: (context, setModalState) {
+          // Recupera i todo per il giorno/range selezionato
+          final todosForDay = (rangeStart != null && rangeEnd != null)
+              ? _getTodosForRange(rangeStart!, rangeEnd!)
+              : (dayToShowTodos != null
+                  ? _getTodosForDayInCalendar(dayToShowTodos!)
+                  : <Message>[]);
+
+          return DismissiblePane(
+            onDismissed: () => Navigator.pop(context),
+            child: Container(
+              height: MediaQuery.of(context).size.height,
+              decoration: const BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [Color(0xFF3BA8B0), Color(0xFF145A60)],
                 ),
-                // Calendar con theme viola
-                Expanded(
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 16),
-                    child: TableCalendar(
+              ),
+              child: SafeArea(
+                child: Column(
+                  children: [
+                    const SizedBox(height: 32),
+
+                    // Calendario con sfondo verde trasparente e altezza fissa
+                    SizedBox(
+                      height: 380,
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 16),
+                        child: TableCalendar(
                       locale: Localizations.localeOf(context).toString(),
                       firstDay: DateTime.now(),
                       lastDay: DateTime.now().add(const Duration(days: 365)),
@@ -1058,17 +1270,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                       rangeStartDay: rangeStart,
                       rangeEndDay: rangeEnd,
                       rangeSelectionMode: RangeSelectionMode.toggledOn,
-                      headerStyle: HeaderStyle(
-                        formatButtonVisible: false,
-                        titleCentered: true,
-                        titleTextStyle: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                        ),
-                        leftChevronIcon: const Icon(Icons.chevron_left, color: Colors.white),
-                        rightChevronIcon: const Icon(Icons.chevron_right, color: Colors.white),
-                      ),
+                      eventLoader: _getTodosForDayInCalendar,
                       calendarStyle: CalendarStyle(
                         defaultTextStyle: const TextStyle(color: Colors.white),
                         weekendTextStyle: const TextStyle(color: Colors.white70),
@@ -1099,6 +1301,23 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                           shape: BoxShape.circle,
                         ),
                         withinRangeTextStyle: const TextStyle(color: Colors.white),
+                        markerDecoration: BoxDecoration(
+                          color: Colors.white.withOpacity(0.8),
+                          shape: BoxShape.circle,
+                        ),
+                        markersAlignment: Alignment.bottomCenter,
+                        markersMaxCount: 3,
+                      ),
+                      headerStyle: HeaderStyle(
+                        formatButtonVisible: false,
+                        titleCentered: true,
+                        titleTextStyle: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                        ),
+                        leftChevronIcon: const Icon(Icons.chevron_left, color: Colors.white),
+                        rightChevronIcon: const Icon(Icons.chevron_right, color: Colors.white),
                       ),
                       daysOfWeekStyle: const DaysOfWeekStyle(
                         weekdayStyle: TextStyle(color: Colors.white70, fontWeight: FontWeight.bold),
@@ -1106,6 +1325,9 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                       ),
                       onDaySelected: (selectedDay, focusedDay) {
                         setModalState(() {
+                          // Mostra i todo per il giorno selezionato
+                          dayToShowTodos = selectedDay;
+
                           if (rangeStart == null) {
                             // Prima selezione: imposta range start
                             rangeStart = selectedDay;
@@ -1130,155 +1352,374 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                         });
                       },
                     ),
-                  ),
-                ),
-                // Time picker con dropdown alert (time picker nascosto se range selezionato)
-                Container(
-                  padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 16),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF145A60).withOpacity(0.3),
-                  ),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      // Time picker (nascosto se range completo)
-                      if (rangeStart == null || rangeEnd == null) ...[
-                      // Hour picker
-                      SizedBox(
-                        width: 70,
-                        height: 140,
-                        child: CupertinoPicker(
-                          scrollController: hourController,
-                          itemExtent: 40,
-                          onSelectedItemChanged: (index) {
-                            setModalState(() => selectedHour = index);
-                          },
-                          selectionOverlay: Container(
-                            decoration: BoxDecoration(
-                              border: Border.symmetric(
-                                horizontal: BorderSide(
-                                  color: Colors.white.withOpacity(0.5),
-                                  width: 2,
-                                ),
-                              ),
-                            ),
-                          ),
-                          children: List.generate(
-                            24,
-                            (index) => Center(
-                              child: Text(
-                                index.toString().padLeft(2, '0'),
-                                style: const TextStyle(
-                                  fontSize: 24,
-                                  fontWeight: FontWeight.w600,
-                                  color: Colors.white,
-                                ),
-                              ),
-                            ),
-                          ),
                         ),
                       ),
-                      const Padding(
-                        padding: EdgeInsets.symmetric(horizontal: 12),
-                        child: Text(
-                          ':',
-                          style: TextStyle(
-                            fontSize: 28,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.white,
-                          ),
-                        ),
-                      ),
-                      // Minute picker
-                      SizedBox(
-                        width: 70,
-                        height: 140,
-                        child: CupertinoPicker(
-                          scrollController: minuteController,
-                          itemExtent: 40,
-                          onSelectedItemChanged: (index) {
-                            setModalState(() => selectedMinute = index);
-                          },
-                          selectionOverlay: Container(
-                            decoration: BoxDecoration(
-                              border: Border.symmetric(
-                                horizontal: BorderSide(
-                                  color: Colors.white.withOpacity(0.5),
-                                  width: 2,
-                                ),
-                              ),
-                            ),
-                          ),
-                          children: List.generate(
-                            60,
-                            (index) => Center(
-                              child: Text(
-                                index.toString().padLeft(2, '0'),
-                                style: const TextStyle(
-                                  fontSize: 24,
-                                  fontWeight: FontWeight.w600,
-                                  color: Colors.white,
-                                ),
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 20),
-                      ], // Fine time picker condizionale
-                      // Dropdown alert compatto (sempre visibile)
-                      Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(Icons.notifications_outlined, color: Colors.white.withOpacity(0.7), size: 18),
-                          const SizedBox(height: 4),
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                            decoration: BoxDecoration(
-                              color: Colors.white.withOpacity(0.15),
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            child: DropdownButtonHideUnderline(
-                              child: DropdownButton<int?>(
-                                value: selectedReminderHours,
-                                dropdownColor: const Color(0xFF145A60),
-                                icon: Icon(Icons.arrow_drop_down, color: Colors.white.withOpacity(0.7), size: 16),
-                                style: const TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.w500,
-                                ),
-                                items: [
-                                  DropdownMenuItem(value: null, child: Text(l10n.reminderNone)),
-                                  DropdownMenuItem(value: 1, child: Text(l10n.reminder1Hour)),
-                                  ...List.generate(23, (i) => i + 2).map((h) =>
-                                    DropdownMenuItem(
-                                      value: h,
-                                      child: Text(l10n.reminderHours(h)),
-                                    )
-                                  ),
-                                  DropdownMenuItem(value: 48, child: Text(l10n.reminder2Days)),
-                                ],
-                                onChanged: (value) {
-                                  setModalState(() => selectedReminderHours = value);
-                                },
-                              ),
-                            ),
+
+                    const SizedBox(height: 16),
+
+                  // Lista TODO in container bianco Expanded
+                  Expanded(
+                    child: Container(
+                      margin: const EdgeInsets.symmetric(horizontal: 16),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(16),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(0.1),
+                            blurRadius: 10,
+                            offset: const Offset(0, 4),
                           ),
                         ],
                       ),
-                    ],
+                      child: Column(
+                        children: [
+                          // Titolo lista
+                          Padding(
+                            padding: const EdgeInsets.all(16),
+                            child: Row(
+                              children: [
+                                const Icon(
+                                  Icons.event_note,
+                                  color: Color(0xFF3BA8B0),
+                                  size: 24,
+                                ),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: Text(
+                                    (rangeStart != null && rangeEnd != null)
+                                        ? 'Todo ${_formatDateRange(rangeStart!, rangeEnd!)}'
+                                        : (dayToShowTodos != null
+                                            ? 'Todo per ${_formatTodoDate(dayToShowTodos!, includeTime: false)}'
+                                            : 'Seleziona un giorno'),
+                                    style: const TextStyle(
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.bold,
+                                      color: Color(0xFF3BA8B0),
+                                    ),
+                                  ),
+                                ),
+                                if (rangeStart != null)
+                                  IconButton(
+                                    onPressed: () async {
+                                      // Mostra menu per selezionare alert e orario inline
+                                      int? alertHours = selectedReminderHours ?? 1; // Default 1h
+                                      int selectedHour = 10;
+                                      int selectedMinute = 0;
+
+                                      final result = await showModalBottomSheet<Map<String, dynamic>?>(
+                                        context: context,
+                                        isScrollControlled: true,
+                                        backgroundColor: Colors.transparent,
+                                        builder: (context) => StatefulBuilder(
+                                          builder: (context, setAlertState) => Container(
+                                            height: MediaQuery.of(context).size.height * 0.7,
+                                            decoration: const BoxDecoration(
+                                              gradient: LinearGradient(
+                                                begin: Alignment.topCenter,
+                                                end: Alignment.bottomCenter,
+                                                colors: [Color(0xFF3BA8B0), Color(0xFF145A60)],
+                                              ),
+                                              borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+                                            ),
+                                            child: SafeArea(
+                                              child: Column(
+                                                children: [
+                                                  // Data bella grossa
+                                                  Padding(
+                                                    padding: const EdgeInsets.only(top: 20, bottom: 12),
+                                                    child: Text(
+                                                      (rangeStart != null && rangeEnd != null)
+                                                          ? _formatDateRange(rangeStart!, rangeEnd!)
+                                                          : (dayToShowTodos != null
+                                                              ? _formatTodoDate(dayToShowTodos!, includeTime: false)
+                                                              : ''),
+                                                      style: const TextStyle(
+                                                        color: Colors.white,
+                                                        fontSize: 28,
+                                                        fontWeight: FontWeight.bold,
+                                                      ),
+                                                      textAlign: TextAlign.center,
+                                                    ),
+                                                  ),
+
+                                                  // Orario e Alert affiancati
+                                                  Expanded(
+                                                    child: Padding(
+                                                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                                                      child: Row(
+                                                        crossAxisAlignment: CrossAxisAlignment.center,
+                                                        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                                                        children: [
+                                                          // Sezione Orario (sinistra)
+                                                          Column(
+                                                            mainAxisAlignment: MainAxisAlignment.center,
+                                                            children: [
+                                                              Text(
+                                                                l10n.timePickerLabel,
+                                                                style: const TextStyle(
+                                                                  color: Colors.white,
+                                                                  fontSize: 18,
+                                                                  fontWeight: FontWeight.bold,
+                                                                ),
+                                                              ),
+                                                              const SizedBox(height: 12),
+                                                              Row(
+                                                                mainAxisAlignment: MainAxisAlignment.center,
+                                                                children: [
+                                                                  SizedBox(
+                                                                    width: 70,
+                                                                    height: 240,
+                                                                    child: CupertinoPicker(
+                                                                      scrollController: FixedExtentScrollController(initialItem: selectedHour),
+                                                                      itemExtent: 50,
+                                                                      onSelectedItemChanged: (index) {
+                                                                        selectedHour = index;
+                                                                      },
+                                                                      children: List.generate(24, (index) => Center(
+                                                                        child: Text(
+                                                                          index.toString().padLeft(2, '0'),
+                                                                          style: const TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.w500),
+                                                                        ),
+                                                                      )),
+                                                                    ),
+                                                                  ),
+                                                                  const Padding(
+                                                                    padding: EdgeInsets.symmetric(horizontal: 4),
+                                                                    child: Text(':', style: TextStyle(color: Colors.white, fontSize: 28, fontWeight: FontWeight.bold)),
+                                                                  ),
+                                                                  SizedBox(
+                                                                    width: 70,
+                                                                    height: 240,
+                                                                    child: CupertinoPicker(
+                                                                      scrollController: FixedExtentScrollController(initialItem: selectedMinute),
+                                                                      itemExtent: 50,
+                                                                      onSelectedItemChanged: (index) {
+                                                                        selectedMinute = index;
+                                                                      },
+                                                                      children: List.generate(60, (index) => Center(
+                                                                        child: Text(
+                                                                          index.toString().padLeft(2, '0'),
+                                                                          style: const TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.w500),
+                                                                        ),
+                                                                      )),
+                                                                    ),
+                                                                  ),
+                                                                ],
+                                                              ),
+                                                            ],
+                                                          ),
+
+                                                          const SizedBox(width: 20),
+
+                                                          // Sezione Alert (destra) - Picker rotellina
+                                                          Column(
+                                                            mainAxisAlignment: MainAxisAlignment.center,
+                                                            children: [
+                                                              Text(
+                                                                l10n.alertPickerLabel,
+                                                                style: const TextStyle(
+                                                                  color: Colors.white,
+                                                                  fontSize: 18,
+                                                                  fontWeight: FontWeight.bold,
+                                                                ),
+                                                              ),
+                                                              const SizedBox(height: 12),
+                                                              SizedBox(
+                                                                width: 160,
+                                                                height: 240,
+                                                                child: CupertinoPicker(
+                                                                  scrollController: FixedExtentScrollController(
+                                                                    initialItem: () {
+                                                                      // Mappa alertHours all'indice corretto
+                                                                      // Nuovo ordine: null, 1, 2, 8, 24, 48
+                                                                      final alertOptions = [null, 1, 2, 8, 24, 48];
+                                                                      final index = alertOptions.indexOf(alertHours);
+                                                                      return index == -1 ? 1 : index; // Default "1 ora prima"
+                                                                    }(),
+                                                                  ),
+                                                                  itemExtent: 50,
+                                                                  onSelectedItemChanged: (index) {
+                                                                    // Mappa indice a ore
+                                                                    const alertOptions = [null, 1, 2, 8, 24, 48];
+                                                                    setAlertState(() => alertHours = alertOptions[index]);
+                                                                  },
+                                                                  children: [
+                                                                    Center(child: Text(l10n.alertNone, style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.w500))),
+                                                                    Center(child: Text(l10n.alert1HourBefore, style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.w500))),
+                                                                    Center(child: Text(l10n.alert2HoursBefore, style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.w500))),
+                                                                    Center(child: Text(l10n.alert8HoursBefore, style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.w500))),
+                                                                    Center(child: Text(l10n.alert1DayBefore, style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.w500))),
+                                                                    Center(child: Text(l10n.alert2DaysBefore, style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.w500))),
+                                                                  ],
+                                                                ),
+                                                              ),
+                                                            ],
+                                                          ),
+                                                        ],
+                                                      ),
+                                                    ),
+                                                  ),
+                                                  // Bottone conferma
+                                                  Padding(
+                                                    padding: const EdgeInsets.fromLTRB(24, 8, 24, 16),
+                                                    child: Material(
+                                                      color: Colors.white.withOpacity(0.15),
+                                                      borderRadius: BorderRadius.circular(12),
+                                                      child: InkWell(
+                                                        onTap: () {
+                                                          Navigator.pop(context, {
+                                                            'alertHours': alertHours,
+                                                            'hour': selectedHour,
+                                                            'minute': selectedMinute,
+                                                          });
+                                                        },
+                                                        borderRadius: BorderRadius.circular(12),
+                                                        splashColor: Colors.white.withOpacity(0.2),
+                                                        child: const Padding(
+                                                          padding: EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+                                                          child: Center(
+                                                            child: Text(
+                                                              'Conferma',
+                                                              style: TextStyle(
+                                                                color: Colors.white,
+                                                                fontSize: 16,
+                                                                fontWeight: FontWeight.w500,
+                                                                letterSpacing: 0.3,
+                                                              ),
+                                                            ),
+                                                          ),
+                                                        ),
+                                                      ),
+                                                    ),
+                                                  ),
+                                                ],
+                                              ),
+                                            ),
+                                          ),
+                                        ),
+                                      );
+
+                                      if (result != null) {
+                                        // Conferma e chiudi con i dati selezionati
+                                        if (rangeStart != null && rangeEnd != null) {
+                                          // Range selezionato: ritorna range senza ora
+                                          Navigator.pop(context, {
+                                            'isRange': true,
+                                            'rangeStart': rangeStart,
+                                            'rangeEnd': rangeEnd,
+                                            'reminderHours': result['alertHours'],
+                                          });
+                                        } else if (rangeStart != null) {
+                                          // Data singola: ritorna con ora selezionata
+                                          final dueDate = DateTime(
+                                            selectedDate.year,
+                                            selectedDate.month,
+                                            selectedDate.day,
+                                            result['hour'] ?? 10,
+                                            result['minute'] ?? 0,
+                                          );
+                                          Navigator.pop(context, {
+                                            'isRange': false,
+                                            'date': dueDate,
+                                            'reminderHours': result['alertHours'],
+                                          });
+                                        }
+                                      }
+                                    },
+                                    icon: const Icon(Icons.add_circle, color: Color(0xFF3BA8B0), size: 32),
+                                    tooltip: 'Aggiungi alert e conferma',
+                                  ),
+                              ],
+                            ),
+                          ),
+
+                          const Divider(height: 1),
+
+                          // Lista TODO
+                          Expanded(
+                            child: todosForDay.isEmpty
+                                ? Center(
+                                    child: Column(
+                                      mainAxisAlignment: MainAxisAlignment.center,
+                                      children: [
+                                        Icon(
+                                          Icons.event_available,
+                                          size: 64,
+                                          color: Colors.grey[300],
+                                        ),
+                                        const SizedBox(height: 16),
+                                        Text(
+                                          (rangeStart == null && dayToShowTodos == null)
+                                              ? 'Seleziona un giorno per vedere i todo'
+                                              : ((rangeStart != null && rangeEnd != null)
+                                                  ? 'Nessun todo in questo range'
+                                                  : 'Nessun todo per questo giorno'),
+                                          style: TextStyle(
+                                            fontSize: 16,
+                                            fontWeight: FontWeight.w500,
+                                            color: Colors.grey[600],
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  )
+                                : ListView.separated(
+                                    padding: const EdgeInsets.all(16),
+                                    itemCount: todosForDay.length,
+                                    separatorBuilder: (context, index) => const SizedBox(height: 12),
+                                    itemBuilder: (context, index) {
+                                      final todo = todosForDay[index];
+
+                                      // Verifica se è completato
+                                      final isCompleted = todo.action?.type == 'complete' ||
+                                          chatService.messages.any((m) =>
+                                              m.messageType == 'todo_completed' &&
+                                              m.originalTodoId == todo.id);
+
+                                      // Determina se è stato creato da me
+                                      final isMe = todo.senderId == _myDeviceId;
+
+                                      // Formatta la data come in chat
+                                      String? formattedDate;
+                                      if (todo.dueDate != null) {
+                                        if (todo.rangeEnd != null) {
+                                          // È un range: formatta in modo intelligente
+                                          formattedDate = _formatDateRange(todo.dueDate!, todo.rangeEnd!);
+                                        } else {
+                                          // Data singola con ora in formato colloquiale
+                                          formattedDate = _formatTodoDate(todo.dueDate!, includeTime: true);
+                                        }
+                                      }
+
+                                      return TodoMessageBubble(
+                                        message: todo,
+                                        isMe: isMe,
+                                        isCompleted: isCompleted,
+                                        onReact: (reactionType) => _addReaction(todo.id, reactionType),
+                                        onAction: (actionType) => _addAction(todo.id, actionType, todo),
+                                        formattedDate: formattedDate,
+                                        attachmentService: _attachmentService,
+                                        senderId: todo.senderId,
+                                        currentUserId: _myDeviceId,
+                                      );
+                                    },
+                                  ),
+                          ),
+                        ],
+                      ),
+                    ),
                   ),
-                ),
-              ],
+
+                  const SizedBox(height: 16),
+                ],
+              ),
             ),
           ),
-        ),
-      ),
-    );
-
-    hourController.dispose();
-    minuteController.dispose();
+        );
+        },  // Fine builder function dello StatefulBuilder
+      ),  // Fine StatefulBuilder
+    );  // Fine showModalBottomSheet
 
     if (result != null && result['clear'] == true) {
       // X premuto per cancellare
@@ -1311,7 +1752,116 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     // Se result è null, l'utente ha chiuso senza azione (non cambiare niente)
   }
 
+  Future<void> _updateExistingMessage() async {
+    final messageText = _messageController.text.trim();
+    final messageId = _editingMessageId!;
+    final todoDate = _selectedTodoDate;
+    final rangeEnd = _selectedRangeEnd;
+
+    // Salva gli allegati rimasti prima di resettare
+    final remainingAttachments = List<Attachment>.from(_editingAttachments);
+
+    if (messageText.isEmpty) {
+      print('❌ Cannot update with empty message');
+      return;
+    }
+
+    _messageController.clear();
+
+    setState(() {
+      _editingMessageId = null;
+      _editingMessageSenderId = null;
+      _editingAttachments = [];
+      _selectedTodoDate = null;
+      _isRangeSelection = false;
+      _selectedRangeStart = null;
+      _selectedRangeEnd = null;
+      _selectedReminderHours = null;
+    });
+
+    // Verifica dati necessari
+    if (_familyChatId == null || _myDeviceId == null || _partnerPublicKey == null) {
+      print('❌ Missing data for update');
+      final l10n = AppLocalizations.of(context)!;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(l10n.chatPairingDataMissingError),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
+    final chatService = Provider.of<ChatService>(context, listen: false);
+    final encryptionService = Provider.of<EncryptionService>(context, listen: false);
+
+    // Ottieni il messaggio originale per vedere quali allegati aveva
+    final originalMessage = chatService.messages.firstWhere((m) => m.id == messageId);
+    final originalAttachments = originalMessage.attachments ?? [];
+
+    // Trova gli allegati da eliminare (quelli che erano nell'originale ma non sono più in remainingAttachments)
+    final attachmentsToDelete = originalAttachments.where((original) {
+      return !remainingAttachments.any((remaining) => remaining.id == original.id);
+    }).toList();
+
+    // Elimina gli allegati rimossi da Firebase Storage
+    if (attachmentsToDelete.isNotEmpty && _attachmentService != null) {
+      for (final attachment in attachmentsToDelete) {
+        try {
+          await _attachmentService!.deleteAttachment(attachment.url);
+          if (kDebugMode) print('🗑️ Deleted removed attachment: ${attachment.url}');
+        } catch (e) {
+          if (kDebugMode) print('❌ Failed to delete attachment: $e');
+        }
+      }
+    }
+
+    // Ottieni la propria chiave pubblica
+    final myPublicKey = await encryptionService.getPublicKey();
+    if (myPublicKey == null) {
+      print('❌ My public key is null');
+      final l10n = AppLocalizations.of(context)!;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(l10n.chatPublicKeyNotFoundError), backgroundColor: Colors.red),
+      );
+      return;
+    }
+
+    // Chiama updateMessage con gli allegati rimanenti
+    // Passa sempre remainingAttachments (anche se vuota) per aggiornare correttamente
+    final success = await chatService.updateMessage(
+      messageId,
+      _familyChatId!,
+      messageText,
+      _myDeviceId!,
+      myPublicKey,
+      _partnerPublicKey!,
+      dueDate: todoDate,
+      rangeEnd: rangeEnd,
+      attachments: remainingAttachments,
+    );
+
+    if (success) {
+      if (kDebugMode) print('✅ Message updated successfully');
+    } else {
+      if (kDebugMode) print('❌ Failed to update message');
+      final l10n = AppLocalizations.of(context)!;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(l10n.chatUpdateMessageError),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
+
   void _sendMessage() async {
+    // Se stiamo modificando un messaggio esistente, chiama updateMessage
+    if (_editingMessageId != null) {
+      await _updateExistingMessage();
+      return;
+    }
+
     final todoDate = _selectedTodoDate;
     final isRange = _isRangeSelection;
     final rangeStart = _selectedRangeStart;
@@ -1739,8 +2289,8 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                             // Verifica se il todo è stato completato
                             bool isTodoCompleted = false;
                             if (message.messageType == 'todo') {
-                              // TODO completato se ha reaction DONE oppure messaggio todo_completed
-                              isTodoCompleted = message.reaction?.type == 'done' ||
+                              // TODO completato se ha action COMPLETE oppure messaggio todo_completed
+                              isTodoCompleted = message.action?.type == 'complete' ||
                                   chatService.messages.any((m) =>
                                       m.messageType == 'todo_completed' &&
                                       m.originalTodoId == message.id);
@@ -1792,7 +2342,8 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                                 message: message,
                                 isMe: isMe,
                                 isCompleted: isTodoCompleted,
-                                onReact: (reactionType) => _addReaction(message.id, reactionType, message),
+                                onReact: (reactionType) => _addReaction(message.id, reactionType),
+                                onAction: (actionType) => _addAction(message.id, actionType, message),
                                 formattedDate: formattedDate,
                                 attachmentService: _attachmentService,
                                 senderId: message.senderId,
@@ -1814,7 +2365,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                                 currentUserId: _myDeviceId,
                                 attachmentService: _attachmentService,
                                 reaction: message.reaction,
-                                onReact: (reactionType) => _addReaction(message.id, reactionType, message),
+                                onReact: (reactionType) => _addReaction(message.id, reactionType),
                                 messageObject: message,
                               );
                             }
@@ -1885,6 +2436,33 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
             child: Column(
                 children: [
                   // Mostra allegati selezionati
+                  // Preview data/range/alert selezionata per todo
+                  if (_selectedTodoDate != null || _selectedRangeStart != null)
+                    Container(
+                      padding: const EdgeInsets.only(left: 12, right: 12, top: 8, bottom: 13),
+                      decoration: const BoxDecoration(
+                        color: Colors.transparent,
+                      ),
+                      child: SingleChildScrollView(
+                        scrollDirection: Axis.horizontal,
+                        child: _TodoDatePreview(
+                          date: _selectedTodoDate,
+                          rangeStart: _selectedRangeStart,
+                          rangeEnd: _selectedRangeEnd,
+                          reminderHours: _selectedReminderHours,
+                          onRemove: () {
+                            setState(() {
+                              _selectedTodoDate = null;
+                              _isRangeSelection = false;
+                              _selectedRangeStart = null;
+                              _selectedRangeEnd = null;
+                              _selectedReminderHours = null;
+                            });
+                          },
+                        ),
+                      ),
+                    ),
+                  // Preview allegati selezionati
                   if (_selectedAttachments.isNotEmpty)
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
@@ -1915,11 +2493,45 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                         ),
                       ),
                     ),
+                  // Preview allegati esistenti (durante modifica)
+                  if (_editingAttachments.isNotEmpty)
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      decoration: BoxDecoration(
+                        color: Colors.grey[100],
+                        border: Border(
+                          bottom: BorderSide(color: Colors.grey[300]!),
+                        ),
+                      ),
+                      child: SizedBox(
+                        height: 80,
+                        child: ListView.builder(
+                          scrollDirection: Axis.horizontal,
+                          itemCount: _editingAttachments.length,
+                          itemBuilder: (context, index) {
+                            final attachment = _editingAttachments[index];
+                            return _ExistingAttachmentPreview(
+                              attachment: attachment,
+                              attachmentService: _attachmentService,
+                              currentUserId: _myDeviceId,
+                              messageSenderId: _editingMessageSenderId,
+                              onRemove: () {
+                                setState(() {
+                                  _editingAttachments.removeAt(index);
+                                });
+                              },
+                            );
+                          },
+                        ),
+                      ),
+                    ),
                   Row(
                     crossAxisAlignment: CrossAxisAlignment.center,
                     children: [
                       IconButton(
-                        onPressed: _showAttachmentPicker,
+                        onPressed: _editingMessageId != null
+                            ? null // Disabilita l'aggiunta di nuovi allegati durante la modifica
+                            : _showAttachmentPicker,
                         icon: const Icon(Icons.add_circle_outline),
                         color: _selectedAttachments.isNotEmpty
                             ? const Color(0xFF3BA8B0)
@@ -2138,6 +2750,258 @@ class _AttachmentPreview extends StatelessWidget {
       ),
     );
   }
+
+}
+
+/// Widget per mostrare allegati esistenti durante la modifica
+class _ExistingAttachmentPreview extends StatelessWidget {
+  final Attachment attachment;
+  final VoidCallback onRemove;
+  final AttachmentService? attachmentService;
+  final String? currentUserId;
+  final String? messageSenderId;
+
+  const _ExistingAttachmentPreview({
+    required this.attachment,
+    required this.onRemove,
+    this.attachmentService,
+    this.currentUserId,
+    this.messageSenderId,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final isImage = attachment.type == 'photo';
+    final isVideo = attachment.type == 'video';
+
+    return Container(
+      width: 80,
+      margin: const EdgeInsets.only(right: 8),
+      child: Stack(
+        children: [
+          Container(
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(8),
+              color: Colors.grey[300],
+            ),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(8),
+              child: isImage && attachmentService != null && currentUserId != null && messageSenderId != null
+                  ? FutureBuilder<Uint8List?>(
+                      future: attachmentService!.downloadAndDecryptAttachment(
+                        attachment,
+                        currentUserId!,
+                        messageSenderId!,
+                      ),
+                      builder: (context, snapshot) {
+                        if (snapshot.connectionState == ConnectionState.waiting) {
+                          return const SizedBox(
+                            width: 80,
+                            height: 80,
+                            child: Center(
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            ),
+                          );
+                        }
+                        if (snapshot.hasData && snapshot.data != null) {
+                          return Image.memory(
+                            snapshot.data!,
+                            fit: BoxFit.cover,
+                            width: 80,
+                            height: 80,
+                          );
+                        }
+                        // Fallback su icona se caricamento fallisce
+                        return Center(
+                          child: Icon(
+                            Icons.image,
+                            size: 40,
+                            color: Colors.grey[600],
+                          ),
+                        );
+                      },
+                    )
+                  : Center(
+                      child: Icon(
+                        isImage
+                            ? Icons.image
+                            : isVideo
+                                ? Icons.videocam
+                                : Icons.insert_drive_file,
+                        size: 40,
+                        color: Colors.grey[600],
+                      ),
+                    ),
+            ),
+          ),
+          Positioned(
+            top: 4,
+            right: 4,
+            child: GestureDetector(
+              onTap: onRemove,
+              child: Container(
+                padding: const EdgeInsets.all(4),
+                decoration: const BoxDecoration(
+                  color: Colors.red,
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(
+                  Icons.close,
+                  size: 16,
+                  color: Colors.white,
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Widget per mostrare preview data/range/alert selezionata per todo
+class _TodoDatePreview extends StatelessWidget {
+  final DateTime? date;
+  final DateTime? rangeStart;
+  final DateTime? rangeEnd;
+  final int? reminderHours;
+  final VoidCallback onRemove;
+
+  const _TodoDatePreview({
+    this.date,
+    this.rangeStart,
+    this.rangeEnd,
+    this.reminderHours,
+    required this.onRemove,
+  });
+
+  String _formatDate(DateTime date) {
+    final now = DateTime.now();
+    final tomorrow = DateTime(now.year, now.month, now.day + 1);
+    final dateDay = DateTime(date.year, date.month, date.day);
+
+    if (dateDay == DateTime(now.year, now.month, now.day)) {
+      return 'Oggi ${DateFormat('HH:mm').format(date)}';
+    } else if (dateDay == tomorrow) {
+      return 'Domani ${DateFormat('HH:mm').format(date)}';
+    } else {
+      return DateFormat('dd/MM HH:mm').format(date);
+    }
+  }
+
+  String _formatRange(DateTime start, DateTime end) {
+    return '${DateFormat('dd/MM').format(start)} - ${DateFormat('dd/MM').format(end)}';
+  }
+
+  String _formatReminder(int hours) {
+    if (hours == 1) return 'Alert: 1h prima';
+    if (hours == 48) return 'Alert: 2 giorni prima';
+    if (hours == 24) return 'Alert: 1 giorno prima';
+    return 'Alert: ${hours}h prima';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    String dateText;
+    if (rangeStart != null && rangeEnd != null) {
+      dateText = _formatRange(rangeStart!, rangeEnd!);
+    } else if (date != null) {
+      dateText = _formatDate(date!);
+    } else {
+      dateText = 'Data non selezionata';
+    }
+
+    return Container(
+      margin: const EdgeInsets.only(right: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          colors: [
+            Color(0xFF3BA8B0),
+            Color(0xFF145A60),
+          ],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: const BorderRadius.only(
+          topLeft: Radius.circular(20),
+          topRight: Radius.circular(20),
+          bottomLeft: Radius.circular(20),
+          bottomRight: Radius.circular(4),
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFF3BA8B0).withOpacity(0.3),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            rangeStart != null && rangeEnd != null
+                ? Icons.date_range
+                : Icons.calendar_today_outlined,
+            color: Colors.white.withOpacity(0.9),
+            size: 14,
+          ),
+          const SizedBox(width: 8),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                dateText,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 15,
+                  height: 1.4,
+                ),
+              ),
+              if (reminderHours != null) ...[
+                const SizedBox(height: 4),
+                Row(
+                  children: [
+                    Icon(
+                      Icons.notifications_outlined,
+                      size: 14,
+                      color: Colors.white.withOpacity(0.9),
+                    ),
+                    const SizedBox(width: 4),
+                    Text(
+                      _formatReminder(reminderHours!),
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: Colors.white.withOpacity(0.9),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ],
+          ),
+          const SizedBox(width: 8),
+          GestureDetector(
+            onTap: onRemove,
+            child: Container(
+              padding: const EdgeInsets.all(4),
+              decoration: BoxDecoration(
+                color: Colors.red.withOpacity(0.1),
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(
+                Icons.close,
+                size: 16,
+                color: Colors.red,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 }
 
 class _MessageBubble extends StatelessWidget {
@@ -2248,6 +3112,7 @@ class _MessageBubble extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     return Padding(
       padding: const EdgeInsets.only(bottom: 12, left: 8, right: 8),
       child: Row(
@@ -2262,7 +3127,12 @@ class _MessageBubble extends StatelessWidget {
                     ? () {
                         ReactionPicker.show(
                           context,
-                          onReactionSelected: onReact!,
+                          onReactionSelected: (reactionType) => onReact!(reactionType),
+                          onActionSelected: (actionType) {
+                            // Chiama _addAction con l'oggetto messaggio completo per gestire logica
+                            final chatScreenState = context.findAncestorStateOfType<_ChatScreenState>();
+                            chatScreenState?._addAction(messageObject!.id, actionType, messageObject!);
+                          },
                           message: messageObject!,
                           attachmentService: attachmentService,
                           currentUserId: currentUserId,
@@ -2349,8 +3219,21 @@ class _MessageBubble extends StatelessWidget {
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              // Testo del messaggio (se presente)
-                              if (message.isNotEmpty) ...[
+                              // Mostra "Messaggio eliminato" se deleted == true
+                              if (messageObject?.deleted == true) ...[
+                                Text(
+                                  l10n.messageDeleted,
+                                  style: TextStyle(
+                                    color: isMe ? Colors.white.withOpacity(0.7) : Colors.black54,
+                                    fontSize: 15,
+                                    height: 1.4,
+                                    fontStyle: FontStyle.italic,
+                                  ),
+                                ),
+                                const SizedBox(height: 4),
+                              ]
+                              // Testo del messaggio (se presente e non eliminato)
+                              else if (message.isNotEmpty) ...[
                               Linkify(
                                 onOpen: (link) async {
                                   try {
