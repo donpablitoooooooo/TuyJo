@@ -1798,6 +1798,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     }
 
     // Chiama updateMessage con gli allegati rimanenti
+    // Passa sempre remainingAttachments (anche se vuota) per aggiornare correttamente
     final success = await chatService.updateMessage(
       messageId,
       _familyChatId!,
@@ -1807,7 +1808,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       _partnerPublicKey!,
       dueDate: todoDate,
       rangeEnd: rangeEnd,
-      attachments: remainingAttachments.isNotEmpty ? remainingAttachments : null,
+      attachments: remainingAttachments,
     );
 
     if (success) {
@@ -2467,42 +2468,28 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                       decoration: BoxDecoration(
-                        color: Colors.orange[50],
+                        color: Colors.grey[100],
                         border: Border(
-                          bottom: BorderSide(color: Colors.orange[200]!),
+                          bottom: BorderSide(color: Colors.grey[300]!),
                         ),
                       ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Text(
-                            'Allegati esistenti:',
-                            style: TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.w500,
-                              color: Colors.orange,
-                            ),
-                          ),
-                          const SizedBox(height: 8),
-                          SizedBox(
-                            height: 80,
-                            child: ListView.builder(
-                              scrollDirection: Axis.horizontal,
-                              itemCount: _editingAttachments.length,
-                              itemBuilder: (context, index) {
-                                final attachment = _editingAttachments[index];
-                                return _ExistingAttachmentPreview(
-                                  attachment: attachment,
-                                  onRemove: () {
-                                    setState(() {
-                                      _editingAttachments.removeAt(index);
-                                    });
-                                  },
-                                );
+                      child: SizedBox(
+                        height: 80,
+                        child: ListView.builder(
+                          scrollDirection: Axis.horizontal,
+                          itemCount: _editingAttachments.length,
+                          itemBuilder: (context, index) {
+                            final attachment = _editingAttachments[index];
+                            return _ExistingAttachmentPreview(
+                              attachment: attachment,
+                              onRemove: () {
+                                setState(() {
+                                  _editingAttachments.removeAt(index);
+                                });
                               },
-                            ),
-                          ),
-                        ],
+                            );
+                          },
+                        ),
                       ),
                     ),
                   Row(
@@ -2762,30 +2749,14 @@ class _ExistingAttachmentPreview extends StatelessWidget {
             child: ClipRRect(
               borderRadius: BorderRadius.circular(8),
               child: Center(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(
-                      isImage
-                          ? Icons.image
-                          : isVideo
-                              ? Icons.videocam
-                              : Icons.insert_drive_file,
-                      size: 32,
-                      color: Colors.grey[600],
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      attachment.fileName ?? '',
-                      style: TextStyle(
-                        fontSize: 10,
-                        color: Colors.grey[600],
-                      ),
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      textAlign: TextAlign.center,
-                    ),
-                  ],
+                child: Icon(
+                  isImage
+                      ? Icons.image
+                      : isVideo
+                          ? Icons.videocam
+                          : Icons.insert_drive_file,
+                  size: 40,
+                  color: Colors.grey[600],
                 ),
               ),
             ),

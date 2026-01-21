@@ -1249,12 +1249,15 @@ class ChatService extends ChangeNotifier {
         'iv': encrypted['iv'],
       };
 
-      // Aggiorna anche gli allegati se forniti (null rimuove tutti gli allegati)
+      // Aggiorna gli allegati solo se forniti (null = non toccare gli allegati esistenti)
       if (attachments != null) {
-        updateData['attachments'] = attachments.map((a) => a.toJson()).toList();
-      } else {
-        updateData['attachments'] = []; // Rimuovi tutti gli allegati
+        if (attachments.isEmpty) {
+          updateData['attachments'] = []; // Lista vuota = rimuovi tutti gli allegati
+        } else {
+          updateData['attachments'] = attachments.map((a) => a.toJson()).toList();
+        }
       }
+      // Se attachments è null, non includiamo il campo quindi Firestore non lo modifica
 
       await messageRef.update(updateData);
 
