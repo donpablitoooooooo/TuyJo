@@ -236,9 +236,9 @@ class _LocationSharingScreenState extends State<LocationSharingScreen> {
   String _formatDistance(double meters) {
     final l10n = AppLocalizations.of(context)!;
     if (meters < 1000) {
-      return l10n.locationShareDistanceMeters.replaceAll('{meters}', meters.toInt().toString());
+      return l10n.locationShareDistanceMeters(meters.toInt());
     } else {
-      return l10n.locationShareDistanceKm.replaceAll('{km}', (meters / 1000).toStringAsFixed(1));
+      return l10n.locationShareDistanceKm((meters / 1000).toStringAsFixed(1));
     }
   }
 
@@ -793,11 +793,11 @@ class _LocationSharingScreenState extends State<LocationSharingScreen> {
     final diff = now.difference(timestamp);
 
     if (diff.inSeconds < 60) {
-      return l10n.locationShareTimeAgoSeconds.replaceAll('{seconds}', diff.inSeconds.toString());
+      return l10n.locationShareTimeAgoSeconds(diff.inSeconds);
     } else if (diff.inMinutes < 60) {
-      return l10n.locationShareTimeAgoMinutes.replaceAll('{minutes}', diff.inMinutes.toString());
+      return l10n.locationShareTimeAgoMinutes(diff.inMinutes);
     } else {
-      return l10n.locationShareTimeAgoHours.replaceAll('{hours}', diff.inHours.toString());
+      return l10n.locationShareTimeAgoHours(diff.inHours);
     }
   }
 

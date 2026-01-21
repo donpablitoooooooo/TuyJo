@@ -1387,9 +1387,9 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                                 Expanded(
                                   child: Text(
                                     (rangeStart != null && rangeEnd != null)
-                                        ? l10n.todoTitleWithRange.replaceAll('{dateRange}', _formatDateRange(rangeStart!, rangeEnd!))
+                                        ? l10n.todoTitleWithRange(_formatDateRange(rangeStart!, rangeEnd!))
                                         : (dayToShowTodos != null
-                                            ? l10n.todoTitleWithDate.replaceAll('{date}', _formatTodoDate(dayToShowTodos!, includeTime: false))
+                                            ? l10n.todoTitleWithDate(_formatTodoDate(dayToShowTodos!, includeTime: false))
                                             : l10n.todoSelectDay),
                                     style: const TextStyle(
                                       fontSize: 16,
@@ -2881,9 +2881,9 @@ class _TodoDatePreview extends StatelessWidget {
     final dateDay = DateTime(date.year, date.month, date.day);
 
     if (dateDay == DateTime(now.year, now.month, now.day)) {
-      return l10n.todayAt.replaceAll('{time}', DateFormat('HH:mm').format(date));
+      return l10n.todayAt(DateFormat('HH:mm').format(date));
     } else if (dateDay == tomorrow) {
-      return l10n.tomorrowAt.replaceAll('{time}', DateFormat('HH:mm').format(date));
+      return l10n.tomorrowAt(DateFormat('HH:mm').format(date));
     } else {
       return DateFormat('dd/MM HH:mm').format(date);
     }
@@ -2898,7 +2898,7 @@ class _TodoDatePreview extends StatelessWidget {
     if (hours == 1) return l10n.alertOneHourBefore;
     if (hours == 48) return l10n.alertTwoDaysBefore;
     if (hours == 24) return l10n.alertOneDayBefore;
-    return l10n.alertHoursBefore.replaceAll('{hours}', hours.toString());
+    return l10n.alertHoursBefore(hours);
   }
 
   @override
