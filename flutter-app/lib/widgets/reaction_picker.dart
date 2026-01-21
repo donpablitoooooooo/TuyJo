@@ -5,10 +5,12 @@ import '../models/message.dart';
 import '../services/attachment_service.dart';
 import 'reaction_icon.dart';
 
-/// Bottom sheet per selezionare una reaction
-/// Mostra 4 opzioni: LOVE, OK, SHIT, DONE
+/// Bottom sheet per selezionare una reaction o azione
+/// Reactions (icone): LOVE, OK, SHIT (solo visive)
+/// Actions (testo): "Segna come completato" (todo), "Interrompi condivisione" (location)
 class ReactionPicker extends StatelessWidget {
-  final Function(String reactionType) onReactionSelected;
+  final Function(String reactionType)? onReactionSelected;
+  final Function(String actionType)? onActionSelected;
   final Message message;
   final AttachmentService? attachmentService;
   final String? currentUserId;
@@ -16,7 +18,8 @@ class ReactionPicker extends StatelessWidget {
 
   const ReactionPicker({
     super.key,
-    required this.onReactionSelected,
+    this.onReactionSelected,
+    this.onActionSelected,
     required this.message,
     this.attachmentService,
     this.currentUserId,
@@ -59,20 +62,40 @@ class ReactionPicker extends StatelessWidget {
                 ),
               ),
 
-              // Reactions grid
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 24),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                  children: [
-                    _buildReactionButton('love', context),
-                    _buildReactionButton('ok', context),
-                    _buildReactionButton('shit', context),
-                    _buildReactionButton('done', context),
-                  ],
+              // Reactions (icone visive)
+              if (onReactionSelected != null) ...[
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 24),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                    children: [
+                      _buildReactionButton('love', context),
+                      _buildReactionButton('ok', context),
+                      _buildReactionButton('shit', context),
+                    ],
+                  ),
                 ),
-              ),
-              const SizedBox(height: 16),
+                const SizedBox(height: 16),
+              ],
+
+              // Actions (testi con effetti logici)
+              if (onActionSelected != null) ...[
+                if (message.messageType == 'todo')
+                  _buildActionButton(
+                    'complete',
+                    'Segna come completato',
+                    Icons.check_circle_outline,
+                    context,
+                  ),
+                if (message.messageType == 'location_share')
+                  _buildActionButton(
+                    'stop_sharing',
+                    'Interrompi condivisione',
+                    Icons.stop_circle_outlined,
+                    context,
+                  ),
+                const SizedBox(height: 8),
+              ],
             ],
           ),
         ),
@@ -88,7 +111,7 @@ class ReactionPicker extends StatelessWidget {
           // Rimuovi focus dalla tastiera prima di chiudere (Android)
           FocusScope.of(context).unfocus();
           Navigator.pop(context);
-          onReactionSelected(type);
+          onReactionSelected?.call(type);
         },
         borderRadius: BorderRadius.circular(40),
         splashColor: Colors.white.withOpacity(0.2),
@@ -97,6 +120,45 @@ class ReactionPicker extends StatelessWidget {
           child: ReactionIcon(
             type: type,
             size: 56,
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildActionButton(String actionType, String label, IconData icon, BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 4),
+      child: Material(
+        color: Colors.white.withOpacity(0.15),
+        borderRadius: BorderRadius.circular(12),
+        child: InkWell(
+          onTap: () {
+            FocusScope.of(context).unfocus();
+            Navigator.pop(context);
+            onActionSelected?.call(actionType);
+          },
+          borderRadius: BorderRadius.circular(12),
+          splashColor: Colors.white.withOpacity(0.2),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+            child: Row(
+              children: [
+                Icon(icon, color: Colors.white, size: 24),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    label,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 16,
+                      fontWeight: FontWeight.w500,
+                      letterSpacing: 0.3,
+                    ),
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       ),
@@ -271,7 +333,8 @@ class ReactionPicker extends StatelessWidget {
   /// Mostra il picker come bottom sheet
   static void show(
     BuildContext context, {
-    required Function(String) onReactionSelected,
+    Function(String)? onReactionSelected,
+    Function(String)? onActionSelected,
     required Message message,
     AttachmentService? attachmentService,
     String? currentUserId,
@@ -282,6 +345,7 @@ class ReactionPicker extends StatelessWidget {
       backgroundColor: Colors.transparent,
       builder: (context) => ReactionPicker(
         onReactionSelected: onReactionSelected,
+        onActionSelected: onActionSelected,
         message: message,
         attachmentService: attachmentService,
         currentUserId: currentUserId,
