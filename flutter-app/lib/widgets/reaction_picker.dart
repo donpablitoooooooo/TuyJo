@@ -89,7 +89,7 @@ class ReactionPicker extends StatelessWidget {
                     context,
                   ),
                 ] else ...[
-                  // Per tutti i messaggi tranne location_share
+                  // Per tutti i messaggi tranne location_share (inclusi i pending)
                   if (message.messageType == 'todo') ...[
                     _buildActionButton(
                       'complete',

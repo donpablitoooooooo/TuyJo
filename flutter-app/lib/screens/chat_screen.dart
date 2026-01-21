@@ -583,14 +583,18 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       // Modifica: popola i campi (per tutti i messaggi tranne location_share)
       if (kDebugMode) print('✏️ Editing message: $messageId');
 
+      final isPending = messageId.startsWith('pending_');
+
       setState(() {
-        _editingMessageId = messageId;
-        _editingMessageSenderId = message.senderId;
+        // Per i pending, non settiamo _editingMessageId perché non esiste in Firestore
+        // Il messaggio pending verrà rimosso e l'utente invierà un nuovo messaggio
+        _editingMessageId = isPending ? null : messageId;
+        _editingMessageSenderId = isPending ? null : message.senderId;
         _messageController.text = message.decryptedContent ?? '';
 
-        // Popola gli allegati esistenti
+        // Popola gli allegati esistenti (solo quelli caricati con successo)
         _editingAttachments = message.attachments != null
-            ? List<Attachment>.from(message.attachments!)
+            ? message.attachments!.where((a) => a.url.isNotEmpty).toList()
             : [];
 
         // Se è un todo, popola anche le date
@@ -608,6 +612,12 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
         }
       });
 
+      // Se è pending, rimuovilo dalla lista (verrà ricreato al nuovo invio)
+      if (isPending) {
+        if (kDebugMode) print('🗑️ Removing pending message to allow re-send');
+        chatService.removePendingMessage(messageId);
+      }
+
       // Se è un todo, apri anche il calendario
       if (message.messageType == 'todo') {
         _showDateTimePicker();
@@ -616,9 +626,18 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       // Elimina: marca come deleted
       if (kDebugMode) print('🗑️ Deleting message: $messageId');
 
+      // Check if this is a pending message (still uploading)
+      final isPending = messageId.startsWith('pending_');
+
       // Elimina prima gli allegati se presenti
       if (message.attachments != null && message.attachments!.isNotEmpty && _attachmentService != null) {
         for (final attachment in message.attachments!) {
+          // Skip attachment deletion if URL is empty (still uploading)
+          if (attachment.url.isEmpty) {
+            if (kDebugMode) print('⏭️ Skipping empty attachment URL (still uploading)');
+            continue;
+          }
+
           try {
             await _attachmentService!.deleteAttachment(attachment.url);
             if (kDebugMode) print('🗑️ Deleted attachment: ${attachment.url}');
@@ -628,7 +647,15 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
         }
       }
 
-      await chatService.deleteMessage(messageId, _familyChatId!);
+      // Handle pending vs normal messages differently
+      if (isPending) {
+        // Pending message - just remove from local list, don't try to update Firestore
+        if (kDebugMode) print('🗑️ Removing pending message locally');
+        chatService.removePendingMessage(messageId);
+      } else {
+        // Normal message - mark as deleted in Firestore
+        await chatService.deleteMessage(messageId, _familyChatId!);
+      }
     } else {
       // Azione generica
       await chatService.addAction(
