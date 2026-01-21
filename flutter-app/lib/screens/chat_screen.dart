@@ -1334,22 +1334,28 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                                             child: SafeArea(
                                               child: Column(
                                                 children: [
-                                                  const Padding(
-                                                    padding: EdgeInsets.all(16),
+                                                  // Data bella grossa
+                                                  Padding(
+                                                    padding: const EdgeInsets.only(top: 20, bottom: 12),
                                                     child: Text(
-                                                      'Imposta alert e orario',
-                                                      style: TextStyle(
+                                                      (rangeStart != null && rangeEnd != null)
+                                                          ? _formatDateRange(rangeStart!, rangeEnd!)
+                                                          : (dayToShowTodos != null
+                                                              ? _formatTodoDate(dayToShowTodos!, includeTime: false)
+                                                              : ''),
+                                                      style: const TextStyle(
                                                         color: Colors.white,
-                                                        fontSize: 18,
+                                                        fontSize: 32,
                                                         fontWeight: FontWeight.bold,
                                                       ),
+                                                      textAlign: TextAlign.center,
                                                     ),
                                                   ),
 
                                                   // Orario e Alert affiancati
                                                   Expanded(
                                                     child: Padding(
-                                                      padding: const EdgeInsets.all(16),
+                                                      padding: const EdgeInsets.symmetric(horizontal: 16),
                                                       child: Row(
                                                         crossAxisAlignment: CrossAxisAlignment.center,
                                                         mainAxisAlignment: MainAxisAlignment.spaceEvenly,
@@ -1362,48 +1368,48 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                                                                 'Orario',
                                                                 style: TextStyle(
                                                                   color: Colors.white,
-                                                                  fontSize: 16,
+                                                                  fontSize: 18,
                                                                   fontWeight: FontWeight.bold,
                                                                 ),
                                                               ),
-                                                              const SizedBox(height: 16),
+                                                              const SizedBox(height: 12),
                                                               Row(
                                                                 mainAxisAlignment: MainAxisAlignment.center,
                                                                 children: [
                                                                   SizedBox(
-                                                                    width: 70,
-                                                                    height: 200,
+                                                                    width: 80,
+                                                                    height: 240,
                                                                     child: CupertinoPicker(
                                                                       scrollController: FixedExtentScrollController(initialItem: selectedHour),
-                                                                      itemExtent: 40,
+                                                                      itemExtent: 50,
                                                                       onSelectedItemChanged: (index) {
                                                                         selectedHour = index;
                                                                       },
                                                                       children: List.generate(24, (index) => Center(
                                                                         child: Text(
                                                                           index.toString().padLeft(2, '0'),
-                                                                          style: const TextStyle(color: Colors.white, fontSize: 20),
+                                                                          style: const TextStyle(color: Colors.white, fontSize: 28, fontWeight: FontWeight.w500),
                                                                         ),
                                                                       )),
                                                                     ),
                                                                   ),
                                                                   const Padding(
-                                                                    padding: EdgeInsets.symmetric(horizontal: 6),
-                                                                    child: Text(':', style: TextStyle(color: Colors.white, fontSize: 24)),
+                                                                    padding: EdgeInsets.symmetric(horizontal: 8),
+                                                                    child: Text(':', style: TextStyle(color: Colors.white, fontSize: 32, fontWeight: FontWeight.bold)),
                                                                   ),
                                                                   SizedBox(
-                                                                    width: 70,
-                                                                    height: 200,
+                                                                    width: 80,
+                                                                    height: 240,
                                                                     child: CupertinoPicker(
                                                                       scrollController: FixedExtentScrollController(initialItem: selectedMinute),
-                                                                      itemExtent: 40,
+                                                                      itemExtent: 50,
                                                                       onSelectedItemChanged: (index) {
                                                                         selectedMinute = index;
                                                                       },
                                                                       children: List.generate(60, (index) => Center(
                                                                         child: Text(
                                                                           index.toString().padLeft(2, '0'),
-                                                                          style: const TextStyle(color: Colors.white, fontSize: 20),
+                                                                          style: const TextStyle(color: Colors.white, fontSize: 28, fontWeight: FontWeight.w500),
                                                                         ),
                                                                       )),
                                                                     ),
@@ -1413,7 +1419,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                                                             ],
                                                           ),
 
-                                                          const SizedBox(width: 24),
+                                                          const SizedBox(width: 20),
 
                                                           // Sezione Alert (destra) - Picker rotellina
                                                           Column(
@@ -1423,36 +1429,37 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                                                                 'Alert',
                                                                 style: TextStyle(
                                                                   color: Colors.white,
-                                                                  fontSize: 16,
+                                                                  fontSize: 18,
                                                                   fontWeight: FontWeight.bold,
                                                                 ),
                                                               ),
-                                                              const SizedBox(height: 16),
+                                                              const SizedBox(height: 12),
                                                               SizedBox(
-                                                                width: 150,
-                                                                height: 200,
+                                                                width: 160,
+                                                                height: 240,
                                                                 child: CupertinoPicker(
                                                                   scrollController: FixedExtentScrollController(
                                                                     initialItem: () {
                                                                       // Mappa alertHours all'indice corretto
-                                                                      final alertOptions = [1, 2, 8, 24, 48, null];
+                                                                      // Nuovo ordine: null, 1, 2, 8, 24, 48
+                                                                      final alertOptions = [null, 1, 2, 8, 24, 48];
                                                                       final index = alertOptions.indexOf(alertHours);
-                                                                      return index == -1 ? 0 : index;
+                                                                      return index == -1 ? 1 : index; // Default "1 ora prima"
                                                                     }(),
                                                                   ),
-                                                                  itemExtent: 40,
+                                                                  itemExtent: 50,
                                                                   onSelectedItemChanged: (index) {
                                                                     // Mappa indice a ore
-                                                                    const alertOptions = [1, 2, 8, 24, 48, null];
+                                                                    const alertOptions = [null, 1, 2, 8, 24, 48];
                                                                     setAlertState(() => alertHours = alertOptions[index]);
                                                                   },
                                                                   children: const [
-                                                                    Center(child: Text('1 ora prima', style: TextStyle(color: Colors.white, fontSize: 16))),
-                                                                    Center(child: Text('2 ore prima', style: TextStyle(color: Colors.white, fontSize: 16))),
-                                                                    Center(child: Text('8 ore prima', style: TextStyle(color: Colors.white, fontSize: 16))),
-                                                                    Center(child: Text('1 giorno prima', style: TextStyle(color: Colors.white, fontSize: 16))),
-                                                                    Center(child: Text('2 giorni prima', style: TextStyle(color: Colors.white, fontSize: 16))),
-                                                                    Center(child: Text('Nessun alert', style: TextStyle(color: Colors.white, fontSize: 16))),
+                                                                    Center(child: Text('Nessun alert', style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.w500))),
+                                                                    Center(child: Text('1 ora prima', style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.w500))),
+                                                                    Center(child: Text('2 ore prima', style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.w500))),
+                                                                    Center(child: Text('8 ore prima', style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.w500))),
+                                                                    Center(child: Text('1 giorno prima', style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.w500))),
+                                                                    Center(child: Text('2 giorni prima', style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.w500))),
                                                                   ],
                                                                 ),
                                                               ),
@@ -1464,7 +1471,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                                                   ),
                                                   // Bottone conferma
                                                   Padding(
-                                                    padding: const EdgeInsets.all(16),
+                                                    padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
                                                     child: ElevatedButton(
                                                       onPressed: () {
                                                         Navigator.pop(context, {
