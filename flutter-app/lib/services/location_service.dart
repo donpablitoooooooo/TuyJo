@@ -412,6 +412,12 @@ class LocationService extends ChangeNotifier {
     String familyChatId,
   ) async {
     try {
+      // IMPORTANTE: verifica se sto ancora condividendo (evita race condition)
+      if (!_isSharingLocation) {
+        if (kDebugMode) print('🛑 [LOCATION] Not sharing anymore, skipping Firestore write');
+        return;
+      }
+
       // Verifica se è scaduta
       if (isSharingExpired) {
         if (kDebugMode) print('⏰ [LOCATION] Sharing expired, stopping');
