@@ -1,8 +1,8 @@
 import 'package:flutter/foundation.dart';
 
-// Modello per le reactions ai messaggi
+// Modello per le reactions ai messaggi (solo visive)
 class Reaction {
-  final String type; // 'love', 'ok', 'shit', 'done'
+  final String type; // 'love', 'ok', 'shit'
   final String userId; // deviceId di chi ha messo la reaction
   final DateTime timestamp;
 
@@ -14,6 +14,35 @@ class Reaction {
 
   factory Reaction.fromJson(Map<String, dynamic> json) {
     return Reaction(
+      type: json['type'] ?? '',
+      userId: json['userId'] ?? '',
+      timestamp: DateTime.parse(json['timestamp'] ?? DateTime.now().toIso8601String()),
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'type': type,
+      'userId': userId,
+      'timestamp': timestamp.toIso8601String(),
+    };
+  }
+}
+
+// Modello per le azioni sui messaggi (con effetti logici)
+class MessageAction {
+  final String type; // 'complete' (todo), 'stop_sharing' (location)
+  final String userId; // deviceId di chi ha eseguito l'azione
+  final DateTime timestamp;
+
+  MessageAction({
+    required this.type,
+    required this.userId,
+    required this.timestamp,
+  });
+
+  factory MessageAction.fromJson(Map<String, dynamic> json) {
+    return MessageAction(
       type: json['type'] ?? '',
       userId: json['userId'] ?? '',
       timestamp: DateTime.parse(json['timestamp'] ?? DateTime.now().toIso8601String()),
@@ -126,6 +155,9 @@ class Message {
   // Reaction al messaggio (solo una reaction per messaggio, l'ultima vince)
   Reaction? reaction;
 
+  // Action sul messaggio (azione con effetto logico, es. completare todo)
+  MessageAction? action;
+
   Message({
     required this.id,
     required this.senderId,
@@ -151,6 +183,7 @@ class Message {
     this.isPending = false,
     this.attachments,
     this.reaction,
+    this.action,
   });
 
   factory Message.fromJson(Map<String, dynamic> json) {
@@ -197,6 +230,18 @@ class Message {
       }
     }
 
+    // Parse action se presente
+    MessageAction? action;
+    if (data['action'] != null && data['action'] is Map) {
+      try {
+        action = MessageAction.fromJson(data['action'] as Map<String, dynamic>);
+        if (kDebugMode) print('✅ Parsed action for message $docId: ${action.type}');
+      } catch (e) {
+        if (kDebugMode) print('❌ Error parsing action for message $docId: $e');
+        action = null;
+      }
+    }
+
     return Message(
       id: docId,
       senderId: data['sender_id'] ?? '',
@@ -214,6 +259,7 @@ class Message {
       readAt: data['read_at'] != null ? DateTime.parse(data['read_at']) : null,
       attachments: attachments,
       reaction: reaction,
+      action: action,
     );
   }
 
@@ -235,6 +281,7 @@ class Message {
       if (readAt != null) 'read_at': readAt!.toIso8601String(),
       if (attachments != null) 'attachments': attachments!.map((a) => a.toJson()).toList(),
       if (reaction != null) 'reaction': reaction!.toJson(),
+      if (action != null) 'action': action!.toJson(),
     };
   }
 }
