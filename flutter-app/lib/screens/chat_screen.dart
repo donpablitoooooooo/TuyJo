@@ -530,8 +530,8 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     if (kDebugMode) print('✅ Todo marked as completed: $todoId');
   }
 
-  /// Aggiunge una reaction a un messaggio
-  void _addReaction(String messageId, String reactionType, [Message? message]) async {
+  /// Aggiunge una reaction a un messaggio (solo visiva)
+  void _addReaction(String messageId, String reactionType) async {
     if (_familyChatId == null || _myDeviceId == null) {
       return;
     }
@@ -546,12 +546,33 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     );
 
     if (kDebugMode) print('✅ Reaction $reactionType added to message: $messageId');
+  }
 
-    // Se la reaction è "done" (✓) su un messaggio location_share, interrompi la condivisione
-    if (reactionType == 'done' && message?.messageType == 'location_share') {
+  /// Aggiunge un'azione a un messaggio (con effetti logici)
+  void _addAction(String messageId, String actionType, Message message) async {
+    if (_familyChatId == null || _myDeviceId == null) {
+      return;
+    }
+
+    final chatService = Provider.of<ChatService>(context, listen: false);
+
+    await chatService.addAction(
+      messageId,
+      _familyChatId!,
+      _myDeviceId!,
+      actionType,
+    );
+
+    if (kDebugMode) print('✅ Action $actionType added to message: $messageId');
+
+    // Gestisci effetti logici delle azioni
+    if (actionType == 'stop_sharing' && message.messageType == 'location_share') {
       final locationService = Provider.of<LocationService>(context, listen: false);
       await locationService.stopSharingLocation();
-      if (kDebugMode) print('🛑 Location sharing stopped via reaction');
+      if (kDebugMode) print('🛑 Location sharing stopped via action');
+    } else if (actionType == 'complete' && message.messageType == 'todo') {
+      // La logica todo_completed esiste già, potrebbe essere refactorizzata per usare actions
+      if (kDebugMode) print('✅ Todo marked as completed via action');
     }
   }
 
@@ -1792,7 +1813,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                                 message: message,
                                 isMe: isMe,
                                 isCompleted: isTodoCompleted,
-                                onReact: (reactionType) => _addReaction(message.id, reactionType, message),
+                                onReact: (reactionType) => _addReaction(message.id, reactionType),
                                 formattedDate: formattedDate,
                                 attachmentService: _attachmentService,
                                 senderId: message.senderId,
@@ -1814,7 +1835,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                                 currentUserId: _myDeviceId,
                                 attachmentService: _attachmentService,
                                 reaction: message.reaction,
-                                onReact: (reactionType) => _addReaction(message.id, reactionType, message),
+                                onReact: (reactionType) => _addReaction(message.id, reactionType),
                                 messageObject: message,
                               );
                             }
@@ -2262,7 +2283,12 @@ class _MessageBubble extends StatelessWidget {
                     ? () {
                         ReactionPicker.show(
                           context,
-                          onReactionSelected: onReact!,
+                          onReactionSelected: (reactionType) => onReact!(reactionType),
+                          onActionSelected: (actionType) {
+                            // Chiama _addAction con l'oggetto messaggio completo per gestire logica
+                            final chatScreenState = context.findAncestorStateOfType<_ChatScreenState>();
+                            chatScreenState?._addAction(messageObject!.id, actionType, messageObject);
+                          },
                           message: messageObject!,
                           attachmentService: attachmentService,
                           currentUserId: currentUserId,
