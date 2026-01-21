@@ -1180,6 +1180,113 @@ class ChatService extends ChangeNotifier {
     }
   }
 
+  /// Modifica un messaggio esistente
+  Future<bool> updateMessage(
+    String messageId,
+    String familyChatId,
+    String newContent,
+    String myDeviceId,
+    String myPublicKey,
+    String partnerPublicKey, {
+    DateTime? dueDate,
+    DateTime? rangeEnd,
+  }) async {
+    try {
+      if (kDebugMode) {
+        print('✏️ [updateMessage] Starting...');
+        print('   messageId: $messageId');
+        print('   familyChatId: $familyChatId');
+        print('   newContent: $newContent');
+        print('   dueDate: $dueDate');
+        print('   rangeEnd: $rangeEnd');
+      }
+
+      // Prepara il contenuto da cifrare
+      String contentToEncrypt;
+      if (dueDate != null) {
+        // È un todo - crea JSON con tipo e data
+        final Map<String, dynamic> todoData = {
+          'type': 'todo',
+          'content': newContent,
+          'due_date': dueDate.toIso8601String(),
+        };
+        if (rangeEnd != null) {
+          todoData['range_end'] = rangeEnd.toIso8601String();
+        }
+        contentToEncrypt = json.encode(todoData);
+      } else {
+        // Messaggio normale - crea JSON semplice
+        contentToEncrypt = json.encode({'type': 'text', 'content': newContent});
+      }
+
+      if (kDebugMode) {
+        print('📝 [updateMessage] Content to encrypt: $contentToEncrypt');
+      }
+
+      // Cifra il messaggio con dual encryption
+      final encrypted = _encryptionService.encryptMessageDual(
+        contentToEncrypt,
+        myPublicKey,
+        partnerPublicKey,
+      );
+
+      if (kDebugMode) {
+        print('🔐 [updateMessage] Message encrypted successfully');
+      }
+
+      // Aggiorna il messaggio in Firestore
+      final messageRef = _firestore
+          .collection('families')
+          .doc(familyChatId)
+          .collection('messages')
+          .doc(messageId);
+
+      await messageRef.update({
+        'message': encrypted['ciphertext'],
+        'encrypted_key_recipient': encrypted['encrypted_key_recipient'],
+        'encrypted_key_sender': encrypted['encrypted_key_sender'],
+        'iv': encrypted['iv'],
+      });
+
+      if (kDebugMode) {
+        print('✅ [updateMessage] Firestore updated successfully');
+      }
+
+      // Aggiorna il messaggio locale nella lista
+      final index = _messages.indexWhere((m) => m.id == messageId);
+      if (index != -1) {
+        _messages[index].encryptedMessage = encrypted['ciphertext'];
+        _messages[index].encryptedKeyRecipient = encrypted['encrypted_key_recipient'];
+        _messages[index].encryptedKeySender = encrypted['encrypted_key_sender'];
+        _messages[index].iv = encrypted['iv'];
+
+        // Decripta e popola i nuovi dati
+        _decryptAndPopulateMessage(_messages[index], myDeviceId);
+
+        // Aggiorna anche la cache SQLite
+        await _cacheService.saveMessage(_messages[index], familyChatId);
+
+        if (kDebugMode) {
+          print('✅ [updateMessage] Local cache updated successfully');
+        }
+      }
+
+      // Chiama notifyListeners per forzare rebuild
+      notifyListeners();
+
+      if (kDebugMode) {
+        print('✅ [updateMessage] Message $messageId updated successfully');
+      }
+      return true;
+    } catch (e, stackTrace) {
+      if (kDebugMode) {
+        print('❌ [updateMessage] Error: $e');
+        print('Stack trace: $stackTrace');
+      }
+      return false;
+    }
+  }
+
   /// Decripta un messaggio e popola i campi aggiuntivi (messageType, dueDate, ecc.)
   /// Schedula notifiche per i todo
   void _decryptAndPopulateMessage(Message message, String myDeviceId) {

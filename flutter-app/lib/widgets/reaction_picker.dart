@@ -81,14 +81,24 @@ class ReactionPicker extends StatelessWidget {
 
               // Actions (testi con effetti logici)
               if (onActionSelected != null) ...[
-                if (message.messageType == 'todo') ...[
+                if (message.messageType == 'location_share') ...[
                   _buildActionButton(
-                    'complete',
-                    'Segna come completato',
-                    Icons.check_circle_outline,
+                    'stop_sharing',
+                    'Interrompi condivisione',
+                    Icons.stop_circle_outlined,
                     context,
                   ),
-                  const SizedBox(height: 8),
+                ] else ...[
+                  // Per tutti i messaggi tranne location_share
+                  if (message.messageType == 'todo') ...[
+                    _buildActionButton(
+                      'complete',
+                      'Segna come completato',
+                      Icons.check_circle_outline,
+                      context,
+                    ),
+                    const SizedBox(height: 8),
+                  ],
                   _buildActionButton(
                     'edit',
                     'Modifica',
@@ -103,13 +113,6 @@ class ReactionPicker extends StatelessWidget {
                     context,
                   ),
                 ],
-                if (message.messageType == 'location_share')
-                  _buildActionButton(
-                    'stop_sharing',
-                    'Interrompi condivisione',
-                    Icons.stop_circle_outlined,
-                    context,
-                  ),
                 const SizedBox(height: 8),
               ],
             ],

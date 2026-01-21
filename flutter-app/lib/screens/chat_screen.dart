@@ -65,6 +65,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   List<File> _selectedAttachments = []; // Lista di file selezionati da inviare
   bool _isUploadingAttachments = false; // Stato di upload allegati
   Set<String> _iosSharedFiles = {}; // Traccia i file temporanei copiati su iOS per pulizia
+  String? _editingMessageId; // ID del messaggio che stiamo modificando (null = nuovo messaggio)
 
   // Method Channel per condivisione file da altre app (iOS)
   static const platform = MethodChannel('com.privatemessaging.tuyjo/shared_media');
@@ -576,24 +577,33 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
         actionType,
       );
       if (kDebugMode) print('✅ Todo marked as completed via action');
-    } else if (actionType == 'edit' && message.messageType == 'todo') {
-      // Modifica: popola i campi e apri il calendario
-      if (kDebugMode) print('✏️ Editing todo: $messageId');
+    } else if (actionType == 'edit') {
+      // Modifica: popola i campi (per tutti i messaggi tranne location_share)
+      if (kDebugMode) print('✏️ Editing message: $messageId');
       setState(() {
-        _selectedTodoDate = message.dueDate;
-        _selectedRangeStart = message.dueDate;
-        _selectedRangeEnd = message.rangeEnd;
-        _isRangeSelection = message.rangeEnd != null;
+        _editingMessageId = messageId;
         _messageController.text = message.decryptedContent ?? '';
-        // Note: reminderHours non è salvato nel messaggio, quindi non possiamo ripristinarlo
+
+        // Se è un todo, popola anche le date
+        if (message.messageType == 'todo') {
+          _selectedTodoDate = message.dueDate;
+          _selectedRangeStart = message.dueDate;
+          _selectedRangeEnd = message.rangeEnd;
+          _isRangeSelection = message.rangeEnd != null;
+        } else {
+          // Resetta le date per messaggi normali
+          _selectedTodoDate = null;
+          _selectedRangeStart = null;
+          _selectedRangeEnd = null;
+          _isRangeSelection = false;
+        }
       });
 
-      // Marca il messaggio originale come eliminato
-      await chatService.deleteMessage(messageId, _familyChatId!);
-
-      // Apri il calendario per modificare
-      _showTodoCalendar();
-    } else if (actionType == 'delete' && message.messageType == 'todo') {
+      // Se è un todo, apri anche il calendario
+      if (message.messageType == 'todo') {
+        _showTodoCalendar();
+      }
+    } else if (actionType == 'delete') {
       // Elimina: marca come deleted
       if (kDebugMode) print('🗑️ Deleting todo: $messageId');
       await chatService.deleteMessage(messageId, _familyChatId!);
@@ -1693,7 +1703,88 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     // Se result è null, l'utente ha chiuso senza azione (non cambiare niente)
   }
 
+  Future<void> _updateExistingMessage() async {
+    final messageText = _messageController.text.trim();
+    final messageId = _editingMessageId!;
+    final todoDate = _selectedTodoDate;
+    final rangeEnd = _selectedRangeEnd;
+
+    if (messageText.isEmpty) {
+      print('❌ Cannot update with empty message');
+      return;
+    }
+
+    _messageController.clear();
+
+    setState(() {
+      _editingMessageId = null;
+      _selectedTodoDate = null;
+      _isRangeSelection = false;
+      _selectedRangeStart = null;
+      _selectedRangeEnd = null;
+      _selectedReminderHours = null;
+    });
+
+    // Verifica dati necessari
+    if (_familyChatId == null || _myDeviceId == null || _partnerPublicKey == null) {
+      print('❌ Missing data for update');
+      final l10n = AppLocalizations.of(context)!;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(l10n.chatPairingDataMissingError),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
+    final chatService = Provider.of<ChatService>(context, listen: false);
+    final encryptionService = Provider.of<EncryptionService>(context, listen: false);
+
+    // Ottieni la propria chiave pubblica
+    final myPublicKey = await encryptionService.getPublicKey();
+    if (myPublicKey == null) {
+      print('❌ My public key is null');
+      final l10n = AppLocalizations.of(context)!;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(l10n.chatPublicKeyNotFoundError), backgroundColor: Colors.red),
+      );
+      return;
+    }
+
+    // Chiama updateMessage
+    final success = await chatService.updateMessage(
+      messageId,
+      _familyChatId!,
+      messageText,
+      _myDeviceId!,
+      myPublicKey,
+      _partnerPublicKey!,
+      dueDate: todoDate,
+      rangeEnd: rangeEnd,
+    );
+
+    if (success) {
+      if (kDebugMode) print('✅ Message updated successfully');
+    } else {
+      if (kDebugMode) print('❌ Failed to update message');
+      final l10n = AppLocalizations.of(context)!;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Errore durante l\'aggiornamento del messaggio'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
+
   void _sendMessage() async {
+    // Se stiamo modificando un messaggio esistente, chiama updateMessage
+    if (_editingMessageId != null) {
+      await _updateExistingMessage();
+      return;
+    }
+
     final todoDate = _selectedTodoDate;
     final isRange = _isRangeSelection;
     final rangeStart = _selectedRangeStart;
