@@ -1814,6 +1814,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                                 isMe: isMe,
                                 isCompleted: isTodoCompleted,
                                 onReact: (reactionType) => _addReaction(message.id, reactionType),
+                                onAction: (actionType) => _addAction(message.id, actionType, message),
                                 formattedDate: formattedDate,
                                 attachmentService: _attachmentService,
                                 senderId: message.senderId,

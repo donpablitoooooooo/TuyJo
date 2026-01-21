@@ -72,6 +72,7 @@ class ReactionPicker extends StatelessWidget {
                       _buildReactionButton('love', context),
                       _buildReactionButton('ok', context),
                       _buildReactionButton('shit', context),
+                      _buildReactionButton('done', context),
                     ],
                   ),
                 ),

@@ -17,6 +17,7 @@ class TodoMessageBubble extends StatelessWidget {
   final bool isMe;
   final bool isCompleted;
   final Function(String reactionType) onReact;
+  final Function(String actionType)? onAction;
   final String? formattedDate;
   final AttachmentService? attachmentService;
   final String? senderId;
@@ -28,6 +29,7 @@ class TodoMessageBubble extends StatelessWidget {
     required this.isMe,
     required this.isCompleted,
     required this.onReact,
+    this.onAction,
     this.formattedDate,
     this.attachmentService,
     this.senderId,
@@ -106,6 +108,7 @@ class TodoMessageBubble extends StatelessWidget {
                   ReactionPicker.show(
                     context,
                     onReactionSelected: onReact,
+                    onActionSelected: onAction,
                     message: message,
                     attachmentService: attachmentService,
                     currentUserId: currentUserId,
