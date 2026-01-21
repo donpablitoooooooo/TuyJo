@@ -2493,7 +2493,6 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                                 final attachment = _editingAttachments[index];
                                 return _ExistingAttachmentPreview(
                                   attachment: attachment,
-                                  attachmentService: _attachmentService,
                                   onRemove: () {
                                     setState(() {
                                       _editingAttachments.removeAt(index);
@@ -2738,17 +2737,17 @@ class _AttachmentPreview extends StatelessWidget {
 class _ExistingAttachmentPreview extends StatelessWidget {
   final Attachment attachment;
   final VoidCallback onRemove;
-  final AttachmentService? attachmentService;
 
   const _ExistingAttachmentPreview({
     required this.attachment,
     required this.onRemove,
-    this.attachmentService,
   });
 
   @override
   Widget build(BuildContext context) {
     final isImage = attachment.type == 'photo';
+    final isVideo = attachment.type == 'video';
+    final isDocument = attachment.type == 'document';
 
     return Container(
       width: 80,
@@ -2762,30 +2761,33 @@ class _ExistingAttachmentPreview extends StatelessWidget {
             ),
             child: ClipRRect(
               borderRadius: BorderRadius.circular(8),
-              child: isImage && attachmentService != null
-                  ? FutureBuilder<Uint8List>(
-                      future: attachmentService!.downloadAttachment(attachment),
-                      builder: (context, snapshot) {
-                        if (snapshot.hasData) {
-                          return Image.memory(
-                            snapshot.data!,
-                            fit: BoxFit.cover,
-                            width: 80,
-                            height: 80,
-                          );
-                        }
-                        return const Center(
-                          child: CircularProgressIndicator(),
-                        );
-                      },
-                    )
-                  : Center(
-                      child: Icon(
-                        Icons.insert_drive_file,
-                        size: 32,
+              child: Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(
+                      isImage
+                          ? Icons.image
+                          : isVideo
+                              ? Icons.videocam
+                              : Icons.insert_drive_file,
+                      size: 32,
+                      color: Colors.grey[600],
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      attachment.fileName ?? '',
+                      style: TextStyle(
+                        fontSize: 10,
                         color: Colors.grey[600],
                       ),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      textAlign: TextAlign.center,
                     ),
+                  ],
+                ),
+              ),
             ),
           ),
           Positioned(

@@ -1242,7 +1242,7 @@ class ChatService extends ChangeNotifier {
           .collection('messages')
           .doc(messageId);
 
-      final updateData = {
+      final Map<String, dynamic> updateData = {
         'message': encrypted['message'],
         'encrypted_key_recipient': encrypted['encryptedKeyRecipient'],
         'encrypted_key_sender': encrypted['encryptedKeySender'],
