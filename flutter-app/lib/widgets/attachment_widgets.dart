@@ -143,15 +143,11 @@ class _AttachmentImageState extends State<AttachmentImage> {
             }
 
             if (snapshot.hasError || !snapshot.hasData || snapshot.data == null) {
-              // Errore decifratura
-              return Container(
-                width: 200,
-                height: 200,
-                color: Colors.red.withOpacity(0.1),
-                child: const Center(
-                  child: Icon(Icons.error, color: Colors.red),
-                ),
-              );
+              // Errore decifratura - non mostrare nulla (come se l'allegato non esistesse)
+              if (kDebugMode) {
+                print('❌ [AttachmentImage] Failed to load, hiding attachment');
+              }
+              return const SizedBox.shrink();
             }
 
             // Immagine decifrata visualizzata - box quadrato 200x200 (matcha thumbnail 300x300)
