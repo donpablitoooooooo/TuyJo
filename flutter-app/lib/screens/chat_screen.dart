@@ -1345,7 +1345,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                                                               : ''),
                                                       style: const TextStyle(
                                                         color: Colors.white,
-                                                        fontSize: 32,
+                                                        fontSize: 28,
                                                         fontWeight: FontWeight.bold,
                                                       ),
                                                       textAlign: TextAlign.center,
@@ -1377,7 +1377,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                                                                 mainAxisAlignment: MainAxisAlignment.center,
                                                                 children: [
                                                                   SizedBox(
-                                                                    width: 80,
+                                                                    width: 70,
                                                                     height: 240,
                                                                     child: CupertinoPicker(
                                                                       scrollController: FixedExtentScrollController(initialItem: selectedHour),
@@ -1388,17 +1388,17 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                                                                       children: List.generate(24, (index) => Center(
                                                                         child: Text(
                                                                           index.toString().padLeft(2, '0'),
-                                                                          style: const TextStyle(color: Colors.white, fontSize: 28, fontWeight: FontWeight.w500),
+                                                                          style: const TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.w500),
                                                                         ),
                                                                       )),
                                                                     ),
                                                                   ),
                                                                   const Padding(
-                                                                    padding: EdgeInsets.symmetric(horizontal: 8),
-                                                                    child: Text(':', style: TextStyle(color: Colors.white, fontSize: 32, fontWeight: FontWeight.bold)),
+                                                                    padding: EdgeInsets.symmetric(horizontal: 4),
+                                                                    child: Text(':', style: TextStyle(color: Colors.white, fontSize: 28, fontWeight: FontWeight.bold)),
                                                                   ),
                                                                   SizedBox(
-                                                                    width: 80,
+                                                                    width: 70,
                                                                     height: 240,
                                                                     child: CupertinoPicker(
                                                                       scrollController: FixedExtentScrollController(initialItem: selectedMinute),
@@ -1409,7 +1409,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                                                                       children: List.generate(60, (index) => Center(
                                                                         child: Text(
                                                                           index.toString().padLeft(2, '0'),
-                                                                          style: const TextStyle(color: Colors.white, fontSize: 28, fontWeight: FontWeight.w500),
+                                                                          style: const TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.w500),
                                                                         ),
                                                                       )),
                                                                     ),
@@ -1471,24 +1471,35 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                                                   ),
                                                   // Bottone conferma
                                                   Padding(
-                                                    padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
-                                                    child: ElevatedButton(
-                                                      onPressed: () {
-                                                        Navigator.pop(context, {
-                                                          'alertHours': alertHours,
-                                                          'hour': selectedHour,
-                                                          'minute': selectedMinute,
-                                                        });
-                                                      },
-                                                      style: ElevatedButton.styleFrom(
-                                                        backgroundColor: Colors.white,
-                                                        foregroundColor: const Color(0xFF3BA8B0),
-                                                        minimumSize: const Size(double.infinity, 50),
-                                                        shape: RoundedRectangleBorder(
-                                                          borderRadius: BorderRadius.circular(12),
+                                                    padding: const EdgeInsets.fromLTRB(24, 8, 24, 16),
+                                                    child: Material(
+                                                      color: Colors.white.withOpacity(0.15),
+                                                      borderRadius: BorderRadius.circular(12),
+                                                      child: InkWell(
+                                                        onTap: () {
+                                                          Navigator.pop(context, {
+                                                            'alertHours': alertHours,
+                                                            'hour': selectedHour,
+                                                            'minute': selectedMinute,
+                                                          });
+                                                        },
+                                                        borderRadius: BorderRadius.circular(12),
+                                                        splashColor: Colors.white.withOpacity(0.2),
+                                                        child: const Padding(
+                                                          padding: EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+                                                          child: Center(
+                                                            child: Text(
+                                                              'Conferma',
+                                                              style: TextStyle(
+                                                                color: Colors.white,
+                                                                fontSize: 16,
+                                                                fontWeight: FontWeight.w500,
+                                                                letterSpacing: 0.3,
+                                                              ),
+                                                            ),
+                                                          ),
                                                         ),
                                                       ),
-                                                      child: const Text('Conferma', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
                                                     ),
                                                   ),
                                                 ],
