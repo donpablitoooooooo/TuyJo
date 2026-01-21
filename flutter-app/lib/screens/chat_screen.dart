@@ -1297,9 +1297,9 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                                 Expanded(
                                   child: Text(
                                     (rangeStart != null && rangeEnd != null)
-                                        ? 'Todo dal ${DateFormat('d MMM', Localizations.localeOf(context).toString()).format(rangeStart!)} al ${DateFormat('d MMM', Localizations.localeOf(context).toString()).format(rangeEnd!)}'
+                                        ? 'Todo ${_formatDateRange(rangeStart!, rangeEnd!)}'
                                         : (dayToShowTodos != null
-                                            ? 'Todo per ${DateFormat('d MMMM', Localizations.localeOf(context).toString()).format(dayToShowTodos!)}'
+                                            ? 'Todo per ${_formatTodoDate(dayToShowTodos!, includeTime: false)}'
                                             : 'Seleziona un giorno'),
                                     style: const TextStyle(
                                       fontSize: 16,
@@ -1346,58 +1346,17 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                                                     ),
                                                   ),
 
-                                                  // Alert e Orario affiancati
+                                                  // Orario e Alert affiancati
                                                   Expanded(
                                                     child: Padding(
                                                       padding: const EdgeInsets.all(16),
                                                       child: Row(
-                                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                                        crossAxisAlignment: CrossAxisAlignment.center,
+                                                        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                                                         children: [
-                                                          // Sezione Alert (sinistra)
-                                                          Expanded(
-                                                            child: Column(
-                                                              crossAxisAlignment: CrossAxisAlignment.start,
-                                                              children: [
-                                                                const Text(
-                                                                  'Alert',
-                                                                  style: TextStyle(
-                                                                    color: Colors.white,
-                                                                    fontSize: 16,
-                                                                    fontWeight: FontWeight.bold,
-                                                                  ),
-                                                                ),
-                                                                const SizedBox(height: 16),
-                                                                Expanded(
-                                                                  child: ListView(
-                                                                    children: [
-                                                                      _buildAlertOptionInline(context, 1, '1 ora prima', alertHours, (hours) {
-                                                                        setAlertState(() => alertHours = hours);
-                                                                      }),
-                                                                      _buildAlertOptionInline(context, 2, '2 ore prima', alertHours, (hours) {
-                                                                        setAlertState(() => alertHours = hours);
-                                                                      }),
-                                                                      _buildAlertOptionInline(context, 8, '8 ore prima', alertHours, (hours) {
-                                                                        setAlertState(() => alertHours = hours);
-                                                                      }),
-                                                                      _buildAlertOptionInline(context, 24, '1 giorno prima', alertHours, (hours) {
-                                                                        setAlertState(() => alertHours = hours);
-                                                                      }),
-                                                                      _buildAlertOptionInline(context, 48, '2 giorni prima', alertHours, (hours) {
-                                                                        setAlertState(() => alertHours = hours);
-                                                                      }),
-                                                                      _buildAlertOptionInline(context, null, 'Nessun alert', alertHours, (hours) {
-                                                                        setAlertState(() => alertHours = hours);
-                                                                      }),
-                                                                    ],
-                                                                  ),
-                                                                ),
-                                                              ],
-                                                            ),
-                                                          ),
-                                                          const SizedBox(width: 16),
-                                                          // Sezione Orario (destra)
+                                                          // Sezione Orario (sinistra)
                                                           Column(
-                                                            crossAxisAlignment: CrossAxisAlignment.center,
+                                                            mainAxisAlignment: MainAxisAlignment.center,
                                                             children: [
                                                               const Text(
                                                                 'Orario',
@@ -1450,6 +1409,52 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                                                                     ),
                                                                   ),
                                                                 ],
+                                                              ),
+                                                            ],
+                                                          ),
+
+                                                          const SizedBox(width: 24),
+
+                                                          // Sezione Alert (destra) - Picker rotellina
+                                                          Column(
+                                                            mainAxisAlignment: MainAxisAlignment.center,
+                                                            children: [
+                                                              const Text(
+                                                                'Alert',
+                                                                style: TextStyle(
+                                                                  color: Colors.white,
+                                                                  fontSize: 16,
+                                                                  fontWeight: FontWeight.bold,
+                                                                ),
+                                                              ),
+                                                              const SizedBox(height: 16),
+                                                              SizedBox(
+                                                                width: 150,
+                                                                height: 200,
+                                                                child: CupertinoPicker(
+                                                                  scrollController: FixedExtentScrollController(
+                                                                    initialItem: () {
+                                                                      // Mappa alertHours all'indice corretto
+                                                                      final alertOptions = [1, 2, 8, 24, 48, null];
+                                                                      final index = alertOptions.indexOf(alertHours);
+                                                                      return index == -1 ? 0 : index;
+                                                                    }(),
+                                                                  ),
+                                                                  itemExtent: 40,
+                                                                  onSelectedItemChanged: (index) {
+                                                                    // Mappa indice a ore
+                                                                    const alertOptions = [1, 2, 8, 24, 48, null];
+                                                                    setAlertState(() => alertHours = alertOptions[index]);
+                                                                  },
+                                                                  children: const [
+                                                                    Center(child: Text('1 ora prima', style: TextStyle(color: Colors.white, fontSize: 16))),
+                                                                    Center(child: Text('2 ore prima', style: TextStyle(color: Colors.white, fontSize: 16))),
+                                                                    Center(child: Text('8 ore prima', style: TextStyle(color: Colors.white, fontSize: 16))),
+                                                                    Center(child: Text('1 giorno prima', style: TextStyle(color: Colors.white, fontSize: 16))),
+                                                                    Center(child: Text('2 giorni prima', style: TextStyle(color: Colors.white, fontSize: 16))),
+                                                                    Center(child: Text('Nessun alert', style: TextStyle(color: Colors.white, fontSize: 16))),
+                                                                  ],
+                                                                ),
                                                               ),
                                                             ],
                                                           ),
@@ -1566,13 +1571,15 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                                       // Determina se è stato creato da me
                                       final isMe = todo.senderId == _myDeviceId;
 
-                                      // Formatta la data
+                                      // Formatta la data come in chat
                                       String? formattedDate;
                                       if (todo.dueDate != null) {
                                         if (todo.rangeEnd != null) {
-                                          formattedDate = '${DateFormat('dd/MM').format(todo.dueDate!)} - ${DateFormat('dd/MM').format(todo.rangeEnd!)}';
+                                          // È un range: formatta in modo intelligente
+                                          formattedDate = _formatDateRange(todo.dueDate!, todo.rangeEnd!);
                                         } else {
-                                          formattedDate = DateFormat('HH:mm').format(todo.dueDate!);
+                                          // Data singola con ora in formato colloquiale
+                                          formattedDate = _formatTodoDate(todo.dueDate!, includeTime: true);
                                         }
                                       }
 
