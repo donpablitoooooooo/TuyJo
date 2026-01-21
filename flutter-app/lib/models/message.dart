@@ -148,6 +148,7 @@ class Message {
   bool? read; // true quando il destinatario ha visualizzato il messaggio
   DateTime? readAt; // timestamp di quando è stato letto
   bool isPending; // true quando il messaggio è ancora in fase di invio (ottimistico)
+  bool? deleted; // true quando il messaggio è stato eliminato (mostra "Messaggio eliminato")
 
   // Allegati (foto, video, documenti)
   List<Attachment>? attachments;
@@ -181,6 +182,7 @@ class Message {
     this.read,
     this.readAt,
     this.isPending = false,
+    this.deleted,
     this.attachments,
     this.reaction,
     this.action,
@@ -257,6 +259,7 @@ class Message {
       delivered: data['delivered'],
       read: data['read'],
       readAt: data['read_at'] != null ? DateTime.parse(data['read_at']) : null,
+      deleted: data['deleted'],
       attachments: attachments,
       reaction: reaction,
       action: action,

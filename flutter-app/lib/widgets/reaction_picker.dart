@@ -81,13 +81,28 @@ class ReactionPicker extends StatelessWidget {
 
               // Actions (testi con effetti logici)
               if (onActionSelected != null) ...[
-                if (message.messageType == 'todo')
+                if (message.messageType == 'todo') ...[
                   _buildActionButton(
                     'complete',
                     'Segna come completato',
                     Icons.check_circle_outline,
                     context,
                   ),
+                  const SizedBox(height: 8),
+                  _buildActionButton(
+                    'edit',
+                    'Modifica',
+                    Icons.edit_outlined,
+                    context,
+                  ),
+                  const SizedBox(height: 8),
+                  _buildActionButton(
+                    'delete',
+                    'Elimina',
+                    Icons.delete_outline,
+                    context,
+                  ),
+                ],
                 if (message.messageType == 'location_share')
                   _buildActionButton(
                     'stop_sharing',

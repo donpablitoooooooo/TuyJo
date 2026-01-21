@@ -1116,6 +1116,70 @@ class ChatService extends ChangeNotifier {
     }
   }
 
+  /// Marca un messaggio come eliminato
+  Future<bool> deleteMessage(
+    String messageId,
+    String familyChatId,
+  ) async {
+    try {
+      if (kDebugMode) {
+        print('🗑️ [deleteMessage] Starting...');
+        print('   messageId: $messageId');
+        print('   familyChatId: $familyChatId');
+      }
+
+      // Aggiorna il messaggio in Firestore con il flag deleted
+      final messageRef = _firestore
+          .collection('families')
+          .doc(familyChatId)
+          .collection('messages')
+          .doc(messageId);
+
+      if (kDebugMode) {
+        print('📤 [deleteMessage] Updating Firestore...');
+      }
+
+      await messageRef.update({
+        'deleted': true,
+      });
+
+      if (kDebugMode) {
+        print('✅ [deleteMessage] Firestore updated successfully');
+      }
+
+      // Aggiorna il messaggio locale nella lista
+      final index = _messages.indexWhere((m) => m.id == messageId);
+      if (index != -1) {
+        _messages[index].deleted = true;
+
+        // Aggiorna anche la cache SQLite
+        await _cacheService.saveMessage(_messages[index], familyChatId);
+
+        if (kDebugMode) {
+          print('✅ [deleteMessage] Local cache updated successfully');
+        }
+      } else {
+        if (kDebugMode) {
+          print('⚠️ [deleteMessage] Message not found in local list, will be updated by Firestore listener');
+        }
+      }
+
+      // Chiama notifyListeners per forzare rebuild
+      notifyListeners();
+
+      if (kDebugMode) {
+        print('✅ [deleteMessage] Message $messageId marked as deleted');
+      }
+      return true;
+    } catch (e, stackTrace) {
+      if (kDebugMode) {
+        print('❌ [deleteMessage] Error: $e');
+        print('Stack trace: $stackTrace');
+      }
+      return false;
+    }
+  }
+
   /// Decripta un messaggio e popola i campi aggiuntivi (messageType, dueDate, ecc.)
   /// Schedula notifiche per i todo
   void _decryptAndPopulateMessage(Message message, String myDeviceId) {

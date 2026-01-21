@@ -557,23 +557,55 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
 
     final chatService = Provider.of<ChatService>(context, listen: false);
 
-    await chatService.addAction(
-      messageId,
-      _familyChatId!,
-      _myDeviceId!,
-      actionType,
-    );
-
-    if (kDebugMode) print('✅ Action $actionType added to message: $messageId');
-
     // Gestisci effetti logici delle azioni
     if (actionType == 'stop_sharing' && message.messageType == 'location_share') {
+      await chatService.addAction(
+        messageId,
+        _familyChatId!,
+        _myDeviceId!,
+        actionType,
+      );
       final locationService = Provider.of<LocationService>(context, listen: false);
       await locationService.stopSharingLocation();
       if (kDebugMode) print('🛑 Location sharing stopped via action');
     } else if (actionType == 'complete' && message.messageType == 'todo') {
-      // La logica todo_completed esiste già, potrebbe essere refactorizzata per usare actions
+      await chatService.addAction(
+        messageId,
+        _familyChatId!,
+        _myDeviceId!,
+        actionType,
+      );
       if (kDebugMode) print('✅ Todo marked as completed via action');
+    } else if (actionType == 'edit' && message.messageType == 'todo') {
+      // Modifica: popola i campi e apri il calendario
+      if (kDebugMode) print('✏️ Editing todo: $messageId');
+      setState(() {
+        _selectedTodoDate = message.dueDate;
+        _selectedRangeStart = message.dueDate;
+        _selectedRangeEnd = message.rangeEnd;
+        _isRangeSelection = message.rangeEnd != null;
+        _messageController.text = message.decryptedContent ?? '';
+        // Note: reminderHours non è salvato nel messaggio, quindi non possiamo ripristinarlo
+      });
+
+      // Marca il messaggio originale come eliminato
+      await chatService.deleteMessage(messageId, _familyChatId!);
+
+      // Apri il calendario per modificare
+      _showTodoCalendar();
+    } else if (actionType == 'delete' && message.messageType == 'todo') {
+      // Elimina: marca come deleted
+      if (kDebugMode) print('🗑️ Deleting todo: $messageId');
+      await chatService.deleteMessage(messageId, _familyChatId!);
+    } else {
+      // Azione generica
+      await chatService.addAction(
+        messageId,
+        _familyChatId!,
+        _myDeviceId!,
+        actionType,
+      );
+      if (kDebugMode) print('✅ Action $actionType added to message: $messageId');
     }
   }
 
@@ -2878,8 +2910,21 @@ class _MessageBubble extends StatelessWidget {
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              // Testo del messaggio (se presente)
-                              if (message.isNotEmpty) ...[
+                              // Mostra "Messaggio eliminato" se deleted == true
+                              if (messageObject?.deleted == true) ...[
+                                Text(
+                                  'Messaggio eliminato',
+                                  style: TextStyle(
+                                    color: isMe ? Colors.white.withOpacity(0.7) : Colors.black54,
+                                    fontSize: 15,
+                                    height: 1.4,
+                                    fontStyle: FontStyle.italic,
+                                  ),
+                                ),
+                                const SizedBox(height: 4),
+                              ]
+                              // Testo del messaggio (se presente e non eliminato)
+                              else if (message.isNotEmpty) ...[
                               Linkify(
                                 onOpen: (link) async {
                                   try {
