@@ -1760,8 +1760,8 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                             // Verifica se il todo è stato completato
                             bool isTodoCompleted = false;
                             if (message.messageType == 'todo') {
-                              // TODO completato se ha reaction DONE oppure messaggio todo_completed
-                              isTodoCompleted = message.reaction?.type == 'done' ||
+                              // TODO completato se ha action COMPLETE oppure messaggio todo_completed
+                              isTodoCompleted = message.action?.type == 'complete' ||
                                   chatService.messages.any((m) =>
                                       m.messageType == 'todo_completed' &&
                                       m.originalTodoId == message.id);
