@@ -1242,9 +1242,9 @@ class ChatService extends ChangeNotifier {
           .doc(messageId);
 
       await messageRef.update({
-        'message': encrypted['ciphertext'],
-        'encrypted_key_recipient': encrypted['encrypted_key_recipient'],
-        'encrypted_key_sender': encrypted['encrypted_key_sender'],
+        'message': encrypted['message'],
+        'encrypted_key_recipient': encrypted['encryptedKeyRecipient'],
+        'encrypted_key_sender': encrypted['encryptedKeySender'],
         'iv': encrypted['iv'],
       });
 
