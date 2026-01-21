@@ -601,7 +601,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
 
       // Se è un todo, apri anche il calendario
       if (message.messageType == 'todo') {
-        _showTodoCalendar();
+        _showDateTimePicker();
       }
     } else if (actionType == 'delete') {
       // Elimina: marca come deleted

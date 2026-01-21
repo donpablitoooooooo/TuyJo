@@ -1250,29 +1250,11 @@ class ChatService extends ChangeNotifier {
 
       if (kDebugMode) {
         print('✅ [updateMessage] Firestore updated successfully');
+        print('   Il listener Firestore aggiornerà il messaggio locale automaticamente');
       }
 
-      // Aggiorna il messaggio locale nella lista
-      final index = _messages.indexWhere((m) => m.id == messageId);
-      if (index != -1) {
-        _messages[index].encryptedMessage = encrypted['ciphertext'];
-        _messages[index].encryptedKeyRecipient = encrypted['encrypted_key_recipient'];
-        _messages[index].encryptedKeySender = encrypted['encrypted_key_sender'];
-        _messages[index].iv = encrypted['iv'];
-
-        // Decripta e popola i nuovi dati
-        _decryptAndPopulateMessage(_messages[index], myDeviceId);
-
-        // Aggiorna anche la cache SQLite
-        await _cacheService.saveMessage(_messages[index], familyChatId);
-
-        if (kDebugMode) {
-          print('✅ [updateMessage] Local cache updated successfully');
-        }
-      }
-
-      // Chiama notifyListeners per forzare rebuild
-      notifyListeners();
+      // Il listener Firestore aggiornerà automaticamente il messaggio locale
+      // Non è necessario modificare _messages manualmente poiché i campi sono final
 
       if (kDebugMode) {
         print('✅ [updateMessage] Message $messageId updated successfully');
