@@ -25,6 +25,7 @@ import '../widgets/todo_bubble.dart';
 import '../widgets/attachment_widgets.dart';
 import '../widgets/reaction_picker.dart';
 import '../widgets/reaction_overlay.dart';
+import 'chat_screen_dismissible.dart';
 import 'pdf_viewer_screen.dart';
 import 'location_sharing_screen.dart';
 
@@ -1067,140 +1068,26 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
               ? _getTodosForDayInCalendar(dayToShowTodos!)
               : <Message>[];
 
-          return Container(
-            height: MediaQuery.of(context).size.height,
-            decoration: const BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
-                colors: [Color(0xFF3BA8B0), Color(0xFF145A60)],
+          return DismissiblePane(
+            onDismissed: () => Navigator.pop(context),
+            child: Container(
+              height: MediaQuery.of(context).size.height,
+              decoration: const BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [Color(0xFF3BA8B0), Color(0xFF145A60)],
+                ),
               ),
-            ),
-            child: SafeArea(
-              child: Column(
-                children: [
-                  // Header con X a sinistra e + a destra
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        IconButton(
-                          onPressed: () {
-                            // Se c'è una data selezionata, cancellala
-                            if (_selectedTodoDate != null) {
-                              Navigator.pop(context, clearResult);
-                            } else {
-                              Navigator.pop(context);
-                            }
-                          },
-                          icon: const Icon(Icons.close, color: Colors.white, size: 28),
-                        ),
-                        IconButton(
-                          onPressed: () async {
-                            // Mostra menu per selezionare l'alert
-                            if (rangeStart == null) {
-                              // Nessuna data selezionata, non fare nulla
-                              return;
-                            }
+              child: SafeArea(
+                child: Column(
+                  children: [
+                    const SizedBox(height: 16),
 
-                            // Mostra menu alert selection
-                            final alertHours = await showModalBottomSheet<int?>(
-                              context: context,
-                              backgroundColor: Colors.transparent,
-                              builder: (context) => Container(
-                                decoration: const BoxDecoration(
-                                  gradient: LinearGradient(
-                                    begin: Alignment.topCenter,
-                                    end: Alignment.bottomCenter,
-                                    colors: [Color(0xFF3BA8B0), Color(0xFF145A60)],
-                                  ),
-                                  borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-                                ),
-                                child: SafeArea(
-                                  child: Column(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      Padding(
-                                        padding: const EdgeInsets.all(16),
-                                        child: Text(
-                                          'Quando vuoi ricevere l\'alert?',
-                                          style: const TextStyle(
-                                            color: Colors.white,
-                                            fontSize: 18,
-                                            fontWeight: FontWeight.bold,
-                                          ),
-                                        ),
-                                      ),
-                                      _buildAlertOption(context, 1, '1 ora prima'),
-                                      _buildAlertOption(context, 2, '2 ore prima'),
-                                      _buildAlertOption(context, 8, '8 ore prima'),
-                                      _buildAlertOption(context, 24, '1 giorno prima'),
-                                      _buildAlertOption(context, 48, '2 giorni prima'),
-                                      _buildAlertOption(context, null, 'Nessun alert'),
-                                      const SizedBox(height: 8),
-                                    ],
-                                  ),
-                                ),
-                              ),
-                            );
-
-                            // Aggiorna selectedReminderHours se è stato selezionato un valore
-                            if (alertHours != null || alertHours == null) {
-                              setModalState(() {
-                                selectedReminderHours = alertHours;
-                              });
-                            }
-
-                            // Conferma e chiudi con i dati selezionati
-                            if (rangeStart != null && rangeEnd != null) {
-                              // Range selezionato: ritorna range senza ora
-                              Navigator.pop(context, {
-                                'isRange': true,
-                                'rangeStart': rangeStart,
-                                'rangeEnd': rangeEnd,
-                                'reminderHours': selectedReminderHours,
-                              });
-                            } else if (rangeStart != null) {
-                              // Data singola: ritorna con ora 10:00
-                              final dueDate = DateTime(
-                                selectedDate.year,
-                                selectedDate.month,
-                                selectedDate.day,
-                                10,
-                                0,
-                              );
-                              Navigator.pop(context, {
-                                'isRange': false,
-                                'date': dueDate,
-                                'reminderHours': selectedReminderHours,
-                              });
-                            }
-                          },
-                          icon: const Icon(Icons.add_circle, color: Colors.white, size: 32),
-                          tooltip: 'Aggiungi alert e conferma',
-                        ),
-                      ],
-                    ),
-                  ),
-
-                  const SizedBox(height: 16),
-
-                  // Calendario in container bianco
-                  Container(
-                    margin: const EdgeInsets.symmetric(horizontal: 16),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(16),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withOpacity(0.1),
-                          blurRadius: 10,
-                          offset: const Offset(0, 4),
-                        ),
-                      ],
-                    ),
-                    child: TableCalendar(
+                    // Calendario con sfondo verde trasparente
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      child: TableCalendar(
                       locale: Localizations.localeOf(context).toString(),
                       firstDay: DateTime.now(),
                       lastDay: DateTime.now().add(const Duration(days: 365)),
@@ -1210,41 +1097,56 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                       rangeSelectionMode: RangeSelectionMode.toggledOn,
                       eventLoader: _getTodosForDayInCalendar,
                       calendarStyle: CalendarStyle(
+                        defaultTextStyle: const TextStyle(color: Colors.white),
+                        weekendTextStyle: const TextStyle(color: Colors.white70),
+                        outsideTextStyle: const TextStyle(color: Colors.white30),
+                        selectedDecoration: BoxDecoration(
+                          color: Colors.white.withOpacity(0.9),
+                          shape: BoxShape.circle,
+                        ),
+                        selectedTextStyle: const TextStyle(color: Color(0xFF3BA8B0), fontWeight: FontWeight.bold),
                         todayDecoration: BoxDecoration(
-                          color: const Color(0xFF3BA8B0).withOpacity(0.3),
+                          color: Colors.white.withOpacity(0.3),
                           shape: BoxShape.circle,
                         ),
-                        selectedDecoration: const BoxDecoration(
-                          color: Color(0xFF3BA8B0),
+                        todayTextStyle: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                        rangeStartDecoration: BoxDecoration(
+                          color: Colors.white.withOpacity(0.9),
                           shape: BoxShape.circle,
                         ),
-                        rangeStartDecoration: const BoxDecoration(
-                          color: Color(0xFF3BA8B0),
+                        rangeStartTextStyle: const TextStyle(color: Color(0xFF3BA8B0), fontWeight: FontWeight.bold),
+                        rangeEndDecoration: BoxDecoration(
+                          color: Colors.white.withOpacity(0.9),
                           shape: BoxShape.circle,
                         ),
-                        rangeEndDecoration: const BoxDecoration(
-                          color: Color(0xFF3BA8B0),
-                          shape: BoxShape.circle,
-                        ),
-                        rangeHighlightColor: const Color(0xFF3BA8B0).withOpacity(0.2),
+                        rangeEndTextStyle: const TextStyle(color: Color(0xFF3BA8B0), fontWeight: FontWeight.bold),
+                        rangeHighlightColor: Colors.white.withOpacity(0.2),
                         withinRangeDecoration: BoxDecoration(
-                          color: const Color(0xFF3BA8B0).withOpacity(0.1),
+                          color: Colors.white.withOpacity(0.15),
                           shape: BoxShape.circle,
                         ),
-                        markerDecoration: const BoxDecoration(
-                          color: Color(0xFF145A60),
+                        withinRangeTextStyle: const TextStyle(color: Colors.white),
+                        markerDecoration: BoxDecoration(
+                          color: Colors.white.withOpacity(0.8),
                           shape: BoxShape.circle,
                         ),
                         markersAlignment: Alignment.bottomCenter,
                         markersMaxCount: 3,
                       ),
-                      headerStyle: const HeaderStyle(
+                      headerStyle: HeaderStyle(
                         formatButtonVisible: false,
                         titleCentered: true,
-                        titleTextStyle: TextStyle(
-                          fontSize: 17,
+                        titleTextStyle: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 18,
                           fontWeight: FontWeight.bold,
                         ),
+                        leftChevronIcon: const Icon(Icons.chevron_left, color: Colors.white),
+                        rightChevronIcon: const Icon(Icons.chevron_right, color: Colors.white),
+                      ),
+                      daysOfWeekStyle: const DaysOfWeekStyle(
+                        weekdayStyle: TextStyle(color: Colors.white70, fontWeight: FontWeight.bold),
+                        weekendStyle: TextStyle(color: Colors.white70, fontWeight: FontWeight.bold),
                       ),
                       onDaySelected: (selectedDay, focusedDay) {
                         setModalState(() {
@@ -1319,21 +1221,41 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                                     ),
                                   ),
                                 ),
-                                if (todosForDay.isNotEmpty)
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                    decoration: BoxDecoration(
-                                      color: const Color(0xFF3BA8B0),
-                                      borderRadius: BorderRadius.circular(12),
-                                    ),
-                                    child: Text(
-                                      '${todosForDay.length}',
-                                      style: const TextStyle(
-                                        color: Colors.white,
-                                        fontSize: 12,
-                                        fontWeight: FontWeight.bold,
-                                      ),
-                                    ),
+                                if (rangeStart != null)
+                                  IconButton(
+                                    onPressed: () async {
+                                      // Mostra menu per selezionare alert e orario
+                                      final result = await _showAlertAndTimePicker(context, selectedReminderHours);
+
+                                      if (result != null) {
+                                        // Conferma e chiudi con i dati selezionati
+                                        if (rangeStart != null && rangeEnd != null) {
+                                          // Range selezionato: ritorna range senza ora
+                                          Navigator.pop(context, {
+                                            'isRange': true,
+                                            'rangeStart': rangeStart,
+                                            'rangeEnd': rangeEnd,
+                                            'reminderHours': result['alertHours'],
+                                          });
+                                        } else if (rangeStart != null) {
+                                          // Data singola: ritorna con ora selezionata
+                                          final dueDate = DateTime(
+                                            selectedDate.year,
+                                            selectedDate.month,
+                                            selectedDate.day,
+                                            result['hour'] ?? 10,
+                                            result['minute'] ?? 0,
+                                          );
+                                          Navigator.pop(context, {
+                                            'isRange': false,
+                                            'date': dueDate,
+                                            'reminderHours': result['alertHours'],
+                                          });
+                                        }
+                                      }
+                                    },
+                                    icon: const Icon(Icons.add_circle, color: Color(0xFF3BA8B0), size: 32),
+                                    tooltip: 'Aggiungi alert e conferma',
                                   ),
                               ],
                             ),
@@ -1416,7 +1338,8 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                 ],
               ),
             ),
-          );
+          ),
+        );
         },  // Fine builder function dello StatefulBuilder
       ),  // Fine StatefulBuilder
     );  // Fine showModalBottomSheet
@@ -2307,6 +2230,209 @@ class _AttachmentPreview extends StatelessWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  /// Mostra menu per selezionare alert e orario
+  Future<Map<String, dynamic>?> _showAlertAndTimePicker(BuildContext context, int? currentAlertHours) async {
+    int? alertHours = currentAlertHours;
+    int selectedHour = 10;
+    int selectedMinute = 0;
+
+    return await showModalBottomSheet<Map<String, dynamic>?>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setState) => Container(
+          height: MediaQuery.of(context).size.height * 0.6,
+          decoration: const BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: [Color(0xFF3BA8B0), Color(0xFF145A60)],
+            ),
+            borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+          ),
+          child: SafeArea(
+            child: Column(
+              children: [
+                Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Text(
+                    'Quando vuoi ricevere l\'alert?',
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+
+                // Sezione Alert
+                Expanded(
+                  child: ListView(
+                    children: [
+                      _buildAlertOptionWithState(context, 1, '1 ora prima', alertHours, (hours) {
+                        setState(() => alertHours = hours);
+                      }),
+                      _buildAlertOptionWithState(context, 2, '2 ore prima', alertHours, (hours) {
+                        setState(() => alertHours = hours);
+                      }),
+                      _buildAlertOptionWithState(context, 8, '8 ore prima', alertHours, (hours) {
+                        setState(() => alertHours = hours);
+                      }),
+                      _buildAlertOptionWithState(context, 24, '1 giorno prima', alertHours, (hours) {
+                        setState(() => alertHours = hours);
+                      }),
+                      _buildAlertOptionWithState(context, 48, '2 giorni prima', alertHours, (hours) {
+                        setState(() => alertHours = hours);
+                      }),
+                      _buildAlertOptionWithState(context, null, 'Nessun alert', alertHours, (hours) {
+                        setState(() => alertHours = hours);
+                      }),
+                    ],
+                  ),
+                ),
+
+                const Divider(color: Colors.white30, height: 1),
+
+                // Sezione Orario
+                Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    children: [
+                      const Text(
+                        'Orario',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          // Hour
+                          SizedBox(
+                            width: 80,
+                            height: 120,
+                            child: CupertinoPicker(
+                              scrollController: FixedExtentScrollController(initialItem: selectedHour),
+                              itemExtent: 40,
+                              onSelectedItemChanged: (index) {
+                                selectedHour = index;
+                              },
+                              children: List.generate(24, (index) => Center(
+                                child: Text(
+                                  index.toString().padLeft(2, '0'),
+                                  style: const TextStyle(color: Colors.white, fontSize: 24),
+                                ),
+                              )),
+                            ),
+                          ),
+                          const Padding(
+                            padding: EdgeInsets.symmetric(horizontal: 8),
+                            child: Text(':', style: TextStyle(color: Colors.white, fontSize: 24)),
+                          ),
+                          // Minute
+                          SizedBox(
+                            width: 80,
+                            height: 120,
+                            child: CupertinoPicker(
+                              scrollController: FixedExtentScrollController(initialItem: selectedMinute),
+                              itemExtent: 40,
+                              onSelectedItemChanged: (index) {
+                                selectedMinute = index;
+                              },
+                              children: List.generate(60, (index) => Center(
+                                child: Text(
+                                  index.toString().padLeft(2, '0'),
+                                  style: const TextStyle(color: Colors.white, fontSize: 24),
+                                ),
+                              )),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+
+                // Bottone conferma
+                Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: ElevatedButton(
+                    onPressed: () {
+                      Navigator.pop(context, {
+                        'alertHours': alertHours,
+                        'hour': selectedHour,
+                        'minute': selectedMinute,
+                      });
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.white,
+                      foregroundColor: const Color(0xFF3BA8B0),
+                      minimumSize: const Size(double.infinity, 50),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                    child: const Text('Conferma', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// Costruisce un'opzione per il menu di selezione alert con stato selezionato
+  Widget _buildAlertOptionWithState(
+    BuildContext context,
+    int? hours,
+    String label,
+    int? currentSelection,
+    Function(int?) onSelect,
+  ) {
+    final isSelected = hours == currentSelection;
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: () => onSelect(hours),
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 24),
+          decoration: BoxDecoration(
+            color: isSelected ? Colors.white.withOpacity(0.2) : Colors.transparent,
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Row(
+            children: [
+              Icon(
+                hours == null ? Icons.notifications_off : Icons.notifications_outlined,
+                color: Colors.white,
+                size: 24,
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Text(
+                  label,
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 16,
+                    fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+                  ),
+                ),
+              ),
+              if (isSelected)
+                const Icon(Icons.check, color: Colors.white, size: 24),
+            ],
+          ),
+        ),
       ),
     );
   }
