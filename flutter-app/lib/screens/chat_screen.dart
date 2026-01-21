@@ -67,6 +67,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   Set<String> _iosSharedFiles = {}; // Traccia i file temporanei copiati su iOS per pulizia
   String? _editingMessageId; // ID del messaggio che stiamo modificando (null = nuovo messaggio)
   List<Attachment> _editingAttachments = []; // Allegati esistenti del messaggio in modifica
+  String? _editingMessageSenderId; // SenderId del messaggio in modifica (per decriptare allegati)
 
   // Method Channel per condivisione file da altre app (iOS)
   static const platform = MethodChannel('com.privatemessaging.tuyjo/shared_media');
@@ -584,6 +585,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
 
       setState(() {
         _editingMessageId = messageId;
+        _editingMessageSenderId = message.senderId;
         _messageController.text = message.decryptedContent ?? '';
 
         // Popola gli allegati esistenti
@@ -1741,6 +1743,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
 
     setState(() {
       _editingMessageId = null;
+      _editingMessageSenderId = null;
       _editingAttachments = [];
       _selectedTodoDate = null;
       _isRangeSelection = false;
@@ -2482,6 +2485,9 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                             final attachment = _editingAttachments[index];
                             return _ExistingAttachmentPreview(
                               attachment: attachment,
+                              attachmentService: _attachmentService,
+                              currentUserId: _myDeviceId,
+                              messageSenderId: _editingMessageSenderId,
                               onRemove: () {
                                 setState(() {
                                   _editingAttachments.removeAt(index);
@@ -2724,17 +2730,22 @@ class _AttachmentPreview extends StatelessWidget {
 class _ExistingAttachmentPreview extends StatelessWidget {
   final Attachment attachment;
   final VoidCallback onRemove;
+  final AttachmentService? attachmentService;
+  final String? currentUserId;
+  final String? messageSenderId;
 
   const _ExistingAttachmentPreview({
     required this.attachment,
     required this.onRemove,
+    this.attachmentService,
+    this.currentUserId,
+    this.messageSenderId,
   });
 
   @override
   Widget build(BuildContext context) {
     final isImage = attachment.type == 'photo';
     final isVideo = attachment.type == 'video';
-    final isDocument = attachment.type == 'document';
 
     return Container(
       width: 80,
@@ -2748,17 +2759,52 @@ class _ExistingAttachmentPreview extends StatelessWidget {
             ),
             child: ClipRRect(
               borderRadius: BorderRadius.circular(8),
-              child: Center(
-                child: Icon(
-                  isImage
-                      ? Icons.image
-                      : isVideo
-                          ? Icons.videocam
-                          : Icons.insert_drive_file,
-                  size: 40,
-                  color: Colors.grey[600],
-                ),
-              ),
+              child: isImage && attachmentService != null && currentUserId != null && messageSenderId != null
+                  ? FutureBuilder<Uint8List?>(
+                      future: attachmentService!.downloadAndDecryptAttachment(
+                        attachment,
+                        currentUserId!,
+                        messageSenderId!,
+                      ),
+                      builder: (context, snapshot) {
+                        if (snapshot.connectionState == ConnectionState.waiting) {
+                          return const SizedBox(
+                            width: 80,
+                            height: 80,
+                            child: Center(
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            ),
+                          );
+                        }
+                        if (snapshot.hasData && snapshot.data != null) {
+                          return Image.memory(
+                            snapshot.data!,
+                            fit: BoxFit.cover,
+                            width: 80,
+                            height: 80,
+                          );
+                        }
+                        // Fallback su icona se caricamento fallisce
+                        return Center(
+                          child: Icon(
+                            Icons.image,
+                            size: 40,
+                            color: Colors.grey[600],
+                          ),
+                        );
+                      },
+                    )
+                  : Center(
+                      child: Icon(
+                        isImage
+                            ? Icons.image
+                            : isVideo
+                                ? Icons.videocam
+                                : Icons.insert_drive_file,
+                        size: 40,
+                        color: Colors.grey[600],
+                      ),
+                    ),
             ),
           ),
           Positioned(
