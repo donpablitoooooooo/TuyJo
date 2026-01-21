@@ -66,6 +66,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   bool _isUploadingAttachments = false; // Stato di upload allegati
   Set<String> _iosSharedFiles = {}; // Traccia i file temporanei copiati su iOS per pulizia
   String? _editingMessageId; // ID del messaggio che stiamo modificando (null = nuovo messaggio)
+  List<Attachment> _editingAttachments = []; // Allegati esistenti del messaggio in modifica
 
   // Method Channel per condivisione file da altre app (iOS)
   static const platform = MethodChannel('com.privatemessaging.tuyjo/shared_media');
@@ -581,22 +582,14 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       // Modifica: popola i campi (per tutti i messaggi tranne location_share)
       if (kDebugMode) print('✏️ Editing message: $messageId');
 
-      // Per ora non permettiamo di modificare messaggi con allegati
-      if (message.attachments != null && message.attachments!.isNotEmpty) {
-        final l10n = AppLocalizations.of(context)!;
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: const Text('Non puoi modificare messaggi con allegati. Eliminalo e ricrealo.'),
-            backgroundColor: Colors.orange,
-            duration: const Duration(seconds: 3),
-          ),
-        );
-        return;
-      }
-
       setState(() {
         _editingMessageId = messageId;
         _messageController.text = message.decryptedContent ?? '';
+
+        // Popola gli allegati esistenti
+        _editingAttachments = message.attachments != null
+            ? List<Attachment>.from(message.attachments!)
+            : [];
 
         // Se è un todo, popola anche le date
         if (message.messageType == 'todo') {
@@ -1736,6 +1729,9 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     final todoDate = _selectedTodoDate;
     final rangeEnd = _selectedRangeEnd;
 
+    // Salva gli allegati rimasti prima di resettare
+    final remainingAttachments = List<Attachment>.from(_editingAttachments);
+
     if (messageText.isEmpty) {
       print('❌ Cannot update with empty message');
       return;
@@ -1745,6 +1741,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
 
     setState(() {
       _editingMessageId = null;
+      _editingAttachments = [];
       _selectedTodoDate = null;
       _isRangeSelection = false;
       _selectedRangeStart = null;
@@ -1768,6 +1765,27 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     final chatService = Provider.of<ChatService>(context, listen: false);
     final encryptionService = Provider.of<EncryptionService>(context, listen: false);
 
+    // Ottieni il messaggio originale per vedere quali allegati aveva
+    final originalMessage = chatService.messages.firstWhere((m) => m.id == messageId);
+    final originalAttachments = originalMessage.attachments ?? [];
+
+    // Trova gli allegati da eliminare (quelli che erano nell'originale ma non sono più in remainingAttachments)
+    final attachmentsToDelete = originalAttachments.where((original) {
+      return !remainingAttachments.any((remaining) => remaining.id == original.id);
+    }).toList();
+
+    // Elimina gli allegati rimossi da Firebase Storage
+    if (attachmentsToDelete.isNotEmpty && _attachmentService != null) {
+      for (final attachment in attachmentsToDelete) {
+        try {
+          await _attachmentService!.deleteAttachment(attachment.url);
+          if (kDebugMode) print('🗑️ Deleted removed attachment: ${attachment.url}');
+        } catch (e) {
+          if (kDebugMode) print('❌ Failed to delete attachment: $e');
+        }
+      }
+    }
+
     // Ottieni la propria chiave pubblica
     final myPublicKey = await encryptionService.getPublicKey();
     if (myPublicKey == null) {
@@ -1779,7 +1797,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       return;
     }
 
-    // Chiama updateMessage
+    // Chiama updateMessage con gli allegati rimanenti
     final success = await chatService.updateMessage(
       messageId,
       _familyChatId!,
@@ -1789,6 +1807,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       _partnerPublicKey!,
       dueDate: todoDate,
       rangeEnd: rangeEnd,
+      attachments: remainingAttachments.isNotEmpty ? remainingAttachments : null,
     );
 
     if (success) {
@@ -2443,11 +2462,57 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                         ),
                       ),
                     ),
+                  // Preview allegati esistenti (durante modifica)
+                  if (_editingAttachments.isNotEmpty)
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      decoration: BoxDecoration(
+                        color: Colors.orange[50],
+                        border: Border(
+                          bottom: BorderSide(color: Colors.orange[200]!),
+                        ),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            'Allegati esistenti:',
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w500,
+                              color: Colors.orange,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          SizedBox(
+                            height: 80,
+                            child: ListView.builder(
+                              scrollDirection: Axis.horizontal,
+                              itemCount: _editingAttachments.length,
+                              itemBuilder: (context, index) {
+                                final attachment = _editingAttachments[index];
+                                return _ExistingAttachmentPreview(
+                                  attachment: attachment,
+                                  attachmentService: _attachmentService,
+                                  onRemove: () {
+                                    setState(() {
+                                      _editingAttachments.removeAt(index);
+                                    });
+                                  },
+                                );
+                              },
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
                   Row(
                     crossAxisAlignment: CrossAxisAlignment.center,
                     children: [
                       IconButton(
-                        onPressed: _showAttachmentPicker,
+                        onPressed: _editingMessageId != null
+                            ? null // Disabilita l'aggiunta di nuovi allegati durante la modifica
+                            : _showAttachmentPicker,
                         icon: const Icon(Icons.add_circle_outline),
                         color: _selectedAttachments.isNotEmpty
                             ? const Color(0xFF3BA8B0)
@@ -2667,6 +2732,85 @@ class _AttachmentPreview extends StatelessWidget {
     );
   }
 
+}
+
+/// Widget per mostrare allegati esistenti durante la modifica
+class _ExistingAttachmentPreview extends StatelessWidget {
+  final Attachment attachment;
+  final VoidCallback onRemove;
+  final AttachmentService? attachmentService;
+
+  const _ExistingAttachmentPreview({
+    required this.attachment,
+    required this.onRemove,
+    this.attachmentService,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final isImage = attachment.type == 'photo';
+
+    return Container(
+      width: 80,
+      margin: const EdgeInsets.only(right: 8),
+      child: Stack(
+        children: [
+          Container(
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(8),
+              color: Colors.grey[300],
+            ),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(8),
+              child: isImage && attachmentService != null
+                  ? FutureBuilder<Uint8List>(
+                      future: attachmentService!.downloadAttachment(attachment),
+                      builder: (context, snapshot) {
+                        if (snapshot.hasData) {
+                          return Image.memory(
+                            snapshot.data!,
+                            fit: BoxFit.cover,
+                            width: 80,
+                            height: 80,
+                          );
+                        }
+                        return const Center(
+                          child: CircularProgressIndicator(),
+                        );
+                      },
+                    )
+                  : Center(
+                      child: Icon(
+                        Icons.insert_drive_file,
+                        size: 32,
+                        color: Colors.grey[600],
+                      ),
+                    ),
+            ),
+          ),
+          Positioned(
+            top: 4,
+            right: 4,
+            child: GestureDetector(
+              onTap: onRemove,
+              child: Container(
+                padding: const EdgeInsets.all(4),
+                decoration: const BoxDecoration(
+                  color: Colors.red,
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(
+                  Icons.close,
+                  size: 16,
+                  color: Colors.white,
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 }
 
 /// Widget per mostrare preview data/range/alert selezionata per todo

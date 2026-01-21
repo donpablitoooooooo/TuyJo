@@ -1190,6 +1190,7 @@ class ChatService extends ChangeNotifier {
     String partnerPublicKey, {
     DateTime? dueDate,
     DateTime? rangeEnd,
+    List<Attachment>? attachments,
   }) async {
     try {
       if (kDebugMode) {
@@ -1241,12 +1242,21 @@ class ChatService extends ChangeNotifier {
           .collection('messages')
           .doc(messageId);
 
-      await messageRef.update({
+      final updateData = {
         'message': encrypted['message'],
         'encrypted_key_recipient': encrypted['encryptedKeyRecipient'],
         'encrypted_key_sender': encrypted['encryptedKeySender'],
         'iv': encrypted['iv'],
-      });
+      };
+
+      // Aggiorna anche gli allegati se forniti (null rimuove tutti gli allegati)
+      if (attachments != null) {
+        updateData['attachments'] = attachments.map((a) => a.toJson()).toList();
+      } else {
+        updateData['attachments'] = []; // Rimuovi tutti gli allegati
+      }
+
+      await messageRef.update(updateData);
 
       if (kDebugMode) {
         print('✅ [updateMessage] Firestore updated successfully');
