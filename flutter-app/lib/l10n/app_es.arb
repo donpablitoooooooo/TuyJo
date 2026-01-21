@@ -185,5 +185,22 @@
     "notificationChannelMessages": "Mensajes",
     "notificationChannelMessagesDescription": "Notificaciones de nuevos mensajes",
     "notificationChannelTodos": "Recordatorios To Do",
-    "notificationChannelTodosDescription": "Notificaciones de recordatorios de eventos"
+    "notificationChannelTodosDescription": "Notificaciones de recordatorios de eventos",
+    "actionStopSharing": "Detener compartir",
+    "actionMarkCompleted": "Marcar como completado",
+    "actionEdit": "Editar",
+    "actionDelete": "Eliminar",
+    "messageDeleted": "Mensaje eliminado",
+    "timePickerLabel": "Hora",
+    "alertPickerLabel": "Alerta",
+    "alertNone": "Sin alerta",
+    "alert1HourBefore": "1 hora antes",
+    "alert2HoursBefore": "2 horas antes",
+    "alert8HoursBefore": "8 horas antes",
+    "alert1DayBefore": "1 día antes",
+    "alert2DaysBefore": "2 días antes",
+    "chatUpdateMessageError": "Error al actualizar el mensaje",
+    "locationShareDefault": "Ubicación",
+    "locationShareExpired": "Caducada",
+    "locationShareLessThanMinute": "< 1m"
 }

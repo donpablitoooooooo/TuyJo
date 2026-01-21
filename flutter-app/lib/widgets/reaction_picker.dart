@@ -1,6 +1,7 @@
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:flutter_gen/gen_l10n/app_localizations.dart';
 import '../models/message.dart';
 import '../services/attachment_service.dart';
 import 'reaction_icon.dart';
@@ -84,7 +85,7 @@ class ReactionPicker extends StatelessWidget {
                 if (message.messageType == 'location_share') ...[
                   _buildActionButton(
                     'stop_sharing',
-                    'Interrompi condivisione',
+                    AppLocalizations.of(context)!.actionStopSharing,
                     Icons.stop_circle_outlined,
                     context,
                   ),
@@ -93,7 +94,7 @@ class ReactionPicker extends StatelessWidget {
                   if (message.messageType == 'todo') ...[
                     _buildActionButton(
                       'complete',
-                      'Segna come completato',
+                      AppLocalizations.of(context)!.actionMarkCompleted,
                       Icons.check_circle_outline,
                       context,
                     ),
@@ -101,14 +102,14 @@ class ReactionPicker extends StatelessWidget {
                   ],
                   _buildActionButton(
                     'edit',
-                    'Modifica',
+                    AppLocalizations.of(context)!.actionEdit,
                     Icons.edit_outlined,
                     context,
                   ),
                   const SizedBox(height: 8),
                   _buildActionButton(
                     'delete',
-                    'Elimina',
+                    AppLocalizations.of(context)!.actionDelete,
                     Icons.delete_outline,
                     context,
                   ),

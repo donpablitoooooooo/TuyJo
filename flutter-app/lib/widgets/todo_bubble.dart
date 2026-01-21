@@ -189,7 +189,7 @@ class TodoMessageBubble extends StatelessWidget {
                           // Mostra "Messaggio eliminato" se deleted == true
                           if (message.deleted == true)
                             Text(
-                              'Messaggio eliminato',
+                              l10n.messageDeleted,
                               style: TextStyle(
                                 color: isMe ? Colors.white.withOpacity(0.7) : Colors.black54,
                                 fontSize: 15,

@@ -608,7 +608,7 @@ class AttachmentLocationShare extends StatelessWidget {
   }) : super(key: key);
 
   /// Estrae il testo personalizzato dal messaggio (se presente)
-  String _getCustomText() {
+  String _getCustomText(BuildContext context) {
     if (message.decryptedContent != null && message.decryptedContent!.contains('|')) {
       final parts = message.decryptedContent!.split('|');
       // Formato: location_share|expiresAt|sessionId|customText
@@ -616,20 +616,22 @@ class AttachmentLocationShare extends StatelessWidget {
         return parts[3];
       }
     }
-    return 'Posizione'; // Default
+    final l10n = AppLocalizations.of(context)!;
+    return l10n.locationShareDefault; // Default
   }
 
   /// Calcola il tempo rimanente prima della scadenza
-  String _getTimeRemaining() {
+  String _getTimeRemaining(BuildContext context) {
     if (message.decryptedContent != null && message.decryptedContent!.contains('|')) {
       final parts = message.decryptedContent!.split('|');
       if (parts.length >= 2) {
         try {
           final expiresAt = DateTime.parse(parts[1]);
           final now = DateTime.now();
+          final l10n = AppLocalizations.of(context)!;
 
           if (now.isAfter(expiresAt)) {
-            return 'Scaduta';
+            return l10n.locationShareExpired;
           }
 
           final diff = expiresAt.difference(now);
@@ -638,7 +640,7 @@ class AttachmentLocationShare extends StatelessWidget {
           } else if (diff.inMinutes > 0) {
             return '${diff.inMinutes}m';
           } else {
-            return '< 1m';
+            return l10n.locationShareLessThanMinute;
           }
         } catch (e) {
           return '';
@@ -785,7 +787,7 @@ class AttachmentLocationShare extends StatelessWidget {
                       ),
                       const SizedBox(width: 4),
                       Text(
-                        _getTimeRemaining(),
+                        _getTimeRemaining(context),
                         style: TextStyle(
                           color: isMe ? Colors.white70 : Colors.black54,
                           fontSize: 12,

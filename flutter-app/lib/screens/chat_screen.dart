@@ -1455,9 +1455,9 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                                                           Column(
                                                             mainAxisAlignment: MainAxisAlignment.center,
                                                             children: [
-                                                              const Text(
-                                                                'Orario',
-                                                                style: TextStyle(
+                                                              Text(
+                                                                l10n.timePickerLabel,
+                                                                style: const TextStyle(
                                                                   color: Colors.white,
                                                                   fontSize: 18,
                                                                   fontWeight: FontWeight.bold,
@@ -1516,9 +1516,9 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                                                           Column(
                                                             mainAxisAlignment: MainAxisAlignment.center,
                                                             children: [
-                                                              const Text(
-                                                                'Alert',
-                                                                style: TextStyle(
+                                                              Text(
+                                                                l10n.alertPickerLabel,
+                                                                style: const TextStyle(
                                                                   color: Colors.white,
                                                                   fontSize: 18,
                                                                   fontWeight: FontWeight.bold,
@@ -1544,13 +1544,13 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                                                                     const alertOptions = [null, 1, 2, 8, 24, 48];
                                                                     setAlertState(() => alertHours = alertOptions[index]);
                                                                   },
-                                                                  children: const [
-                                                                    Center(child: Text('Nessun alert', style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.w500))),
-                                                                    Center(child: Text('1 ora prima', style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.w500))),
-                                                                    Center(child: Text('2 ore prima', style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.w500))),
-                                                                    Center(child: Text('8 ore prima', style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.w500))),
-                                                                    Center(child: Text('1 giorno prima', style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.w500))),
-                                                                    Center(child: Text('2 giorni prima', style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.w500))),
+                                                                  children: [
+                                                                    Center(child: Text(l10n.alertNone, style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.w500))),
+                                                                    Center(child: Text(l10n.alert1HourBefore, style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.w500))),
+                                                                    Center(child: Text(l10n.alert2HoursBefore, style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.w500))),
+                                                                    Center(child: Text(l10n.alert8HoursBefore, style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.w500))),
+                                                                    Center(child: Text(l10n.alert1DayBefore, style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.w500))),
+                                                                    Center(child: Text(l10n.alert2DaysBefore, style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.w500))),
                                                                   ],
                                                                 ),
                                                               ),
@@ -1848,7 +1848,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       final l10n = AppLocalizations.of(context)!;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Errore durante l\'aggiornamento del messaggio'),
+          content: Text(l10n.chatUpdateMessageError),
           backgroundColor: Colors.red,
         ),
       );
@@ -3112,6 +3112,7 @@ class _MessageBubble extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     return Padding(
       padding: const EdgeInsets.only(bottom: 12, left: 8, right: 8),
       child: Row(
@@ -3221,7 +3222,7 @@ class _MessageBubble extends StatelessWidget {
                               // Mostra "Messaggio eliminato" se deleted == true
                               if (messageObject?.deleted == true) ...[
                                 Text(
-                                  'Messaggio eliminato',
+                                  l10n.messageDeleted,
                                   style: TextStyle(
                                     color: isMe ? Colors.white.withOpacity(0.7) : Colors.black54,
                                     fontSize: 15,
