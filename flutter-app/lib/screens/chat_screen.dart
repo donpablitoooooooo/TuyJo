@@ -2287,7 +2287,7 @@ class _MessageBubble extends StatelessWidget {
                           onActionSelected: (actionType) {
                             // Chiama _addAction con l'oggetto messaggio completo per gestire logica
                             final chatScreenState = context.findAncestorStateOfType<_ChatScreenState>();
-                            chatScreenState?._addAction(messageObject!.id, actionType, messageObject);
+                            chatScreenState?._addAction(messageObject!.id, actionType, messageObject!);
                           },
                           message: messageObject!,
                           attachmentService: attachmentService,
