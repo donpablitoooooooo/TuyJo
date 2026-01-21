@@ -449,11 +449,6 @@ class _LocationSharingScreenState extends State<LocationSharingScreen> {
         partnerLocation.longitude,
       );
 
-      // TEST: mittente vede +1km per testare in casa
-      if (widget.isSender && distance != null) {
-        distance = distance + 1000;
-      }
-
       targetBearing = locationService.calculateBearing(
         _myPosition!.latitude,
         _myPosition!.longitude,
