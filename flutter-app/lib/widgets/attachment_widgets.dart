@@ -696,6 +696,14 @@ class AttachmentLocationShare extends StatelessWidget {
         locationService.currentSessionId == null &&
         !locationService.isSharingLocation;
 
+    // Verifica se il PARTNER ha fermato (per destinatario che vede messaggio mittente)
+    // Se non sto condividendo E il partner location è null o inattiva, consideralo terminato
+    final isPartnerStopped = !isMe &&
+        messageSessionId.isNotEmpty &&
+        (locationService.partnerLocation == null ||
+         !locationService.partnerLocation!.isActive ||
+         locationService.partnerLocation!.sessionId != messageSessionId);
+
     // Verifica se la condivisione è stata interrotta tramite reaction "done"
     final hasStopReaction = message.reaction?.type == 'done';
 
@@ -704,7 +712,8 @@ class AttachmentLocationShare extends StatelessWidget {
     // - Sessione vecchia (ne è stata aperta una nuova)
     // - Reaction "done" presente
     // - IO (mittente) ho fermato manualmente (solo se isMe)
-    final isTerminated = isExpired || isOldSession || hasStopReaction || isSharingStoppedByOwner;
+    // - PARTNER ha fermato (solo se !isMe)
+    final isTerminated = isExpired || isOldSession || hasStopReaction || isSharingStoppedByOwner || isPartnerStopped;
 
     // Testo della bubble
     final String statusText = isTerminated

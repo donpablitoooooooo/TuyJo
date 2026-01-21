@@ -824,8 +824,17 @@ class _LocationSharingScreenState extends State<LocationSharingScreen> {
                       print('   Message in local list: $msgInList');
                       if (msgInList) {
                         final msg = chatService.messages.firstWhere((m) => m.id == messageId);
-                        print('   Message reaction: ${msg.reaction?.type}');
+                        print('   Message reaction after add: ${msg.reaction?.type}');
                       }
+
+                      // Verifica su Firestore
+                      final firestoreDoc = await FirebaseFirestore.instance
+                          .collection('families')
+                          .doc(familyChatId)
+                          .collection('messages')
+                          .doc(messageId)
+                          .get();
+                      print('   Firestore reaction: ${firestoreDoc.data()?['reaction']}');
                     }
                   } else {
                     if (kDebugMode) print('❌ [STOP] Cannot add reaction: messageId=$messageId, familyChatId=$familyChatId, myUserId=$myUserId');
