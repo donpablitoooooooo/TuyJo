@@ -968,7 +968,7 @@ class ChatService extends ChangeNotifier {
     String messageId,
     String familyChatId,
     String userId,
-    String reactionType, // 'love', 'ok', 'shit', 'done'
+    String reactionType, // 'love', 'ok', 'shit' (SOLO VISIVE)
   ) async {
     try {
       if (kDebugMode) {
@@ -1033,6 +1033,83 @@ class ChatService extends ChangeNotifier {
     } catch (e, stackTrace) {
       if (kDebugMode) {
         print('❌ [addReaction] Error: $e');
+        print('Stack trace: $stackTrace');
+      }
+      return false;
+    }
+  }
+
+  /// Aggiunge un'azione a un messaggio (con effetti logici)
+  /// actionType: 'complete' (todo), 'stop_sharing' (location)
+  Future<bool> addAction(
+    String messageId,
+    String familyChatId,
+    String userId,
+    String actionType, // 'complete', 'stop_sharing'
+  ) async {
+    try {
+      if (kDebugMode) {
+        print('🔄 [addAction] Starting...');
+        print('   messageId: $messageId');
+        print('   familyChatId: $familyChatId');
+        print('   userId: $userId');
+        print('   actionType: $actionType');
+      }
+
+      // Crea l'oggetto action
+      final action = MessageAction(
+        type: actionType,
+        userId: userId,
+        timestamp: DateTime.now(),
+      );
+
+      // Aggiorna il messaggio in Firestore
+      final messageRef = _firestore
+          .collection('families')
+          .doc(familyChatId)
+          .collection('messages')
+          .doc(messageId);
+
+      if (kDebugMode) {
+        print('📤 [addAction] Updating Firestore...');
+      }
+
+      await messageRef.update({
+        'action': action.toJson(),
+      });
+
+      if (kDebugMode) {
+        print('✅ [addAction] Firestore updated successfully');
+      }
+
+      // Aggiorna il messaggio locale nella lista
+      final index = _messages.indexWhere((m) => m.id == messageId);
+      if (index != -1) {
+        _messages[index].action = action;
+
+        // Aggiorna anche la cache SQLite
+        await _cacheService.saveMessage(_messages[index], familyChatId);
+
+        if (kDebugMode) {
+          print('✅ [addAction] Local cache updated successfully');
+        }
+      } else {
+        if (kDebugMode) {
+          print('⚠️ [addAction] Message not found in local list, will be updated by Firestore listener');
+        }
+      }
+
+      // IMPORTANTE: chiama sempre notifyListeners() per forzare rebuild
+      // Il listener Firestore aggiornerà il messaggio quando riceve l'evento modified
+      notifyListeners();
+
+      if (kDebugMode) {
+        print('✅ [addAction] Action $actionType added to message $messageId');
+      }
+      return true;
+    } catch (e, stackTrace) {
+      if (kDebugMode) {
+        print('❌ [addAction] Error: $e');
         print('Stack trace: $stackTrace');
       }
       return false;
