@@ -1254,7 +1254,17 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
               child: SafeArea(
                 child: Column(
                   children: [
-                    const SizedBox(height: 32),
+                    // Header with close button
+                    Padding(
+                      padding: const EdgeInsets.only(right: 8, top: 8),
+                      child: Align(
+                        alignment: Alignment.topRight,
+                        child: IconButton(
+                          icon: const Icon(Icons.close, color: Colors.white, size: 28),
+                          onPressed: () => Navigator.pop(context),
+                        ),
+                      ),
+                    ),
 
                     // Calendario con sfondo verde trasparente e altezza fissa
                     SizedBox(
