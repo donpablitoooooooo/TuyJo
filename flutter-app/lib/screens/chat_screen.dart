@@ -982,6 +982,68 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     }
   }
 
+  /// Costruisce un'opzione per il menu di selezione alert
+  Widget _buildAlertOption(BuildContext context, int? hours, String label) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: () => Navigator.pop(context, hours),
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 24),
+          child: Row(
+            children: [
+              Icon(
+                hours == null ? Icons.notifications_off : Icons.notifications_outlined,
+                color: Colors.white,
+                size: 24,
+              ),
+              const SizedBox(width: 16),
+              Text(
+                label,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 16,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// Recupera i todo per un giorno specifico per mostrare i marker nel calendario
+  List<Message> _getTodosForDayInCalendar(DateTime day) {
+    final chatService = Provider.of<ChatService>(context, listen: false);
+    final normalizedDay = DateTime(day.year, day.month, day.day);
+
+    return chatService.messages.where((message) {
+      if (message.messageType != 'todo') return false;
+      if (message.dueDate == null) return false;
+
+      final todoDay = DateTime(
+        message.dueDate!.year,
+        message.dueDate!.month,
+        message.dueDate!.day,
+      );
+
+      // Check if todo is on this day or if this day is in the range
+      if (message.rangeEnd != null) {
+        final rangeEndDay = DateTime(
+          message.rangeEnd!.year,
+          message.rangeEnd!.month,
+          message.rangeEnd!.day,
+        );
+        return (normalizedDay.isAtSameMomentAs(todoDay) ||
+                normalizedDay.isAtSameMomentAs(rangeEndDay) ||
+                (normalizedDay.isAfter(todoDay) && normalizedDay.isBefore(rangeEndDay)));
+      } else {
+        return normalizedDay.isAtSameMomentAs(todoDay);
+      }
+    }).toList();
+  }
+
   void _showDateTimePicker() async {
     final l10n = AppLocalizations.of(context)!;
     // Sentinella per segnalare cancellazione
@@ -993,6 +1055,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     int selectedHour = 10;
     int selectedMinute = 0;
     int? selectedReminderHours = _selectedReminderHours ?? 1; // Default: 1 ora prima
+    DateTime? dayToShowTodos; // Giorno selezionato per mostrare i todo
 
     final hourController = FixedExtentScrollController(initialItem: selectedHour);
     final minuteController = FixedExtentScrollController(initialItem: selectedMinute);
@@ -1002,7 +1065,13 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (context) => StatefulBuilder(
-        builder: (context, setModalState) => ClipRRect(
+        builder: (context, setModalState) {
+          // Recupera i todo per il giorno selezionato
+          final todosForDay = dayToShowTodos != null
+              ? _getTodosForDayInCalendar(dayToShowTodos!)
+              : <Message>[];
+
+          return ClipRRect(
           borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
           child: Container(
             height: MediaQuery.of(context).size.height * 0.80,
@@ -1035,7 +1104,65 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                           icon: const Icon(Icons.close, color: Colors.white, size: 28),
                         ),
                         IconButton(
-                          onPressed: () {
+                          onPressed: () async {
+                            // Mostra menu per selezionare l'alert
+                            if (rangeStart == null && rangeEnd == null) {
+                              // Nessuna data selezionata, non fare nulla
+                              return;
+                            }
+
+                            // Mostra menu alert selection
+                            final alertHours = await showModalBottomSheet<int?>(
+                              context: context,
+                              backgroundColor: Colors.transparent,
+                              builder: (context) => Container(
+                                decoration: const BoxDecoration(
+                                  gradient: LinearGradient(
+                                    begin: Alignment.topCenter,
+                                    end: Alignment.bottomCenter,
+                                    colors: [Color(0xFF3BA8B0), Color(0xFF145A60)],
+                                  ),
+                                  borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+                                ),
+                                child: SafeArea(
+                                  child: Column(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Padding(
+                                        padding: const EdgeInsets.all(16),
+                                        child: Text(
+                                          'Quando vuoi ricevere l\'alert?',
+                                          style: const TextStyle(
+                                            color: Colors.white,
+                                            fontSize: 18,
+                                            fontWeight: FontWeight.bold,
+                                          ),
+                                        ),
+                                      ),
+                                      _buildAlertOption(context, 1, '1 ora prima'),
+                                      _buildAlertOption(context, 2, '2 ore prima'),
+                                      _buildAlertOption(context, 8, '8 ore prima'),
+                                      _buildAlertOption(context, 24, '1 giorno prima'),
+                                      _buildAlertOption(context, 48, '2 giorni prima'),
+                                      _buildAlertOption(context, null, 'Nessun alert'),
+                                      const SizedBox(height: 8),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            );
+
+                            // Se l'utente ha chiuso il menu senza selezionare, non fare nulla
+                            if (alertHours == null && selectedReminderHours == null) return;
+
+                            // Aggiorna selectedReminderHours se è stato selezionato un valore
+                            if (alertHours != null || (alertHours == null && selectedReminderHours != null)) {
+                              setModalState(() {
+                                selectedReminderHours = alertHours;
+                              });
+                            }
+
+                            // Conferma e chiudi con i dati selezionati
                             if (rangeStart != null && rangeEnd != null) {
                               // Range selezionato: ritorna range senza ora
                               Navigator.pop(context, {
@@ -1060,8 +1187,8 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                               });
                             }
                           },
-                          icon: const Icon(Icons.check_circle, color: Colors.white, size: 32),
-                          tooltip: l10n.chatConfirm,
+                          icon: const Icon(Icons.add_circle, color: Colors.white, size: 32),
+                          tooltip: 'Aggiungi alert e conferma',
                         ),
                       ],
                     ),
@@ -1079,6 +1206,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                       rangeStartDay: rangeStart,
                       rangeEndDay: rangeEnd,
                       rangeSelectionMode: RangeSelectionMode.toggledOn,
+                      eventLoader: _getTodosForDayInCalendar,
                       headerStyle: HeaderStyle(
                         formatButtonVisible: false,
                         titleCentered: true,
@@ -1120,6 +1248,13 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                           shape: BoxShape.circle,
                         ),
                         withinRangeTextStyle: const TextStyle(color: Colors.white),
+                        // Marker dots per giorni con todo
+                        markerDecoration: BoxDecoration(
+                          color: Colors.white.withOpacity(0.8),
+                          shape: BoxShape.circle,
+                        ),
+                        markersAlignment: Alignment.bottomCenter,
+                        markersMaxCount: 3,
                       ),
                       daysOfWeekStyle: const DaysOfWeekStyle(
                         weekdayStyle: TextStyle(color: Colors.white70, fontWeight: FontWeight.bold),
@@ -1127,6 +1262,9 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                       ),
                       onDaySelected: (selectedDay, focusedDay) {
                         setModalState(() {
+                          // Mostra i todo per il giorno selezionato
+                          dayToShowTodos = selectedDay;
+
                           if (rangeStart == null) {
                             // Prima selezione: imposta range start
                             rangeStart = selectedDay;
@@ -1153,6 +1291,90 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                     ),
                   ),
                 ),
+                // Lista todo per il giorno selezionato
+                if (todosForDay.isNotEmpty) ...[
+                  Container(
+                    constraints: const BoxConstraints(maxHeight: 150),
+                    margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                        color: Colors.white.withOpacity(0.3),
+                        width: 1,
+                      ),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Row(
+                          children: [
+                            const Icon(
+                              Icons.event_note,
+                              color: Colors.white,
+                              size: 16,
+                            ),
+                            const SizedBox(width: 6),
+                            Text(
+                              'Todo per ${DateFormat('d MMM', Localizations.localeOf(context).toString()).format(dayToShowTodos!)}',
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 13,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 8),
+                        Expanded(
+                          child: ListView.builder(
+                            shrinkWrap: true,
+                            itemCount: todosForDay.length,
+                            itemBuilder: (context, index) {
+                              final todo = todosForDay[index];
+                              final isCompleted = todo.action?.type == 'complete';
+                              return Padding(
+                                padding: const EdgeInsets.only(bottom: 6),
+                                child: Row(
+                                  children: [
+                                    Icon(
+                                      isCompleted ? Icons.check_circle : Icons.circle_outlined,
+                                      size: 14,
+                                      color: isCompleted ? Colors.green[300] : Colors.white70,
+                                    ),
+                                    const SizedBox(width: 6),
+                                    Expanded(
+                                      child: Text(
+                                        todo.decryptedContent ?? 'Todo',
+                                        style: TextStyle(
+                                          color: Colors.white,
+                                          fontSize: 12,
+                                          decoration: isCompleted ? TextDecoration.lineThrough : null,
+                                        ),
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                    ),
+                                    if (todo.dueDate != null)
+                                      Text(
+                                        DateFormat('HH:mm').format(todo.dueDate!),
+                                        style: TextStyle(
+                                          color: Colors.white.withOpacity(0.7),
+                                          fontSize: 11,
+                                        ),
+                                      ),
+                                  ],
+                                ),
+                              );
+                            },
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
                 // Time picker con dropdown alert (time picker nascosto se range selezionato)
                 Container(
                   padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 16),
@@ -1247,56 +1469,16 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                       ),
                       const SizedBox(width: 20),
                       ], // Fine time picker condizionale
-                      // Dropdown alert compatto (sempre visibile)
-                      Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(Icons.notifications_outlined, color: Colors.white.withOpacity(0.7), size: 18),
-                          const SizedBox(height: 4),
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                            decoration: BoxDecoration(
-                              color: Colors.white.withOpacity(0.15),
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            child: DropdownButtonHideUnderline(
-                              child: DropdownButton<int?>(
-                                value: selectedReminderHours,
-                                dropdownColor: const Color(0xFF145A60),
-                                icon: Icon(Icons.arrow_drop_down, color: Colors.white.withOpacity(0.7), size: 16),
-                                style: const TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.w500,
-                                ),
-                                items: [
-                                  DropdownMenuItem(value: null, child: Text(l10n.reminderNone)),
-                                  DropdownMenuItem(value: 1, child: Text(l10n.reminder1Hour)),
-                                  ...List.generate(23, (i) => i + 2).map((h) =>
-                                    DropdownMenuItem(
-                                      value: h,
-                                      child: Text(l10n.reminderHours(h)),
-                                    )
-                                  ),
-                                  DropdownMenuItem(value: 48, child: Text(l10n.reminder2Days)),
-                                ],
-                                onChanged: (value) {
-                                  setModalState(() => selectedReminderHours = value);
-                                },
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
                     ],
                   ),
                 ),
               ],
             ),
           ),
-        ),
-      ),
-    );
+        );  // ClipRRect - fine del return statement
+        },  // Fine builder function dello StatefulBuilder
+      ),  // Fine StatefulBuilder
+    );  // Fine showModalBottomSheet
 
     hourController.dispose();
     minuteController.dispose();
@@ -1907,6 +2089,36 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
             child: Column(
                 children: [
                   // Mostra allegati selezionati
+                  // Preview data/range/alert selezionata per todo
+                  if (_selectedTodoDate != null || _selectedRangeStart != null)
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      decoration: BoxDecoration(
+                        color: Colors.grey[50],
+                        border: Border(
+                          bottom: BorderSide(color: Colors.grey[300]!),
+                        ),
+                      ),
+                      child: SingleChildScrollView(
+                        scrollDirection: Axis.horizontal,
+                        child: _TodoDatePreview(
+                          date: _selectedTodoDate,
+                          rangeStart: _selectedRangeStart,
+                          rangeEnd: _selectedRangeEnd,
+                          reminderHours: _selectedReminderHours,
+                          onRemove: () {
+                            setState(() {
+                              _selectedTodoDate = null;
+                              _isRangeSelection = false;
+                              _selectedRangeStart = null;
+                              _selectedRangeEnd = null;
+                              _selectedReminderHours = null;
+                            });
+                          },
+                        ),
+                      ),
+                    ),
+                  // Preview allegati selezionati
                   if (_selectedAttachments.isNotEmpty)
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
@@ -2153,6 +2365,136 @@ class _AttachmentPreview extends StatelessWidget {
                   size: 16,
                   color: Colors.white,
                 ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Widget per mostrare preview data/range/alert selezionata per todo
+class _TodoDatePreview extends StatelessWidget {
+  final DateTime? date;
+  final DateTime? rangeStart;
+  final DateTime? rangeEnd;
+  final int? reminderHours;
+  final VoidCallback onRemove;
+
+  const _TodoDatePreview({
+    this.date,
+    this.rangeStart,
+    this.rangeEnd,
+    this.reminderHours,
+    required this.onRemove,
+  });
+
+  String _formatDate(DateTime date) {
+    final now = DateTime.now();
+    final tomorrow = DateTime(now.year, now.month, now.day + 1);
+    final dateDay = DateTime(date.year, date.month, date.day);
+
+    if (dateDay == DateTime(now.year, now.month, now.day)) {
+      return 'Oggi ${DateFormat('HH:mm').format(date)}';
+    } else if (dateDay == tomorrow) {
+      return 'Domani ${DateFormat('HH:mm').format(date)}';
+    } else {
+      return DateFormat('dd/MM HH:mm').format(date);
+    }
+  }
+
+  String _formatRange(DateTime start, DateTime end) {
+    return '${DateFormat('dd/MM').format(start)} - ${DateFormat('dd/MM').format(end)}';
+  }
+
+  String _formatReminder(int hours) {
+    if (hours == 1) return 'Alert: 1h prima';
+    if (hours == 48) return 'Alert: 2 giorni prima';
+    if (hours == 24) return 'Alert: 1 giorno prima';
+    return 'Alert: ${hours}h prima';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    String dateText;
+    if (rangeStart != null && rangeEnd != null) {
+      dateText = _formatRange(rangeStart!, rangeEnd!);
+    } else if (date != null) {
+      dateText = _formatDate(date!);
+    } else {
+      dateText = 'Data non selezionata';
+    }
+
+    return Container(
+      margin: const EdgeInsets.only(right: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        color: const Color(0xFF3BA8B0).withOpacity(0.1),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: const Color(0xFF3BA8B0).withOpacity(0.3),
+          width: 1,
+        ),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            rangeStart != null && rangeEnd != null
+                ? Icons.date_range
+                : Icons.calendar_today,
+            color: const Color(0xFF3BA8B0),
+            size: 20,
+          ),
+          const SizedBox(width: 8),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                dateText,
+                style: const TextStyle(
+                  color: Color(0xFF145A60),
+                  fontSize: 13,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+              if (reminderHours != null) ...[
+                const SizedBox(height: 2),
+                Row(
+                  children: [
+                    const Icon(
+                      Icons.notifications_outlined,
+                      color: Color(0xFF3BA8B0),
+                      size: 12,
+                    ),
+                    const SizedBox(width: 4),
+                    Text(
+                      _formatReminder(reminderHours!),
+                      style: TextStyle(
+                        color: Colors.grey[600],
+                        fontSize: 11,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ],
+          ),
+          const SizedBox(width: 8),
+          GestureDetector(
+            onTap: onRemove,
+            child: Container(
+              padding: const EdgeInsets.all(4),
+              decoration: BoxDecoration(
+                color: Colors.red.withOpacity(0.1),
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(
+                Icons.close,
+                size: 16,
+                color: Colors.red,
               ),
             ),
           ),
