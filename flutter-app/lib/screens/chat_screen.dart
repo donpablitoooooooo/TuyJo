@@ -2239,12 +2239,9 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                   // Preview data/range/alert selezionata per todo
                   if (_selectedTodoDate != null || _selectedRangeStart != null)
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                      decoration: BoxDecoration(
-                        color: Colors.grey[50],
-                        border: Border(
-                          bottom: BorderSide(color: Colors.grey[300]!),
-                        ),
+                      padding: const EdgeInsets.only(left: 12, right: 12, top: 8, bottom: 13),
+                      decoration: const BoxDecoration(
+                        color: Colors.transparent,
                       ),
                       child: SingleChildScrollView(
                         scrollDirection: Axis.horizontal,
@@ -2576,14 +2573,29 @@ class _TodoDatePreview extends StatelessWidget {
 
     return Container(
       margin: const EdgeInsets.only(right: 8),
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
       decoration: BoxDecoration(
-        color: const Color(0xFF3BA8B0).withOpacity(0.1),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: const Color(0xFF3BA8B0).withOpacity(0.3),
-          width: 1,
+        gradient: const LinearGradient(
+          colors: [
+            Color(0xFF3BA8B0),
+            Color(0xFF145A60),
+          ],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
         ),
+        borderRadius: const BorderRadius.only(
+          topLeft: Radius.circular(20),
+          topRight: Radius.circular(20),
+          bottomLeft: Radius.circular(20),
+          bottomRight: Radius.circular(4),
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFF3BA8B0).withOpacity(0.3),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -2591,9 +2603,9 @@ class _TodoDatePreview extends StatelessWidget {
           Icon(
             rangeStart != null && rangeEnd != null
                 ? Icons.date_range
-                : Icons.calendar_today,
-            color: const Color(0xFF3BA8B0),
-            size: 20,
+                : Icons.calendar_today_outlined,
+            color: Colors.white.withOpacity(0.9),
+            size: 14,
           ),
           const SizedBox(width: 8),
           Column(
@@ -2603,26 +2615,26 @@ class _TodoDatePreview extends StatelessWidget {
               Text(
                 dateText,
                 style: const TextStyle(
-                  color: Color(0xFF145A60),
-                  fontSize: 13,
-                  fontWeight: FontWeight.w500,
+                  color: Colors.white,
+                  fontSize: 15,
+                  height: 1.4,
                 ),
               ),
               if (reminderHours != null) ...[
-                const SizedBox(height: 2),
+                const SizedBox(height: 4),
                 Row(
                   children: [
-                    const Icon(
+                    Icon(
                       Icons.notifications_outlined,
-                      color: Color(0xFF3BA8B0),
-                      size: 12,
+                      size: 14,
+                      color: Colors.white.withOpacity(0.9),
                     ),
                     const SizedBox(width: 4),
                     Text(
                       _formatReminder(reminderHours!),
                       style: TextStyle(
-                        color: Colors.grey[600],
-                        fontSize: 11,
+                        fontSize: 12,
+                        color: Colors.white.withOpacity(0.9),
                       ),
                     ),
                   ],

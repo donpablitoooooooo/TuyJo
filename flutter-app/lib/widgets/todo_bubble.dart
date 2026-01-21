@@ -36,6 +36,14 @@ class TodoMessageBubble extends StatelessWidget {
     this.currentUserId,
   });
 
+  /// Formatta le ore di reminder in stringa leggibile
+  String _formatReminder(int hours) {
+    if (hours == 1) return 'Alert: 1h prima';
+    if (hours == 48) return 'Alert: 2 giorni prima';
+    if (hours == 24) return 'Alert: 1 giorno prima';
+    return 'Alert: ${hours}h prima';
+  }
+
   /// Costruisce i widget per mostrare gli allegati (decifrati)
   List<Widget> _buildAttachments() {
     if (message.attachments == null || message.attachments!.isEmpty) {
@@ -256,6 +264,33 @@ class TodoMessageBubble extends StatelessWidget {
                                           ? Colors.white.withOpacity(0.9)
                                           : Colors.black54,
                                     ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
+
+                          // Riga alert (se presente)
+                          if (message.reminderHours != null) ...[
+                            const SizedBox(height: 4),
+                            Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(
+                                  Icons.notifications_outlined,
+                                  size: 14,
+                                  color: isMe
+                                      ? Colors.white.withOpacity(0.9)
+                                      : Colors.black54,
+                                ),
+                                const SizedBox(width: 4),
+                                Text(
+                                  _formatReminder(message.reminderHours!),
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    color: isMe
+                                        ? Colors.white.withOpacity(0.9)
+                                        : Colors.black54,
                                   ),
                                 ),
                               ],
