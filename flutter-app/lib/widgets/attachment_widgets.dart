@@ -714,9 +714,10 @@ class AttachmentLocationShare extends StatelessWidget {
     final isTerminated = isExpired || isOldSession || hasStopAction || isSharingStoppedByOwner || isPartnerStopped;
 
     // Testo della bubble
+    final l10n = AppLocalizations.of(context)!;
     final String statusText = isTerminated
-        ? 'Condivisione terminata'
-        : 'Condivisione attiva';
+        ? l10n.locationShareStatusEnded
+        : l10n.locationShareStatusActive;
 
     final textColor = isMe ? Colors.white : Colors.black87;
 

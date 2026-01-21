@@ -182,7 +182,7 @@ class _MainScreenState extends State<MainScreen> {
               ListTile(
                 contentPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 0),
                 leading: const Icon(Icons.chat_bubble, color: Colors.white),
-                title: const Text('Chat', style: TextStyle(color: Colors.white)),
+                title: Text(AppLocalizations.of(context)!.navChat, style: const TextStyle(color: Colors.white)),
                 selected: _selectedIndex == 0,
                 selectedTileColor: Colors.white.withOpacity(0.2),
                 onTap: () {
@@ -193,7 +193,7 @@ class _MainScreenState extends State<MainScreen> {
               ListTile(
                 contentPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 0),
                 leading: const Icon(Icons.perm_media, color: Colors.white),
-                title: const Text('Media', style: TextStyle(color: Colors.white)),
+                title: Text(AppLocalizations.of(context)!.navMedia, style: const TextStyle(color: Colors.white)),
                 selected: _selectedIndex == 1,
                 selectedTileColor: Colors.white.withOpacity(0.2),
                 onTap: () {

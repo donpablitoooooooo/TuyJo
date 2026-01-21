@@ -940,7 +940,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
               ),
               _AttachmentOption(
                 icon: Icons.location_on,
-                label: 'Condividi Posizione',
+                label: l10n.locationShareButton,
                 color: Colors.orange,
                 onTap: () {
                   Navigator.pop(context);
@@ -958,19 +958,20 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
 
   /// Mostra dialog per scegliere durata condivisione posizione
   void _showLocationSharingDialog() async {
+    final l10n = AppLocalizations.of(context)!;
     final result = await showDialog<Duration>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Condividi Posizione'),
+        title: Text(l10n.locationShareDialogTitle),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
-          children: const [
-            Text('Per quanto tempo vuoi condividere la tua posizione?'),
-            SizedBox(height: 8),
+          children: [
+            Text(l10n.locationShareDialogQuestion),
+            const SizedBox(height: 8),
             Text(
-              'Il partner potrà vedere la tua posizione in tempo reale e riceverà indicazioni per raggiungerti.',
-              style: TextStyle(fontSize: 12, color: Colors.grey),
+              l10n.locationShareDialogDescription,
+              style: const TextStyle(fontSize: 12, color: Colors.grey),
             ),
           ],
         ),
@@ -986,7 +987,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                   foregroundColor: Colors.white,
                   padding: const EdgeInsets.symmetric(vertical: 12),
                 ),
-                child: const Text('1 ora', style: TextStyle(fontSize: 16)),
+                child: Text(l10n.locationShareDuration1Hour, style: const TextStyle(fontSize: 16)),
               ),
               const SizedBox(height: 8),
               ElevatedButton(
@@ -996,12 +997,12 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                   foregroundColor: Colors.white,
                   padding: const EdgeInsets.symmetric(vertical: 12),
                 ),
-                child: const Text('8 ore', style: TextStyle(fontSize: 16)),
+                child: Text(l10n.locationShareDuration8Hours, style: const TextStyle(fontSize: 16)),
               ),
               const SizedBox(height: 8),
               TextButton(
                 onPressed: () => Navigator.pop(context),
-                child: const Text('Annulla'),
+                child: Text(l10n.locationShareCancel),
               ),
             ],
           ),
@@ -1050,16 +1051,14 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       } else {
         // Errore - controlla se è un problema di pairing o permessi
         if (mounted) {
-          String errorMessage = 'Impossibile condividere la posizione.';
+          final l10n = AppLocalizations.of(context)!;
+          String errorMessage = l10n.locationShareErrorGeneric;
 
           // Controlla se l'utente è paired
           if (_partnerPublicKey == null) {
-            errorMessage = 'Impossibile condividere: accoppiamento mancante. Effettua il pairing prima.';
+            errorMessage = l10n.locationShareErrorPairing;
           } else {
-            errorMessage = 'Impossibile condividere la posizione. Verifica:\n'
-                '- Permessi localizzazione attivi\n'
-                '- GPS abilitato\n'
-                '- Servizi di localizzazione attivi';
+            errorMessage = l10n.locationShareErrorPermissions;
           }
 
           ScaffoldMessenger.of(context).showSnackBar(
@@ -1255,7 +1254,17 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
               child: SafeArea(
                 child: Column(
                   children: [
-                    const SizedBox(height: 32),
+                    // Header with close button
+                    Padding(
+                      padding: const EdgeInsets.only(right: 8, top: 8),
+                      child: Align(
+                        alignment: Alignment.topRight,
+                        child: IconButton(
+                          icon: const Icon(Icons.close, color: Colors.white, size: 28),
+                          onPressed: () => Navigator.pop(context),
+                        ),
+                      ),
+                    ),
 
                     // Calendario con sfondo verde trasparente e altezza fissa
                     SizedBox(
@@ -1388,10 +1397,10 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                                 Expanded(
                                   child: Text(
                                     (rangeStart != null && rangeEnd != null)
-                                        ? 'Todo ${_formatDateRange(rangeStart!, rangeEnd!)}'
+                                        ? l10n.todoTitleWithRange(_formatDateRange(rangeStart!, rangeEnd!))
                                         : (dayToShowTodos != null
-                                            ? 'Todo per ${_formatTodoDate(dayToShowTodos!, includeTime: false)}'
-                                            : 'Seleziona un giorno'),
+                                            ? l10n.todoTitleWithDate(_formatTodoDate(dayToShowTodos!, includeTime: false))
+                                            : l10n.todoSelectDay),
                                     style: const TextStyle(
                                       fontSize: 16,
                                       fontWeight: FontWeight.bold,
@@ -1576,12 +1585,12 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                                                         },
                                                         borderRadius: BorderRadius.circular(12),
                                                         splashColor: Colors.white.withOpacity(0.2),
-                                                        child: const Padding(
-                                                          padding: EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+                                                        child: Padding(
+                                                          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
                                                           child: Center(
                                                             child: Text(
-                                                              'Conferma',
-                                                              style: TextStyle(
+                                                              l10n.todoConfirm,
+                                                              style: const TextStyle(
                                                                 color: Colors.white,
                                                                 fontSize: 16,
                                                                 fontWeight: FontWeight.w500,
@@ -1628,7 +1637,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                                       }
                                     },
                                     icon: const Icon(Icons.add_circle, color: Color(0xFF3BA8B0), size: 32),
-                                    tooltip: 'Aggiungi alert e conferma',
+                                    tooltip: l10n.todoAddAlertAndConfirm,
                                   ),
                               ],
                             ),
@@ -1651,10 +1660,10 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                                         const SizedBox(height: 16),
                                         Text(
                                           (rangeStart == null && dayToShowTodos == null)
-                                              ? 'Seleziona un giorno per vedere i todo'
+                                              ? l10n.todoSelectDayToView
                                               : ((rangeStart != null && rangeEnd != null)
-                                                  ? 'Nessun todo in questo range'
-                                                  : 'Nessun todo per questo giorno'),
+                                                  ? l10n.todoNoTodosInRange
+                                                  : l10n.todoNoTodosForDay),
                                           style: TextStyle(
                                             fontSize: 16,
                                             fontWeight: FontWeight.w500,
@@ -2875,15 +2884,16 @@ class _TodoDatePreview extends StatelessWidget {
     required this.onRemove,
   });
 
-  String _formatDate(DateTime date) {
+  String _formatDate(BuildContext context, DateTime date) {
+    final l10n = AppLocalizations.of(context)!;
     final now = DateTime.now();
     final tomorrow = DateTime(now.year, now.month, now.day + 1);
     final dateDay = DateTime(date.year, date.month, date.day);
 
     if (dateDay == DateTime(now.year, now.month, now.day)) {
-      return 'Oggi ${DateFormat('HH:mm').format(date)}';
+      return l10n.todayAt(DateFormat('HH:mm').format(date));
     } else if (dateDay == tomorrow) {
-      return 'Domani ${DateFormat('HH:mm').format(date)}';
+      return l10n.tomorrowAt(DateFormat('HH:mm').format(date));
     } else {
       return DateFormat('dd/MM HH:mm').format(date);
     }
@@ -2893,20 +2903,22 @@ class _TodoDatePreview extends StatelessWidget {
     return '${DateFormat('dd/MM').format(start)} - ${DateFormat('dd/MM').format(end)}';
   }
 
-  String _formatReminder(int hours) {
-    if (hours == 1) return 'Alert: 1h prima';
-    if (hours == 48) return 'Alert: 2 giorni prima';
-    if (hours == 24) return 'Alert: 1 giorno prima';
-    return 'Alert: ${hours}h prima';
+  String _formatReminder(BuildContext context, int hours) {
+    final l10n = AppLocalizations.of(context)!;
+    if (hours == 1) return l10n.alertOneHourBefore;
+    if (hours == 48) return l10n.alertTwoDaysBefore;
+    if (hours == 24) return l10n.alertOneDayBefore;
+    return l10n.alertHoursBefore(hours);
   }
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     String dateText;
     if (rangeStart != null && rangeEnd != null) {
       dateText = _formatRange(rangeStart!, rangeEnd!);
     } else if (date != null) {
-      dateText = _formatDate(date!);
+      dateText = _formatDate(context, date!);
     } else {
       dateText = 'Data non selezionata';
     }
@@ -2971,7 +2983,7 @@ class _TodoDatePreview extends StatelessWidget {
                     ),
                     const SizedBox(width: 4),
                     Text(
-                      _formatReminder(reminderHours!),
+                      _formatReminder(context, reminderHours!),
                       style: TextStyle(
                         fontSize: 12,
                         color: Colors.white.withOpacity(0.9),

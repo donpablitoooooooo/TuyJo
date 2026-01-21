@@ -10,6 +10,7 @@ import 'package:provider/provider.dart';
 import 'package:flutter_compass/flutter_compass.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:private_messaging/generated/l10n/app_localizations.dart';
 import '../models/message.dart';
 import '../services/chat_service.dart';
 import '../services/encryption_service.dart';
@@ -233,15 +234,17 @@ class _LocationSharingScreenState extends State<LocationSharingScreen> {
   /// Calcola opacità della freccia basandosi sull'allineamento con destinazione
   /// 1.0 = perfettamente allineato, 0.2 = direzione opposta
   String _formatDistance(double meters) {
+    final l10n = AppLocalizations.of(context)!;
     if (meters < 1000) {
-      return '${meters.toInt()} m';
+      return l10n.locationShareDistanceMeters(meters.toInt());
     } else {
-      return '${(meters / 1000).toStringAsFixed(1)} km';
+      return l10n.locationShareDistanceKm((meters / 1000).toStringAsFixed(1));
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     final locationService = Provider.of<LocationService>(context);
     final partnerLocation = locationService.partnerLocation;
     final myLocation = locationService.myLocation;
@@ -317,6 +320,7 @@ class _LocationSharingScreenState extends State<LocationSharingScreen> {
 
   /// Vista di attesa
   Widget _buildWaitingView() {
+    final l10n = AppLocalizations.of(context)!;
     return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
@@ -324,7 +328,7 @@ class _LocationSharingScreenState extends State<LocationSharingScreen> {
           Icon(Icons.location_on, size: 80, color: Colors.white70),
           SizedBox(height: 40),
           Text(
-            'In attesa del tuo amore ......',
+            l10n.locationShareWaitingPartner,
             style: TextStyle(
               color: Colors.white,
               fontSize: 22,
@@ -340,6 +344,7 @@ class _LocationSharingScreenState extends State<LocationSharingScreen> {
 
   /// Vista condivisione terminata (sfondo grigio)
   Widget _buildTerminatedView() {
+    final l10n = AppLocalizations.of(context)!;
     final locationService = Provider.of<LocationService>(context);
     final partnerLocation = locationService.partnerLocation;
 
@@ -371,7 +376,7 @@ class _LocationSharingScreenState extends State<LocationSharingScreen> {
                     ),
                     SizedBox(height: 40),
                     Text(
-                      'Condivisione terminata',
+                      l10n.locationShareEnded,
                       style: TextStyle(
                         color: Colors.white,
                         fontSize: 28,
@@ -382,7 +387,7 @@ class _LocationSharingScreenState extends State<LocationSharingScreen> {
                     ),
                     SizedBox(height: 20),
                     Text(
-                      'La condivisione della posizione è stata interrotta',
+                      l10n.locationShareEndedDescription,
                       style: TextStyle(
                         color: Colors.white70,
                         fontSize: 16,
@@ -403,7 +408,7 @@ class _LocationSharingScreenState extends State<LocationSharingScreen> {
                         ),
                       ),
                       child: Text(
-                        'Torna alla chat',
+                        l10n.locationShareBackToChat,
                         style: TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.w500,
@@ -443,11 +448,6 @@ class _LocationSharingScreenState extends State<LocationSharingScreen> {
         partnerLocation.latitude,
         partnerLocation.longitude,
       );
-
-      // TEST: mittente vede +1km per testare in casa
-      if (widget.isSender && distance != null) {
-        distance = distance + 1000;
-      }
 
       targetBearing = locationService.calculateBearing(
         _myPosition!.latitude,
@@ -783,15 +783,16 @@ class _LocationSharingScreenState extends State<LocationSharingScreen> {
   }
 
   String _formatTimestamp(DateTime timestamp) {
+    final l10n = AppLocalizations.of(context)!;
     final now = DateTime.now();
     final diff = now.difference(timestamp);
 
     if (diff.inSeconds < 60) {
-      return '${diff.inSeconds}s fa';
+      return l10n.locationShareTimeAgoSeconds(diff.inSeconds);
     } else if (diff.inMinutes < 60) {
-      return '${diff.inMinutes}m fa';
+      return l10n.locationShareTimeAgoMinutes(diff.inMinutes);
     } else {
-      return '${diff.inHours}h fa';
+      return l10n.locationShareTimeAgoHours(diff.inHours);
     }
   }
 

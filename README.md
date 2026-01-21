@@ -19,7 +19,15 @@ A secure, end-to-end encrypted messaging and family organization app built with 
 - **Typing Indicator**: See when your partner is typing
 - **Rich Attachments**: Share photos, videos, and documents with E2E encryption
 
-### 📱 iOS Photo Sharing (NEW!)
+### 📍 Real-Time Location Sharing (NEW!)
+- **Live Position Tracking**: Share your real-time GPS location with your partner for 1 or 8 hours
+- **Interactive Navigation**: Visual radar interface with directional arrow pointing to partner's position
+- **Distance Display**: See exact distance (meters/km) and time since last update
+- **Compass Integration**: Arrow rotates based on your device orientation and partner's direction
+- **Privacy First**: Location data encrypted and automatically deleted after session expires
+- **Session Management**: Stop sharing anytime, partner notified immediately
+
+### 📱 iOS Photo Sharing
 - **Native iOS Integration**: Share photos directly from iOS Photos app to Tuijo
 - **Method Channel Implementation**: Custom AppDelegate with Flutter Method Channel
 - **Seamless File Handling**: Files copied to app's Caches directory and encrypted before upload
@@ -48,39 +56,52 @@ A secure, end-to-end encrypted messaging and family organization app built with 
 
 ---
 
-## 🚀 What's New in 1.14.0 - Full Localization & UX Improvements
+## 🚀 What's New in 1.14.0 - Location Sharing & Production Release
 
-### 🌍 Complete Localization (NEW!)
+### 📍 Real-Time Location Sharing (NEW!)
+- **Share Your Position**: Start sharing your real-time GPS location for 1 or 8 hours
+- **Live Navigation**: Interactive radar screen with arrow pointing to partner's location
+- **Distance & Time**: See exact distance and how recent the partner's position is
+- **Compass Support**: Arrow rotates based on device heading and partner's bearing
+- **Automatic Expiry**: Location sessions expire automatically, data cleaned up from servers
+- **Stop Anytime**: Either partner can stop sharing, other is notified immediately
+- **Production Ready**: All test offsets removed, shows real GPS coordinates
+
+### 🌍 Complete Localization
 - **All Texts Localized**: Every single UI element now supports all 4 languages (IT, ES, EN, CA)
+- **Location UI**: Distance, time indicators, dialog texts - fully translated
 - **Message Actions**: Edit, Delete, Stop Sharing - fully localized
-- **Time & Alert Pickers**: Orario/Time/Hora labels and all alert options (1 hour before, 2 days before, etc.)
-- **Location Sharing**: "Expired", "Location" and time indicators translated
+- **Time & Alert Pickers**: All labels and alert options in user's language
 - **Error Messages**: All user-facing errors now show in user's language
-- **17 New Keys**: Added to all .arb files for complete coverage
+- **41 New Keys**: Added to all .arb files for complete coverage (location, todos, navigation)
 
-### 📝 Message Editing Improvements (NEW!)
+### 📝 Message Editing Improvements
 - **Edit Pending Messages**: Can now edit messages that are still uploading/failed
 - **Delete Pending Messages**: Remove stuck pending messages without errors
 - **Smart Handling**: Pending messages are removed locally, normal messages updated in Firestore
 - **Attachment Filtering**: Only successfully uploaded attachments shown during edit
 
-### 🎨 UI Simplification
+### 🎨 UX Improvements
+- **Calendar Close Button**: Added X button at top right to close calendar modal
 - **Removed Calendar Screen**: Todo calendar now fully integrated into chat
 - **Streamlined Navigation**: 3-tab interface (Chat, Media, Settings) instead of 4
 - **Cleaner Drawer**: Simplified menu with essential sections only
 - **Better UX**: All todo management happens in chat where todos are created
 
 ### 🐛 Bug Fixes
+- ✅ Removed 1km test offset from location sharing (production ready)
+- ✅ Fixed Catalan translations (actionEdit/actionDelete now proper infinitive)
 - ✅ Fixed pending message deletion errors (empty attachment URLs)
 - ✅ Fixed Firestore NOT_FOUND errors on pending message operations
 - ✅ Fixed attachment URL validation before deletion attempts
 - ✅ Improved error messages for message updates
 
 ### Technical Improvements
+- Location service with session management and automatic cleanup
+- Compass integration for real-time heading updates
 - Localization keys organized and consistent across all languages
 - Better pending message state management
 - Improved attachment cleanup logic
-- Removed unused calendar_screen.dart and references
 
 ---
 
@@ -372,6 +393,7 @@ Tuijo (Tu y yo - You and I) is a private messaging app designed for couples who 
 
 ✨ FEATURES
 • End-to-end encrypted messages (RSA-2048 + AES-256)
+• Real-time location sharing with live navigation
 • Share photos directly from iOS Photos app
 • Smart todo system with reminders
 • Calendar view for family organization
@@ -386,9 +408,16 @@ Tuijo (Tu y yo - You and I) is a private messaging app designed for couples who 
 • No third-party access to your messages
 • Secure QR code pairing
 
+📍 LOCATION SHARING
+• Share your live GPS position for 1 or 8 hours
+• See partner's location with interactive compass
+• Real-time distance and direction updates
+• Automatic session expiry & cleanup
+
 🎯 PERFECT FOR
 • Couples who value privacy
 • Long-distance relationships
+• Meeting up safely - see when partner is nearby
 • Family organization & planning
 • Secure photo sharing
 • Private todo lists & reminders
@@ -396,7 +425,7 @@ Tuijo (Tu y yo - You and I) is a private messaging app designed for couples who 
 Download Tuijo and start your private conversation today.
 ```
 
-**Keywords**: `private,encrypted,couple,messaging,secure,chat,e2e,privacy,family,todo,reminder,calendar,photos`
+**Keywords**: `private,encrypted,couple,messaging,secure,chat,e2e,privacy,family,todo,reminder,calendar,photos,location,gps,navigation`
 
 ---
 
@@ -418,10 +447,14 @@ Proprietary - All rights reserved
 ## 🎉 Version History
 
 ### 1.14.0 (Build 19) - January 21, 2026 - Production Ready
+**NEW**: Real-time location sharing with live navigation and compass
 **NEW**: Complete localization - all UI elements in 4 languages (IT, ES, EN, CA)
 **NEW**: Edit and delete pending messages (stuck uploads)
 **IMPROVED**: Removed separate calendar screen, fully integrated into chat
 **IMPROVED**: Streamlined 3-tab navigation (Chat, Media, Settings)
+**IMPROVED**: Calendar modal with X close button
+**FIXED**: Removed all test offsets from location sharing (production ready)
+**FIXED**: Catalan translations for action buttons
 **FIXED**: Pending message deletion errors, attachment URL validation
 
 ### 1.13.0 (Build 15) - January 15, 2026 - Release Candidate
