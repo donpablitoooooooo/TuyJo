@@ -1091,6 +1091,38 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     }).toList();
   }
 
+  /// Recupera i todo per un range di date
+  List<Message> _getTodosForRange(DateTime rangeStart, DateTime rangeEnd) {
+    final chatService = Provider.of<ChatService>(context, listen: false);
+    final normalizedStart = DateTime(rangeStart.year, rangeStart.month, rangeStart.day);
+    final normalizedEnd = DateTime(rangeEnd.year, rangeEnd.month, rangeEnd.day);
+
+    return chatService.messages.where((message) {
+      if (message.messageType != 'todo') return false;
+      if (message.dueDate == null) return false;
+
+      final todoDay = DateTime(
+        message.dueDate!.year,
+        message.dueDate!.month,
+        message.dueDate!.day,
+      );
+
+      // Check if todo is in the selected range
+      if (message.rangeEnd != null) {
+        final todoRangeEnd = DateTime(
+          message.rangeEnd!.year,
+          message.rangeEnd!.month,
+          message.rangeEnd!.day,
+        );
+        // Include todo if it overlaps with selected range
+        return !(todoRangeEnd.isBefore(normalizedStart) || todoDay.isAfter(normalizedEnd));
+      } else {
+        // Single day todo: check if it's within the selected range
+        return !todoDay.isBefore(normalizedStart) && !todoDay.isAfter(normalizedEnd);
+      }
+    }).toList();
+  }
+
   void _showDateTimePicker() async {
     final l10n = AppLocalizations.of(context)!;
     // Sentinella per segnalare cancellazione
@@ -1109,10 +1141,12 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       backgroundColor: Colors.transparent,
       builder: (context) => StatefulBuilder(
         builder: (context, setModalState) {
-          // Recupera i todo per il giorno selezionato
-          final todosForDay = dayToShowTodos != null
-              ? _getTodosForDayInCalendar(dayToShowTodos!)
-              : <Message>[];
+          // Recupera i todo per il giorno/range selezionato
+          final todosForDay = (rangeStart != null && rangeEnd != null)
+              ? _getTodosForRange(rangeStart!, rangeEnd!)
+              : (dayToShowTodos != null
+                  ? _getTodosForDayInCalendar(dayToShowTodos!)
+                  : <Message>[]);
 
           return DismissiblePane(
             onDismissed: () => Navigator.pop(context),
@@ -1128,12 +1162,14 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
               child: SafeArea(
                 child: Column(
                   children: [
-                    const SizedBox(height: 16),
+                    const SizedBox(height: 32),
 
-                    // Calendario con sfondo verde trasparente
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 16),
-                      child: TableCalendar(
+                    // Calendario con sfondo verde trasparente e altezza fissa
+                    SizedBox(
+                      height: 380,
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 16),
+                        child: TableCalendar(
                       locale: Localizations.localeOf(context).toString(),
                       firstDay: DateTime.now(),
                       lastDay: DateTime.now().add(const Duration(days: 365)),
@@ -1223,9 +1259,11 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                         });
                       },
                     ),
-                  ),
+                        ),
+                      ),
+                    ),
 
-                  const SizedBox(height: 16),
+                    const SizedBox(height: 16),
 
                   // Lista TODO in container bianco Expanded
                   Expanded(
@@ -1257,9 +1295,11 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                                 const SizedBox(width: 8),
                                 Expanded(
                                   child: Text(
-                                    dayToShowTodos != null
-                                        ? 'Todo per ${DateFormat('d MMMM yyyy', Localizations.localeOf(context).toString()).format(dayToShowTodos!)}'
-                                        : 'Seleziona un giorno',
+                                    (rangeStart != null && rangeEnd != null)
+                                        ? 'Todo dal ${DateFormat('d MMM', Localizations.localeOf(context).toString()).format(rangeStart!)} al ${DateFormat('d MMM yyyy', Localizations.localeOf(context).toString()).format(rangeEnd!)}'
+                                        : (dayToShowTodos != null
+                                            ? 'Todo per ${DateFormat('d MMMM yyyy', Localizations.localeOf(context).toString()).format(dayToShowTodos!)}'
+                                            : 'Seleziona un giorno'),
                                     style: const TextStyle(
                                       fontSize: 16,
                                       fontWeight: FontWeight.bold,
@@ -1469,9 +1509,11 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                                         ),
                                         const SizedBox(height: 16),
                                         Text(
-                                          dayToShowTodos == null
+                                          (rangeStart == null && dayToShowTodos == null)
                                               ? 'Seleziona un giorno per vedere i todo'
-                                              : 'Nessun todo per questo giorno',
+                                              : ((rangeStart != null && rangeEnd != null)
+                                                  ? 'Nessun todo in questo range'
+                                                  : 'Nessun todo per questo giorno'),
                                           style: TextStyle(
                                             fontSize: 16,
                                             fontWeight: FontWeight.w500,
