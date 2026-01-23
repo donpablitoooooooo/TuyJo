@@ -3124,6 +3124,15 @@ class _MessageBubble extends StatelessWidget {
     return matches.map((match) => match.group(0)!).toList();
   }
 
+  /// Verifica se il messaggio contiene solo un link (senza altro testo)
+  bool _isOnlyLink() {
+    if (message.isEmpty) return false;
+    final links = _extractLinks(message);
+    if (links.isEmpty) return false;
+    // Se c'è esattamente 1 link e il messaggio trimmed è uguale al link, è solo link
+    return links.length == 1 && message.trim() == links.first;
+  }
+
   /// Costruisce i widget per le anteprime dei link
   List<Widget> _buildLinkPreviews() {
     // Non mostrare link preview se il messaggio è vuoto, eliminato, o è un tipo speciale
@@ -3344,39 +3353,41 @@ class _MessageBubble extends StatelessWidget {
                                 const SizedBox(height: 4),
                               ]
                               // Testo del messaggio (se presente e non eliminato)
-                              else if (message.isNotEmpty) ...[
-                              Linkify(
-                                onOpen: (link) async {
-                                  try {
-                                    final uri = Uri.parse(link.url);
-                                    await launchUrl(
-                                      uri,
-                                      mode: LaunchMode.externalApplication,
-                                    );
-                                  } catch (e) {
-                                    if (kDebugMode) {
-                                      print('Errore apertura URL: $e');
+                              // Se il messaggio contiene SOLO un link, mostra solo la preview (non il testo)
+                              else if (message.isNotEmpty && !_isOnlyLink()) ...[
+                                Linkify(
+                                  onOpen: (link) async {
+                                    try {
+                                      final uri = Uri.parse(link.url);
+                                      await launchUrl(
+                                        uri,
+                                        mode: LaunchMode.externalApplication,
+                                      );
+                                    } catch (e) {
+                                      if (kDebugMode) {
+                                        print('Errore apertura URL: $e');
+                                      }
                                     }
-                                  }
-                                },
-                                text: message,
-                                style: TextStyle(
-                                  color: isMe ? Colors.white : Colors.black87,
-                                  fontSize: 15,
-                                  height: 1.4,
+                                  },
+                                  text: message,
+                                  style: TextStyle(
+                                    color: isMe ? Colors.white : Colors.black87,
+                                    fontSize: 15,
+                                    height: 1.4,
+                                  ),
+                                  linkStyle: TextStyle(
+                                    color: isMe ? Colors.white : Colors.blue,
+                                    fontSize: 15,
+                                    height: 1.4,
+                                    decoration: TextDecoration.underline,
+                                  ),
+                                  options: const LinkifyOptions(
+                                    humanize: false,
+                                    looseUrl: true,
+                                  ),
                                 ),
-                                linkStyle: TextStyle(
-                                  color: isMe ? Colors.white : Colors.blue,
-                                  fontSize: 15,
-                                  height: 1.4,
-                                  decoration: TextDecoration.underline,
-                                ),
-                                options: const LinkifyOptions(
-                                  humanize: false,
-                                  looseUrl: true,
-                                ),
-                              ),
-                              // Anteprime dei link
+                              ],
+                              // Anteprime dei link (sempre mostrate se ci sono link)
                               ..._buildLinkPreviews(),
                               const SizedBox(height: 4),
                             ],
