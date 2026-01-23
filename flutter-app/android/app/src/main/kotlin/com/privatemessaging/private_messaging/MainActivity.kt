@@ -24,10 +24,12 @@ class MainActivity: FlutterActivity() {
         methodChannel?.setMethodCallHandler { call, result ->
             when (call.method) {
                 "getInitialMedia" -> {
+                    Log.d(TAG, "getInitialMedia called, returning: $initialMediaPaths")
                     result.success(initialMediaPaths)
                     initialMediaPaths = null
                 }
                 "getInitialSharedText" -> {
+                    Log.d(TAG, "getInitialSharedText called, returning: $initialSharedText")
                     result.success(initialSharedText)
                     initialSharedText = null
                 }
@@ -35,7 +37,7 @@ class MainActivity: FlutterActivity() {
             }
         }
 
-        Log.d(TAG, "Method Channel configured")
+        Log.d(TAG, "Method Channel configured. initialSharedText=$initialSharedText, initialMediaPaths=$initialMediaPaths")
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {

@@ -128,9 +128,12 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       }
     });
 
-    // Controlla se ci sono file condivisi all'avvio (app era chiusa)
-    _getInitialMedia();
-    _getInitialSharedText();
+    // Ritarda il controllo dei dati condivisi fino a quando il widget è completamente costruito
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      // Controlla se ci sono file/testo condivisi all'avvio (app era chiusa)
+      _getInitialMedia();
+      _getInitialSharedText();
+    });
 
     if (kDebugMode) {
       print("✅ Method Channel configurato");
@@ -189,29 +192,30 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       print("📝 Gestendo testo condiviso: $text");
     }
 
-    // Usa addPostFrameCallback per assicurarsi che il widget sia completamente inizializzato
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted) return;
+    if (!mounted) {
+      if (kDebugMode) print("⚠️ Widget non montato, impossibile inserire testo");
+      return;
+    }
 
-      setState(() {
-        // Inserisci il testo nel controller del messaggio
-        final currentText = _messageController.text;
-        if (currentText.isEmpty) {
-          _messageController.text = text;
-        } else {
-          // Aggiungi su nuova riga se c'è già del testo
-          _messageController.text = '$currentText\n$text';
-        }
+    // Inserisci il testo direttamente se il widget è già montato
+    setState(() {
+      // Inserisci il testo nel controller del messaggio
+      final currentText = _messageController.text;
+      if (currentText.isEmpty) {
+        _messageController.text = text;
+      } else {
+        // Aggiungi su nuova riga se c'è già del testo
+        _messageController.text = '$currentText\n$text';
+      }
 
-        // Posiziona il cursore alla fine
-        _messageController.selection = TextSelection.fromPosition(
-          TextPosition(offset: _messageController.text.length),
-        );
+      // Posiziona il cursore alla fine
+      _messageController.selection = TextSelection.fromPosition(
+        TextPosition(offset: _messageController.text.length),
+      );
 
-        if (kDebugMode) {
-          print("✅ Testo inserito nel messaggio");
-        }
-      });
+      if (kDebugMode) {
+        print("✅ Testo inserito nel messaggio: ${_messageController.text}");
+      }
     });
   }
 
