@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'dart:typed_data';
+import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:crypto/crypto.dart';
@@ -13,6 +14,7 @@ class AttachmentCacheService {
 
   Directory? _cacheDir;
   final Map<String, Uint8List> _memoryCache = {}; // Cache in memoria
+  final Map<String, Completer<Uint8List?>> _pendingRequests = {}; // Deduplicazione richieste
 
   /// Inizializza la directory di cache
   Future<void> initialize() async {
@@ -191,6 +193,55 @@ class AttachmentCacheService {
     } catch (e) {
       if (kDebugMode) print('❌ Error getting cache size: $e');
       return 0;
+    }
+  }
+
+  /// Ottieni un Completer per richieste pendenti (evita download duplicati)
+  Completer<Uint8List?>? getPendingRequest(String attachmentId, {bool isThumbnail = false}) {
+    final cacheKey = _getCacheKey(attachmentId, isThumbnail: isThumbnail);
+    return _pendingRequests[cacheKey];
+  }
+
+  /// Registra una richiesta pendente
+  Completer<Uint8List?> registerPendingRequest(String attachmentId, {bool isThumbnail = false}) {
+    final cacheKey = _getCacheKey(attachmentId, isThumbnail: isThumbnail);
+    final completer = Completer<Uint8List?>();
+    _pendingRequests[cacheKey] = completer;
+
+    if (kDebugMode) {
+      print('🔒 Registered pending request for: ${isThumbnail ? "thumbnail" : "full"} $attachmentId');
+    }
+
+    return completer;
+  }
+
+  /// Completa una richiesta pendente
+  void completePendingRequest(String attachmentId, Uint8List? data, {bool isThumbnail = false}) {
+    final cacheKey = _getCacheKey(attachmentId, isThumbnail: isThumbnail);
+    final completer = _pendingRequests[cacheKey];
+
+    if (completer != null && !completer.isCompleted) {
+      completer.complete(data);
+      _pendingRequests.remove(cacheKey);
+
+      if (kDebugMode) {
+        print('🔓 Completed pending request for: ${isThumbnail ? "thumbnail" : "full"} $attachmentId');
+      }
+    }
+  }
+
+  /// Gestisce errore in richiesta pendente
+  void errorPendingRequest(String attachmentId, dynamic error, {bool isThumbnail = false}) {
+    final cacheKey = _getCacheKey(attachmentId, isThumbnail: isThumbnail);
+    final completer = _pendingRequests[cacheKey];
+
+    if (completer != null && !completer.isCompleted) {
+      completer.completeError(error);
+      _pendingRequests.remove(cacheKey);
+
+      if (kDebugMode) {
+        print('❌ Error in pending request for: ${isThumbnail ? "thumbnail" : "full"} $attachmentId');
+      }
     }
   }
 }

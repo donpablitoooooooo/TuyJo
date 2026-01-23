@@ -385,6 +385,18 @@ class AttachmentService {
         return cachedBytes;
       }
 
+      // 🔒 DEDUPLICAZIONE: Controlla se c'è già una richiesta in corso per questo attachment
+      final existingRequest = _cacheService.getPendingRequest(attachment.id, isThumbnail: useThumbnail);
+      if (existingRequest != null) {
+        if (kDebugMode) {
+          print('⏳ Waiting for existing download to complete: ${useThumbnail ? "thumbnail" : "full"} ${attachment.fileName}');
+        }
+        return await existingRequest.future;
+      }
+
+      // 🔓 Registra questa richiesta come pendente
+      final completer = _cacheService.registerPendingRequest(attachment.id, isThumbnail: useThumbnail);
+
       // Se richiesta thumbnail ma non esiste, usa full image
       final url = (useThumbnail && attachment.thumbnailUrl != null)
           ? attachment.thumbnailUrl!
@@ -395,6 +407,7 @@ class AttachmentService {
         if (kDebugMode) {
           print('⏳ Attachment URL is empty - file still uploading');
         }
+        _cacheService.completePendingRequest(attachment.id, null, isThumbnail: useThumbnail);
         return null;
       }
 
@@ -410,6 +423,7 @@ class AttachmentService {
 
       if (encryptedBytes == null) {
         if (kDebugMode) print('❌ Failed to download encrypted file');
+        _cacheService.completePendingRequest(attachment.id, null, isThumbnail: useThumbnail);
         return null;
       }
 
@@ -447,9 +461,14 @@ class AttachmentService {
         isThumbnail: useThumbnail,
       );
 
+      // 🔓 Completa la richiesta pendente con i dati
+      _cacheService.completePendingRequest(attachment.id, decryptedBytes, isThumbnail: useThumbnail);
+
       return decryptedBytes;
     } catch (e) {
       if (kDebugMode) print('❌ Error downloading/decrypting attachment: $e');
+      // Gestisci errore nella richiesta pendente
+      _cacheService.errorPendingRequest(attachment.id, e, isThumbnail: useThumbnail);
       return null;
     }
   }
