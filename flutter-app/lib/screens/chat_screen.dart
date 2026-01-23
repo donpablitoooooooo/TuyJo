@@ -3116,12 +3116,33 @@ class _MessageBubble extends StatelessWidget {
 
   /// Estrae i link dal testo del messaggio
   List<String> _extractLinks(String text) {
-    final urlRegex = RegExp(
+    // Regex per URL con http/https
+    final urlWithProtocol = RegExp(
       r'https?:\/\/(www\.)?[-a-zA-Z0-9@:%._\+~#=]{1,256}\.[a-zA-Z0-9()]{1,6}\b([-a-zA-Z0-9()@:%_\+.~#?&//=]*)',
       caseSensitive: false,
     );
-    final matches = urlRegex.allMatches(text);
-    return matches.map((match) => match.group(0)!).toList();
+
+    // Regex per domini senza protocollo (es. google.com, tuijo.app)
+    final urlWithoutProtocol = RegExp(
+      r'(?:^|[\s])([a-zA-Z0-9][-a-zA-Z0-9]{0,62}\.)+[a-zA-Z]{2,6}\b([-a-zA-Z0-9()@:%_\+.~#?&//=]*)',
+      caseSensitive: false,
+    );
+
+    final links = <String>[];
+
+    // Prima cerca URL con protocollo
+    links.addAll(urlWithProtocol.allMatches(text).map((match) => match.group(0)!));
+
+    // Poi cerca domini senza protocollo (che non siano già stati trovati)
+    for (final match in urlWithoutProtocol.allMatches(text)) {
+      final url = match.group(0)!.trim();
+      // Aggiungi solo se non è già presente e non è un numero
+      if (!links.contains(url) && !links.any((l) => l.contains(url))) {
+        links.add(url);
+      }
+    }
+
+    return links;
   }
 
   /// Verifica se il messaggio contiene solo un link (senza altro testo)
@@ -3390,7 +3411,6 @@ class _MessageBubble extends StatelessWidget {
                               // Anteprime dei link (sempre mostrate se ci sono link)
                               ..._buildLinkPreviews(),
                               const SizedBox(height: 4),
-                            ],
                             Row(
                               mainAxisSize: MainAxisSize.min,
                               children: [
