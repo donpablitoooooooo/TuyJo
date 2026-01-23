@@ -859,6 +859,9 @@ class AttachmentLinkPreview extends StatelessWidget {
         ),
         child: LinkPreview(
           text: url,
+          onLinkPreviewDataFetched: (data) {
+            // Preview data loaded
+          },
         ),
       ),
     );
