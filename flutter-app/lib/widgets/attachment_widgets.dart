@@ -853,34 +853,15 @@ class AttachmentLinkPreview extends StatelessWidget {
   Widget build(BuildContext context) {
     return GestureDetector(
       onTap: _launchURL,
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(12),
-        child: Container(
-          constraints: const BoxConstraints(
-            maxWidth: 300,
-          ),
-          child: LinkPreview(
-            text: url,
-            width: 280,
-            onPreviewDataFetched: (data) {
-              // Preview data fetched successfully
-            },
-            previewData: null, // Let it fetch automatically
-            padding: EdgeInsets.zero,
-            linkStyle: TextStyle(
-              color: isMe ? Colors.white : Colors.blue,
-              fontSize: 14,
-            ),
-            metadataTextStyle: TextStyle(
-              color: isMe ? Colors.white70 : Colors.black54,
-              fontSize: 12,
-            ),
-            metadataTitleStyle: TextStyle(
-              color: isMe ? Colors.white : Colors.black87,
-              fontSize: 14,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
+      child: Container(
+        constraints: const BoxConstraints(
+          maxWidth: 300,
+        ),
+        child: LinkPreview(
+          text: url,
+          onPreviewDataFetched: (data) {
+            // Preview data fetched successfully
+          },
         ),
       ),
     );
