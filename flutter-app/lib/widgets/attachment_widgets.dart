@@ -7,7 +7,7 @@ import 'package:open_filex/open_filex.dart';
 import 'package:provider/provider.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:private_messaging/generated/l10n/app_localizations.dart';
-import 'package:any_link_preview/any_link_preview.dart';
+import 'package:flutter_link_previewer/flutter_link_previewer.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../models/message.dart';
 import '../services/attachment_service.dart';
@@ -858,45 +858,27 @@ class AttachmentLinkPreview extends StatelessWidget {
         child: Container(
           constraints: const BoxConstraints(
             maxWidth: 300,
-            maxHeight: 200,
           ),
-          child: AnyLinkPreview(
-            link: url,
-            displayDirection: UIDirection.uiDirectionVertical,
-            cache: const Duration(hours: 1),
-            backgroundColor: isMe ? Colors.blue.shade50 : Colors.grey.shade100,
-            errorWidget: Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: isMe ? Colors.blue.shade50 : Colors.grey.shade100,
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Row(
-                children: [
-                  Icon(Icons.link, color: isMe ? Colors.blue : Colors.grey),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      url,
-                      style: TextStyle(
-                        color: isMe ? Colors.blue.shade900 : Colors.black87,
-                        fontSize: 14,
-                      ),
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ),
-                ],
-              ),
+          child: LinkPreview(
+            text: url,
+            width: 280,
+            onPreviewDataFetched: (data) {
+              // Preview data fetched successfully
+            },
+            previewData: null, // Let it fetch automatically
+            padding: EdgeInsets.zero,
+            linkStyle: TextStyle(
+              color: isMe ? Colors.white : Colors.blue,
+              fontSize: 14,
             ),
-            errorBody: 'Impossibile caricare anteprima',
-            errorTitle: 'Link',
-            errorImage: '',
-            placeholderWidget: Container(
-              padding: const EdgeInsets.all(16),
-              child: const Center(
-                child: CircularProgressIndicator(),
-              ),
+            metadataTextStyle: TextStyle(
+              color: isMe ? Colors.white70 : Colors.black54,
+              fontSize: 12,
+            ),
+            metadataTitleStyle: TextStyle(
+              color: isMe ? Colors.white : Colors.black87,
+              fontSize: 14,
+              fontWeight: FontWeight.bold,
             ),
           ),
         ),
