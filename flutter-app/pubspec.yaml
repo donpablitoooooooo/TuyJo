@@ -47,6 +47,7 @@ dependencies:
   flutter_linkify: ^6.0.0
   url_launcher: ^6.3.2
   table_calendar: ^3.1.2
+  any_link_preview: ^3.0.2
 
   # QR Code
   qr_flutter: ^4.1.0

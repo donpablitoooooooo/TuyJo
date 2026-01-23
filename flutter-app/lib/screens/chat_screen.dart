@@ -3114,6 +3114,37 @@ class _MessageBubble extends StatelessWidget {
     this.messageObject,
   });
 
+  /// Estrae i link dal testo del messaggio
+  List<String> _extractLinks(String text) {
+    final urlRegex = RegExp(
+      r'https?:\/\/(www\.)?[-a-zA-Z0-9@:%._\+~#=]{1,256}\.[a-zA-Z0-9()]{1,6}\b([-a-zA-Z0-9()@:%_\+.~#?&//=]*)',
+      caseSensitive: false,
+    );
+    final matches = urlRegex.allMatches(text);
+    return matches.map((match) => match.group(0)!).toList();
+  }
+
+  /// Costruisce i widget per le anteprime dei link
+  List<Widget> _buildLinkPreviews() {
+    // Non mostrare link preview se il messaggio è vuoto, eliminato, o è un tipo speciale
+    if (message.isEmpty ||
+        messageObject?.deleted == true ||
+        messageObject?.messageType == 'location_share') {
+      return [];
+    }
+
+    final links = _extractLinks(message);
+    if (links.isEmpty) return [];
+
+    return links.map((link) => Padding(
+      padding: const EdgeInsets.only(top: 8),
+      child: AttachmentLinkPreview(
+        url: link,
+        isMe: isMe,
+      ),
+    )).toList();
+  }
+
   /// Costruisce i widget per mostrare gli allegati (decifrati)
   List<Widget> _buildAttachments(BuildContext context) {
     // Caso speciale: location_share
@@ -3345,6 +3376,8 @@ class _MessageBubble extends StatelessWidget {
                                   looseUrl: true,
                                 ),
                               ),
+                              // Anteprime dei link
+                              ..._buildLinkPreviews(),
                               const SizedBox(height: 4),
                             ],
                             Row(
