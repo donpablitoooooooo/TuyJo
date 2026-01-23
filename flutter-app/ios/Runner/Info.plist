@@ -78,6 +78,7 @@
 			<key>CFBundleURLSchemes</key>
 			<array>
 				<string>ShareMedia</string>
+				<string>tuyjo</string>
 			</array>
 		</dict>
 	</array>

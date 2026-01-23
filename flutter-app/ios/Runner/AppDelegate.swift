@@ -6,6 +6,9 @@ import Flutter
   private let CHANNEL = "com.privatemessaging.tuyjo/shared_media"
   private var methodChannel: FlutterMethodChannel?
   private var initialMediaPaths: [String]?
+  private var initialSharedText: String?
+  private let appGroupName = "group.com.privatemessaging.tuyjo"
+  private let sharedKey = "ShareKey"
 
   override func application(
     _ application: UIApplication,
@@ -21,10 +24,16 @@ import Flutter
       if call.method == "getInitialMedia" {
         result(self?.initialMediaPaths)
         self?.initialMediaPaths = nil
+      } else if call.method == "getInitialSharedText" {
+        result(self?.initialSharedText)
+        self?.initialSharedText = nil
       } else {
         result(FlutterMethodNotImplemented)
       }
     })
+
+    // Controlla se ci sono dati condivisi dall'estensione
+    checkSharedData()
 
     return super.application(application, didFinishLaunchingWithOptions: launchOptions)
   }
@@ -33,6 +42,12 @@ import Flutter
   override func application(_ app: UIApplication, open url: URL, options: [UIApplication.OpenURLOptionsKey : Any] = [:]) -> Bool {
     print("📱 AppDelegate: application:open:options called with URL: \(url)")
     print("📱 URL scheme: \(url.scheme ?? "nil"), pathExtension: \(url.pathExtension)")
+
+    // Se viene dall'estensione, controlla i dati condivisi
+    if url.scheme == "tuyjo" && url.host == "share" {
+      checkSharedData()
+      return true
+    }
 
     if isMediaFile(url) {
       handleSharedMedia([url])
@@ -54,6 +69,12 @@ import Flutter
       return true
     }
     return super.application(application, continue: userActivity, restorationHandler: restorationHandler)
+  }
+
+  override func applicationDidBecomeActive(_ application: UIApplication) {
+    print("📱 App became active, checking for shared data")
+    checkSharedData()
+    super.applicationDidBecomeActive(application)
   }
 
   private func isMediaFile(_ url: URL) -> Bool {
@@ -150,6 +171,65 @@ import Flutter
       print("❌ Copy error: \(error)")
       print("❌ Details: \(error.localizedDescription)")
       return nil
+    }
+  }
+
+  private func checkSharedData() {
+    print("🔍 Checking shared data from extension")
+
+    guard let sharedDefaults = UserDefaults(suiteName: appGroupName),
+          let sharedData = sharedDefaults.array(forKey: sharedKey) as? [[String: Any]],
+          !sharedData.isEmpty else {
+      print("⚠️ No shared data found")
+      return
+    }
+
+    print("📦 Found \(sharedData.count) shared item(s)")
+
+    var filePaths: [String] = []
+    var textContents: [String] = []
+
+    for data in sharedData {
+      guard let type = data["type"] as? String,
+            let content = data["content"] as? String else {
+        continue
+      }
+
+      print("📋 Processing shared \(type): \(content)")
+
+      switch type {
+      case "file":
+        // File già copiato dall'estensione
+        filePaths.append(content)
+      case "text", "url":
+        // Testo o URL condiviso
+        textContents.append(content)
+      default:
+        break
+      }
+    }
+
+    // Pulisci i dati condivisi
+    sharedDefaults.removeObject(forKey: sharedKey)
+    sharedDefaults.synchronize()
+
+    // Invia i dati a Flutter
+    if !filePaths.isEmpty {
+      if let channel = methodChannel {
+        print("📲 Sending \(filePaths.count) file(s) to Flutter")
+        channel.invokeMethod("onMediaShared", arguments: filePaths)
+      }
+      initialMediaPaths = filePaths
+    }
+
+    if !textContents.isEmpty {
+      // Concatena tutti i testi con newline
+      let combinedText = textContents.joined(separator: "\n")
+      if let channel = methodChannel {
+        print("📲 Sending text to Flutter: \(combinedText)")
+        channel.invokeMethod("onTextShared", arguments: combinedText)
+      }
+      initialSharedText = combinedText
     }
   }
 }

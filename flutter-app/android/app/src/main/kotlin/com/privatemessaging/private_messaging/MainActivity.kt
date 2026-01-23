@@ -14,6 +14,7 @@ class MainActivity: FlutterActivity() {
     private val CHANNEL = "com.privatemessaging.tuyjo/shared_media"
     private var methodChannel: MethodChannel? = null
     private var initialMediaPaths: List<String>? = null
+    private var initialSharedText: String? = null
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
@@ -25,6 +26,10 @@ class MainActivity: FlutterActivity() {
                 "getInitialMedia" -> {
                     result.success(initialMediaPaths)
                     initialMediaPaths = null
+                }
+                "getInitialSharedText" -> {
+                    result.success(initialSharedText)
+                    initialSharedText = null
                 }
                 else -> result.notImplemented()
             }
@@ -54,6 +59,16 @@ class MainActivity: FlutterActivity() {
 
         Log.d(TAG, "handleIntent: action=${intent.action}, type=${intent.type}")
 
+        // Controlla prima se c'è testo condiviso (link, URL, etc.)
+        if (intent.action == Intent.ACTION_SEND && intent.type?.startsWith("text/") == true) {
+            intent.getStringExtra(Intent.EXTRA_TEXT)?.let { sharedText ->
+                Log.d(TAG, "Shared text received: $sharedText")
+                handleSharedText(sharedText)
+                return
+            }
+        }
+
+        // Altrimenti gestisci i file
         val uris = mutableListOf<Uri>()
 
         when (intent.action) {
@@ -108,6 +123,22 @@ class MainActivity: FlutterActivity() {
             // Altrimenti salva per dopo
             Log.d(TAG, "Flutter not ready, saving as initialMediaPaths")
             initialMediaPaths = copiedPaths
+        }
+    }
+
+    private fun handleSharedText(text: String) {
+        Log.d(TAG, "handleSharedText called with: $text")
+
+        // Se Flutter è già pronto, invia subito
+        methodChannel?.let { channel ->
+            Log.d(TAG, "Flutter ready, invoking onTextShared")
+            channel.invokeMethod("onTextShared", text)
+            // Salva anche come initialSharedText per getInitialSharedText
+            initialSharedText = text
+        } ?: run {
+            // Altrimenti salva per dopo
+            Log.d(TAG, "Flutter not ready, saving as initialSharedText")
+            initialSharedText = text
         }
     }
 

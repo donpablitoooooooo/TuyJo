@@ -118,11 +118,19 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
           final paths = (call.arguments as List).cast<String>();
           await _handleSharedFilePaths(paths);
         }
+      } else if (call.method == 'onTextShared') {
+        if (kDebugMode) {
+          print("📥 onTextShared ricevuto: ${call.arguments}");
+        }
+        if (call.arguments is String) {
+          await _handleSharedText(call.arguments as String);
+        }
       }
     });
 
     // Controlla se ci sono file condivisi all'avvio (app era chiusa)
     _getInitialMedia();
+    _getInitialSharedText();
 
     if (kDebugMode) {
       print("✅ Method Channel configurato");
@@ -152,6 +160,59 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     } catch (e) {
       if (kDebugMode) print("❌ Errore in getInitialMedia(): $e");
     }
+  }
+
+  /// Recupera testo condiviso quando l'app era chiusa
+  Future<void> _getInitialSharedText() async {
+    try {
+      final result = await platform.invokeMethod('getInitialSharedText');
+      if (kDebugMode) {
+        print("📥 getInitialSharedText() restituito: $result");
+      }
+
+      if (result != null && result is String && result.isNotEmpty) {
+        if (kDebugMode) {
+          print("📥 Testo ricevuto: $result");
+        }
+        await _handleSharedText(result);
+      } else {
+        if (kDebugMode) print("⚠️ getInitialSharedText() ha restituito null o stringa vuota");
+      }
+    } catch (e) {
+      if (kDebugMode) print("❌ Errore in getInitialSharedText(): $e");
+    }
+  }
+
+  /// Gestisce il testo condiviso da altre app
+  Future<void> _handleSharedText(String text) async {
+    if (kDebugMode) {
+      print("📝 Gestendo testo condiviso: $text");
+    }
+
+    // Usa addPostFrameCallback per assicurarsi che il widget sia completamente inizializzato
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+
+      setState(() {
+        // Inserisci il testo nel controller del messaggio
+        final currentText = _messageController.text;
+        if (currentText.isEmpty) {
+          _messageController.text = text;
+        } else {
+          // Aggiungi su nuova riga se c'è già del testo
+          _messageController.text = '$currentText\n$text';
+        }
+
+        // Posiziona il cursore alla fine
+        _messageController.selection = TextSelection.fromPosition(
+          TextPosition(offset: _messageController.text.length),
+        );
+
+        if (kDebugMode) {
+          print("✅ Testo inserito nel messaggio");
+        }
+      });
+    });
   }
 
   /// Gestisce i path dei file condivisi (già copiati dall'AppDelegate)
