@@ -192,30 +192,33 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       print("📝 Gestendo testo condiviso: $text");
     }
 
-    if (!mounted) {
-      if (kDebugMode) print("⚠️ Widget non montato, impossibile inserire testo");
-      return;
-    }
-
-    // Inserisci il testo direttamente se il widget è già montato
-    setState(() {
-      // Inserisci il testo nel controller del messaggio
-      final currentText = _messageController.text;
-      if (currentText.isEmpty) {
-        _messageController.text = text;
-      } else {
-        // Aggiungi su nuova riga se c'è già del testo
-        _messageController.text = '$currentText\n$text';
+    // Usa addPostFrameCallback per assicurarsi che il widget sia completamente inizializzato
+    // (stesso pattern di _handleSharedFilePaths che funziona per le foto)
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) {
+        if (kDebugMode) print("⚠️ Widget non montato, impossibile inserire testo");
+        return;
       }
 
-      // Posiziona il cursore alla fine
-      _messageController.selection = TextSelection.fromPosition(
-        TextPosition(offset: _messageController.text.length),
-      );
+      setState(() {
+        // Inserisci il testo nel controller del messaggio
+        final currentText = _messageController.text;
+        if (currentText.isEmpty) {
+          _messageController.text = text;
+        } else {
+          // Aggiungi su nuova riga se c'è già del testo
+          _messageController.text = '$currentText\n$text';
+        }
 
-      if (kDebugMode) {
-        print("✅ Testo inserito nel messaggio: ${_messageController.text}");
-      }
+        // Posiziona il cursore alla fine
+        _messageController.selection = TextSelection.fromPosition(
+          TextPosition(offset: _messageController.text.length),
+        );
+
+        if (kDebugMode) {
+          print("✅ Testo inserito nel messaggio: ${_messageController.text}");
+        }
+      });
     });
   }
 
