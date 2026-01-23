@@ -1,7 +1,7 @@
 import UIKit
 import Flutter
 
-@UIApplicationMain
+@main
 @objc class AppDelegate: FlutterAppDelegate {
   private let CHANNEL = "com.privatemessaging.tuyjo/shared_media"
   private var methodChannel: FlutterMethodChannel?
