@@ -57,8 +57,6 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   bool _lastPairingStatus = false;
   String? _lastFamilyChatId;
   Timer? _typingTimer;
-  Timer? _urlDetectionTimer; // Timer per rilevare URL incollati
-  String _lastTextValue = ''; // Ultimo valore del testo per rilevare cambiamenti
   int _lastMessageCount = 0;
   bool _isLoadingOlderMessages = false; // Track se stiamo caricando messaggi vecchi
   DateTime? _selectedTodoDate; // Data/ora selezionata per todo (null = messaggio normale)
@@ -98,8 +96,6 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
         _onUserTyping();
       }
 
-      // URL detection con debounce
-      _onTextChanged();
     });
 
     // 📜 INFINITE SCROLL: Listen per scroll verso l'alto (messaggi vecchi)
@@ -193,7 +189,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     }
   }
 
-  /// Gestisce il testo condiviso da altre app
+  /// Gestisce il testo condiviso da altre app (crea messaggio direttamente)
   Future<void> _handleSharedText(String text) async {
     if (kDebugMode) {
       print("📝 Gestendo testo condiviso: $text");
@@ -204,16 +200,16 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     final urls = linkService.extractUrls(text);
 
     if (urls.length == 1) {
-      // Se c'è esattamente un URL, fetch metadata e preview
+      // Se c'è esattamente un URL, fetch metadata e invia messaggio con preview
       if (kDebugMode) {
-        print("🔗 URL trovato nel testo: ${urls.first}");
-        print("🔗 Fetching metadata...");
+        print("🔗 URL trovato nel testo condiviso: ${urls.first}");
+        print("🔗 Fetching metadata e invio messaggio...");
       }
 
-      // Fetch metadata e download immagine in background
-      _fetchAndAttachLinkPreview(urls.first, originalText: text);
+      // Fetch metadata + download immagine + invia messaggio
+      await _fetchAndSendLinkMessage(urls.first, originalText: text);
     } else {
-      // Nessun URL o URL multipli, inserisci semplicemente il testo
+      // Nessun URL o URL multipli, inserisci semplicemente il testo nel campo
       _insertTextIntoMessage(text);
     }
   }
@@ -250,8 +246,8 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     });
   }
 
-  /// Fetch metadata del link e scarica immagine di preview come allegato
-  Future<void> _fetchAndAttachLinkPreview(String url, {String? originalText}) async {
+  /// Fetch metadata del link e invia messaggio con preview
+  Future<void> _fetchAndSendLinkMessage(String url, {String? originalText}) async {
     try {
       final linkService = LinkMetadataService();
 
@@ -259,16 +255,120 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
         print("🔍 Fetching link preview for: $url");
       }
 
-      // Fetch metadata + download immagine
-      final result = await linkService.fetchLinkPreview(url);
+  /// Invia messaggio con allegati (usato per link condivisi)
+  Future<void> _sendMessageWithAttachments(String messageText, List<File> attachments) async {
+    // Verifica pairing
+    final pairingService = Provider.of<PairingService>(context, listen: false);
+    if (!pairingService.isPaired) {
+      if (kDebugMode) print('❌ Not paired, cannot send message');
+      return;
+    }
 
-      if (result.metadata == null) {
+    if (_familyChatId == null || _myDeviceId == null || _partnerPublicKey == null) {
+      if (kDebugMode) print('❌ Missing chat data');
+      return;
+    }
+
+    final chatService = Provider.of<ChatService>(context, listen: false);
+    final encryptionService = Provider.of<EncryptionService>(context, listen: false);
+
+    // Ottieni chiave pubblica
+    final myPublicKey = await encryptionService.getPublicKey();
+    if (myPublicKey == null) {
+      if (kDebugMode) print('❌ My public key is null');
+      return;
+    }
+
+    // Upload allegati se presenti
+    List<Attachment>? uploadedAttachments;
+    if (attachments.isNotEmpty) {
+      try {
+        uploadedAttachments = await _attachmentService!.uploadMultipleAttachments(
+          attachments,
+          _familyChatId!,
+          _myDeviceId!,
+          myPublicKey,
+          _partnerPublicKey!,
+        );
+
         if (kDebugMode) {
-          print("⚠️ Nessun metadata trovato, inserisco solo l'URL");
+          print('✅ ${uploadedAttachments?.length ?? 0} attachments uploaded');
         }
-        _insertTextIntoMessage(originalText ?? url);
-        return;
+      } catch (e) {
+        if (kDebugMode) print('❌ Error uploading attachments: $e');
+        // Continua comunque e invia solo il testo
       }
+    }
+
+    // Invia messaggio
+    try {
+      await chatService.sendMessage(
+        messageText,
+        _familyChatId!,
+        _myDeviceId!,
+        attachments: uploadedAttachments,
+      );
+
+      if (kDebugMode) {
+        print('✅ Link message sent successfully');
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        print('❌ Error sending message: $e');
+      }
+    }
+  }
+
+      // Mostra loader o stato di invio
+      setState(() {
+        _isUploadingAttachments = true;
+      });
+
+      // Fetch metadata + download immagine (con timeout)
+      final result = await linkService.fetchLinkPreview(url).timeout(
+        const Duration(seconds: 8),
+        onTimeout: () {
+          if (kDebugMode) print("⏱️ Timeout fetch preview, invio senza immagine");
+          return (metadata: null, imageFile: null);
+        },
+      );
+
+      // Prepara il testo del messaggio
+      final messageText = originalText ?? url;
+
+      // Prepara allegati
+      final List<File> attachments = [];
+      if (result.imageFile != null) {
+        attachments.add(result.imageFile!);
+        if (kDebugMode) {
+          print("✅ Immagine di preview pronta: ${result.imageFile!.path}");
+        }
+      }
+
+      // Invia il messaggio direttamente (senza passare dal campo testo)
+      await _sendMessageWithAttachments(messageText, attachments);
+
+      if (mounted) {
+        setState(() {
+          _isUploadingAttachments = false;
+        });
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        print("❌ Errore nel fetch della preview: $e");
+      }
+      
+      // In caso di errore, invia solo il testo
+      await _sendMessageWithAttachments(originalText ?? url, []);
+      
+      if (mounted) {
+        setState(() {
+          _isUploadingAttachments = false;
+        });
+      }
+    }
+  }
+
 
       // Usa il testo originale se fornito, altrimenti costruisci con title+description+url
       final messageText = originalText ?? () {
@@ -468,42 +568,6 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     }
   }
 
-  /// Rileva URL incollati con debounce
-  void _onTextChanged() {
-    final currentText = _messageController.text;
-
-    // Cancel timer precedente
-    _urlDetectionTimer?.cancel();
-
-    // Avvia nuovo timer con debounce di 1.5 secondi
-    _urlDetectionTimer = Timer(const Duration(milliseconds: 1500), () {
-      _detectAndFetchUrl(currentText);
-    });
-
-    _lastTextValue = currentText;
-  }
-
-  /// Rileva se è stato incollato un URL e fa fetch automatico
-  Future<void> _detectAndFetchUrl(String text) async {
-    if (text.trim().isEmpty) return;
-
-    final linkService = LinkMetadataService();
-    final urls = linkService.extractUrls(text);
-
-    // Se c'è esattamente un URL e non ci sono allegati già selezionati
-    if (urls.length == 1 && _selectedAttachments.isEmpty) {
-      final url = urls.first;
-
-      if (kDebugMode) {
-        print("🔗 URL rilevato nel campo testo: $url");
-        print("🔗 Avvio fetch automatico preview...");
-      }
-
-      // Fetch preview in background
-      _fetchAndAttachLinkPreview(url, originalText: text);
-    }
-  }
-
   @override
   void didChangeDependencies() async {
     super.didChangeDependencies();
@@ -629,7 +693,6 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     _messageController.dispose();
     _scrollController.dispose();
     _typingTimer?.cancel();
-    _urlDetectionTimer?.cancel();
     // Pulisci eventuali file temporanei iOS rimasti
     _cleanupAllIOSFiles();
     super.dispose();
