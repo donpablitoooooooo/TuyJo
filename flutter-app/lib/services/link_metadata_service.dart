@@ -200,6 +200,56 @@ class LinkMetadataService {
     return null;
   }
 
+  /// Ottiene il favicon del sito usando Google favicon service
+  Future<File?> downloadFavicon(String url) async {
+    try {
+      final uri = Uri.parse(normalizeUrl(url));
+      final domain = uri.host;
+
+      // Usa il servizio Google per i favicon (size 128x128)
+      final faviconUrl = 'https://www.google.com/s2/favicons?domain=$domain&sz=128';
+
+      if (kDebugMode) {
+        print('🌐 Downloading favicon from: $faviconUrl');
+      }
+
+      final response = await http.get(
+        Uri.parse(faviconUrl),
+      ).timeout(const Duration(seconds: 10));
+
+      if (response.statusCode != 200) {
+        if (kDebugMode) {
+          print('❌ Failed to download favicon: ${response.statusCode}');
+        }
+        return null;
+      }
+
+      // Salva il favicon
+      final tempDir = await getTemporaryDirectory();
+      final sharedDir = Directory('${tempDir.path}/shared_media');
+      if (!await sharedDir.exists()) {
+        await sharedDir.create(recursive: true);
+      }
+
+      final timestamp = DateTime.now().millisecondsSinceEpoch;
+      final fileName = 'favicon_$timestamp.png';
+      final file = File('${sharedDir.path}/$fileName');
+
+      await file.writeAsBytes(response.bodyBytes);
+
+      if (kDebugMode) {
+        print('✅ Favicon downloaded: ${file.path}');
+      }
+
+      return file;
+    } catch (e) {
+      if (kDebugMode) {
+        print('❌ Error downloading favicon: $e');
+      }
+      return null;
+    }
+  }
+
   /// Scarica l'immagine di preview e la salva in un file temporaneo
   Future<File?> downloadPreviewImage(String imageUrl) async {
     try {
@@ -263,7 +313,7 @@ class LinkMetadataService {
     }
   }
 
-  /// Processo completo: fetch metadata + download immagine
+  /// Processo completo: fetch metadata + download immagine (con fallback a favicon)
   Future<({LinkMetadata? metadata, File? imageFile})> fetchLinkPreview(String url) async {
     final metadata = await fetchMetadata(url);
 
@@ -272,8 +322,18 @@ class LinkMetadataService {
     }
 
     File? imageFile;
+
+    // Prova a scaricare l'immagine di preview se disponibile
     if (metadata.imageUrl != null) {
       imageFile = await downloadPreviewImage(metadata.imageUrl!);
+    }
+
+    // Se non c'è immagine o il download è fallito, usa il favicon come fallback
+    if (imageFile == null) {
+      if (kDebugMode) {
+        print('⚠️ No preview image available, falling back to favicon');
+      }
+      imageFile = await downloadFavicon(url);
     }
 
     return (metadata: metadata, imageFile: imageFile);
