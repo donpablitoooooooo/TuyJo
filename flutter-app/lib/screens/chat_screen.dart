@@ -57,6 +57,8 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   bool _lastPairingStatus = false;
   String? _lastFamilyChatId;
   Timer? _typingTimer;
+  Timer? _urlDetectionTimer; // Timer per rilevare URL incollati
+  String _lastTextValue = ''; // Ultimo valore del testo per rilevare cambiamenti
   int _lastMessageCount = 0;
   bool _isLoadingOlderMessages = false; // Track se stiamo caricando messaggi vecchi
   DateTime? _selectedTodoDate; // Data/ora selezionata per todo (null = messaggio normale)
@@ -95,6 +97,9 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       if (hasText) {
         _onUserTyping();
       }
+
+      // URL detection con debounce
+      _onTextChanged();
     });
 
     // 📜 INFINITE SCROLL: Listen per scroll verso l'alto (messaggi vecchi)
@@ -463,6 +468,42 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     }
   }
 
+  /// Rileva URL incollati con debounce
+  void _onTextChanged() {
+    final currentText = _messageController.text;
+
+    // Cancel timer precedente
+    _urlDetectionTimer?.cancel();
+
+    // Avvia nuovo timer con debounce di 1.5 secondi
+    _urlDetectionTimer = Timer(const Duration(milliseconds: 1500), () {
+      _detectAndFetchUrl(currentText);
+    });
+
+    _lastTextValue = currentText;
+  }
+
+  /// Rileva se è stato incollato un URL e fa fetch automatico
+  Future<void> _detectAndFetchUrl(String text) async {
+    if (text.trim().isEmpty) return;
+
+    final linkService = LinkMetadataService();
+    final urls = linkService.extractUrls(text);
+
+    // Se c'è esattamente un URL e non ci sono allegati già selezionati
+    if (urls.length == 1 && _selectedAttachments.isEmpty) {
+      final url = urls.first;
+
+      if (kDebugMode) {
+        print("🔗 URL rilevato nel campo testo: $url");
+        print("🔗 Avvio fetch automatico preview...");
+      }
+
+      // Fetch preview in background
+      _fetchAndAttachLinkPreview(url, originalText: text);
+    }
+  }
+
   @override
   void didChangeDependencies() async {
     super.didChangeDependencies();
@@ -588,6 +629,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     _messageController.dispose();
     _scrollController.dispose();
     _typingTimer?.cancel();
+    _urlDetectionTimer?.cancel();
     // Pulisci eventuali file temporanei iOS rimasti
     _cleanupAllIOSFiles();
     super.dispose();
