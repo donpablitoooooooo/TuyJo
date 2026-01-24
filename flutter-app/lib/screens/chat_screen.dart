@@ -193,17 +193,21 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       print("📝 Gestendo testo condiviso: $text");
     }
 
-    // Controlla se il testo è un URL
+    // Estrai URL dal testo
     final linkService = LinkMetadataService();
-    if (linkService.isUrl(text)) {
+    final urls = linkService.extractUrls(text);
+
+    if (urls.length == 1) {
+      // Se c'è esattamente un URL, fetch metadata e preview
       if (kDebugMode) {
-        print("🔗 Testo riconosciuto come URL, fetching metadata...");
+        print("🔗 URL trovato nel testo: ${urls.first}");
+        print("🔗 Fetching metadata...");
       }
 
       // Fetch metadata e download immagine in background
-      _fetchAndAttachLinkPreview(text);
+      _fetchAndAttachLinkPreview(urls.first, originalText: text);
     } else {
-      // Non è un URL, inserisci semplicemente il testo
+      // Nessun URL o URL multipli, inserisci semplicemente il testo
       _insertTextIntoMessage(text);
     }
   }
@@ -241,7 +245,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   }
 
   /// Fetch metadata del link e scarica immagine di preview come allegato
-  Future<void> _fetchAndAttachLinkPreview(String url) async {
+  Future<void> _fetchAndAttachLinkPreview(String url, {String? originalText}) async {
     try {
       final linkService = LinkMetadataService();
 
@@ -256,24 +260,26 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
         if (kDebugMode) {
           print("⚠️ Nessun metadata trovato, inserisco solo l'URL");
         }
-        _insertTextIntoMessage(url);
+        _insertTextIntoMessage(originalText ?? url);
         return;
       }
 
-      // Costruisci il messaggio con titolo e descrizione
-      final buffer = StringBuffer();
+      // Usa il testo originale se fornito, altrimenti costruisci con title+description+url
+      final messageText = originalText ?? () {
+        final buffer = StringBuffer();
 
-      if (result.metadata!.title != null && result.metadata!.title!.isNotEmpty) {
-        buffer.writeln(result.metadata!.title);
-      }
+        if (result.metadata!.title != null && result.metadata!.title!.isNotEmpty) {
+          buffer.writeln(result.metadata!.title);
+        }
 
-      if (result.metadata!.description != null && result.metadata!.description!.isNotEmpty) {
-        buffer.writeln(result.metadata!.description);
-      }
+        if (result.metadata!.description != null && result.metadata!.description!.isNotEmpty) {
+          buffer.writeln(result.metadata!.description);
+        }
 
-      buffer.write(url);
+        buffer.write(url);
 
-      final messageText = buffer.toString();
+        return buffer.toString();
+      }();
 
       // Usa addPostFrameCallback per aggiornare lo stato
       WidgetsBinding.instance.addPostFrameCallback((_) {

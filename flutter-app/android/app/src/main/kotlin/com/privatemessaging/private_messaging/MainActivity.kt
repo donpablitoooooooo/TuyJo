@@ -115,12 +115,10 @@ class MainActivity: FlutterActivity() {
 
         Log.d(TAG, "Total files copied: ${copiedPaths.size}")
 
-        // Se Flutter è già pronto, invia subito
+        // Se Flutter è già pronto, invia subito (NON salvare in initialMediaPaths per evitare duplicazione)
         methodChannel?.let { channel ->
             Log.d(TAG, "Flutter ready, invoking onMediaShared")
             channel.invokeMethod("onMediaShared", copiedPaths)
-            // Salva anche come initialMediaPaths per getInitialMedia
-            initialMediaPaths = copiedPaths
         } ?: run {
             // Altrimenti salva per dopo
             Log.d(TAG, "Flutter not ready, saving as initialMediaPaths")
@@ -131,12 +129,10 @@ class MainActivity: FlutterActivity() {
     private fun handleSharedText(text: String) {
         Log.d(TAG, "handleSharedText called with: $text")
 
-        // Se Flutter è già pronto, invia subito
+        // Se Flutter è già pronto, invia subito (NON salvare in initialSharedText per evitare duplicazione)
         methodChannel?.let { channel ->
             Log.d(TAG, "Flutter ready, invoking onTextShared")
             channel.invokeMethod("onTextShared", text)
-            // Salva anche come initialSharedText per getInitialSharedText
-            initialSharedText = text
         } ?: run {
             // Altrimenti salva per dopo
             Log.d(TAG, "Flutter not ready, saving as initialSharedText")

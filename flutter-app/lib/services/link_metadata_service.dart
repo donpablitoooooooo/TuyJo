@@ -31,22 +31,27 @@ class LinkMetadataService {
   factory LinkMetadataService() => _instance;
   LinkMetadataService._internal();
 
-  /// Verifica se il testo è un URL valido
-  bool isUrl(String text) {
-    final trimmed = text.trim();
+  /// Estrae URL dal testo (anche se c'è altro testo prima/dopo)
+  List<String> extractUrls(String text) {
+    final urls = <String>[];
 
     // Regex per URL con protocollo
     final urlWithProtocol = RegExp(
-      r'^https?://',
+      r'https?://[^\s]+',
       caseSensitive: false,
     );
 
-    // Regex per dominio senza protocollo
-    final domainPattern = RegExp(
-      r'^([a-zA-Z0-9][-a-zA-Z0-9]{0,62}\.)+[a-zA-Z]{2,6}(/.*)?$',
-    );
+    // Cerca tutti gli URL con protocollo
+    for (final match in urlWithProtocol.allMatches(text)) {
+      urls.add(match.group(0)!);
+    }
 
-    return urlWithProtocol.hasMatch(trimmed) || domainPattern.hasMatch(trimmed);
+    return urls;
+  }
+
+  /// Verifica se il testo contiene esattamente un URL
+  bool hasUrl(String text) {
+    return extractUrls(text).isNotEmpty;
   }
 
   /// Normalizza URL aggiungendo https:// se mancante
