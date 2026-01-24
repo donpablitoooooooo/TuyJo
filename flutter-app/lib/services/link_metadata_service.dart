@@ -54,6 +54,54 @@ class LinkMetadataService {
     return extractUrls(text).isNotEmpty;
   }
 
+  /// Abbrevia URL nel testo mostrando dominio + primi 10 caratteri del path
+  String shortenUrlsInText(String text) {
+    final urls = extractUrls(text);
+
+    String result = text;
+    for (final url in urls) {
+      final shortened = shortenUrl(url);
+      result = result.replaceFirst(url, shortened);
+    }
+
+    return result;
+  }
+
+  /// Abbrevia un singolo URL
+  String shortenUrl(String url) {
+    try {
+      final uri = Uri.parse(url);
+      final domain = uri.host.replaceFirst('www.', '');
+
+      // Path senza query parameters
+      String path = uri.path;
+
+      // Se il path è vuoto o solo "/", mostra solo il dominio
+      if (path.isEmpty || path == '/') {
+        return '${uri.scheme}://$domain';
+      }
+
+      // Rimuovi lo slash iniziale
+      if (path.startsWith('/')) {
+        path = path.substring(1);
+      }
+
+      // Mostra dominio + primi 10 caratteri del path
+      const maxPathChars = 10;
+      if (path.length > maxPathChars) {
+        path = '${path.substring(0, maxPathChars)}...';
+      }
+
+      return '${uri.scheme}://$domain/$path';
+    } catch (e) {
+      // Se non riusciamo a parsare, tronca semplicemente
+      if (url.length > 40) {
+        return '${url.substring(0, 40)}...';
+      }
+      return url;
+    }
+  }
+
   /// Normalizza URL aggiungendo https:// se mancante
   String normalizeUrl(String url) {
     final trimmed = url.trim();

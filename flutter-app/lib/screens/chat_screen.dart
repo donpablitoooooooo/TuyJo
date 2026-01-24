@@ -6,6 +6,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter/gestures.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
 import 'package:open_filex/open_filex.dart';
@@ -3213,6 +3214,111 @@ class _MessageBubble extends StatelessWidget {
     this.messageObject,
   });
 
+  /// Costruisce widget di testo con URL abbreviati ma cliccabili
+  Widget _buildMessageTextWithShortLinks(String text, {required bool isMe}) {
+    final linkService = LinkMetadataService();
+    final urls = linkService.extractUrls(text);
+
+    // Se non ci sono URL, usa Linkify normale
+    if (urls.isEmpty) {
+      return Linkify(
+        onOpen: (link) async {
+          try {
+            final uri = Uri.parse(link.url);
+            await launchUrl(
+              uri,
+              mode: LaunchMode.externalApplication,
+            );
+          } catch (e) {
+            if (kDebugMode) {
+              print('Errore apertura URL: $e');
+            }
+          }
+        },
+        text: text,
+        style: TextStyle(
+          color: isMe ? Colors.white : Colors.black87,
+          fontSize: 15,
+          height: 1.4,
+        ),
+        linkStyle: TextStyle(
+          color: isMe ? Colors.white : Colors.blue,
+          fontSize: 15,
+          height: 1.4,
+          decoration: TextDecoration.underline,
+        ),
+        options: const LinkifyOptions(
+          humanize: false,
+          looseUrl: true,
+        ),
+      );
+    }
+
+    // Costruisci TextSpan con URL abbreviati
+    final spans = <InlineSpan>[];
+    int lastIndex = 0;
+
+    for (final fullUrl in urls) {
+      final index = text.indexOf(fullUrl, lastIndex);
+      if (index == -1) continue;
+
+      // Aggiungi testo prima dell'URL
+      if (index > lastIndex) {
+        spans.add(TextSpan(
+          text: text.substring(lastIndex, index),
+          style: TextStyle(
+            color: isMe ? Colors.white : Colors.black87,
+            fontSize: 15,
+            height: 1.4,
+          ),
+        ));
+      }
+
+      // Aggiungi URL abbreviato ma cliccabile
+      final shortUrl = linkService.shortenUrl(fullUrl);
+      spans.add(TextSpan(
+        text: shortUrl,
+        style: TextStyle(
+          color: isMe ? Colors.white : Colors.blue,
+          fontSize: 15,
+          height: 1.4,
+          decoration: TextDecoration.underline,
+        ),
+        recognizer: TapGestureRecognizer()
+          ..onTap = () async {
+            try {
+              final uri = Uri.parse(fullUrl);
+              await launchUrl(
+                uri,
+                mode: LaunchMode.externalApplication,
+              );
+            } catch (e) {
+              if (kDebugMode) {
+                print('Errore apertura URL: $e');
+              }
+            }
+          },
+      ));
+
+      lastIndex = index + fullUrl.length;
+    }
+
+    // Aggiungi testo rimanente
+    if (lastIndex < text.length) {
+      spans.add(TextSpan(
+        text: text.substring(lastIndex),
+        style: TextStyle(
+          color: isMe ? Colors.white : Colors.black87,
+          fontSize: 15,
+          height: 1.4,
+        ),
+      ));
+    }
+
+    return RichText(
+      text: TextSpan(children: spans),
+    );
+  }
 
   /// Costruisce i widget per mostrare gli allegati (decifrati)
   List<Widget> _buildAttachments(BuildContext context) {
@@ -3414,37 +3520,7 @@ class _MessageBubble extends StatelessWidget {
                               ]
                               // Testo del messaggio (se presente e non eliminato)
                               else if (message.isNotEmpty) ...[
-                                Linkify(
-                                  onOpen: (link) async {
-                                    try {
-                                      final uri = Uri.parse(link.url);
-                                      await launchUrl(
-                                        uri,
-                                        mode: LaunchMode.externalApplication,
-                                      );
-                                    } catch (e) {
-                                      if (kDebugMode) {
-                                        print('Errore apertura URL: $e');
-                                      }
-                                    }
-                                  },
-                                  text: message,
-                                  style: TextStyle(
-                                    color: isMe ? Colors.white : Colors.black87,
-                                    fontSize: 15,
-                                    height: 1.4,
-                                  ),
-                                  linkStyle: TextStyle(
-                                    color: isMe ? Colors.white : Colors.blue,
-                                    fontSize: 15,
-                                    height: 1.4,
-                                    decoration: TextDecoration.underline,
-                                  ),
-                                  options: const LinkifyOptions(
-                                    humanize: false,
-                                    looseUrl: true,
-                                  ),
-                                ),
+                                _buildMessageTextWithShortLinks(message, isMe: isMe),
                               ],
                               const SizedBox(height: 4),
                             Row(
