@@ -20,6 +20,7 @@ import '../services/encryption_service.dart';
 import '../services/notification_service.dart';
 import '../services/attachment_service.dart';
 import '../services/location_service.dart';
+import '../services/link_metadata_service.dart';
 import '../models/message.dart';
 import '../widgets/todo_bubble.dart';
 import '../widgets/attachment_widgets.dart';
@@ -192,6 +193,23 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       print("📝 Gestendo testo condiviso: $text");
     }
 
+    // Controlla se il testo è un URL
+    final linkService = LinkMetadataService();
+    if (linkService.isUrl(text)) {
+      if (kDebugMode) {
+        print("🔗 Testo riconosciuto come URL, fetching metadata...");
+      }
+
+      // Fetch metadata e download immagine in background
+      _fetchAndAttachLinkPreview(text);
+    } else {
+      // Non è un URL, inserisci semplicemente il testo
+      _insertTextIntoMessage(text);
+    }
+  }
+
+  /// Inserisce testo nel messaggio
+  void _insertTextIntoMessage(String text) {
     // Usa addPostFrameCallback per assicurarsi che il widget sia completamente inizializzato
     // (stesso pattern di _handleSharedFilePaths che funziona per le foto)
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -220,6 +238,81 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
         }
       });
     });
+  }
+
+  /// Fetch metadata del link e scarica immagine di preview come allegato
+  Future<void> _fetchAndAttachLinkPreview(String url) async {
+    try {
+      final linkService = LinkMetadataService();
+
+      if (kDebugMode) {
+        print("🔍 Fetching link preview for: $url");
+      }
+
+      // Fetch metadata + download immagine
+      final result = await linkService.fetchLinkPreview(url);
+
+      if (result.metadata == null) {
+        if (kDebugMode) {
+          print("⚠️ Nessun metadata trovato, inserisco solo l'URL");
+        }
+        _insertTextIntoMessage(url);
+        return;
+      }
+
+      // Costruisci il messaggio con titolo e descrizione
+      final buffer = StringBuffer();
+
+      if (result.metadata!.title != null && result.metadata!.title!.isNotEmpty) {
+        buffer.writeln(result.metadata!.title);
+      }
+
+      if (result.metadata!.description != null && result.metadata!.description!.isNotEmpty) {
+        buffer.writeln(result.metadata!.description);
+      }
+
+      buffer.write(url);
+
+      final messageText = buffer.toString();
+
+      // Usa addPostFrameCallback per aggiornare lo stato
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+
+        setState(() {
+          // Aggiungi immagine agli allegati se disponibile
+          if (result.imageFile != null) {
+            _selectedAttachments.add(result.imageFile!);
+            if (kDebugMode) {
+              print("✅ Immagine di preview aggiunta agli allegati: ${result.imageFile!.path}");
+            }
+          }
+
+          // Inserisci il testo
+          final currentText = _messageController.text;
+          if (currentText.isEmpty) {
+            _messageController.text = messageText;
+          } else {
+            _messageController.text = '$currentText\n$messageText';
+          }
+
+          // Posiziona il cursore alla fine
+          _messageController.selection = TextSelection.fromPosition(
+            TextPosition(offset: _messageController.text.length),
+          );
+
+          if (kDebugMode) {
+            print("✅ Link preview processato: ${result.metadata}");
+          }
+        });
+      });
+    } catch (e) {
+      if (kDebugMode) {
+        print("❌ Errore nel fetch della preview: $e");
+      }
+      // In caso di errore, inserisci semplicemente l'URL
+      _insertTextIntoMessage(url);
+    }
   }
 
   /// Gestisce i path dei file condivisi (già copiati dall'AppDelegate)
@@ -3114,66 +3207,6 @@ class _MessageBubble extends StatelessWidget {
     this.messageObject,
   });
 
-  /// Estrae i link dal testo del messaggio
-  List<String> _extractLinks(String text) {
-    // Regex per URL con http/https
-    final urlWithProtocol = RegExp(
-      r'https?:\/\/(www\.)?[-a-zA-Z0-9@:%._\+~#=]{1,256}\.[a-zA-Z0-9()]{1,6}\b([-a-zA-Z0-9()@:%_\+.~#?&//=]*)',
-      caseSensitive: false,
-    );
-
-    // Regex per domini senza protocollo (es. google.com, tuijo.app)
-    final urlWithoutProtocol = RegExp(
-      r'(?:^|[\s])([a-zA-Z0-9][-a-zA-Z0-9]{0,62}\.)+[a-zA-Z]{2,6}\b([-a-zA-Z0-9()@:%_\+.~#?&//=]*)',
-      caseSensitive: false,
-    );
-
-    final links = <String>[];
-
-    // Prima cerca URL con protocollo
-    links.addAll(urlWithProtocol.allMatches(text).map((match) => match.group(0)!));
-
-    // Poi cerca domini senza protocollo (che non siano già stati trovati)
-    for (final match in urlWithoutProtocol.allMatches(text)) {
-      final url = match.group(0)!.trim();
-      // Aggiungi solo se non è già presente e non è un numero
-      if (!links.contains(url) && !links.any((l) => l.contains(url))) {
-        links.add(url);
-      }
-    }
-
-    return links;
-  }
-
-  /// Verifica se il messaggio contiene solo un link (senza altro testo)
-  bool _isOnlyLink() {
-    if (message.isEmpty) return false;
-    final links = _extractLinks(message);
-    if (links.isEmpty) return false;
-    // Se c'è esattamente 1 link e il messaggio trimmed è uguale al link, è solo link
-    return links.length == 1 && message.trim() == links.first;
-  }
-
-  /// Costruisce i widget per le anteprime dei link
-  List<Widget> _buildLinkPreviews() {
-    // Non mostrare link preview se il messaggio è vuoto, eliminato, o è un tipo speciale
-    if (message.isEmpty ||
-        messageObject?.deleted == true ||
-        messageObject?.messageType == 'location_share') {
-      return [];
-    }
-
-    final links = _extractLinks(message);
-    if (links.isEmpty) return [];
-
-    return links.map((link) => Padding(
-      padding: const EdgeInsets.only(top: 8),
-      child: AttachmentLinkPreview(
-        url: link,
-        isMe: isMe,
-      ),
-    )).toList();
-  }
 
   /// Costruisce i widget per mostrare gli allegati (decifrati)
   List<Widget> _buildAttachments(BuildContext context) {
@@ -3374,8 +3407,7 @@ class _MessageBubble extends StatelessWidget {
                                 const SizedBox(height: 4),
                               ]
                               // Testo del messaggio (se presente e non eliminato)
-                              // Se il messaggio contiene SOLO un link, mostra solo la preview (non il testo)
-                              else if (message.isNotEmpty && !_isOnlyLink()) ...[
+                              else if (message.isNotEmpty) ...[
                                 Linkify(
                                   onOpen: (link) async {
                                     try {
@@ -3408,8 +3440,6 @@ class _MessageBubble extends StatelessWidget {
                                   ),
                                 ),
                               ],
-                              // Anteprime dei link (sempre mostrate se ci sono link)
-                              ..._buildLinkPreviews(),
                               const SizedBox(height: 4),
                             Row(
                               mainAxisSize: MainAxisSize.min,

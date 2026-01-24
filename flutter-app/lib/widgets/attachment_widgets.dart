@@ -7,12 +7,10 @@ import 'package:open_filex/open_filex.dart';
 import 'package:provider/provider.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:private_messaging/generated/l10n/app_localizations.dart';
-import 'package:flutter_link_previewer/flutter_link_previewer.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../models/message.dart';
 import '../services/attachment_service.dart';
 import '../services/location_service.dart';
-import '../services/link_preview_cache_service.dart';
 import '../screens/pdf_viewer_screen.dart';
 
 /// Widget per visualizzare allegati immagine (decifrato)
@@ -832,85 +830,3 @@ class AttachmentLocationShare extends StatelessWidget {
   }
 }
 
-/// Widget per visualizzare anteprima link (con cache persistente)
-class AttachmentLinkPreview extends StatefulWidget {
-  final String url;
-  final bool isMe;
-
-  const AttachmentLinkPreview({
-    super.key,
-    required this.url,
-    required this.isMe,
-  });
-
-  @override
-  State<AttachmentLinkPreview> createState() => _AttachmentLinkPreviewState();
-}
-
-class _AttachmentLinkPreviewState extends State<AttachmentLinkPreview> {
-  final LinkPreviewCacheService _cacheService = LinkPreviewCacheService();
-  PreviewData? _cachedData;
-  bool _isLoading = true;
-
-  @override
-  void initState() {
-    super.initState();
-    _loadCachedData();
-  }
-
-  Future<void> _loadCachedData() async {
-    final cached = await _cacheService.loadPreviewData(widget.url);
-    if (mounted) {
-      setState(() {
-        _cachedData = cached;
-        _isLoading = false;
-      });
-    }
-  }
-
-  Future<void> _launchURL() async {
-    // Normalizza URL (aggiungi https:// se manca)
-    String finalUrl = widget.url;
-    if (!finalUrl.startsWith('http://') && !finalUrl.startsWith('https://')) {
-      finalUrl = 'https://$finalUrl';
-    }
-
-    final uri = Uri.parse(finalUrl);
-    if (await canLaunchUrl(uri)) {
-      await launchUrl(uri, mode: LaunchMode.externalApplication);
-    }
-  }
-
-  void _onPreviewDataFetched(PreviewData data) {
-    // Salva in cache quando i dati vengono scaricati
-    _cacheService.savePreviewData(widget.url, data);
-
-    if (mounted && _cachedData == null) {
-      setState(() {
-        _cachedData = data;
-      });
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: _launchURL,
-      child: Container(
-        constraints: const BoxConstraints(
-          maxWidth: 300,
-        ),
-        child: _isLoading
-            ? const SizedBox(
-                height: 80,
-                child: Center(child: CircularProgressIndicator()),
-              )
-            : LinkPreview(
-                text: widget.url,
-                previewData: _cachedData, // Passa i dati dalla cache
-                onPreviewDataFetched: _onPreviewDataFetched,
-              ),
-      ),
-    );
-  }
-}

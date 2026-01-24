@@ -18,6 +18,7 @@ dependencies:
 
   # Networking
   http: ^1.6.0
+  html: ^0.15.5
 
   # Storage
   shared_preferences: ^2.5.4
@@ -47,7 +48,6 @@ dependencies:
   flutter_linkify: ^6.0.0
   url_launcher: ^6.3.2
   table_calendar: ^3.1.2
-  flutter_link_previewer: ^4.2.0
 
   # QR Code
   qr_flutter: ^4.1.0
