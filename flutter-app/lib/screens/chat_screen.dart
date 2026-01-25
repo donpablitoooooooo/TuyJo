@@ -192,7 +192,33 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   /// Gestisce il testo condiviso da altre app (crea messaggio direttamente)
   Future<void> _handleSharedText(String text) async {
     if (kDebugMode) {
-      print("📝 Gestendo testo condiviso: $text");
+      print("📝 [SHARED-TEXT] Received shared text: $text");
+    }
+
+    // ⏳ IMPORTANTE: Aspetta che la chat sia inizializzata
+    // Controlla ogni 100ms per max 5 secondi
+    int attempts = 0;
+    const maxAttempts = 50; // 5 secondi
+
+    while ((_familyChatId == null || _myDeviceId == null || _partnerPublicKey == null) && attempts < maxAttempts) {
+      if (kDebugMode && attempts == 0) {
+        print("⏳ [SHARED-TEXT] Chat not ready yet, waiting for initialization...");
+      }
+      await Future.delayed(const Duration(milliseconds: 100));
+      attempts++;
+    }
+
+    // Se dopo 5 secondi la chat non è pronta, abbandona
+    if (_familyChatId == null || _myDeviceId == null || _partnerPublicKey == null) {
+      if (kDebugMode) {
+        print("❌ [SHARED-TEXT] Timeout waiting for chat initialization, inserting text in field instead");
+      }
+      _insertTextIntoMessage(text);
+      return;
+    }
+
+    if (kDebugMode) {
+      print("✅ [SHARED-TEXT] Chat ready after ${attempts * 100}ms, processing text...");
     }
 
     // Estrai URL dal testo
@@ -202,14 +228,17 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     if (urls.length == 1) {
       // Se c'è esattamente un URL, fetch metadata e invia messaggio con preview
       if (kDebugMode) {
-        print("🔗 URL trovato nel testo condiviso: ${urls.first}");
-        print("🔗 Fetching metadata e invio messaggio...");
+        print("🔗 [SHARED-TEXT] URL found: ${urls.first}");
+        print("🔗 [SHARED-TEXT] Fetching metadata and sending message...");
       }
 
       // Fetch metadata + download immagine + invia messaggio
       await _fetchAndSendLinkMessage(urls.first, originalText: text);
     } else {
       // Nessun URL o URL multipli, inserisci semplicemente il testo nel campo
+      if (kDebugMode) {
+        print("📝 [SHARED-TEXT] No single URL found, inserting in text field");
+      }
       _insertTextIntoMessage(text);
     }
   }
@@ -338,16 +367,31 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
 
   /// Invia messaggio con allegati (usato per link condivisi)
   Future<void> _sendMessageWithAttachments(String messageText, List<File> attachments) async {
+    if (kDebugMode) {
+      print("📤 [SEND] Attempting to send message...");
+      print("📤 [SEND] Text length: ${messageText.length}, Attachments: ${attachments.length}");
+    }
+
     // Verifica pairing
     final pairingService = Provider.of<PairingService>(context, listen: false);
     if (!pairingService.isPaired) {
-      if (kDebugMode) print('❌ Not paired, cannot send message');
+      if (kDebugMode) print('❌ [SEND] Not paired, cannot send message');
       return;
     }
 
+    // Verifica dati chat
     if (_familyChatId == null || _myDeviceId == null || _partnerPublicKey == null) {
-      if (kDebugMode) print('❌ Missing chat data');
+      if (kDebugMode) {
+        print('❌ [SEND] Missing chat data:');
+        print('   _familyChatId: ${_familyChatId == null ? "NULL" : "OK"}');
+        print('   _myDeviceId: ${_myDeviceId == null ? "NULL" : "OK"}');
+        print('   _partnerPublicKey: ${_partnerPublicKey == null ? "NULL" : "OK"}');
+      }
       return;
+    }
+
+    if (kDebugMode) {
+      print("✅ [SEND] All chat data present, proceeding...");
     }
 
     final chatService = Provider.of<ChatService>(context, listen: false);
@@ -383,6 +427,10 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
 
     // Invia messaggio
     try {
+      if (kDebugMode) {
+        print('📨 [SEND] Calling chatService.sendMessage...');
+      }
+
       await chatService.sendMessage(
         messageText,
         _familyChatId!,
@@ -393,11 +441,11 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       );
 
       if (kDebugMode) {
-        print('✅ Link message sent successfully');
+        print('✅ [SEND] Message sent successfully to Firestore');
       }
     } catch (e) {
       if (kDebugMode) {
-        print('❌ Error sending message: $e');
+        print('❌ [SEND] Error sending message: $e');
       }
     }
   }
