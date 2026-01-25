@@ -255,6 +255,56 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
         print("🔍 Fetching link preview for: $url");
       }
 
+      // Mostra loader
+      setState(() {
+        _isUploadingAttachments = true;
+      });
+
+      // Fetch metadata + download immagine (con timeout 8s)
+      final result = await linkService.fetchLinkPreview(url).timeout(
+        const Duration(seconds: 8),
+        onTimeout: () {
+          if (kDebugMode) print("⏱️ Timeout fetch preview, invio senza immagine");
+          return (metadata: null, imageFile: null);
+        },
+      );
+
+      // Prepara il testo del messaggio
+      final messageText = originalText ?? url;
+
+      // Prepara allegati
+      final List<File> attachments = [];
+      if (result.imageFile != null) {
+        attachments.add(result.imageFile!);
+        if (kDebugMode) {
+          print("✅ Immagine di preview pronta: ${result.imageFile!.path}");
+        }
+      }
+
+      // Invia il messaggio direttamente
+      await _sendMessageWithAttachments(messageText, attachments);
+
+      if (mounted) {
+        setState(() {
+          _isUploadingAttachments = false;
+        });
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        print("❌ Errore nel fetch della preview: $e");
+      }
+
+      // In caso di errore, invia solo il testo
+      await _sendMessageWithAttachments(originalText ?? url, []);
+
+      if (mounted) {
+        setState(() {
+          _isUploadingAttachments = false;
+        });
+      }
+    }
+  }
+
   /// Invia messaggio con allegati (usato per link condivisi)
   Future<void> _sendMessageWithAttachments(String messageText, List<File> attachments) async {
     // Verifica pairing
@@ -316,114 +366,6 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       if (kDebugMode) {
         print('❌ Error sending message: $e');
       }
-    }
-  }
-
-      // Mostra loader o stato di invio
-      setState(() {
-        _isUploadingAttachments = true;
-      });
-
-      // Fetch metadata + download immagine (con timeout)
-      final result = await linkService.fetchLinkPreview(url).timeout(
-        const Duration(seconds: 8),
-        onTimeout: () {
-          if (kDebugMode) print("⏱️ Timeout fetch preview, invio senza immagine");
-          return (metadata: null, imageFile: null);
-        },
-      );
-
-      // Prepara il testo del messaggio
-      final messageText = originalText ?? url;
-
-      // Prepara allegati
-      final List<File> attachments = [];
-      if (result.imageFile != null) {
-        attachments.add(result.imageFile!);
-        if (kDebugMode) {
-          print("✅ Immagine di preview pronta: ${result.imageFile!.path}");
-        }
-      }
-
-      // Invia il messaggio direttamente (senza passare dal campo testo)
-      await _sendMessageWithAttachments(messageText, attachments);
-
-      if (mounted) {
-        setState(() {
-          _isUploadingAttachments = false;
-        });
-      }
-    } catch (e) {
-      if (kDebugMode) {
-        print("❌ Errore nel fetch della preview: $e");
-      }
-      
-      // In caso di errore, invia solo il testo
-      await _sendMessageWithAttachments(originalText ?? url, []);
-      
-      if (mounted) {
-        setState(() {
-          _isUploadingAttachments = false;
-        });
-      }
-    }
-  }
-
-
-      // Usa il testo originale se fornito, altrimenti costruisci con title+description+url
-      final messageText = originalText ?? () {
-        final buffer = StringBuffer();
-
-        if (result.metadata!.title != null && result.metadata!.title!.isNotEmpty) {
-          buffer.writeln(result.metadata!.title);
-        }
-
-        if (result.metadata!.description != null && result.metadata!.description!.isNotEmpty) {
-          buffer.writeln(result.metadata!.description);
-        }
-
-        buffer.write(url);
-
-        return buffer.toString();
-      }();
-
-      // Usa addPostFrameCallback per aggiornare lo stato
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (!mounted) return;
-
-        setState(() {
-          // Aggiungi immagine agli allegati se disponibile
-          if (result.imageFile != null) {
-            _selectedAttachments.add(result.imageFile!);
-            if (kDebugMode) {
-              print("✅ Immagine di preview aggiunta agli allegati: ${result.imageFile!.path}");
-            }
-          }
-
-          // Inserisci il testo
-          final currentText = _messageController.text;
-          if (currentText.isEmpty) {
-            _messageController.text = messageText;
-          } else {
-            _messageController.text = '$currentText\n$messageText';
-          }
-
-          // Posiziona il cursore alla fine
-          _messageController.selection = TextSelection.fromPosition(
-            TextPosition(offset: _messageController.text.length),
-          );
-
-          if (kDebugMode) {
-            print("✅ Link preview processato: ${result.metadata}");
-          }
-        });
-      });
-    } catch (e) {
-      if (kDebugMode) {
-        print("❌ Errore nel fetch della preview: $e");
-      }
-      // In caso di errore, inserisci semplicemente l'URL
-      _insertTextIntoMessage(url);
     }
   }
 
