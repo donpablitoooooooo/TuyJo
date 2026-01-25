@@ -356,6 +356,8 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
         messageText,
         _familyChatId!,
         _myDeviceId!,
+        myPublicKey,
+        _partnerPublicKey!,
         attachments: uploadedAttachments,
       );
 
