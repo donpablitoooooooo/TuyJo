@@ -383,7 +383,7 @@ class _CoupleSelfieScreenState extends State<CoupleSelfieScreen> {
       }
     }
 
-    if (!messageSent) {
+    if (messageId == null) {
       throw Exception('Failed to send photo change message. Please try again.');
     }
 
