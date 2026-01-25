@@ -248,54 +248,85 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
 
   /// Fetch metadata del link e invia messaggio con preview
   Future<void> _fetchAndSendLinkMessage(String url, {String? originalText}) async {
+    final messageText = originalText ?? url;
+
     try {
       final linkService = LinkMetadataService();
 
       if (kDebugMode) {
-        print("🔍 Fetching link preview for: $url");
+        print("🔍 [LINK] Starting fetch for: $url");
+        print("🔍 [LINK] Original text: $originalText");
       }
 
       // Mostra loader
-      setState(() {
-        _isUploadingAttachments = true;
-      });
+      if (mounted) {
+        setState(() {
+          _isUploadingAttachments = true;
+        });
+      }
 
-      // Fetch metadata + download immagine (con timeout 8s)
+      // Fetch metadata + download immagine (con timeout 10s invece di 8s)
       final result = await linkService.fetchLinkPreview(url).timeout(
-        const Duration(seconds: 8),
+        const Duration(seconds: 10),
         onTimeout: () {
-          if (kDebugMode) print("⏱️ Timeout fetch preview, invio senza immagine");
+          if (kDebugMode) print("⏱️ [LINK] Timeout dopo 10s, invio solo testo");
           return (metadata: null, imageFile: null);
         },
       );
 
-      // Prepara il testo del messaggio
-      final messageText = originalText ?? url;
+      if (kDebugMode) {
+        print("📦 [LINK] Result: metadata=${result.metadata != null}, imageFile=${result.imageFile != null}");
+      }
 
       // Prepara allegati
       final List<File> attachments = [];
       if (result.imageFile != null) {
         attachments.add(result.imageFile!);
         if (kDebugMode) {
-          print("✅ Immagine di preview pronta: ${result.imageFile!.path}");
+          print("✅ [LINK] Preview image ready: ${result.imageFile!.path}");
+        }
+      } else {
+        if (kDebugMode) {
+          print("⚠️ [LINK] No preview image available, sending text only");
         }
       }
 
       // Invia il messaggio direttamente
+      if (kDebugMode) {
+        print("📤 [LINK] Sending message with ${attachments.length} attachments");
+      }
+
       await _sendMessageWithAttachments(messageText, attachments);
+
+      if (kDebugMode) {
+        print("✅ [LINK] Message sent successfully");
+      }
 
       if (mounted) {
         setState(() {
           _isUploadingAttachments = false;
         });
       }
-    } catch (e) {
+    } catch (e, stackTrace) {
       if (kDebugMode) {
-        print("❌ Errore nel fetch della preview: $e");
+        print("❌ [LINK] Error during fetch: $e");
+        print("❌ [LINK] Stack trace: $stackTrace");
       }
 
-      // In caso di errore, invia solo il testo
-      await _sendMessageWithAttachments(originalText ?? url, []);
+      // IMPORTANTE: Anche in caso di errore, invia comunque il messaggio con solo testo
+      try {
+        if (kDebugMode) {
+          print("🔄 [LINK] Attempting to send text-only message as fallback");
+        }
+        await _sendMessageWithAttachments(messageText, []);
+        if (kDebugMode) {
+          print("✅ [LINK] Fallback message sent");
+        }
+      } catch (sendError) {
+        if (kDebugMode) {
+          print("❌ [LINK] Failed to send even text-only message: $sendError");
+        }
+      }
 
       if (mounted) {
         setState(() {

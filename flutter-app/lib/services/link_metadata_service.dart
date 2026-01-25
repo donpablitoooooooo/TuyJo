@@ -117,7 +117,7 @@ class LinkMetadataService {
       final normalizedUrl = normalizeUrl(url);
 
       if (kDebugMode) {
-        print('🔍 Fetching metadata from: $normalizedUrl');
+        print('🔍 [METADATA] Fetching from: $normalizedUrl');
       }
 
       final response = await http.get(
@@ -129,9 +129,13 @@ class LinkMetadataService {
         },
       ).timeout(const Duration(seconds: 10));
 
+      if (kDebugMode) {
+        print('📡 [METADATA] Response status: ${response.statusCode}');
+      }
+
       if (response.statusCode != 200) {
         if (kDebugMode) {
-          print('❌ Failed to fetch URL: ${response.statusCode}');
+          print('❌ [METADATA] Failed with status: ${response.statusCode}');
         }
         return null;
       }
@@ -171,13 +175,14 @@ class LinkMetadataService {
       );
 
       if (kDebugMode) {
-        print('✅ Metadata fetched: $metadata');
+        print('✅ [METADATA] Successfully parsed: title="${metadata.title}", hasImage=${metadata.imageUrl != null}');
       }
 
       return metadata;
-    } catch (e) {
+    } catch (e, stackTrace) {
       if (kDebugMode) {
-        print('❌ Error fetching metadata: $e');
+        print('❌ [METADATA] Error fetching metadata: $e');
+        print('❌ [METADATA] Stack trace: ${stackTrace.toString().split('\n').take(3).join('\n')}');
       }
       return null;
     }
@@ -315,25 +320,63 @@ class LinkMetadataService {
 
   /// Processo completo: fetch metadata + download immagine (con fallback a favicon)
   Future<({LinkMetadata? metadata, File? imageFile})> fetchLinkPreview(String url) async {
+    if (kDebugMode) {
+      print('🌐 [PREVIEW] Starting fetchLinkPreview for: $url');
+    }
+
     final metadata = await fetchMetadata(url);
 
     if (metadata == null) {
+      if (kDebugMode) {
+        print('❌ [PREVIEW] Failed to fetch metadata, returning null');
+      }
       return (metadata: null, imageFile: null);
+    }
+
+    if (kDebugMode) {
+      print('✅ [PREVIEW] Metadata fetched: title="${metadata.title}", imageUrl="${metadata.imageUrl}"');
     }
 
     File? imageFile;
 
     // Prova a scaricare l'immagine di preview se disponibile
     if (metadata.imageUrl != null) {
+      if (kDebugMode) {
+        print('📥 [PREVIEW] Attempting to download preview image...');
+      }
       imageFile = await downloadPreviewImage(metadata.imageUrl!);
+
+      if (imageFile != null) {
+        if (kDebugMode) {
+          print('✅ [PREVIEW] Preview image downloaded successfully');
+        }
+      } else {
+        if (kDebugMode) {
+          print('⚠️ [PREVIEW] Preview image download failed');
+        }
+      }
+    } else {
+      if (kDebugMode) {
+        print('⚠️ [PREVIEW] No preview image URL in metadata');
+      }
     }
 
     // Se non c'è immagine o il download è fallito, usa il favicon come fallback
     if (imageFile == null) {
       if (kDebugMode) {
-        print('⚠️ No preview image available, falling back to favicon');
+        print('🔄 [PREVIEW] Falling back to favicon...');
       }
       imageFile = await downloadFavicon(url);
+
+      if (imageFile != null) {
+        if (kDebugMode) {
+          print('✅ [PREVIEW] Favicon downloaded successfully');
+        }
+      } else {
+        if (kDebugMode) {
+          print('❌ [PREVIEW] Favicon download also failed, no image available');
+        }
+      }
     }
 
     return (metadata: metadata, imageFile: imageFile);
