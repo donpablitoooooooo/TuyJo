@@ -14,6 +14,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:flutter_linkify/flutter_linkify.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:table_calendar/table_calendar.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:private_messaging/generated/l10n/app_localizations.dart';
 import '../services/pairing_service.dart';
 import '../services/chat_service.dart';
@@ -279,94 +280,73 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   Future<void> _fetchAndSendLinkMessage(String url, {String? originalText}) async {
     final messageText = originalText ?? url;
 
+    // ⚡ STEP 1: Invia SUBITO il messaggio con solo testo (UX veloce!)
+    if (kDebugMode) {
+      print("⚡ [LINK] Sending text message immediately (no waiting)...");
+    }
+
+    String? messageId;
+    try {
+      messageId = await _sendMessageWithAttachments(messageText, []);
+      if (kDebugMode) {
+        print("✅ [LINK] Text message sent instantly, ID: $messageId");
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        print("❌ [LINK] Failed to send text message: $e");
+      }
+      return; // Se fallisce l'invio del testo, fermati qui
+    }
+
+    // 🔄 STEP 2: Fetch preview in BACKGROUND (non blocca la UI)
+    if (kDebugMode) {
+      print("🔄 [LINK] Starting background preview fetch (max 10s)...");
+    }
+
     try {
       final linkService = LinkMetadataService();
 
-      if (kDebugMode) {
-        print("🔍 [LINK] Starting fetch for: $url");
-        print("🔍 [LINK] Original text: $originalText");
-      }
-
-      // Mostra loader
-      if (mounted) {
-        setState(() {
-          _isUploadingAttachments = true;
-        });
-      }
-
-      // Fetch metadata + download immagine (con timeout 10s invece di 8s)
+      // Fetch metadata + download immagine (con timeout 10s)
       final result = await linkService.fetchLinkPreview(url).timeout(
         const Duration(seconds: 10),
         onTimeout: () {
-          if (kDebugMode) print("⏱️ [LINK] Timeout dopo 10s, invio solo testo");
+          if (kDebugMode) print("⏱️ [LINK] Preview fetch timeout, keeping text-only message");
           return (metadata: null, imageFile: null);
         },
       );
 
       if (kDebugMode) {
-        print("📦 [LINK] Result: metadata=${result.metadata != null}, imageFile=${result.imageFile != null}");
+        print("📦 [LINK] Preview result: metadata=${result.metadata != null}, imageFile=${result.imageFile != null}");
       }
 
-      // Prepara allegati
-      final List<File> attachments = [];
-      if (result.imageFile != null) {
-        attachments.add(result.imageFile!);
+      // 📸 STEP 3: Se abbiamo un'immagine, aggiorna il messaggio
+      if (result.imageFile != null && messageId != null) {
         if (kDebugMode) {
-          print("✅ [LINK] Preview image ready: ${result.imageFile!.path}");
+          print("📸 [LINK] Preview image ready, updating message with attachment...");
+        }
+
+        await _updateMessageWithAttachment(messageId, result.imageFile!);
+
+        if (kDebugMode) {
+          print("✅ [LINK] Message updated with preview image");
         }
       } else {
         if (kDebugMode) {
-          print("⚠️ [LINK] No preview image available, sending text only");
+          print("ℹ️ [LINK] No preview image available, keeping text-only message");
         }
-      }
-
-      // Invia il messaggio direttamente
-      if (kDebugMode) {
-        print("📤 [LINK] Sending message with ${attachments.length} attachments");
-      }
-
-      await _sendMessageWithAttachments(messageText, attachments);
-
-      if (kDebugMode) {
-        print("✅ [LINK] Message sent successfully");
-      }
-
-      if (mounted) {
-        setState(() {
-          _isUploadingAttachments = false;
-        });
       }
     } catch (e, stackTrace) {
       if (kDebugMode) {
-        print("❌ [LINK] Error during fetch: $e");
-        print("❌ [LINK] Stack trace: $stackTrace");
+        print("⚠️ [LINK] Error during background preview fetch: $e");
+        print("⚠️ [LINK] Stack trace: $stackTrace");
       }
-
-      // IMPORTANTE: Anche in caso di errore, invia comunque il messaggio con solo testo
-      try {
-        if (kDebugMode) {
-          print("🔄 [LINK] Attempting to send text-only message as fallback");
-        }
-        await _sendMessageWithAttachments(messageText, []);
-        if (kDebugMode) {
-          print("✅ [LINK] Fallback message sent");
-        }
-      } catch (sendError) {
-        if (kDebugMode) {
-          print("❌ [LINK] Failed to send even text-only message: $sendError");
-        }
-      }
-
-      if (mounted) {
-        setState(() {
-          _isUploadingAttachments = false;
-        });
-      }
+      // Non è un errore critico - il messaggio di testo è già stato inviato!
     }
   }
 
   /// Invia messaggio con allegati (usato per link condivisi)
-  Future<void> _sendMessageWithAttachments(String messageText, List<File> attachments) async {
+  /// Restituisce il messageId se il messaggio è stato inviato con successo
+  Future<String?> _sendMessageWithAttachments(String messageText, List<File> attachments) async {
     if (kDebugMode) {
       print("📤 [SEND] Attempting to send message...");
       print("📤 [SEND] Text length: ${messageText.length}, Attachments: ${attachments.length}");
@@ -376,7 +356,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     final pairingService = Provider.of<PairingService>(context, listen: false);
     if (!pairingService.isPaired) {
       if (kDebugMode) print('❌ [SEND] Not paired, cannot send message');
-      return;
+      return null;
     }
 
     // Verifica dati chat
@@ -387,7 +367,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
         print('   _myDeviceId: ${_myDeviceId == null ? "NULL" : "OK"}');
         print('   _partnerPublicKey: ${_partnerPublicKey == null ? "NULL" : "OK"}');
       }
-      return;
+      return null;
     }
 
     if (kDebugMode) {
@@ -401,7 +381,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     final myPublicKey = await encryptionService.getPublicKey();
     if (myPublicKey == null) {
       if (kDebugMode) print('❌ My public key is null');
-      return;
+      return null;
     }
 
     // Upload allegati se presenti
@@ -431,7 +411,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
         print('📨 [SEND] Calling chatService.sendMessage...');
       }
 
-      await chatService.sendMessage(
+      final messageId = await chatService.sendMessage(
         messageText,
         _familyChatId!,
         _myDeviceId!,
@@ -441,11 +421,76 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       );
 
       if (kDebugMode) {
-        print('✅ [SEND] Message sent successfully to Firestore');
+        print('✅ [SEND] Message sent successfully to Firestore, ID: $messageId');
       }
+
+      return messageId;
     } catch (e) {
       if (kDebugMode) {
         print('❌ [SEND] Error sending message: $e');
+      }
+      return null;
+    }
+  }
+
+  /// Aggiorna un messaggio esistente aggiungendo un attachment (per preview link)
+  Future<void> _updateMessageWithAttachment(String messageId, File imageFile) async {
+    if (kDebugMode) {
+      print("🔄 [UPDATE] Updating message $messageId with attachment...");
+    }
+
+    if (_familyChatId == null || _myDeviceId == null || _partnerPublicKey == null) {
+      if (kDebugMode) print('❌ [UPDATE] Missing chat data');
+      return;
+    }
+
+    try {
+      final encryptionService = Provider.of<EncryptionService>(context, listen: false);
+      final myPublicKey = await encryptionService.getPublicKey();
+      if (myPublicKey == null) {
+        if (kDebugMode) print('❌ [UPDATE] My public key is null');
+        return;
+      }
+
+      // Upload l'immagine come attachment
+      if (kDebugMode) {
+        print("📤 [UPDATE] Uploading preview image...");
+      }
+
+      final uploadedAttachments = await _attachmentService!.uploadMultipleAttachments(
+        [imageFile],
+        _familyChatId!,
+        _myDeviceId!,
+        myPublicKey,
+        _partnerPublicKey!,
+      );
+
+      if (uploadedAttachments.isEmpty) {
+        if (kDebugMode) print('❌ [UPDATE] Failed to upload attachment');
+        return;
+      }
+
+      if (kDebugMode) {
+        print("✅ [UPDATE] Attachment uploaded, updating Firestore...");
+      }
+
+      // Aggiorna il messaggio in Firestore
+      await FirebaseFirestore.instance
+          .collection('families')
+          .doc(_familyChatId)
+          .collection('messages')
+          .doc(messageId)
+          .update({
+        'attachments': uploadedAttachments.map((a) => a.toJson()).toList(),
+      });
+
+      if (kDebugMode) {
+        print("✅ [UPDATE] Message updated successfully with preview image");
+      }
+    } catch (e, stackTrace) {
+      if (kDebugMode) {
+        print("❌ [UPDATE] Error updating message: $e");
+        print("❌ [UPDATE] Stack trace: $stackTrace");
       }
     }
   }
@@ -2426,7 +2471,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
         }
       }
 
-      success = await chatService.sendMessage(
+      final sentMessageId = await chatService.sendMessage(
         messageText,
         _familyChatId!,
         _myDeviceId!,
@@ -2435,13 +2480,15 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
         attachments: uploadedAttachments,
       );
 
+      success = sentMessageId != null;
+
       // Rimuovi messaggio pending dopo invio (successo o fallimento)
       if (pendingMessageId != null) {
         chatService.removePendingMessage(pendingMessageId);
       }
 
       if (success) {
-        print('✅ Message sent successfully with dual encryption');
+        print('✅ Message sent successfully with dual encryption, ID: $sentMessageId');
         if (uploadedAttachments != null) {
           print('   With ${uploadedAttachments.length} attachments');
         }

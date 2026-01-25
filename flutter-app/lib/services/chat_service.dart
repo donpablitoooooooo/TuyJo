@@ -903,7 +903,8 @@ class ChatService extends ChangeNotifier {
 
   /// Invia un messaggio cifrato con RSA hybrid encryption e dual encryption
   /// Ogni messaggio ha una chiave AES univoca, cifrata con ENTRAMBE le public key
-  Future<bool> sendMessage(
+  /// Restituisce il messageId se il messaggio è stato inviato con successo, null altrimenti
+  Future<String?> sendMessage(
     String content,
     String familyChatId,
     String senderId,
@@ -956,10 +957,10 @@ class ChatService extends ChangeNotifier {
         print('   Dual encryption: encrypted_key_recipient + encrypted_key_sender');
         print('   Status: delivered=true, read=false');
       }
-      return true;
+      return messageRef.id; // Restituisci il messageId
     } catch (e) {
       if (kDebugMode) print('❌ Send message error: $e');
-      return false;
+      return null;
     }
   }
 
