@@ -2418,6 +2418,37 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
         }
       }
     } else {
+      // ⚡ GESTIONE URL: Se il messaggio contiene un solo URL e non ha allegati,
+      // usa il flusso veloce con preview in background
+      if (attachments.isEmpty && messageText.isNotEmpty) {
+        final linkService = LinkMetadataService();
+        final urls = linkService.extractUrls(messageText);
+
+        if (urls.length == 1) {
+          if (kDebugMode) {
+            print("🔗 [SEND] URL detected in text field: ${urls.first}");
+            print("🔗 [SEND] Using instant send with background preview...");
+          }
+
+          // Reset loading state (viene gestito da _fetchAndSendLinkMessage)
+          setState(() {
+            _isUploadingAttachments = false;
+          });
+
+          // Usa il flusso veloce: send subito + preview in background
+          await _fetchAndSendLinkMessage(urls.first, originalText: messageText);
+
+          // Scrolla in fondo
+          WidgetsBinding.instance.addPostFrameCallback((_) => _scrollToBottom());
+
+          // Pulisci file temporanei iOS
+          _cleanupAllIOSFiles();
+
+          return; // Esci dalla funzione, non proseguire con il flusso normale
+        }
+      }
+
+      // FLUSSO NORMALE: messaggi senza URL o con URL multipli o con allegati
       print('📤 Sending message...');
       print('   To family chat: $_familyChatId');
       print('   From device: $_myDeviceId');
