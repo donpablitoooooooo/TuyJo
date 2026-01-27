@@ -241,5 +241,10 @@
     "navChat": "Xat",
     "navMedia": "Media",
     "notificationTodoTitle": "🔔 Nou To Do",
-    "notificationTodoBody": "Esdeveniment pròxim"
+    "notificationTodoBody": "Esdeveniment pròxim",
+    "mediaTabPhotos": "Fotos",
+    "mediaTabLinks": "Enllaços",
+    "mediaTabDocuments": "Docs",
+    "mediaNoLinks": "Cap enllaç",
+    "mediaNoLinksDescription": "Els enllaços compartits apareixeran aquí"
 }

@@ -241,5 +241,10 @@
     "navChat": "Chat",
     "navMedia": "Media",
     "notificationTodoTitle": "🔔 Nuevo To Do",
-    "notificationTodoBody": "Evento próximo"
+    "notificationTodoBody": "Evento próximo",
+    "mediaTabPhotos": "Fotos",
+    "mediaTabLinks": "Enlaces",
+    "mediaTabDocuments": "Docs",
+    "mediaNoLinks": "Sin enlaces",
+    "mediaNoLinksDescription": "Los enlaces compartidos aparecerán aquí"
 }
