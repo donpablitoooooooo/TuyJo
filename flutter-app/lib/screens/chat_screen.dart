@@ -319,20 +319,26 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
         print("📦 [LINK] Preview result: metadata=${result.metadata != null}, imageFile=${result.imageFile != null}");
       }
 
-      // 📸 STEP 3: Se abbiamo un'immagine, aggiorna il messaggio
-      if (result.imageFile != null && messageId != null) {
+      // 📸 STEP 3: Aggiorna il messaggio con preview e metadata
+      if (messageId != null && (result.imageFile != null || result.metadata != null)) {
         if (kDebugMode) {
-          print("📸 [LINK] Preview image ready, updating message with attachment...");
+          print("📸 [LINK] Updating message with preview data...");
         }
 
-        await _updateMessageWithAttachment(messageId, result.imageFile!);
+        await _updateMessageWithAttachment(
+          messageId,
+          result.imageFile,
+          linkTitle: result.metadata?.title,
+          linkDescription: result.metadata?.description,
+          linkUrl: url,
+        );
 
         if (kDebugMode) {
-          print("✅ [LINK] Message updated with preview image");
+          print("✅ [LINK] Message updated with preview");
         }
       } else {
         if (kDebugMode) {
-          print("ℹ️ [LINK] No preview image available, keeping text-only message");
+          print("ℹ️ [LINK] No preview data available, keeping text-only message");
         }
       }
     } catch (e, stackTrace) {
@@ -434,9 +440,15 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   }
 
   /// Aggiorna un messaggio esistente aggiungendo un attachment (per preview link)
-  Future<void> _updateMessageWithAttachment(String messageId, File imageFile) async {
+  Future<void> _updateMessageWithAttachment(
+    String messageId,
+    File? imageFile, {
+    String? linkTitle,
+    String? linkDescription,
+    String? linkUrl,
+  }) async {
     if (kDebugMode) {
-      print("🔄 [UPDATE] Updating message $messageId with attachment...");
+      print("🔄 [UPDATE] Updating message $messageId with preview data...");
     }
 
     if (_familyChatId == null || _myDeviceId == null || _partnerPublicKey == null) {
@@ -445,47 +457,64 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     }
 
     try {
-      final encryptionService = Provider.of<EncryptionService>(context, listen: false);
-      final myPublicKey = await encryptionService.getPublicKey();
-      if (myPublicKey == null) {
-        if (kDebugMode) print('❌ [UPDATE] My public key is null');
-        return;
+      final updateData = <String, dynamic>{};
+
+      // Upload l'immagine come attachment se presente
+      if (imageFile != null) {
+        final encryptionService = Provider.of<EncryptionService>(context, listen: false);
+        final myPublicKey = await encryptionService.getPublicKey();
+        if (myPublicKey == null) {
+          if (kDebugMode) print('❌ [UPDATE] My public key is null');
+          return;
+        }
+
+        if (kDebugMode) {
+          print("📤 [UPDATE] Uploading preview image...");
+        }
+
+        final uploadedAttachments = await _attachmentService!.uploadMultipleAttachments(
+          [imageFile],
+          _familyChatId!,
+          _myDeviceId!,
+          myPublicKey,
+          _partnerPublicKey!,
+        );
+
+        if (uploadedAttachments.isNotEmpty) {
+          updateData['attachments'] = uploadedAttachments.map((a) => a.toJson()).toList();
+          if (kDebugMode) {
+            print("✅ [UPDATE] Attachment uploaded");
+          }
+        }
       }
 
-      // Upload l'immagine come attachment
-      if (kDebugMode) {
-        print("📤 [UPDATE] Uploading preview image...");
+      // Aggiungi link metadata se presenti
+      if (linkTitle != null) {
+        updateData['link_title'] = linkTitle;
+      }
+      if (linkDescription != null) {
+        updateData['link_description'] = linkDescription;
+      }
+      if (linkUrl != null) {
+        updateData['link_url'] = linkUrl;
       }
 
-      final uploadedAttachments = await _attachmentService!.uploadMultipleAttachments(
-        [imageFile],
-        _familyChatId!,
-        _myDeviceId!,
-        myPublicKey,
-        _partnerPublicKey!,
-      );
+      // Aggiorna il messaggio in Firestore solo se c'è qualcosa da aggiornare
+      if (updateData.isNotEmpty) {
+        if (kDebugMode) {
+          print("📝 [UPDATE] Updating Firestore with: ${updateData.keys.toList()}");
+        }
 
-      if (uploadedAttachments.isEmpty) {
-        if (kDebugMode) print('❌ [UPDATE] Failed to upload attachment');
-        return;
-      }
+        await FirebaseFirestore.instance
+            .collection('families')
+            .doc(_familyChatId)
+            .collection('messages')
+            .doc(messageId)
+            .update(updateData);
 
-      if (kDebugMode) {
-        print("✅ [UPDATE] Attachment uploaded, updating Firestore...");
-      }
-
-      // Aggiorna il messaggio in Firestore
-      await FirebaseFirestore.instance
-          .collection('families')
-          .doc(_familyChatId)
-          .collection('messages')
-          .doc(messageId)
-          .update({
-        'attachments': uploadedAttachments.map((a) => a.toJson()).toList(),
-      });
-
-      if (kDebugMode) {
-        print("✅ [UPDATE] Message updated successfully with preview image");
+        if (kDebugMode) {
+          print("✅ [UPDATE] Message updated successfully");
+        }
       }
     } catch (e, stackTrace) {
       if (kDebugMode) {
@@ -3569,9 +3598,64 @@ class _MessageBubble extends StatelessWidget {
       return [];
     }
 
+    // Controlla se ci sono link metadata da mostrare
+    final hasLinkMetadata = messageObject?.linkTitle != null ||
+                            messageObject?.linkDescription != null;
+
     return [
       ...attachments!.map((attachment) {
         if (attachment.type == 'photo') {
+          // Se ci sono link metadata, mostra immagine + title/description
+          if (hasLinkMetadata) {
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Immagine preview
+                AttachmentImage(
+                  key: ValueKey(attachment.id),
+                  attachment: attachment,
+                  isMe: isMe,
+                  currentUserId: currentUserId,
+                  senderId: senderId,
+                  attachmentService: attachmentService!,
+                ),
+                // Link metadata (title + description)
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(12, 8, 12, 4),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      if (messageObject?.linkTitle != null)
+                        Text(
+                          messageObject!.linkTitle!,
+                          style: TextStyle(
+                            color: isMe ? Colors.white : Colors.black87,
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                            height: 1.3,
+                          ),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      if (messageObject?.linkDescription != null) ...[
+                        const SizedBox(height: 4),
+                        Text(
+                          messageObject!.linkDescription!,
+                          style: TextStyle(
+                            color: isMe ? Colors.white70 : Colors.black54,
+                            fontSize: 12,
+                            height: 1.3,
+                          ),
+                          maxLines: 3,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+              ],
+            );
+          }
           return AttachmentImage(
             key: ValueKey(attachment.id), // Key stabile per mantenere lo State
             attachment: attachment,

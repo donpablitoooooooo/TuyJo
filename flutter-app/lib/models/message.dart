@@ -153,6 +153,11 @@ class Message {
   // Allegati (foto, video, documenti)
   List<Attachment>? attachments;
 
+  // Link preview metadata (per messaggi con URL)
+  String? linkTitle;
+  String? linkDescription;
+  String? linkUrl;
+
   // Reaction al messaggio (solo una reaction per messaggio, l'ultima vince)
   Reaction? reaction;
 
@@ -184,6 +189,9 @@ class Message {
     this.isPending = false,
     this.deleted,
     this.attachments,
+    this.linkTitle,
+    this.linkDescription,
+    this.linkUrl,
     this.reaction,
     this.action,
   });
@@ -261,6 +269,9 @@ class Message {
       readAt: data['read_at'] != null ? DateTime.parse(data['read_at']) : null,
       deleted: data['deleted'],
       attachments: attachments,
+      linkTitle: data['link_title'],
+      linkDescription: data['link_description'],
+      linkUrl: data['link_url'],
       reaction: reaction,
       action: action,
     );
@@ -283,6 +294,9 @@ class Message {
       if (read != null) 'read': read,
       if (readAt != null) 'read_at': readAt!.toIso8601String(),
       if (attachments != null) 'attachments': attachments!.map((a) => a.toJson()).toList(),
+      if (linkTitle != null) 'link_title': linkTitle,
+      if (linkDescription != null) 'link_description': linkDescription,
+      if (linkUrl != null) 'link_url': linkUrl,
       if (reaction != null) 'reaction': reaction!.toJson(),
       if (action != null) 'action': action!.toJson(),
     };
