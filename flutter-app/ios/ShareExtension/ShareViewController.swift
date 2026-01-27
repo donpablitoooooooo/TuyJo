@@ -17,9 +17,7 @@ class ShareViewController: UIViewController {
             return
         }
 
-        // Gestisci URL/Text
         for attachment in attachments {
-            // Prova URL prima
             if attachment.hasItemConformingToTypeIdentifier(UTType.url.identifier) {
                 attachment.loadItem(forTypeIdentifier: UTType.url.identifier, options: nil) { [weak self] (item, error) in
                     if let url = item as? URL {
@@ -30,9 +28,7 @@ class ShareViewController: UIViewController {
                     }
                 }
                 return
-            }
-            // Poi prova plain text
-            else if attachment.hasItemConformingToTypeIdentifier(UTType.plainText.identifier) {
+            } else if attachment.hasItemConformingToTypeIdentifier(UTType.plainText.identifier) {
                 attachment.loadItem(forTypeIdentifier: UTType.plainText.identifier, options: nil) { [weak self] (item, error) in
                     if let text = item as? String {
                         self?.saveToAppGroup(text: text)
@@ -54,14 +50,12 @@ class ShareViewController: UIViewController {
             return
         }
 
-        // Salva il testo nell'App Group
         userDefaults.set(text, forKey: "shared_text")
         userDefaults.synchronize()
         print("✅ Saved text to App Group: \(text)")
     }
 
     private func openMainApp() {
-        // Usa URL scheme per aprire l'app principale
         let urlString = "ShareMedia://open"
 
         guard let url = URL(string: urlString) else {
@@ -69,7 +63,6 @@ class ShareViewController: UIViewController {
             return
         }
 
-        // Apri l'app con extensionContext (modo corretto su iOS moderno)
         let selector = sel_registerName("openURL:")
         var responder: UIResponder? = self as UIResponder
 
@@ -88,3 +81,4 @@ class ShareViewController: UIViewController {
         extensionContext?.completeRequest(returningItems: nil, completionHandler: nil)
     }
 }
+

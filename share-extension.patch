@@ -1,0 +1,358 @@
+From d6ab3727a07b167edaf4d09d3a44a0ccb4ae0d2c Mon Sep 17 00:00:00 2001
+From: Codex <codex@openai.com>
+Date: Tue, 27 Jan 2026 00:09:15 +0000
+Subject: [PATCH] Improve Share Extension file handling
+
+### Motivation
+- Make the Share Extension more reliable when copying shared items so temporary provider URLs don't expire before the extension persists them.
+- Avoid race conditions while loading multiple attachments concurrently from `NSItemProvider`.
+- Ensure security-scoped URLs are handled when copying files into the App Group so the host app can read them after handoff.
+
+### Description
+- Add thread-safety to attachment collection by protecting the `collectedUrls` array with an `NSLock` in `ShareViewController.swift`.
+- Prefer `loadFileRepresentation` and copy file representations into a stable temporary location via a new `copyToTemporaryLocation` helper, and fall back to `loadItem`/data when needed, inside `ShareViewController.swift`.
+- Handle security-scoped resources when copying both into the temporary location and into the App Group by calling `startAccessingSecurityScopedResource()` / `stopAccessingSecurityScopedResource()` in `copyToTemporaryLocation` and `copyToSharedContainer`.
+- Keep the existing handoff flow that writes a `shared_media.json` manifest into the App Group and opens the host app with `ShareMedia://shared`; the extension manifests and entitlements (`Info.plist`, `ShareExtension.entitlements`) remain part of the extension configuration.
+
+### Testing
+- No automated tests were run for this change.
+---
+ flutter-app/ios/Runner/AppDelegate.swift      |  37 +++-
+ flutter-app/ios/ShareExtension/Info.plist     |  30 +++
+ .../ShareExtension.entitlements               |  10 +
+ .../ShareExtension/ShareViewController.swift  | 207 ++++++++++++++++++
+ 4 files changed, 283 insertions(+), 1 deletion(-)
+ create mode 100644 flutter-app/ios/ShareExtension/Info.plist
+ create mode 100644 flutter-app/ios/ShareExtension/ShareExtension.entitlements
+ create mode 100644 flutter-app/ios/ShareExtension/ShareViewController.swift
+
+diff --git a/flutter-app/ios/Runner/AppDelegate.swift b/flutter-app/ios/Runner/AppDelegate.swift
+index 43493e9..eada13d 100644
+--- a/flutter-app/ios/Runner/AppDelegate.swift
++++ b/flutter-app/ios/Runner/AppDelegate.swift
+@@ -4,6 +4,7 @@ import Flutter
+ @UIApplicationMain
+ @objc class AppDelegate: FlutterAppDelegate {
+   private let CHANNEL = "com.privatemessaging.tuyjo/shared_media"
++  private let appGroupId = "group.com.privatemessaging.tuyjo"
+   private var methodChannel: FlutterMethodChannel?
+   private var initialMediaPaths: [String]?
+ 
+@@ -34,6 +35,14 @@ import Flutter
+     print("📱 AppDelegate: application:open:options called with URL: \(url)")
+     print("📱 URL scheme: \(url.scheme ?? "nil"), pathExtension: \(url.pathExtension)")
+ 
++    if url.scheme?.lowercased() == "sharemedia" {
++      if let sharedUrls = loadSharedMediaFromAppGroup(), !sharedUrls.isEmpty {
++        handleSharedMedia(sharedUrls)
++        return true
++      }
++      return false
++    }
++
+     if isMediaFile(url) {
+       handleSharedMedia([url])
+       return true
+@@ -60,8 +69,34 @@ import Flutter
+     let ext = url.pathExtension.lowercased()
+     let imageExtensions = ["jpg", "jpeg", "png", "gif", "heic", "heif", "webp"]
+     let videoExtensions = ["mp4", "mov", "m4v", "avi", "mkv"]
++    let documentExtensions = ["pdf"]
++
++    return imageExtensions.contains(ext) || videoExtensions.contains(ext) || documentExtensions.contains(ext)
++  }
++
++  private func loadSharedMediaFromAppGroup() -> [URL]? {
++    guard let containerUrl = FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: appGroupId) else {
++      print("❌ App Group container not found")
++      return nil
++    }
++
++    let sharedDir = containerUrl.appendingPathComponent("shared_media", isDirectory: true)
++    let manifestUrl = sharedDir.appendingPathComponent("shared_media.json")
++
++    guard let data = try? Data(contentsOf: manifestUrl) else {
++      print("⚠️ Manifest not found at \(manifestUrl.path)")
++      return nil
++    }
++
++    guard let paths = try? JSONSerialization.jsonObject(with: data, options: []) as? [String] else {
++      print("❌ Failed to parse manifest JSON")
++      return nil
++    }
++
++    try? FileManager.default.removeItem(at: manifestUrl)
+ 
+-    return imageExtensions.contains(ext) || videoExtensions.contains(ext)
++    let urls = paths.map { URL(fileURLWithPath: $0) }
++    return urls
+   }
+ 
+   private func handleSharedMedia(_ urls: [URL]) {
+diff --git a/flutter-app/ios/ShareExtension/Info.plist b/flutter-app/ios/ShareExtension/Info.plist
+new file mode 100644
+index 0000000..7d9bc0e
+--- /dev/null
++++ b/flutter-app/ios/ShareExtension/Info.plist
+@@ -0,0 +1,30 @@
++<?xml version="1.0" encoding="UTF-8"?>
++<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
++<plist version="1.0">
++<dict>
++  <key>CFBundleDisplayName</key>
++  <string>Tuyjo Share</string>
++  <key>CFBundleIdentifier</key>
++  <string>com.privatemessaging.tuyjo.share</string>
++  <key>CFBundleName</key>
++  <string>ShareExtension</string>
++  <key>CFBundlePackageType</key>
++  <string>XPC!</string>
++  <key>CFBundleShortVersionString</key>
++  <string>1.0</string>
++  <key>CFBundleVersion</key>
++  <string>1</string>
++  <key>NSExtension</key>
++  <dict>
++    <key>NSExtensionAttributes</key>
++    <dict>
++      <key>NSExtensionActivationRule</key>
++      <string>SUBQUERY ( extensionItems, $item, SUBQUERY ( $item.attachments, $attachment, ANY $attachment.registeredTypeIdentifiers UTI-CONFORMS-TO "public.image" || ANY $attachment.registeredTypeIdentifiers UTI-CONFORMS-TO "public.movie" || ANY $attachment.registeredTypeIdentifiers UTI-CONFORMS-TO "com.adobe.pdf" ).@count &gt; 0 ).@count &gt; 0</string>
++    </dict>
++    <key>NSExtensionPointIdentifier</key>
++    <string>com.apple.share-services</string>
++    <key>NSExtensionPrincipalClass</key>
++    <string>$(PRODUCT_MODULE_NAME).ShareViewController</string>
++  </dict>
++</dict>
++</plist>
+diff --git a/flutter-app/ios/ShareExtension/ShareExtension.entitlements b/flutter-app/ios/ShareExtension/ShareExtension.entitlements
+new file mode 100644
+index 0000000..99b403a
+--- /dev/null
++++ b/flutter-app/ios/ShareExtension/ShareExtension.entitlements
+@@ -0,0 +1,10 @@
++<?xml version="1.0" encoding="UTF-8"?>
++<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
++<plist version="1.0">
++<dict>
++  <key>com.apple.security.application-groups</key>
++  <array>
++    <string>group.com.privatemessaging.tuyjo</string>
++  </array>
++</dict>
++</plist>
+diff --git a/flutter-app/ios/ShareExtension/ShareViewController.swift b/flutter-app/ios/ShareExtension/ShareViewController.swift
+new file mode 100644
+index 0000000..d515aee
+--- /dev/null
++++ b/flutter-app/ios/ShareExtension/ShareViewController.swift
+@@ -0,0 +1,207 @@
++import MobileCoreServices
++import Social
++import UniformTypeIdentifiers
++import UIKit
++
++final class ShareViewController: SLComposeServiceViewController {
++  private let appGroupId = "group.com.privatemessaging.tuyjo"
++  private let manifestFileName = "shared_media.json"
++
++  override func isContentValid() -> Bool {
++    return true
++  }
++
++  override func viewDidAppear(_ animated: Bool) {
++    super.viewDidAppear(animated)
++    handleSharedItems()
++  }
++
++  override func didSelectPost() {
++    handleSharedItems()
++  }
++
++  override func configurationItems() -> [Any]! {
++    return []
++  }
++
++  private func handleSharedItems() {
++    guard let items = extensionContext?.inputItems as? [NSExtensionItem], !items.isEmpty else {
++      completeRequest()
++      return
++    }
++
++    let dispatchGroup = DispatchGroup()
++    var collectedUrls: [URL] = []
++    let urlsLock = NSLock()
++
++    for item in items {
++      guard let providers = item.attachments else { continue }
++      for provider in providers {
++        if provider.hasItemConformingToTypeIdentifier(UTType.image.identifier) {
++          dispatchGroup.enter()
++          loadItem(from: provider, typeIdentifier: UTType.image.identifier) { url in
++            if let url {
++              urlsLock.lock()
++              collectedUrls.append(url)
++              urlsLock.unlock()
++            }
++            dispatchGroup.leave()
++          }
++        } else if provider.hasItemConformingToTypeIdentifier(UTType.movie.identifier) {
++          dispatchGroup.enter()
++          loadItem(from: provider, typeIdentifier: UTType.movie.identifier) { url in
++            if let url {
++              urlsLock.lock()
++              collectedUrls.append(url)
++              urlsLock.unlock()
++            }
++            dispatchGroup.leave()
++          }
++        } else if provider.hasItemConformingToTypeIdentifier(UTType.pdf.identifier) {
++          dispatchGroup.enter()
++          loadItem(from: provider, typeIdentifier: UTType.pdf.identifier) { url in
++            if let url {
++              urlsLock.lock()
++              collectedUrls.append(url)
++              urlsLock.unlock()
++            }
++            dispatchGroup.leave()
++          }
++        }
++      }
++    }
++
++    dispatchGroup.notify(queue: .main) { [weak self] in
++      self?.persistAndOpenApp(with: collectedUrls)
++    }
++  }
++
++  private func loadItem(
++    from provider: NSItemProvider,
++    typeIdentifier: String,
++    completion: @escaping (URL?) -> Void
++  ) {
++    provider.loadFileRepresentation(forTypeIdentifier: typeIdentifier) { [weak self] url, _ in
++      if let url, let tempUrl = self?.copyToTemporaryLocation(url: url, typeIdentifier: typeIdentifier) {
++        completion(tempUrl)
++        return
++      }
++
++      provider.loadItem(forTypeIdentifier: typeIdentifier, options: nil) { item, _ in
++        if let url = item as? URL {
++          completion(url)
++        } else if let data = item as? Data,
++                  let tempUrl = self?.writeDataToTemporaryFile(data: data, typeIdentifier: typeIdentifier) {
++          completion(tempUrl)
++        } else {
++          completion(nil)
++        }
++      }
++    }
++  }
++
++  private func persistAndOpenApp(with urls: [URL]) {
++    guard let containerUrl = FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: appGroupId) else {
++      completeRequest()
++      return
++    }
++
++    let sharedDir = containerUrl.appendingPathComponent("shared_media", isDirectory: true)
++    try? FileManager.default.createDirectory(at: sharedDir, withIntermediateDirectories: true)
++
++    var copiedPaths: [String] = []
++
++    for url in urls {
++      guard let destUrl = copyToSharedContainer(url: url, sharedDir: sharedDir) else { continue }
++      copiedPaths.append(destUrl.path)
++    }
++
++    guard !copiedPaths.isEmpty else {
++      completeRequest()
++      return
++    }
++
++    let manifestUrl = sharedDir.appendingPathComponent(manifestFileName)
++    if let data = try? JSONSerialization.data(withJSONObject: copiedPaths, options: []) {
++      try? data.write(to: manifestUrl)
++    }
++
++    openHostApp()
++  }
++
++  private func copyToSharedContainer(url: URL, sharedDir: URL) -> URL? {
++    let ext = url.pathExtension.isEmpty ? "dat" : url.pathExtension
++    let timestamp = Int(Date().timeIntervalSince1970 * 1000)
++    let destUrl = sharedDir.appendingPathComponent("shared_\(timestamp).\(ext)")
++
++    do {
++      let accessing = url.startAccessingSecurityScopedResource()
++      defer {
++        if accessing {
++          url.stopAccessingSecurityScopedResource()
++        }
++      }
++      if FileManager.default.fileExists(atPath: destUrl.path) {
++        try FileManager.default.removeItem(at: destUrl)
++      }
++      try FileManager.default.copyItem(at: url, to: destUrl)
++      return destUrl
++    } catch {
++      return nil
++    }
++  }
++
++  private func openHostApp() {
++    guard let url = URL(string: "ShareMedia://shared") else {
++      completeRequest()
++      return
++    }
++
++    extensionContext?.open(url, completionHandler: { [weak self] _ in
++      self?.completeRequest()
++    })
++  }
++
++  private func writeDataToTemporaryFile(data: Data, typeIdentifier: String) -> URL? {
++    let tempDir = FileManager.default.temporaryDirectory
++    let ext = UTType(typeIdentifier)?.preferredFilenameExtension ?? "dat"
++    let timestamp = Int(Date().timeIntervalSince1970 * 1000)
++    let tempUrl = tempDir.appendingPathComponent("shared_\(timestamp).\(ext)")
++
++    do {
++      try data.write(to: tempUrl)
++      return tempUrl
++    } catch {
++      return nil
++    }
++  }
++
++  private func copyToTemporaryLocation(url: URL, typeIdentifier: String) -> URL? {
++    let tempDir = FileManager.default.temporaryDirectory
++    let ext = url.pathExtension.isEmpty
++      ? (UTType(typeIdentifier)?.preferredFilenameExtension ?? "dat")
++      : url.pathExtension
++    let timestamp = Int(Date().timeIntervalSince1970 * 1000)
++    let tempUrl = tempDir.appendingPathComponent("shared_\(timestamp).\(ext)")
++
++    do {
++      let accessing = url.startAccessingSecurityScopedResource()
++      defer {
++        if accessing {
++          url.stopAccessingSecurityScopedResource()
++        }
++      }
++      if FileManager.default.fileExists(atPath: tempUrl.path) {
++        try FileManager.default.removeItem(at: tempUrl)
++      }
++      try FileManager.default.copyItem(at: url, to: tempUrl)
++      return tempUrl
++    } catch {
++      return nil
++    }
++  }
++
++  private func completeRequest() {
++    extensionContext?.completeRequest(returningItems: [], completionHandler: nil)
++  }
++}
+-- 
+2.43.0
