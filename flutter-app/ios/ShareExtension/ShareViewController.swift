@@ -171,14 +171,39 @@ class ShareViewController: UIViewController {
     }
 
     private func extractURL(from text: String) -> String? {
-        // Cerca URL nel testo
+        // Cerca tutti gli URL nel testo
         let detector = try? NSDataDetector(types: NSTextCheckingResult.CheckingType.link.rawValue)
         let matches = detector?.matches(in: text, options: [], range: NSRange(location: 0, length: text.utf16.count))
 
-        if let match = matches?.first, let range = Range(match.range, in: text) {
-            return String(text[range])
+        guard let matches = matches, !matches.isEmpty else {
+            return nil
         }
-        return nil
+
+        // Estrai tutti gli URL trovati
+        var urls: [String] = []
+        for match in matches {
+            if let range = Range(match.range, in: text) {
+                urls.append(String(text[range]))
+            }
+        }
+
+        // Se c'è un solo URL, restituiscilo
+        if urls.count == 1 {
+            return urls.first
+        }
+
+        // Se ci sono più URL, preferisci quello con https://
+        if let httpsUrl = urls.first(where: { $0.lowercased().hasPrefix("https://") }) {
+            return httpsUrl
+        }
+
+        // Altrimenti preferisci quello con http://
+        if let httpUrl = urls.first(where: { $0.lowercased().hasPrefix("http://") }) {
+            return httpUrl
+        }
+
+        // Fallback al primo URL trovato
+        return urls.first
     }
 
     private func saveToAppGroup(text: String, key: String) {
