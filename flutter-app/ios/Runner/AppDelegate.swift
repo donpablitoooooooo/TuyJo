@@ -41,6 +41,15 @@ import Flutter
     // Controlla se viene da ShareExtension tramite App Group
     if url.scheme?.lowercased() == "sharemedia" {
       print("📱 ShareMedia URL detected, checking App Group...")
+
+      // Prima controlla se c'è un'immagine condivisa
+      if let imagePath = loadSharedImagePathFromAppGroup() {
+        print("📱 Found shared image from App Group: \(imagePath)")
+        handleSharedMedia([URL(fileURLWithPath: imagePath)])
+        return true
+      }
+
+      // Poi controlla se c'è del testo condiviso
       if let sharedText = loadSharedTextFromAppGroup() {
         print("📱 Found shared text from App Group: \(sharedText)")
         handleSharedText(sharedText)
@@ -217,5 +226,24 @@ import Flutter
     userDefaults.synchronize()
 
     return sharedText
+  }
+
+  private func loadSharedImagePathFromAppGroup() -> String? {
+    let appGroupId = "group.com.privatemessaging.tuyjo"
+    guard let userDefaults = UserDefaults(suiteName: appGroupId) else {
+      print("❌ Failed to access App Group: \(appGroupId)")
+      return nil
+    }
+
+    guard let imagePath = userDefaults.string(forKey: "shared_image_path") else {
+      print("⚠️ No shared image path found in App Group")
+      return nil
+    }
+
+    // Rimuovi dopo aver letto (usa solo una volta)
+    userDefaults.removeObject(forKey: "shared_image_path")
+    userDefaults.synchronize()
+
+    return imagePath
   }
 }
