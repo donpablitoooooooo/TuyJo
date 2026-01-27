@@ -25,39 +25,81 @@ class ShareViewController: UIViewController {
             }
         }
 
-        // Seconda passa: cerca URL (priorità su testo)
+        // Cerca sia testo che URL per decidere quale usare
+        var hasText = false
+        var hasUrl = false
+        var textAttachment: NSItemProvider?
+        var urlAttachment: NSItemProvider?
+
         for attachment in attachments {
+            if attachment.hasItemConformingToTypeIdentifier(UTType.plainText.identifier) {
+                hasText = true
+                textAttachment = attachment
+            }
             if attachment.hasItemConformingToTypeIdentifier(UTType.url.identifier) {
-                attachment.loadItem(forTypeIdentifier: UTType.url.identifier, options: nil) { [weak self] (item, error) in
-                    if let url = item as? URL {
-                        self?.saveToAppGroup(text: url.absoluteString, key: "shared_text")
-                        self?.openMainApp()
-                    } else {
-                        self?.closeExtension()
-                    }
-                }
-                return
+                hasUrl = true
+                urlAttachment = attachment
             }
         }
 
-        // Terza passa: cerca testo
-        for attachment in attachments {
-            if attachment.hasItemConformingToTypeIdentifier(UTType.plainText.identifier) {
-                attachment.loadItem(forTypeIdentifier: UTType.plainText.identifier, options: nil) { [weak self] (item, error) in
-                    if let text = item as? String {
-                        // Controlla se il testo contiene un URL
-                        if let url = self?.extractURL(from: text) {
-                            self?.saveToAppGroup(text: url, key: "shared_text")
+        // Strategia: preferisci il testo se contiene un URL (più completo)
+        // Altrimenti usa l'URL diretto
+        if hasText, let textAtt = textAttachment {
+            textAtt.loadItem(forTypeIdentifier: UTType.plainText.identifier, options: nil) { [weak self] (item, error) in
+                if let text = item as? String {
+                    // Controlla se il testo contiene un URL
+                    if let extractedUrl = self?.extractURL(from: text) {
+                        // Se il testo è SOLO l'URL, salva l'URL
+                        // Se il testo contiene altro oltre all'URL, salva il testo completo
+                        let trimmedText = text.trimmingCharacters(in: .whitespacesAndNewlines)
+                        if trimmedText == extractedUrl {
+                            self?.saveToAppGroup(text: extractedUrl, key: "shared_text")
                         } else {
+                            // Testo contiene più dell'URL - salva tutto
                             self?.saveToAppGroup(text: text, key: "shared_text")
                         }
                         self?.openMainApp()
+                    } else if hasUrl, let urlAtt = urlAttachment {
+                        // Il testo non ha URL, prova con l'URL attachment
+                        urlAtt.loadItem(forTypeIdentifier: UTType.url.identifier, options: nil) { [weak self] (urlItem, urlError) in
+                            if let url = urlItem as? URL {
+                                // Combina testo + URL se il testo non è vuoto
+                                let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+                                if !trimmed.isEmpty {
+                                    self?.saveToAppGroup(text: "\(text)\n\(url.absoluteString)", key: "shared_text")
+                                } else {
+                                    self?.saveToAppGroup(text: url.absoluteString, key: "shared_text")
+                                }
+                                self?.openMainApp()
+                            } else {
+                                // Salva solo il testo
+                                self?.saveToAppGroup(text: text, key: "shared_text")
+                                self?.openMainApp()
+                            }
+                        }
                     } else {
-                        self?.closeExtension()
+                        // Solo testo senza URL
+                        self?.saveToAppGroup(text: text, key: "shared_text")
+                        self?.openMainApp()
                     }
+                } else {
+                    self?.closeExtension()
                 }
-                return
             }
+            return
+        }
+
+        // Se non c'è testo, usa solo l'URL
+        if hasUrl, let urlAtt = urlAttachment {
+            urlAtt.loadItem(forTypeIdentifier: UTType.url.identifier, options: nil) { [weak self] (item, error) in
+                if let url = item as? URL {
+                    self?.saveToAppGroup(text: url.absoluteString, key: "shared_text")
+                    self?.openMainApp()
+                } else {
+                    self?.closeExtension()
+                }
+            }
+            return
         }
 
         closeExtension()
