@@ -10,15 +10,19 @@ import '../models/message.dart';
 import 'pdf_viewer_screen.dart';
 import 'package:url_launcher/url_launcher.dart';
 
-// Colori tema verde fighetto
+// Colori tema teal (stile modale allegati)
 class MediaColors {
-  static const Color primaryGreen = Color(0xFF2E7D6B);
-  static const Color lightGreen = Color(0xFF4CAF93);
-  static const Color accentGreen = Color(0xFF00BFA5);
-  static const Color surfaceGreen = Color(0xFFE8F5F1);
-  static const Color darkGreen = Color(0xFF1B5E4A);
-  static const Color monthBadgeBg = Color(0xFFE0F2EF);
-  static const Color monthBadgeText = Color(0xFF2E7D6B);
+  static const Color primary = Color(0xFF3BA8B0);      // Teal principale
+  static const Color primaryDark = Color(0xFF145A60); // Teal scuro
+  static const Color accent = Color(0xFF4ECDC4);      // Accent teal chiaro
+  static const Color surface = Color(0xFFE8F6F6);     // Surface teal leggero
+  static const Color text = Color(0xFF145A60);        // Testo scuro teal
+  static const Color monthBadgeBg = Color(0xFFD4EFED);
+  static const Color monthBadgeText = Color(0xFF145A60);
+  // Colori icone come nella modale allegati
+  static const Color iconPhoto = Color(0xFF2196F3);    // Blu
+  static const Color iconLink = Color(0xFF9C27B0);     // Viola
+  static const Color iconDocument = Color(0xFF4CAF50); // Verde
 }
 
 class MediaScreen extends StatefulWidget {
@@ -131,79 +135,84 @@ class _MediaScreenState extends State<MediaScreen> {
       margin: const EdgeInsets.symmetric(horizontal: 48),
       padding: const EdgeInsets.all(4),
       decoration: BoxDecoration(
-        color: MediaColors.surfaceGreen,
+        gradient: const LinearGradient(
+          colors: [Color(0xFF3BA8B0), Color(0xFF145A60)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: MediaColors.primaryGreen.withOpacity(0.1),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
+            color: MediaColors.primary.withOpacity(0.25),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
           ),
         ],
       ),
       child: Row(
         children: [
-          _buildTabButton(0, l10n.mediaTabPhotos, Icons.photo_library_outlined, photoCount),
-          _buildTabButton(1, l10n.mediaTabLinks, Icons.link_rounded, linkCount),
-          _buildTabButton(2, l10n.mediaTabDocuments, Icons.description_outlined, docCount),
+          _buildTabButton(0, l10n.mediaTabPhotos, Icons.photo_library, MediaColors.iconPhoto, photoCount),
+          _buildTabButton(1, l10n.mediaTabLinks, Icons.link_rounded, MediaColors.iconLink, linkCount),
+          _buildTabButton(2, l10n.mediaTabDocuments, Icons.description, MediaColors.iconDocument, docCount),
         ],
       ),
     );
   }
 
-  Widget _buildTabButton(int index, String label, IconData icon, int count) {
+  Widget _buildTabButton(int index, String label, IconData icon, Color iconColor, int count) {
     final isSelected = _selectedTabIndex == index;
     return Expanded(
       child: GestureDetector(
         onTap: () => setState(() => _selectedTabIndex = index),
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 200),
-          padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
+          padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 4),
           decoration: BoxDecoration(
-            color: isSelected ? MediaColors.primaryGreen : Colors.transparent,
+            color: isSelected ? Colors.white : Colors.transparent,
             borderRadius: BorderRadius.circular(12),
             boxShadow: isSelected
                 ? [
                     BoxShadow(
-                      color: MediaColors.primaryGreen.withOpacity(0.3),
-                      blurRadius: 8,
+                      color: Colors.black.withOpacity(0.1),
+                      blurRadius: 4,
                       offset: const Offset(0, 2),
                     ),
                   ]
                 : null,
           ),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(
-                icon,
-                size: 18,
-                color: isSelected ? Colors.white : MediaColors.primaryGreen,
+              Container(
+                width: 36,
+                height: 36,
+                decoration: BoxDecoration(
+                  color: isSelected ? iconColor.withOpacity(0.15) : Colors.white.withOpacity(0.2),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(
+                  icon,
+                  size: 18,
+                  color: isSelected ? iconColor : Colors.white,
+                ),
               ),
-              const SizedBox(width: 6),
+              const SizedBox(height: 4),
               Text(
                 label,
                 style: TextStyle(
-                  fontSize: 13,
+                  fontSize: 11,
                   fontWeight: FontWeight.w600,
-                  color: isSelected ? Colors.white : MediaColors.primaryGreen,
+                  color: isSelected ? MediaColors.text : Colors.white,
                 ),
               ),
               if (count > 0) ...[
-                const SizedBox(width: 4),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                  decoration: BoxDecoration(
-                    color: isSelected ? Colors.white.withOpacity(0.2) : MediaColors.primaryGreen.withOpacity(0.15),
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: Text(
-                    count.toString(),
-                    style: TextStyle(
-                      fontSize: 10,
-                      fontWeight: FontWeight.bold,
-                      color: isSelected ? Colors.white : MediaColors.primaryGreen,
-                    ),
+                const SizedBox(height: 2),
+                Text(
+                  count.toString(),
+                  style: TextStyle(
+                    fontSize: 10,
+                    fontWeight: FontWeight.bold,
+                    color: isSelected ? iconColor : Colors.white70,
                   ),
                 ),
               ],
@@ -359,7 +368,7 @@ class _PhotoGridViewState extends State<_PhotoGridView> {
         decoration: BoxDecoration(
           color: MediaColors.monthBadgeBg,
           borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: MediaColors.primaryGreen.withOpacity(0.2)),
+          border: Border.all(color: MediaColors.primary.withOpacity(0.2)),
         ),
         child: Text(
           month.toUpperCase(),
@@ -382,10 +391,10 @@ class _PhotoGridViewState extends State<_PhotoGridView> {
           Container(
             padding: const EdgeInsets.all(24),
             decoration: BoxDecoration(
-              color: MediaColors.surfaceGreen,
+              color: MediaColors.surface,
               shape: BoxShape.circle,
             ),
-            child: Icon(icon, size: 48, color: MediaColors.primaryGreen),
+            child: Icon(icon, size: 48, color: MediaColors.primary),
           ),
           const SizedBox(height: 20),
           Text(
@@ -393,7 +402,7 @@ class _PhotoGridViewState extends State<_PhotoGridView> {
             style: const TextStyle(
               fontSize: 18,
               fontWeight: FontWeight.w600,
-              color: MediaColors.darkGreen,
+              color: MediaColors.text,
             ),
           ),
           const SizedBox(height: 8),
@@ -463,11 +472,11 @@ class _PhotoGridItem extends StatelessWidget {
               builder: (context, snapshot) {
                 if (snapshot.connectionState == ConnectionState.waiting) {
                   return Container(
-                    color: MediaColors.surfaceGreen,
+                    color: MediaColors.surface,
                     child: const Center(
                       child: CircularProgressIndicator(
                         strokeWidth: 2,
-                        color: MediaColors.primaryGreen,
+                        color: MediaColors.primary,
                       ),
                     ),
                   );
@@ -505,7 +514,7 @@ class _PhotoGridItem extends StatelessWidget {
               child: Container(
                 padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                 decoration: BoxDecoration(
-                  color: MediaColors.primaryGreen.withOpacity(0.85),
+                  color: MediaColors.primary.withOpacity(0.85),
                   borderRadius: BorderRadius.circular(6),
                 ),
                 child: Text(
@@ -609,7 +618,7 @@ class _LinkListViewState extends State<_LinkListView> {
         decoration: BoxDecoration(
           color: MediaColors.monthBadgeBg,
           borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: MediaColors.primaryGreen.withOpacity(0.2)),
+          border: Border.all(color: MediaColors.primary.withOpacity(0.2)),
         ),
         child: Text(
           month.toUpperCase(),
@@ -632,10 +641,10 @@ class _LinkListViewState extends State<_LinkListView> {
           Container(
             padding: const EdgeInsets.all(24),
             decoration: BoxDecoration(
-              color: MediaColors.surfaceGreen,
+              color: MediaColors.surface,
               shape: BoxShape.circle,
             ),
-            child: Icon(icon, size: 48, color: MediaColors.primaryGreen),
+            child: Icon(icon, size: 48, color: MediaColors.primary),
           ),
           const SizedBox(height: 20),
           Text(
@@ -643,7 +652,7 @@ class _LinkListViewState extends State<_LinkListView> {
             style: const TextStyle(
               fontSize: 18,
               fontWeight: FontWeight.w600,
-              color: MediaColors.darkGreen,
+              color: MediaColors.text,
             ),
           ),
           const SizedBox(height: 8),
@@ -693,10 +702,10 @@ class _LinkListItem extends StatelessWidget {
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: MediaColors.primaryGreen.withOpacity(0.15)),
+          border: Border.all(color: MediaColors.primary.withOpacity(0.15)),
           boxShadow: [
             BoxShadow(
-              color: MediaColors.primaryGreen.withOpacity(0.06),
+              color: MediaColors.primary.withOpacity(0.06),
               blurRadius: 8,
               offset: const Offset(0, 2),
             ),
@@ -704,19 +713,16 @@ class _LinkListItem extends StatelessWidget {
         ),
         child: Row(
           children: [
-            // Icona link con stile
+            // Icona link con stile viola
             Container(
               width: 48,
               height: 48,
               decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  colors: [MediaColors.lightGreen, MediaColors.primaryGreen],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                ),
+                color: MediaColors.iconLink.withOpacity(0.15),
                 borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: MediaColors.iconLink.withOpacity(0.3)),
               ),
-              child: const Icon(Icons.link_rounded, color: Colors.white, size: 24),
+              child: const Icon(Icons.link_rounded, color: MediaColors.iconLink, size: 24),
             ),
             const SizedBox(width: 14),
             // Info link
@@ -729,7 +735,7 @@ class _LinkListItem extends StatelessWidget {
                     style: const TextStyle(
                       fontWeight: FontWeight.w600,
                       fontSize: 15,
-                      color: MediaColors.darkGreen,
+                      color: MediaColors.text,
                     ),
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
@@ -749,14 +755,14 @@ class _LinkListItem extends StatelessWidget {
                   const SizedBox(height: 6),
                   Row(
                     children: [
-                      Icon(Icons.public, size: 12, color: MediaColors.lightGreen),
+                      const Icon(Icons.public, size: 12, color: MediaColors.iconLink),
                       const SizedBox(width: 4),
                       Expanded(
                         child: Text(
                           domain,
-                          style: TextStyle(
+                          style: const TextStyle(
                             fontSize: 12,
-                            color: MediaColors.lightGreen,
+                            color: MediaColors.iconLink,
                             fontWeight: FontWeight.w500,
                           ),
                           overflow: TextOverflow.ellipsis,
@@ -780,13 +786,13 @@ class _LinkListItem extends StatelessWidget {
             Container(
               padding: const EdgeInsets.all(8),
               decoration: BoxDecoration(
-                color: MediaColors.surfaceGreen,
+                color: MediaColors.surface,
                 borderRadius: BorderRadius.circular(8),
               ),
               child: const Icon(
                 Icons.arrow_forward_ios_rounded,
                 size: 14,
-                color: MediaColors.primaryGreen,
+                color: MediaColors.primary,
               ),
             ),
           ],
@@ -890,7 +896,7 @@ class _DocumentListViewState extends State<_DocumentListView> {
         decoration: BoxDecoration(
           color: MediaColors.monthBadgeBg,
           borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: MediaColors.primaryGreen.withOpacity(0.2)),
+          border: Border.all(color: MediaColors.primary.withOpacity(0.2)),
         ),
         child: Text(
           month.toUpperCase(),
@@ -913,10 +919,10 @@ class _DocumentListViewState extends State<_DocumentListView> {
           Container(
             padding: const EdgeInsets.all(24),
             decoration: BoxDecoration(
-              color: MediaColors.surfaceGreen,
+              color: MediaColors.surface,
               shape: BoxShape.circle,
             ),
-            child: Icon(icon, size: 48, color: MediaColors.primaryGreen),
+            child: Icon(icon, size: 48, color: MediaColors.primary),
           ),
           const SizedBox(height: 20),
           Text(
@@ -924,7 +930,7 @@ class _DocumentListViewState extends State<_DocumentListView> {
             style: const TextStyle(
               fontSize: 18,
               fontWeight: FontWeight.w600,
-              color: MediaColors.darkGreen,
+              color: MediaColors.text,
             ),
           ),
           const SizedBox(height: 8),
@@ -970,7 +976,7 @@ class _DocumentListItem extends StatelessWidget {
       case 'pptx':
         return const Color(0xFFFF7043);
       default:
-        return MediaColors.primaryGreen;
+        return MediaColors.primary;
     }
   }
 
@@ -1010,7 +1016,7 @@ class _DocumentListItem extends StatelessWidget {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text(l10n.mediaDocumentOpenHint),
-              backgroundColor: MediaColors.primaryGreen,
+              backgroundColor: MediaColors.primary,
             ),
           );
         }
@@ -1020,10 +1026,10 @@ class _DocumentListItem extends StatelessWidget {
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: MediaColors.primaryGreen.withOpacity(0.15)),
+          border: Border.all(color: MediaColors.primary.withOpacity(0.15)),
           boxShadow: [
             BoxShadow(
-              color: MediaColors.primaryGreen.withOpacity(0.06),
+              color: MediaColors.primary.withOpacity(0.06),
               blurRadius: 8,
               offset: const Offset(0, 2),
             ),
@@ -1067,7 +1073,7 @@ class _DocumentListItem extends StatelessWidget {
                     style: const TextStyle(
                       fontWeight: FontWeight.w600,
                       fontSize: 15,
-                      color: MediaColors.darkGreen,
+                      color: MediaColors.text,
                     ),
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
@@ -1119,13 +1125,13 @@ class _DocumentListItem extends StatelessWidget {
             Container(
               padding: const EdgeInsets.all(8),
               decoration: BoxDecoration(
-                color: MediaColors.surfaceGreen,
+                color: MediaColors.surface,
                 borderRadius: BorderRadius.circular(8),
               ),
               child: const Icon(
                 Icons.arrow_forward_ios_rounded,
                 size: 14,
-                color: MediaColors.primaryGreen,
+                color: MediaColors.primary,
               ),
             ),
           ],
@@ -1187,7 +1193,7 @@ class _FullscreenImageViewerState extends State<_FullscreenImageViewer> {
                     return Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        const CircularProgressIndicator(color: MediaColors.accentGreen),
+                        const CircularProgressIndicator(color: MediaColors.accent),
                         const SizedBox(height: 16),
                         Text(
                           l10n.mediaLoadingImage,
@@ -1233,7 +1239,7 @@ class _FullscreenImageViewerState extends State<_FullscreenImageViewer> {
                       icon: const Icon(Icons.close, color: Colors.white, size: 32),
                       onPressed: () => Navigator.of(context).pop(),
                       style: IconButton.styleFrom(
-                        backgroundColor: MediaColors.primaryGreen.withOpacity(0.7),
+                        backgroundColor: MediaColors.primary.withOpacity(0.7),
                       ),
                     ),
                   ),
@@ -1277,7 +1283,7 @@ class _FullscreenImageViewerState extends State<_FullscreenImageViewer> {
                         Row(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            const Icon(Icons.lock, color: MediaColors.accentGreen, size: 14),
+                            const Icon(Icons.lock, color: MediaColors.accent, size: 14),
                             const SizedBox(width: 4),
                             Text(
                               '${l10n.mediaEncryptedE2E} • ${_formatFileSize(widget.attachment.fileSize)}',

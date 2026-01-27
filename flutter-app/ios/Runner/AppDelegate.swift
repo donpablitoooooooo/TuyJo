@@ -49,6 +49,13 @@ import Flutter
         return true
       }
 
+      // Controlla se c'è un documento condiviso
+      if let documentPath = loadSharedDocumentPathFromAppGroup() {
+        print("📱 Found shared document from App Group: \(documentPath)")
+        handleSharedMedia([URL(fileURLWithPath: documentPath)])
+        return true
+      }
+
       // Poi controlla se c'è del testo condiviso
       if let sharedText = loadSharedTextFromAppGroup() {
         print("📱 Found shared text from App Group: \(sharedText)")
@@ -245,5 +252,24 @@ import Flutter
     userDefaults.synchronize()
 
     return imagePath
+  }
+
+  private func loadSharedDocumentPathFromAppGroup() -> String? {
+    let appGroupId = "group.com.privatemessaging.tuyjo"
+    guard let userDefaults = UserDefaults(suiteName: appGroupId) else {
+      print("❌ Failed to access App Group: \(appGroupId)")
+      return nil
+    }
+
+    guard let documentPath = userDefaults.string(forKey: "shared_document_path") else {
+      print("⚠️ No shared document path found in App Group")
+      return nil
+    }
+
+    // Rimuovi dopo aver letto (usa solo una volta)
+    userDefaults.removeObject(forKey: "shared_document_path")
+    userDefaults.synchronize()
+
+    return documentPath
   }
 }
