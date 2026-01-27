@@ -38,6 +38,16 @@ import Flutter
     print("📱 AppDelegate: application:open:options called with URL: \(url)")
     print("📱 URL scheme: \(url.scheme ?? "nil"), pathExtension: \(url.pathExtension)")
 
+    // Controlla se viene da ShareExtension tramite App Group
+    if url.scheme?.lowercased() == "sharemedia" {
+      print("📱 ShareMedia URL detected, checking App Group...")
+      if let sharedText = loadSharedTextFromAppGroup() {
+        print("📱 Found shared text from App Group: \(sharedText)")
+        handleSharedText(sharedText)
+        return true
+      }
+    }
+
     // Controlla se è un URL web (http/https) condiviso
     if let scheme = url.scheme, (scheme == "http" || scheme == "https") {
       print("📱 Web URL shared: \(url.absoluteString)")
@@ -188,5 +198,24 @@ import Flutter
       print("⏳ Flutter not ready, saving as initialSharedText")
       initialSharedText = text
     }
+  }
+
+  private func loadSharedTextFromAppGroup() -> String? {
+    let appGroupId = "group.com.privatemessaging.tuyjo"
+    guard let userDefaults = UserDefaults(suiteName: appGroupId) else {
+      print("❌ Failed to access App Group: \(appGroupId)")
+      return nil
+    }
+
+    guard let sharedText = userDefaults.string(forKey: "shared_text") else {
+      print("⚠️ No shared text found in App Group")
+      return nil
+    }
+
+    // Rimuovi dopo aver letto (usa solo una volta)
+    userDefaults.removeObject(forKey: "shared_text")
+    userDefaults.synchronize()
+
+    return sharedText
   }
 }
