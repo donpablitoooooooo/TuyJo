@@ -7,6 +7,7 @@ import 'package:open_filex/open_filex.dart';
 import 'package:provider/provider.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:private_messaging/generated/l10n/app_localizations.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../models/message.dart';
 import '../services/attachment_service.dart';
 import '../services/location_service.dart';
@@ -828,3 +829,4 @@ class AttachmentLocationShare extends StatelessWidget {
     );
   }
 }
+

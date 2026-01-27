@@ -6,6 +6,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter/gestures.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
 import 'package:open_filex/open_filex.dart';
@@ -13,6 +14,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:flutter_linkify/flutter_linkify.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:table_calendar/table_calendar.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:private_messaging/generated/l10n/app_localizations.dart';
 import '../services/pairing_service.dart';
 import '../services/chat_service.dart';
@@ -20,6 +22,7 @@ import '../services/encryption_service.dart';
 import '../services/notification_service.dart';
 import '../services/attachment_service.dart';
 import '../services/location_service.dart';
+import '../services/link_metadata_service.dart';
 import '../models/message.dart';
 import '../widgets/todo_bubble.dart';
 import '../widgets/attachment_widgets.dart';
@@ -93,6 +96,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       if (hasText) {
         _onUserTyping();
       }
+
     });
 
     // 📜 INFINITE SCROLL: Listen per scroll verso l'alto (messaggi vecchi)
@@ -118,11 +122,22 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
           final paths = (call.arguments as List).cast<String>();
           await _handleSharedFilePaths(paths);
         }
+      } else if (call.method == 'onTextShared') {
+        if (kDebugMode) {
+          print("📥 onTextShared ricevuto: ${call.arguments}");
+        }
+        if (call.arguments is String) {
+          await _handleSharedText(call.arguments as String);
+        }
       }
     });
 
-    // Controlla se ci sono file condivisi all'avvio (app era chiusa)
-    _getInitialMedia();
+    // Ritarda il controllo dei dati condivisi fino a quando il widget è completamente costruito
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      // Controlla se ci sono file/testo condivisi all'avvio (app era chiusa)
+      _getInitialMedia();
+      _getInitialSharedText();
+    });
 
     if (kDebugMode) {
       print("✅ Method Channel configurato");
@@ -151,6 +166,361 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       }
     } catch (e) {
       if (kDebugMode) print("❌ Errore in getInitialMedia(): $e");
+    }
+  }
+
+  /// Recupera testo condiviso quando l'app era chiusa
+  Future<void> _getInitialSharedText() async {
+    try {
+      final result = await platform.invokeMethod('getInitialSharedText');
+      if (kDebugMode) {
+        print("📥 getInitialSharedText() restituito: $result");
+      }
+
+      if (result != null && result is String && result.isNotEmpty) {
+        if (kDebugMode) {
+          print("📥 Testo ricevuto: $result");
+        }
+        await _handleSharedText(result);
+      } else {
+        if (kDebugMode) print("⚠️ getInitialSharedText() ha restituito null o stringa vuota");
+      }
+    } catch (e) {
+      if (kDebugMode) print("❌ Errore in getInitialSharedText(): $e");
+    }
+  }
+
+  /// Gestisce il testo condiviso da altre app (crea messaggio direttamente)
+  Future<void> _handleSharedText(String text) async {
+    if (kDebugMode) {
+      print("📝 [SHARED-TEXT] Received shared text: $text");
+    }
+
+    // ⏳ IMPORTANTE: Aspetta che la chat sia inizializzata
+    // Controlla ogni 100ms per max 5 secondi
+    int attempts = 0;
+    const maxAttempts = 50; // 5 secondi
+
+    while ((_familyChatId == null || _myDeviceId == null || _partnerPublicKey == null) && attempts < maxAttempts) {
+      if (kDebugMode && attempts == 0) {
+        print("⏳ [SHARED-TEXT] Chat not ready yet, waiting for initialization...");
+      }
+      await Future.delayed(const Duration(milliseconds: 100));
+      attempts++;
+    }
+
+    // Se dopo 5 secondi la chat non è pronta, abbandona
+    if (_familyChatId == null || _myDeviceId == null || _partnerPublicKey == null) {
+      if (kDebugMode) {
+        print("❌ [SHARED-TEXT] Timeout waiting for chat initialization, inserting text in field instead");
+      }
+      _insertTextIntoMessage(text);
+      return;
+    }
+
+    if (kDebugMode) {
+      print("✅ [SHARED-TEXT] Chat ready after ${attempts * 100}ms, processing text...");
+    }
+
+    // Estrai URL dal testo
+    final linkService = LinkMetadataService();
+    final urls = linkService.extractUrls(text);
+
+    if (urls.length == 1) {
+      // Se c'è esattamente un URL, fetch metadata e invia messaggio con preview
+      if (kDebugMode) {
+        print("🔗 [SHARED-TEXT] URL found: ${urls.first}");
+        print("🔗 [SHARED-TEXT] Fetching metadata and sending message...");
+      }
+
+      // Fetch metadata + download immagine + invia messaggio
+      await _fetchAndSendLinkMessage(urls.first, originalText: text);
+    } else {
+      // Nessun URL o URL multipli, inserisci semplicemente il testo nel campo
+      if (kDebugMode) {
+        print("📝 [SHARED-TEXT] No single URL found, inserting in text field");
+      }
+      _insertTextIntoMessage(text);
+    }
+  }
+
+  /// Inserisce testo nel messaggio
+  void _insertTextIntoMessage(String text) {
+    // Usa addPostFrameCallback per assicurarsi che il widget sia completamente inizializzato
+    // (stesso pattern di _handleSharedFilePaths che funziona per le foto)
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) {
+        if (kDebugMode) print("⚠️ Widget non montato, impossibile inserire testo");
+        return;
+      }
+
+      setState(() {
+        // Inserisci il testo nel controller del messaggio
+        final currentText = _messageController.text;
+        if (currentText.isEmpty) {
+          _messageController.text = text;
+        } else {
+          // Aggiungi su nuova riga se c'è già del testo
+          _messageController.text = '$currentText\n$text';
+        }
+
+        // Posiziona il cursore alla fine
+        _messageController.selection = TextSelection.fromPosition(
+          TextPosition(offset: _messageController.text.length),
+        );
+
+        if (kDebugMode) {
+          print("✅ Testo inserito nel messaggio: ${_messageController.text}");
+        }
+      });
+    });
+  }
+
+  /// Fetch metadata del link e invia messaggio con preview
+  Future<void> _fetchAndSendLinkMessage(String url, {String? originalText}) async {
+    final messageText = originalText ?? url;
+
+    // ⚡ STEP 1: Invia SUBITO il messaggio con solo testo (UX veloce!)
+    if (kDebugMode) {
+      print("⚡ [LINK] Sending text message immediately (no waiting)...");
+    }
+
+    String? messageId;
+    try {
+      messageId = await _sendMessageWithAttachments(messageText, []);
+      if (kDebugMode) {
+        print("✅ [LINK] Text message sent instantly, ID: $messageId");
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        print("❌ [LINK] Failed to send text message: $e");
+      }
+      return; // Se fallisce l'invio del testo, fermati qui
+    }
+
+    // 🔄 STEP 2: Fetch preview in BACKGROUND (non blocca la UI)
+    if (kDebugMode) {
+      print("🔄 [LINK] Starting background preview fetch (max 10s)...");
+    }
+
+    try {
+      final linkService = LinkMetadataService();
+
+      // Fetch metadata + download immagine (con timeout 10s)
+      final result = await linkService.fetchLinkPreview(url).timeout(
+        const Duration(seconds: 10),
+        onTimeout: () {
+          if (kDebugMode) print("⏱️ [LINK] Preview fetch timeout, keeping text-only message");
+          return (metadata: null, imageFile: null);
+        },
+      );
+
+      if (kDebugMode) {
+        print("📦 [LINK] Preview result: metadata=${result.metadata != null}, imageFile=${result.imageFile != null}");
+      }
+
+      // 📸 STEP 3: Aggiorna il messaggio con preview e metadata
+      if (messageId != null && (result.imageFile != null || result.metadata != null)) {
+        if (kDebugMode) {
+          print("📸 [LINK] Updating message with preview data...");
+        }
+
+        await _updateMessageWithAttachment(
+          messageId,
+          result.imageFile,
+          linkTitle: result.metadata?.title,
+          linkDescription: result.metadata?.description,
+          linkUrl: url,
+        );
+
+        if (kDebugMode) {
+          print("✅ [LINK] Message updated with preview");
+        }
+      } else {
+        if (kDebugMode) {
+          print("ℹ️ [LINK] No preview data available, keeping text-only message");
+        }
+      }
+    } catch (e, stackTrace) {
+      if (kDebugMode) {
+        print("⚠️ [LINK] Error during background preview fetch: $e");
+        print("⚠️ [LINK] Stack trace: $stackTrace");
+      }
+      // Non è un errore critico - il messaggio di testo è già stato inviato!
+    }
+  }
+
+  /// Invia messaggio con allegati (usato per link condivisi)
+  /// Restituisce il messageId se il messaggio è stato inviato con successo
+  Future<String?> _sendMessageWithAttachments(String messageText, List<File> attachments) async {
+    if (kDebugMode) {
+      print("📤 [SEND] Attempting to send message...");
+      print("📤 [SEND] Text length: ${messageText.length}, Attachments: ${attachments.length}");
+    }
+
+    // Verifica pairing
+    final pairingService = Provider.of<PairingService>(context, listen: false);
+    if (!pairingService.isPaired) {
+      if (kDebugMode) print('❌ [SEND] Not paired, cannot send message');
+      return null;
+    }
+
+    // Verifica dati chat
+    if (_familyChatId == null || _myDeviceId == null || _partnerPublicKey == null) {
+      if (kDebugMode) {
+        print('❌ [SEND] Missing chat data:');
+        print('   _familyChatId: ${_familyChatId == null ? "NULL" : "OK"}');
+        print('   _myDeviceId: ${_myDeviceId == null ? "NULL" : "OK"}');
+        print('   _partnerPublicKey: ${_partnerPublicKey == null ? "NULL" : "OK"}');
+      }
+      return null;
+    }
+
+    if (kDebugMode) {
+      print("✅ [SEND] All chat data present, proceeding...");
+    }
+
+    final chatService = Provider.of<ChatService>(context, listen: false);
+    final encryptionService = Provider.of<EncryptionService>(context, listen: false);
+
+    // Ottieni chiave pubblica
+    final myPublicKey = await encryptionService.getPublicKey();
+    if (myPublicKey == null) {
+      if (kDebugMode) print('❌ My public key is null');
+      return null;
+    }
+
+    // Upload allegati se presenti
+    List<Attachment>? uploadedAttachments;
+    if (attachments.isNotEmpty) {
+      try {
+        uploadedAttachments = await _attachmentService!.uploadMultipleAttachments(
+          attachments,
+          _familyChatId!,
+          _myDeviceId!,
+          myPublicKey,
+          _partnerPublicKey!,
+        );
+
+        if (kDebugMode) {
+          print('✅ ${uploadedAttachments?.length ?? 0} attachments uploaded');
+        }
+      } catch (e) {
+        if (kDebugMode) print('❌ Error uploading attachments: $e');
+        // Continua comunque e invia solo il testo
+      }
+    }
+
+    // Invia messaggio
+    try {
+      if (kDebugMode) {
+        print('📨 [SEND] Calling chatService.sendMessage...');
+      }
+
+      final messageId = await chatService.sendMessage(
+        messageText,
+        _familyChatId!,
+        _myDeviceId!,
+        myPublicKey,
+        _partnerPublicKey!,
+        attachments: uploadedAttachments,
+      );
+
+      if (kDebugMode) {
+        print('✅ [SEND] Message sent successfully to Firestore, ID: $messageId');
+      }
+
+      return messageId;
+    } catch (e) {
+      if (kDebugMode) {
+        print('❌ [SEND] Error sending message: $e');
+      }
+      return null;
+    }
+  }
+
+  /// Aggiorna un messaggio esistente aggiungendo un attachment (per preview link)
+  Future<void> _updateMessageWithAttachment(
+    String messageId,
+    File? imageFile, {
+    String? linkTitle,
+    String? linkDescription,
+    String? linkUrl,
+  }) async {
+    if (kDebugMode) {
+      print("🔄 [UPDATE] Updating message $messageId with preview data...");
+    }
+
+    if (_familyChatId == null || _myDeviceId == null || _partnerPublicKey == null) {
+      if (kDebugMode) print('❌ [UPDATE] Missing chat data');
+      return;
+    }
+
+    try {
+      final updateData = <String, dynamic>{};
+
+      // Upload l'immagine come attachment se presente
+      if (imageFile != null) {
+        final encryptionService = Provider.of<EncryptionService>(context, listen: false);
+        final myPublicKey = await encryptionService.getPublicKey();
+        if (myPublicKey == null) {
+          if (kDebugMode) print('❌ [UPDATE] My public key is null');
+          return;
+        }
+
+        if (kDebugMode) {
+          print("📤 [UPDATE] Uploading preview image...");
+        }
+
+        final uploadedAttachments = await _attachmentService!.uploadMultipleAttachments(
+          [imageFile],
+          _familyChatId!,
+          _myDeviceId!,
+          myPublicKey,
+          _partnerPublicKey!,
+        );
+
+        if (uploadedAttachments.isNotEmpty) {
+          updateData['attachments'] = uploadedAttachments.map((a) => a.toJson()).toList();
+          if (kDebugMode) {
+            print("✅ [UPDATE] Attachment uploaded");
+          }
+        }
+      }
+
+      // Aggiungi link metadata se presenti
+      if (linkTitle != null) {
+        updateData['link_title'] = linkTitle;
+      }
+      if (linkDescription != null) {
+        updateData['link_description'] = linkDescription;
+      }
+      if (linkUrl != null) {
+        updateData['link_url'] = linkUrl;
+      }
+
+      // Aggiorna il messaggio in Firestore solo se c'è qualcosa da aggiornare
+      if (updateData.isNotEmpty) {
+        if (kDebugMode) {
+          print("📝 [UPDATE] Updating Firestore with: ${updateData.keys.toList()}");
+        }
+
+        await FirebaseFirestore.instance
+            .collection('families')
+            .doc(_familyChatId)
+            .collection('messages')
+            .doc(messageId)
+            .update(updateData);
+
+        if (kDebugMode) {
+          print("✅ [UPDATE] Message updated successfully");
+        }
+      }
+    } catch (e, stackTrace) {
+      if (kDebugMode) {
+        print("❌ [UPDATE] Error updating message: $e");
+        print("❌ [UPDATE] Stack trace: $stackTrace");
+      }
     }
   }
 
@@ -2077,6 +2447,37 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
         }
       }
     } else {
+      // ⚡ GESTIONE URL: Se il messaggio contiene un solo URL e non ha allegati,
+      // usa il flusso veloce con preview in background
+      if (attachments.isEmpty && messageText.isNotEmpty) {
+        final linkService = LinkMetadataService();
+        final urls = linkService.extractUrls(messageText);
+
+        if (urls.length == 1) {
+          if (kDebugMode) {
+            print("🔗 [SEND] URL detected in text field: ${urls.first}");
+            print("🔗 [SEND] Using instant send with background preview...");
+          }
+
+          // Reset loading state (viene gestito da _fetchAndSendLinkMessage)
+          setState(() {
+            _isUploadingAttachments = false;
+          });
+
+          // Usa il flusso veloce: send subito + preview in background
+          await _fetchAndSendLinkMessage(urls.first, originalText: messageText);
+
+          // Scrolla in fondo
+          WidgetsBinding.instance.addPostFrameCallback((_) => _scrollToBottom());
+
+          // Pulisci file temporanei iOS
+          _cleanupAllIOSFiles();
+
+          return; // Esci dalla funzione, non proseguire con il flusso normale
+        }
+      }
+
+      // FLUSSO NORMALE: messaggi senza URL o con URL multipli o con allegati
       print('📤 Sending message...');
       print('   To family chat: $_familyChatId');
       print('   From device: $_myDeviceId');
@@ -2130,7 +2531,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
         }
       }
 
-      success = await chatService.sendMessage(
+      final sentMessageId = await chatService.sendMessage(
         messageText,
         _familyChatId!,
         _myDeviceId!,
@@ -2139,13 +2540,15 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
         attachments: uploadedAttachments,
       );
 
+      success = sentMessageId != null;
+
       // Rimuovi messaggio pending dopo invio (successo o fallimento)
       if (pendingMessageId != null) {
         chatService.removePendingMessage(pendingMessageId);
       }
 
       if (success) {
-        print('✅ Message sent successfully with dual encryption');
+        print('✅ Message sent successfully with dual encryption, ID: $sentMessageId');
         if (uploadedAttachments != null) {
           print('   With ${uploadedAttachments.length} attachments');
         }
@@ -3046,6 +3449,112 @@ class _MessageBubble extends StatelessWidget {
     this.messageObject,
   });
 
+  /// Costruisce widget di testo con URL abbreviati ma cliccabili
+  Widget _buildMessageTextWithShortLinks(String text, {required bool isMe}) {
+    final linkService = LinkMetadataService();
+    final urls = linkService.extractUrls(text);
+
+    // Se non ci sono URL, usa Linkify normale
+    if (urls.isEmpty) {
+      return Linkify(
+        onOpen: (link) async {
+          try {
+            final uri = Uri.parse(link.url);
+            await launchUrl(
+              uri,
+              mode: LaunchMode.externalApplication,
+            );
+          } catch (e) {
+            if (kDebugMode) {
+              print('Errore apertura URL: $e');
+            }
+          }
+        },
+        text: text,
+        style: TextStyle(
+          color: isMe ? Colors.white : Colors.black87,
+          fontSize: 15,
+          height: 1.4,
+        ),
+        linkStyle: TextStyle(
+          color: isMe ? Colors.white : Colors.blue,
+          fontSize: 15,
+          height: 1.4,
+          decoration: TextDecoration.underline,
+        ),
+        options: const LinkifyOptions(
+          humanize: false,
+          looseUrl: true,
+        ),
+      );
+    }
+
+    // Costruisci TextSpan con URL abbreviati
+    final spans = <InlineSpan>[];
+    int lastIndex = 0;
+
+    for (final fullUrl in urls) {
+      final index = text.indexOf(fullUrl, lastIndex);
+      if (index == -1) continue;
+
+      // Aggiungi testo prima dell'URL
+      if (index > lastIndex) {
+        spans.add(TextSpan(
+          text: text.substring(lastIndex, index),
+          style: TextStyle(
+            color: isMe ? Colors.white : Colors.black87,
+            fontSize: 15,
+            height: 1.4,
+          ),
+        ));
+      }
+
+      // Aggiungi URL abbreviato ma cliccabile
+      final shortUrl = linkService.shortenUrl(fullUrl);
+      spans.add(TextSpan(
+        text: shortUrl,
+        style: TextStyle(
+          color: isMe ? Colors.white : Colors.blue,
+          fontSize: 15,
+          height: 1.4,
+          decoration: TextDecoration.underline,
+        ),
+        recognizer: TapGestureRecognizer()
+          ..onTap = () async {
+            try {
+              final uri = Uri.parse(fullUrl);
+              await launchUrl(
+                uri,
+                mode: LaunchMode.externalApplication,
+              );
+            } catch (e) {
+              if (kDebugMode) {
+                print('Errore apertura URL: $e');
+              }
+            }
+          },
+      ));
+
+      lastIndex = index + fullUrl.length;
+    }
+
+    // Aggiungi testo rimanente
+    if (lastIndex < text.length) {
+      spans.add(TextSpan(
+        text: text.substring(lastIndex),
+        style: TextStyle(
+          color: isMe ? Colors.white : Colors.black87,
+          fontSize: 15,
+          height: 1.4,
+        ),
+      ));
+    }
+
+    return RichText(
+      text: TextSpan(children: spans),
+    );
+  }
+
   /// Costruisce i widget per mostrare gli allegati (decifrati)
   List<Widget> _buildAttachments(BuildContext context) {
     // Caso speciale: location_share
@@ -3089,9 +3598,64 @@ class _MessageBubble extends StatelessWidget {
       return [];
     }
 
+    // Controlla se ci sono link metadata da mostrare
+    final hasLinkMetadata = messageObject?.linkTitle != null ||
+                            messageObject?.linkDescription != null;
+
     return [
       ...attachments!.map((attachment) {
         if (attachment.type == 'photo') {
+          // Se ci sono link metadata, mostra immagine + title/description
+          if (hasLinkMetadata) {
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Immagine preview
+                AttachmentImage(
+                  key: ValueKey(attachment.id),
+                  attachment: attachment,
+                  isMe: isMe,
+                  currentUserId: currentUserId,
+                  senderId: senderId,
+                  attachmentService: attachmentService!,
+                ),
+                // Link metadata (title + description)
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(12, 8, 12, 4),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      if (messageObject?.linkTitle != null)
+                        Text(
+                          messageObject!.linkTitle!,
+                          style: TextStyle(
+                            color: isMe ? Colors.white : Colors.black87,
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                            height: 1.3,
+                          ),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      if (messageObject?.linkDescription != null) ...[
+                        const SizedBox(height: 4),
+                        Text(
+                          messageObject!.linkDescription!,
+                          style: TextStyle(
+                            color: isMe ? Colors.white70 : Colors.black54,
+                            fontSize: 12,
+                            height: 1.3,
+                          ),
+                          maxLines: 3,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+              ],
+            );
+          }
           return AttachmentImage(
             key: ValueKey(attachment.id), // Key stabile per mantenere lo State
             attachment: attachment,
@@ -3246,39 +3810,9 @@ class _MessageBubble extends StatelessWidget {
                               ]
                               // Testo del messaggio (se presente e non eliminato)
                               else if (message.isNotEmpty) ...[
-                              Linkify(
-                                onOpen: (link) async {
-                                  try {
-                                    final uri = Uri.parse(link.url);
-                                    await launchUrl(
-                                      uri,
-                                      mode: LaunchMode.externalApplication,
-                                    );
-                                  } catch (e) {
-                                    if (kDebugMode) {
-                                      print('Errore apertura URL: $e');
-                                    }
-                                  }
-                                },
-                                text: message,
-                                style: TextStyle(
-                                  color: isMe ? Colors.white : Colors.black87,
-                                  fontSize: 15,
-                                  height: 1.4,
-                                ),
-                                linkStyle: TextStyle(
-                                  color: isMe ? Colors.white : Colors.blue,
-                                  fontSize: 15,
-                                  height: 1.4,
-                                  decoration: TextDecoration.underline,
-                                ),
-                                options: const LinkifyOptions(
-                                  humanize: false,
-                                  looseUrl: true,
-                                ),
-                              ),
+                                _buildMessageTextWithShortLinks(message, isMe: isMe),
+                              ],
                               const SizedBox(height: 4),
-                            ],
                             Row(
                               mainAxisSize: MainAxisSize.min,
                               children: [

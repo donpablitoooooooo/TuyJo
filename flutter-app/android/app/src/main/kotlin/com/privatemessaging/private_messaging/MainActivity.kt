@@ -14,28 +14,43 @@ class MainActivity: FlutterActivity() {
     private val CHANNEL = "com.privatemessaging.tuyjo/shared_media"
     private var methodChannel: MethodChannel? = null
     private var initialMediaPaths: List<String>? = null
+    private var initialSharedText: String? = null
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
+
+        Log.d(TAG, "============ configureFlutterEngine called ============")
+        Log.d(TAG, "Pending initialSharedText: $initialSharedText")
+        Log.d(TAG, "Pending initialMediaPaths: $initialMediaPaths")
 
         // Configura il Method Channel
         methodChannel = MethodChannel(flutterEngine.dartExecutor.binaryMessenger, CHANNEL)
         methodChannel?.setMethodCallHandler { call, result ->
             when (call.method) {
                 "getInitialMedia" -> {
+                    Log.d(TAG, "[FLUTTER-CALL] getInitialMedia called, returning: $initialMediaPaths")
                     result.success(initialMediaPaths)
                     initialMediaPaths = null
+                }
+                "getInitialSharedText" -> {
+                    Log.d(TAG, "[FLUTTER-CALL] getInitialSharedText called, returning: $initialSharedText")
+                    val textToReturn = initialSharedText
+                    initialSharedText = null
+                    result.success(textToReturn)
+                    Log.d(TAG, "[FLUTTER-CALL] initialSharedText cleared")
                 }
                 else -> result.notImplemented()
             }
         }
 
-        Log.d(TAG, "Method Channel configured")
+        Log.d(TAG, "✅ Method Channel configured and ready")
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        Log.d(TAG, "onCreate called")
+        Log.d(TAG, "============ onCreate called ============")
+        Log.d(TAG, "Current initialSharedText: $initialSharedText")
+        Log.d(TAG, "Current initialMediaPaths: $initialMediaPaths")
 
         // Gestisci i file condivisi quando l'app era chiusa
         handleIntent(intent)
@@ -43,7 +58,12 @@ class MainActivity: FlutterActivity() {
 
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
-        Log.d(TAG, "onNewIntent called")
+        Log.d(TAG, "============ onNewIntent called ============")
+        Log.d(TAG, "Current initialSharedText before: $initialSharedText")
+        Log.d(TAG, "Current initialMediaPaths before: $initialMediaPaths")
+
+        // IMPORTANTE: Imposta il nuovo intent come intent corrente
+        setIntent(intent)
 
         // Gestisci i file condivisi mentre l'app è aperta
         handleIntent(intent)
@@ -54,6 +74,16 @@ class MainActivity: FlutterActivity() {
 
         Log.d(TAG, "handleIntent: action=${intent.action}, type=${intent.type}")
 
+        // Controlla prima se c'è testo condiviso (link, URL, etc.)
+        if (intent.action == Intent.ACTION_SEND && intent.type?.startsWith("text/") == true) {
+            intent.getStringExtra(Intent.EXTRA_TEXT)?.let { sharedText ->
+                Log.d(TAG, "Shared text received: $sharedText")
+                handleSharedText(sharedText)
+                return
+            }
+        }
+
+        // Altrimenti gestisci i file
         val uris = mutableListOf<Uri>()
 
         when (intent.action) {
@@ -98,17 +128,38 @@ class MainActivity: FlutterActivity() {
 
         Log.d(TAG, "Total files copied: ${copiedPaths.size}")
 
-        // Se Flutter è già pronto, invia subito
+        // Se Flutter è già pronto, invia subito (NON salvare in initialMediaPaths per evitare duplicazione)
         methodChannel?.let { channel ->
             Log.d(TAG, "Flutter ready, invoking onMediaShared")
             channel.invokeMethod("onMediaShared", copiedPaths)
-            // Salva anche come initialMediaPaths per getInitialMedia
-            initialMediaPaths = copiedPaths
         } ?: run {
             // Altrimenti salva per dopo
             Log.d(TAG, "Flutter not ready, saving as initialMediaPaths")
             initialMediaPaths = copiedPaths
         }
+    }
+
+    private fun handleSharedText(text: String) {
+        Log.d(TAG, "========================================")
+        Log.d(TAG, "[SHARED-TEXT] handleSharedText called")
+        Log.d(TAG, "[SHARED-TEXT] Text: $text")
+        Log.d(TAG, "[SHARED-TEXT] methodChannel is null: ${methodChannel == null}")
+        Log.d(TAG, "[SHARED-TEXT] Current initialSharedText before processing: $initialSharedText")
+
+        // Se Flutter è già pronto, invia subito (NON salvare in initialSharedText per evitare duplicazione)
+        methodChannel?.let { channel ->
+            Log.d(TAG, "[SHARED-TEXT] ✅ Flutter IS ready, invoking onTextShared immediately")
+            channel.invokeMethod("onTextShared", text)
+            Log.d(TAG, "[SHARED-TEXT] ✅ onTextShared invoked")
+        } ?: run {
+            // Altrimenti salva per dopo
+            Log.d(TAG, "[SHARED-TEXT] ⏳ Flutter NOT ready yet, saving as initialSharedText")
+            initialSharedText = text
+            Log.d(TAG, "[SHARED-TEXT] ⏳ Saved. Will be retrieved by Flutter when ready.")
+        }
+
+        Log.d(TAG, "[SHARED-TEXT] Current initialSharedText after processing: $initialSharedText")
+        Log.d(TAG, "========================================")
     }
 
     private fun copyFileToAppStorage(uri: Uri): String? {
