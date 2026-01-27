@@ -101,7 +101,7 @@ class AttachmentService {
   /// Seleziona un documento
   Future<File?> pickDocument() async {
     try {
-      final FilePickerResult? result = await FilePicker.platform.pickFiles(
+      final FilePickerResult? result = await FilePicker.pickFiles(
         type: FileType.custom,
         allowedExtensions: ['pdf', 'doc', 'docx', 'txt', 'xls', 'xlsx', 'ppt', 'pptx'],
       );
