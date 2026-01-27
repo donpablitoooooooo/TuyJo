@@ -366,7 +366,7 @@ class _CoupleSelfieScreenState extends State<CoupleSelfieScreen> {
 
     // Invia il messaggio con l'allegato
     final l10n = AppLocalizations.of(context)!;
-    final messageSent = await chatService.sendMessage(
+    final messageId = await chatService.sendMessage(
       l10n.coupleSelfieNewProfilePictureMessage,
       familyChatId,
       senderId,
@@ -376,14 +376,14 @@ class _CoupleSelfieScreenState extends State<CoupleSelfieScreen> {
     );
 
     if (kDebugMode) {
-      if (messageSent) {
-        print('✅ [COUPLE_SELFIE_SCREEN] Photo change message sent');
+      if (messageId != null) {
+        print('✅ [COUPLE_SELFIE_SCREEN] Photo change message sent, ID: $messageId');
       } else {
         print('❌ [COUPLE_SELFIE_SCREEN] Failed to send message');
       }
     }
 
-    if (!messageSent) {
+    if (messageId == null) {
       throw Exception('Failed to send photo change message. Please try again.');
     }
 

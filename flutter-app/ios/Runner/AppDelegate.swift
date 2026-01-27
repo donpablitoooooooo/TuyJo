@@ -1,11 +1,12 @@
 import UIKit
 import Flutter
 
-@UIApplicationMain
+@main
 @objc class AppDelegate: FlutterAppDelegate {
   private let CHANNEL = "com.privatemessaging.tuyjo/shared_media"
   private var methodChannel: FlutterMethodChannel?
   private var initialMediaPaths: [String]?
+  private var initialSharedText: String?
 
   override func application(
     _ application: UIApplication,
@@ -21,6 +22,9 @@ import Flutter
       if call.method == "getInitialMedia" {
         result(self?.initialMediaPaths)
         self?.initialMediaPaths = nil
+      } else if call.method == "getInitialSharedText" {
+        result(self?.initialSharedText)
+        self?.initialSharedText = nil
       } else {
         result(FlutterMethodNotImplemented)
       }
@@ -29,15 +33,34 @@ import Flutter
     return super.application(application, didFinishLaunchingWithOptions: launchOptions)
   }
 
-  // Gestisce l'apertura di file/foto condivise (iOS 9+)
+  // Gestisce l'apertura di file/foto/URL condivisi (iOS 9+)
   override func application(_ app: UIApplication, open url: URL, options: [UIApplication.OpenURLOptionsKey : Any] = [:]) -> Bool {
     print("📱 AppDelegate: application:open:options called with URL: \(url)")
     print("📱 URL scheme: \(url.scheme ?? "nil"), pathExtension: \(url.pathExtension)")
 
+    // Controlla se viene da ShareExtension tramite App Group
+    if url.scheme?.lowercased() == "sharemedia" {
+      print("📱 ShareMedia URL detected, checking App Group...")
+      if let sharedText = loadSharedTextFromAppGroup() {
+        print("📱 Found shared text from App Group: \(sharedText)")
+        handleSharedText(sharedText)
+        return true
+      }
+    }
+
+    // Controlla se è un URL web (http/https) condiviso
+    if let scheme = url.scheme, (scheme == "http" || scheme == "https") {
+      print("📱 Web URL shared: \(url.absoluteString)")
+      handleSharedText(url.absoluteString)
+      return true
+    }
+
+    // Controlla se è un file media
     if isMediaFile(url) {
       handleSharedMedia([url])
       return true
     }
+
     return super.application(app, open: url, options: options)
   }
 
@@ -47,11 +70,19 @@ import Flutter
     print("📱 Activity type: \(userActivity.activityType)")
 
     if userActivity.activityType == NSUserActivityTypeBrowsingWeb,
-       let url = userActivity.webpageURL,
-       isMediaFile(url) {
-      print("📱 Handling media file from user activity: \(url)")
-      handleSharedMedia([url])
-      return true
+       let url = userActivity.webpageURL {
+      // Se è un URL web, condividilo come testo
+      if let scheme = url.scheme, (scheme == "http" || scheme == "https") {
+        print("📱 Web URL from user activity: \(url.absoluteString)")
+        handleSharedText(url.absoluteString)
+        return true
+      }
+      // Se è un file media, copialo
+      if isMediaFile(url) {
+        print("📱 Handling media file from user activity: \(url)")
+        handleSharedMedia([url])
+        return true
+      }
     }
     return super.application(application, continue: userActivity, restorationHandler: restorationHandler)
   }
@@ -151,5 +182,40 @@ import Flutter
       print("❌ Details: \(error.localizedDescription)")
       return nil
     }
+  }
+
+  private func handleSharedText(_ text: String) {
+    print("📝 handleSharedText called with: \(text)")
+
+    // Se Flutter è già pronto, invia subito
+    if let channel = methodChannel {
+      print("📲 Flutter ready, invoking onTextShared")
+      channel.invokeMethod("onTextShared", arguments: text)
+      // Salva anche come initialSharedText per getInitialSharedText
+      initialSharedText = text
+    } else {
+      // Altrimenti salva per dopo
+      print("⏳ Flutter not ready, saving as initialSharedText")
+      initialSharedText = text
+    }
+  }
+
+  private func loadSharedTextFromAppGroup() -> String? {
+    let appGroupId = "group.com.privatemessaging.tuyjo"
+    guard let userDefaults = UserDefaults(suiteName: appGroupId) else {
+      print("❌ Failed to access App Group: \(appGroupId)")
+      return nil
+    }
+
+    guard let sharedText = userDefaults.string(forKey: "shared_text") else {
+      print("⚠️ No shared text found in App Group")
+      return nil
+    }
+
+    // Rimuovi dopo aver letto (usa solo una volta)
+    userDefaults.removeObject(forKey: "shared_text")
+    userDefaults.synchronize()
+
+    return sharedText
   }
 }
