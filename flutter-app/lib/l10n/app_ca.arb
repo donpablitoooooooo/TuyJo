@@ -131,7 +131,7 @@
     "chatTodoDefault": "Todo",
     "chatLongPressToComplete": "Mantingueu premut per completar",
     "chatLongPressToReact": "Mantingueu premut per reaccionar",
-    "chatConfirm": "Ell confirma",
+    "chatConfirm": "Confirma",
     "chatLoadingImage": "S'està carregant la imatge...",
     "chatImageLoadError": "Error de càrrega de la imatge",
     "mediaNoMedia": "Sense contingut multimèdia",
