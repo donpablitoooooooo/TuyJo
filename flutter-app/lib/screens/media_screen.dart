@@ -55,9 +55,13 @@ class _MediaScreenState extends State<MediaScreen> {
 
   /// Ottiene foto e video dai messaggi (più recenti prima)
   /// Esclude le preview dei link (fileName inizia con 'link_preview_')
+  /// Esclude i messaggi eliminati
   List<_MediaItem> _getPhotoItems(List<Message> messages) {
     final List<_MediaItem> items = [];
     for (var message in messages) {
+      // Salta messaggi eliminati
+      if (message.deleted == true) continue;
+
       if (message.attachments != null && message.attachments!.isNotEmpty) {
         for (var attachment in message.attachments!) {
           if (attachment.type == 'photo' || attachment.type == 'video') {
@@ -75,9 +79,13 @@ class _MediaScreenState extends State<MediaScreen> {
   }
 
   /// Ottiene i link dai messaggi (più recenti prima)
+  /// Esclude i messaggi eliminati
   List<_LinkItem> _getLinkItems(List<Message> messages) {
     final List<_LinkItem> items = [];
     for (var message in messages) {
+      // Salta messaggi eliminati
+      if (message.deleted == true) continue;
+
       if (message.linkUrl != null && message.linkUrl!.isNotEmpty) {
         items.add(_LinkItem(message: message));
       }
@@ -88,9 +96,13 @@ class _MediaScreenState extends State<MediaScreen> {
   }
 
   /// Ottiene i documenti dai messaggi (più recenti prima)
+  /// Esclude i messaggi eliminati
   List<_MediaItem> _getDocumentItems(List<Message> messages) {
     final List<_MediaItem> items = [];
     for (var message in messages) {
+      // Salta messaggi eliminati
+      if (message.deleted == true) continue;
+
       if (message.attachments != null && message.attachments!.isNotEmpty) {
         for (var attachment in message.attachments!) {
           if (attachment.type == 'document') {

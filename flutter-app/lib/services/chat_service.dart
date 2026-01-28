@@ -1209,6 +1209,11 @@ class ChatService extends ChangeNotifier {
 
       await messageRef.update({
         'deleted': true,
+        // Rimuovi i metadati degli allegati e link per non mostrarli più nella sezione media
+        'attachments': FieldValue.delete(),
+        'link_url': FieldValue.delete(),
+        'link_title': FieldValue.delete(),
+        'link_description': FieldValue.delete(),
       });
 
       if (kDebugMode) {
@@ -1219,6 +1224,11 @@ class ChatService extends ChangeNotifier {
       final index = _messages.indexWhere((m) => m.id == messageId);
       if (index != -1) {
         _messages[index].deleted = true;
+        // Rimuovi anche i metadati degli allegati e link
+        _messages[index].attachments = null;
+        _messages[index].linkUrl = null;
+        _messages[index].linkTitle = null;
+        _messages[index].linkDescription = null;
 
         // Aggiorna anche la cache SQLite
         await _cacheService.saveMessage(_messages[index], familyChatId);
