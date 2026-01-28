@@ -1,7 +1,10 @@
+import 'dart:io';
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
+import 'package:open_filex/open_filex.dart';
+import 'package:path_provider/path_provider.dart';
 import 'package:private_messaging/generated/l10n/app_localizations.dart';
 import '../services/chat_service.dart';
 import '../services/pairing_service.dart';
@@ -121,7 +124,7 @@ class _MediaScreenState extends State<MediaScreen> {
           _buildTabSelector(),
 
           // Spazio uniforme (stesso della distanza bandiera-contenuto)
-          const SizedBox(height: 8),
+          const SizedBox(height: 0),
 
           // Content area
           Expanded(
@@ -877,25 +880,6 @@ class _DocumentListItem extends StatelessWidget {
     return parts.length > 1 ? parts.last.toUpperCase() : 'FILE';
   }
 
-  Color _getFileColor(String fileName) {
-    final ext = _getFileExtension(fileName).toLowerCase();
-    switch (ext) {
-      case 'pdf':
-        return const Color(0xFFE53935);
-      case 'doc':
-      case 'docx':
-        return const Color(0xFF1E88E5);
-      case 'xls':
-      case 'xlsx':
-        return const Color(0xFF43A047);
-      case 'ppt':
-      case 'pptx':
-        return const Color(0xFFFF7043);
-      default:
-        return MediaColors.tealLight;
-    }
-  }
-
   String _formatFileSize(int bytes) {
     if (bytes < 1024) {
       return '$bytes B';
@@ -909,35 +893,10 @@ class _DocumentListItem extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final fileExtension = _getFileExtension(item.attachment.fileName);
-    final fileColor = _getFileColor(item.attachment.fileName);
     final accentColor = isMine ? MediaColors.mine : MediaColors.theirs;
-    final l10n = AppLocalizations.of(context)!;
 
     return GestureDetector(
-      onTap: () {
-        if (attachmentService == null) return;
-
-        final isPdf = item.attachment.fileName.toLowerCase().endsWith('.pdf');
-        if (isPdf) {
-          Navigator.of(context).push(
-            MaterialPageRoute(
-              builder: (context) => PdfViewerScreen(
-                attachment: item.attachment,
-                attachmentService: attachmentService!,
-                currentUserId: currentUserId,
-                senderId: item.message.senderId,
-              ),
-            ),
-          );
-        } else {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(l10n.mediaDocumentOpenHint),
-              backgroundColor: MediaColors.tealLight,
-            ),
-          );
-        }
-      },
+      onTap: () => _openDocument(context),
       child: Container(
         padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
@@ -954,23 +913,23 @@ class _DocumentListItem extends StatelessWidget {
         ),
         child: Row(
           children: [
-            // Icona documento
+            // Icona documento - colore verde (mio) o grigio (suo)
             Container(
               width: 44,
               height: 44,
               decoration: BoxDecoration(
-                color: fileColor.withOpacity(0.1),
+                color: accentColor.withOpacity(0.1),
                 borderRadius: BorderRadius.circular(10),
-                border: Border.all(color: fileColor.withOpacity(0.3)),
+                border: Border.all(color: accentColor.withOpacity(0.3)),
               ),
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Icon(Icons.description, color: fileColor, size: 18),
+                  Icon(Icons.description, color: accentColor, size: 18),
                   Text(
                     fileExtension,
                     style: TextStyle(
-                      color: fileColor,
+                      color: accentColor,
                       fontSize: 7,
                       fontWeight: FontWeight.bold,
                     ),
@@ -1000,12 +959,12 @@ class _DocumentListItem extends StatelessWidget {
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
                         decoration: BoxDecoration(
-                          color: fileColor.withOpacity(0.1),
+                          color: accentColor.withOpacity(0.1),
                           borderRadius: BorderRadius.circular(4),
                         ),
                         child: Text(
                           _formatFileSize(item.attachment.fileSize),
-                          style: TextStyle(fontSize: 10, color: fileColor, fontWeight: FontWeight.w500),
+                          style: TextStyle(fontSize: 10, color: accentColor, fontWeight: FontWeight.w500),
                         ),
                       ),
                       const SizedBox(width: 8),
@@ -1028,6 +987,99 @@ class _DocumentListItem extends StatelessWidget {
         ),
       ),
     );
+  }
+
+  Future<void> _openDocument(BuildContext context) async {
+    if (attachmentService == null) return;
+
+    final isPdf = item.attachment.fileName.toLowerCase().endsWith('.pdf');
+
+    if (isPdf) {
+      // PDF: apri con viewer interno
+      Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (context) => PdfViewerScreen(
+            attachment: item.attachment,
+            attachmentService: attachmentService!,
+            currentUserId: currentUserId,
+            senderId: item.message.senderId,
+          ),
+        ),
+      );
+    } else {
+      // Altri documenti: scarica e apri con app esterna
+      await _downloadAndOpenWithExternalApp(context);
+    }
+  }
+
+  Future<void> _downloadAndOpenWithExternalApp(BuildContext context) async {
+    final l10n = AppLocalizations.of(context)!;
+
+    // Mostra loading
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Row(
+          children: [
+            const SizedBox(
+              width: 16,
+              height: 16,
+              child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+            ),
+            const SizedBox(width: 12),
+            Text(l10n.mediaDownloadingDocument),
+          ],
+        ),
+        backgroundColor: MediaColors.tealLight,
+        duration: const Duration(seconds: 10),
+      ),
+    );
+
+    try {
+      // Scarica e decripta il file
+      final bytes = await attachmentService!.downloadAndDecryptAttachment(
+        item.attachment,
+        currentUserId ?? '',
+        item.message.senderId,
+      );
+
+      if (bytes == null) {
+        ScaffoldMessenger.of(context).hideCurrentSnackBar();
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(l10n.mediaDocumentDownloadError),
+            backgroundColor: Colors.red,
+          ),
+        );
+        return;
+      }
+
+      // Salva in file temporaneo
+      final tempDir = await getTemporaryDirectory();
+      final tempFile = File('${tempDir.path}/${item.attachment.fileName}');
+      await tempFile.writeAsBytes(bytes);
+
+      ScaffoldMessenger.of(context).hideCurrentSnackBar();
+
+      // Apri con app esterna usando open_filex
+      final result = await OpenFilex.open(tempFile.path);
+
+      if (result.type != ResultType.done) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(l10n.mediaNoAppForDocument),
+            backgroundColor: Colors.orange,
+          ),
+        );
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).hideCurrentSnackBar();
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(l10n.mediaDocumentOpenError),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
   }
 }
 
