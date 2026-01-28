@@ -139,10 +139,7 @@ class _MediaScreenState extends State<MediaScreen> {
           // Tab selector solo icone
           _buildTabSelector(),
 
-          // Spazio tra tab e contenuto
-          const SizedBox(height: 16),
-
-          // Content area
+          // Content area (MonthSeparator ha già padding top)
           Expanded(
             child: _buildContent(l10n, photoItems, linkItems, documentItems),
           ),
@@ -266,7 +263,7 @@ class _MonthSeparator extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 16),
+      padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
       child: Row(
         children: [
           Expanded(
