@@ -52,4 +52,11 @@ post_install do |installer|
       config.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = '15.0'
     end
   end
+
+  # Auto-fix build phases order to prevent dependency cycle
+  fix_script = File.expand_path('../scripts/fix_xcode_build_phases.sh', __dir__)
+  if File.exist?(fix_script)
+    puts "🔧 Running build phases fix script..."
+    system(fix_script)
+  end
 end
