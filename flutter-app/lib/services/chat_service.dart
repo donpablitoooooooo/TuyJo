@@ -1117,7 +1117,7 @@ class ChatService extends ChangeNotifier {
     }
   }
 
-  /// Marca un messaggio come eliminato
+  /// Marca un messaggio come eliminato e rimuove gli allegati da Firebase Storage
   Future<bool> deleteMessage(
     String messageId,
     String familyChatId,
@@ -1127,6 +1127,73 @@ class ChatService extends ChangeNotifier {
         print('🗑️ [deleteMessage] Starting...');
         print('   messageId: $messageId');
         print('   familyChatId: $familyChatId');
+      }
+
+      // Prima cerca il messaggio per ottenere gli allegati
+      List<Attachment>? attachmentsToDelete;
+
+      // Cerca prima nella lista locale
+      final localIndex = _messages.indexWhere((m) => m.id == messageId);
+      if (localIndex != -1) {
+        attachmentsToDelete = _messages[localIndex].attachments;
+      } else {
+        // Se non è nella lista locale, leggi da Firestore
+        final messageDoc = await _firestore
+            .collection('families')
+            .doc(familyChatId)
+            .collection('messages')
+            .doc(messageId)
+            .get();
+
+        if (messageDoc.exists && messageDoc.data() != null) {
+          final data = messageDoc.data()!;
+          if (data['attachments'] != null && data['attachments'] is List) {
+            try {
+              attachmentsToDelete = (data['attachments'] as List)
+                  .map((a) => Attachment.fromJson(a as Map<String, dynamic>))
+                  .toList();
+            } catch (e) {
+              if (kDebugMode) print('⚠️ [deleteMessage] Error parsing attachments: $e');
+            }
+          }
+        }
+      }
+
+      // Elimina gli allegati da Firebase Storage
+      if (attachmentsToDelete != null && attachmentsToDelete.isNotEmpty) {
+        if (kDebugMode) {
+          print('🗑️ [deleteMessage] Deleting ${attachmentsToDelete.length} attachment(s) from Storage...');
+        }
+
+        for (final attachment in attachmentsToDelete) {
+          try {
+            if (attachment.url.isNotEmpty) {
+              final ref = FirebaseStorage.instance.refFromURL(attachment.url);
+              await ref.delete();
+              if (kDebugMode) {
+                print('✅ [deleteMessage] Deleted attachment: ${attachment.fileName}');
+              }
+            }
+
+            // Elimina anche la thumbnail se presente
+            if (attachment.thumbnailUrl != null && attachment.thumbnailUrl!.isNotEmpty) {
+              try {
+                final thumbRef = FirebaseStorage.instance.refFromURL(attachment.thumbnailUrl!);
+                await thumbRef.delete();
+                if (kDebugMode) {
+                  print('✅ [deleteMessage] Deleted thumbnail for: ${attachment.fileName}');
+                }
+              } catch (e) {
+                if (kDebugMode) print('⚠️ [deleteMessage] Could not delete thumbnail: $e');
+              }
+            }
+          } catch (e) {
+            if (kDebugMode) {
+              print('⚠️ [deleteMessage] Could not delete attachment ${attachment.fileName}: $e');
+            }
+            // Continua comunque - il file potrebbe già essere stato eliminato
+          }
+        }
       }
 
       // Aggiorna il messaggio in Firestore con il flag deleted
