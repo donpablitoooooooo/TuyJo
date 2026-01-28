@@ -64,6 +64,7 @@ dependencies:
   open_filex: ^4.7.0
   pdfx: ^2.9.2
   receive_sharing_intent: ^1.8.1
+  share_plus: ^10.1.4
 
   # Location & Sensors
   geolocator: ^13.0.2

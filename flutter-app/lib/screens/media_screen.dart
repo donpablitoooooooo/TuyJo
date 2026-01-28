@@ -12,6 +12,7 @@ import '../services/attachment_service.dart';
 import '../models/message.dart';
 import 'pdf_viewer_screen.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:share_plus/share_plus.dart';
 
 // Colori (stile modale allegati)
 class MediaColors {
@@ -758,7 +759,18 @@ class _LinkListItem extends StatelessWidget {
               ),
             ),
             const SizedBox(width: 8),
-            Icon(Icons.chevron_right, color: accentColor, size: 20),
+            // Bottone condividi
+            GestureDetector(
+              onTap: () => Share.share(url, subject: title),
+              child: Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: accentColor.withOpacity(0.1),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(Icons.share, color: accentColor, size: 18),
+              ),
+            ),
           ],
         ),
       ),
@@ -982,11 +994,64 @@ class _DocumentListItem extends StatelessWidget {
               ),
             ),
             const SizedBox(width: 8),
-            Icon(Icons.chevron_right, color: accentColor, size: 20),
+            // Bottone condividi
+            GestureDetector(
+              onTap: () => _shareDocument(context),
+              child: Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: accentColor.withOpacity(0.1),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(Icons.share, color: accentColor, size: 18),
+              ),
+            ),
           ],
         ),
       ),
     );
+  }
+
+  Future<void> _shareDocument(BuildContext context) async {
+    if (attachmentService == null) return;
+    final l10n = AppLocalizations.of(context)!;
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Row(
+          children: [
+            const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white)),
+            const SizedBox(width: 12),
+            Text(l10n.mediaDownloadingDocument),
+          ],
+        ),
+        backgroundColor: MediaColors.tealLight,
+        duration: const Duration(seconds: 10),
+      ),
+    );
+
+    try {
+      final bytes = await attachmentService!.downloadAndDecryptAttachment(
+        item.attachment,
+        currentUserId ?? '',
+        item.message.senderId,
+      );
+
+      if (bytes == null) {
+        ScaffoldMessenger.of(context).hideCurrentSnackBar();
+        return;
+      }
+
+      final tempDir = await getTemporaryDirectory();
+      final tempFile = File('${tempDir.path}/${item.attachment.fileName}');
+      await tempFile.writeAsBytes(bytes);
+
+      ScaffoldMessenger.of(context).hideCurrentSnackBar();
+
+      await Share.shareXFiles([XFile(tempFile.path)], text: item.attachment.fileName);
+    } catch (e) {
+      ScaffoldMessenger.of(context).hideCurrentSnackBar();
+    }
   }
 
   Future<void> _openDocument(BuildContext context) async {
@@ -1162,22 +1227,33 @@ class _FullscreenImageViewerState extends State<_FullscreenImageViewer> {
               ),
             ),
 
-            // Close button
+            // Top buttons (close + share)
             AnimatedOpacity(
               opacity: _showOverlay ? 1.0 : 0.0,
               duration: const Duration(milliseconds: 200),
               child: SafeArea(
-                child: Align(
-                  alignment: Alignment.topRight,
-                  child: Padding(
-                    padding: const EdgeInsets.all(16),
-                    child: IconButton(
-                      icon: const Icon(Icons.close, color: Colors.white, size: 32),
-                      onPressed: () => Navigator.of(context).pop(),
-                      style: IconButton.styleFrom(
-                        backgroundColor: MediaColors.tealLight.withOpacity(0.7),
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      // Share button
+                      IconButton(
+                        icon: const Icon(Icons.share, color: Colors.white, size: 28),
+                        onPressed: () => _shareImage(context),
+                        style: IconButton.styleFrom(
+                          backgroundColor: MediaColors.tealLight.withOpacity(0.7),
+                        ),
                       ),
-                    ),
+                      // Close button
+                      IconButton(
+                        icon: const Icon(Icons.close, color: Colors.white, size: 32),
+                        onPressed: () => Navigator.of(context).pop(),
+                        style: IconButton.styleFrom(
+                          backgroundColor: MediaColors.tealLight.withOpacity(0.7),
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ),
@@ -1230,6 +1306,48 @@ class _FullscreenImageViewerState extends State<_FullscreenImageViewer> {
         ),
       ),
     );
+  }
+
+  Future<void> _shareImage(BuildContext context) async {
+    final l10n = AppLocalizations.of(context)!;
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Row(
+          children: [
+            const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white)),
+            const SizedBox(width: 12),
+            Text(l10n.mediaDownloadingDocument),
+          ],
+        ),
+        backgroundColor: MediaColors.tealLight,
+        duration: const Duration(seconds: 10),
+      ),
+    );
+
+    try {
+      final bytes = await widget.attachmentService.downloadAndDecryptAttachment(
+        widget.attachment,
+        widget.currentUserId ?? '',
+        widget.senderId ?? '',
+        useThumbnail: false,
+      );
+
+      if (bytes == null) {
+        ScaffoldMessenger.of(context).hideCurrentSnackBar();
+        return;
+      }
+
+      final tempDir = await getTemporaryDirectory();
+      final tempFile = File('${tempDir.path}/${widget.attachment.fileName}');
+      await tempFile.writeAsBytes(bytes);
+
+      ScaffoldMessenger.of(context).hideCurrentSnackBar();
+
+      await Share.shareXFiles([XFile(tempFile.path)]);
+    } catch (e) {
+      ScaffoldMessenger.of(context).hideCurrentSnackBar();
+    }
   }
 
   String _formatFileSize(int bytes) {
