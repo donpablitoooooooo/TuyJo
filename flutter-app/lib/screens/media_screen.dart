@@ -10,19 +10,17 @@ import '../models/message.dart';
 import 'pdf_viewer_screen.dart';
 import 'package:url_launcher/url_launcher.dart';
 
-// Colori tema teal (stile modale allegati)
+// Colori (stile modale allegati)
 class MediaColors {
-  static const Color primary = Color(0xFF3BA8B0);      // Teal principale
-  static const Color primaryDark = Color(0xFF145A60); // Teal scuro
-  static const Color accent = Color(0xFF4ECDC4);      // Accent teal chiaro
-  static const Color surface = Color(0xFFE8F6F6);     // Surface teal leggero
-  static const Color text = Color(0xFF145A60);        // Testo scuro teal
-  static const Color monthBadgeBg = Color(0xFFD4EFED);
-  static const Color monthBadgeText = Color(0xFF145A60);
+  static const Color tealLight = Color(0xFF3BA8B0);
+  static const Color tealDark = Color(0xFF145A60);
   // Colori icone come nella modale allegati
   static const Color iconPhoto = Color(0xFF2196F3);    // Blu
   static const Color iconLink = Color(0xFF9C27B0);     // Viola
   static const Color iconDocument = Color(0xFF4CAF50); // Verde
+  // Colori mio/tuo
+  static const Color mine = Color(0xFF3BA8B0);         // Teal per "mio"
+  static const Color theirs = Color(0xFF9E9E9E);       // Grigio per "tuo"
 }
 
 class MediaScreen extends StatefulWidget {
@@ -55,7 +53,7 @@ class _MediaScreenState extends State<MediaScreen> {
     });
   }
 
-  /// Ottiene foto e video dai messaggi
+  /// Ottiene foto e video dai messaggi (più recenti prima)
   List<_MediaItem> _getPhotoItems(List<Message> messages) {
     final List<_MediaItem> items = [];
     for (var message in messages) {
@@ -67,11 +65,12 @@ class _MediaScreenState extends State<MediaScreen> {
         }
       }
     }
-    items.sort((a, b) => a.message.timestamp.compareTo(b.message.timestamp));
+    // Più recenti prima
+    items.sort((a, b) => b.message.timestamp.compareTo(a.message.timestamp));
     return items;
   }
 
-  /// Ottiene i link dai messaggi
+  /// Ottiene i link dai messaggi (più recenti prima)
   List<_LinkItem> _getLinkItems(List<Message> messages) {
     final List<_LinkItem> items = [];
     for (var message in messages) {
@@ -79,11 +78,12 @@ class _MediaScreenState extends State<MediaScreen> {
         items.add(_LinkItem(message: message));
       }
     }
-    items.sort((a, b) => a.message.timestamp.compareTo(b.message.timestamp));
+    // Più recenti prima
+    items.sort((a, b) => b.message.timestamp.compareTo(a.message.timestamp));
     return items;
   }
 
-  /// Ottiene i documenti dai messaggi
+  /// Ottiene i documenti dai messaggi (più recenti prima)
   List<_MediaItem> _getDocumentItems(List<Message> messages) {
     final List<_MediaItem> items = [];
     for (var message in messages) {
@@ -95,7 +95,8 @@ class _MediaScreenState extends State<MediaScreen> {
         }
       }
     }
-    items.sort((a, b) => a.message.timestamp.compareTo(b.message.timestamp));
+    // Più recenti prima
+    items.sort((a, b) => b.message.timestamp.compareTo(a.message.timestamp));
     return items;
   }
 
@@ -116,10 +117,8 @@ class _MediaScreenState extends State<MediaScreen> {
           // Spazio per hamburger/ciliegie
           const SizedBox(height: 100),
 
-          // Tab selector Foto/Link/Doc
-          _buildTabSelector(l10n, photoItems.length, linkItems.length, documentItems.length),
-
-          const SizedBox(height: 8),
+          // Tab selector solo icone
+          _buildTabSelector(),
 
           // Content area
           Expanded(
@@ -130,94 +129,62 @@ class _MediaScreenState extends State<MediaScreen> {
     );
   }
 
-  Widget _buildTabSelector(AppLocalizations l10n, int photoCount, int linkCount, int docCount) {
+  Widget _buildTabSelector() {
     return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 48),
-      padding: const EdgeInsets.all(4),
+      margin: const EdgeInsets.symmetric(horizontal: 80),
+      padding: const EdgeInsets.all(6),
       decoration: BoxDecoration(
         gradient: const LinearGradient(
-          colors: [Color(0xFF3BA8B0), Color(0xFF145A60)],
+          colors: [MediaColors.tealLight, MediaColors.tealDark],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(30),
         boxShadow: [
           BoxShadow(
-            color: MediaColors.primary.withOpacity(0.25),
+            color: MediaColors.tealLight.withOpacity(0.3),
             blurRadius: 12,
             offset: const Offset(0, 4),
           ),
         ],
       ),
       child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
         children: [
-          _buildTabButton(0, l10n.mediaTabPhotos, Icons.photo_library, MediaColors.iconPhoto, photoCount),
-          _buildTabButton(1, l10n.mediaTabLinks, Icons.link_rounded, MediaColors.iconLink, linkCount),
-          _buildTabButton(2, l10n.mediaTabDocuments, Icons.description, MediaColors.iconDocument, docCount),
+          _buildTabIcon(0, Icons.photo_library, MediaColors.iconPhoto),
+          _buildTabIcon(1, Icons.link_rounded, MediaColors.iconLink),
+          _buildTabIcon(2, Icons.description, MediaColors.iconDocument),
         ],
       ),
     );
   }
 
-  Widget _buildTabButton(int index, String label, IconData icon, Color iconColor, int count) {
+  Widget _buildTabIcon(int index, IconData icon, Color iconColor) {
     final isSelected = _selectedTabIndex == index;
-    return Expanded(
-      child: GestureDetector(
-        onTap: () => setState(() => _selectedTabIndex = index),
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 200),
-          padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 4),
-          decoration: BoxDecoration(
-            color: isSelected ? Colors.white : Colors.transparent,
-            borderRadius: BorderRadius.circular(12),
-            boxShadow: isSelected
-                ? [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(0.1),
-                      blurRadius: 4,
-                      offset: const Offset(0, 2),
-                    ),
-                  ]
-                : null,
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                width: 36,
-                height: 36,
-                decoration: BoxDecoration(
-                  color: isSelected ? iconColor.withOpacity(0.15) : Colors.white.withOpacity(0.2),
-                  shape: BoxShape.circle,
-                ),
-                child: Icon(
-                  icon,
-                  size: 18,
-                  color: isSelected ? iconColor : Colors.white,
-                ),
-              ),
-              const SizedBox(height: 4),
-              Text(
-                label,
-                style: TextStyle(
-                  fontSize: 11,
-                  fontWeight: FontWeight.w600,
-                  color: isSelected ? MediaColors.text : Colors.white,
-                ),
-              ),
-              if (count > 0) ...[
-                const SizedBox(height: 2),
-                Text(
-                  count.toString(),
-                  style: TextStyle(
-                    fontSize: 10,
-                    fontWeight: FontWeight.bold,
-                    color: isSelected ? iconColor : Colors.white70,
+    return GestureDetector(
+      onTap: () => setState(() => _selectedTabIndex = index),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        width: 48,
+        height: 48,
+        decoration: BoxDecoration(
+          color: isSelected ? Colors.white : Colors.white.withOpacity(0.2),
+          shape: BoxShape.circle,
+          border: isSelected ? null : Border.all(color: Colors.white.withOpacity(0.3)),
+          boxShadow: isSelected
+              ? [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.15),
+                    blurRadius: 4,
+                    offset: const Offset(0, 2),
                   ),
-                ),
-              ],
-            ],
-          ),
+                ]
+              : null,
+        ),
+        child: Icon(
+          icon,
+          size: 22,
+          color: isSelected ? iconColor : Colors.white,
         ),
       ),
     );
@@ -232,7 +199,10 @@ class _MediaScreenState extends State<MediaScreen> {
           attachmentService: _attachmentService,
         );
       case 1:
-        return _LinkListView(items: linkItems);
+        return _LinkListView(
+          items: linkItems,
+          currentUserId: _currentUserId,
+        );
       case 2:
         return _DocumentListView(
           items: documentItems,
@@ -261,10 +231,99 @@ class _LinkItem {
 }
 
 // ============================================================================
-// VISTA FOTO (GRIGLIA) CON DIVISORI MESE
+// DATE SEPARATOR (identico alla chat)
 // ============================================================================
 
-class _PhotoGridView extends StatefulWidget {
+class _MonthSeparator extends StatelessWidget {
+  final String label;
+
+  const _MonthSeparator({required this.label});
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 16),
+      child: Row(
+        children: [
+          Expanded(
+            child: Container(
+              height: 1,
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [
+                    Colors.transparent,
+                    Colors.grey[300]!,
+                  ],
+                ),
+              ),
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+              decoration: BoxDecoration(
+                gradient: const LinearGradient(
+                  colors: [
+                    Color(0xFF3BA8B0),
+                    Color(0xFF145A60),
+                  ],
+                ),
+                borderRadius: BorderRadius.circular(16),
+                boxShadow: [
+                  BoxShadow(
+                    color: const Color(0xFF3BA8B0).withOpacity(0.3),
+                    blurRadius: 8,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(
+                    Icons.flag_rounded,
+                    size: 14,
+                    color: Colors.white,
+                  ),
+                  const SizedBox(width: 6),
+                  Text(
+                    label,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      letterSpacing: 0.5,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          Expanded(
+            child: Container(
+              height: 1,
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [
+                    Colors.grey[300]!,
+                    Colors.transparent,
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ============================================================================
+// VISTA FOTO (GRIGLIA)
+// ============================================================================
+
+class _PhotoGridView extends StatelessWidget {
   final List<_MediaItem> items;
   final String? currentUserId;
   final AttachmentService? attachmentService;
@@ -275,30 +334,7 @@ class _PhotoGridView extends StatefulWidget {
     this.attachmentService,
   });
 
-  @override
-  State<_PhotoGridView> createState() => _PhotoGridViewState();
-}
-
-class _PhotoGridViewState extends State<_PhotoGridView> {
-  final ScrollController _scrollController = ScrollController();
-
-  @override
-  void initState() {
-    super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (_scrollController.hasClients) {
-        _scrollController.jumpTo(_scrollController.position.maxScrollExtent);
-      }
-    });
-  }
-
-  @override
-  void dispose() {
-    _scrollController.dispose();
-    super.dispose();
-  }
-
-  /// Raggruppa gli items per mese/anno
+  /// Raggruppa gli items per mese/anno (più recenti prima)
   Map<String, List<_MediaItem>> _groupByMonth(List<_MediaItem> items) {
     final Map<String, List<_MediaItem>> grouped = {};
     for (var item in items) {
@@ -313,16 +349,15 @@ class _PhotoGridViewState extends State<_PhotoGridView> {
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
 
-    if (widget.items.isEmpty) {
+    if (items.isEmpty) {
       return _buildEmptyState(l10n.mediaNoPhotos, l10n.mediaNoPhotosDescription, Icons.photo_library_outlined);
     }
 
-    final groupedItems = _groupByMonth(widget.items);
+    final groupedItems = _groupByMonth(items);
     final months = groupedItems.keys.toList();
 
     return ListView.builder(
-      controller: _scrollController,
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+      padding: const EdgeInsets.only(left: 8, right: 8, bottom: 8),
       itemCount: months.length,
       itemBuilder: (context, index) {
         final month = months[index];
@@ -331,10 +366,7 @@ class _PhotoGridViewState extends State<_PhotoGridView> {
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Month header (divisore mese stile chat)
-            _buildMonthHeader(month),
-            const SizedBox(height: 8),
-            // Grid per questo mese
+            _MonthSeparator(label: month),
             GridView.builder(
               shrinkWrap: true,
               physics: const NeverScrollableScrollPhysics(),
@@ -346,40 +378,19 @@ class _PhotoGridViewState extends State<_PhotoGridView> {
               itemCount: monthItems.length,
               itemBuilder: (context, itemIndex) {
                 final item = monthItems[itemIndex];
+                final isMine = item.message.senderId == currentUserId;
                 return _PhotoGridItem(
                   item: item,
                   isVideo: item.attachment.type == 'video',
-                  currentUserId: widget.currentUserId,
-                  attachmentService: widget.attachmentService,
+                  isMine: isMine,
+                  currentUserId: currentUserId,
+                  attachmentService: attachmentService,
                 );
               },
             ),
-            const SizedBox(height: 16),
           ],
         );
       },
-    );
-  }
-
-  Widget _buildMonthHeader(String month) {
-    return Center(
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-        decoration: BoxDecoration(
-          color: MediaColors.monthBadgeBg,
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: MediaColors.primary.withOpacity(0.2)),
-        ),
-        child: Text(
-          month.toUpperCase(),
-          style: const TextStyle(
-            fontSize: 12,
-            fontWeight: FontWeight.w600,
-            color: MediaColors.monthBadgeText,
-            letterSpacing: 1.2,
-          ),
-        ),
-      ),
     );
   }
 
@@ -391,10 +402,10 @@ class _PhotoGridViewState extends State<_PhotoGridView> {
           Container(
             padding: const EdgeInsets.all(24),
             decoration: BoxDecoration(
-              color: MediaColors.surface,
+              color: MediaColors.tealLight.withOpacity(0.1),
               shape: BoxShape.circle,
             ),
-            child: Icon(icon, size: 48, color: MediaColors.primary),
+            child: Icon(icon, size: 48, color: MediaColors.tealLight),
           ),
           const SizedBox(height: 20),
           Text(
@@ -402,7 +413,7 @@ class _PhotoGridViewState extends State<_PhotoGridView> {
             style: const TextStyle(
               fontSize: 18,
               fontWeight: FontWeight.w600,
-              color: MediaColors.text,
+              color: MediaColors.tealDark,
             ),
           ),
           const SizedBox(height: 8),
@@ -420,12 +431,14 @@ class _PhotoGridViewState extends State<_PhotoGridView> {
 class _PhotoGridItem extends StatelessWidget {
   final _MediaItem item;
   final bool isVideo;
+  final bool isMine;
   final String? currentUserId;
   final AttachmentService? attachmentService;
 
   const _PhotoGridItem({
     required this.item,
     required this.isVideo,
+    required this.isMine,
     this.currentUserId,
     this.attachmentService,
   });
@@ -441,6 +454,8 @@ class _PhotoGridItem extends StatelessWidget {
         child: const Center(child: Icon(Icons.error, color: Colors.grey)),
       );
     }
+
+    final badgeColor = isMine ? MediaColors.mine : MediaColors.theirs;
 
     return GestureDetector(
       onTap: () {
@@ -472,11 +487,11 @@ class _PhotoGridItem extends StatelessWidget {
               builder: (context, snapshot) {
                 if (snapshot.connectionState == ConnectionState.waiting) {
                   return Container(
-                    color: MediaColors.surface,
-                    child: const Center(
+                    color: Colors.grey[200],
+                    child: Center(
                       child: CircularProgressIndicator(
                         strokeWidth: 2,
-                        color: MediaColors.primary,
+                        color: badgeColor,
                       ),
                     ),
                   );
@@ -507,14 +522,14 @@ class _PhotoGridItem extends StatelessWidget {
                   child: Icon(Icons.play_circle_filled, color: Colors.white, size: 36),
                 ),
               ),
-            // Data badge
+            // Data badge con colore mio/tuo
             Positioned(
               bottom: 4,
               right: 4,
               child: Container(
                 padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                 decoration: BoxDecoration(
-                  color: MediaColors.primary.withOpacity(0.85),
+                  color: badgeColor.withOpacity(0.9),
                   borderRadius: BorderRadius.circular(6),
                 ),
                 child: Text(
@@ -535,36 +550,17 @@ class _PhotoGridItem extends StatelessWidget {
 }
 
 // ============================================================================
-// VISTA LINK (LISTA) CON DIVISORI MESE
+// VISTA LINK (LISTA)
 // ============================================================================
 
-class _LinkListView extends StatefulWidget {
+class _LinkListView extends StatelessWidget {
   final List<_LinkItem> items;
+  final String? currentUserId;
 
-  const _LinkListView({required this.items});
-
-  @override
-  State<_LinkListView> createState() => _LinkListViewState();
-}
-
-class _LinkListViewState extends State<_LinkListView> {
-  final ScrollController _scrollController = ScrollController();
-
-  @override
-  void initState() {
-    super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (_scrollController.hasClients) {
-        _scrollController.jumpTo(_scrollController.position.maxScrollExtent);
-      }
-    });
-  }
-
-  @override
-  void dispose() {
-    _scrollController.dispose();
-    super.dispose();
-  }
+  const _LinkListView({
+    required this.items,
+    this.currentUserId,
+  });
 
   Map<String, List<_LinkItem>> _groupByMonth(List<_LinkItem> items) {
     final Map<String, List<_LinkItem>> grouped = {};
@@ -580,16 +576,15 @@ class _LinkListViewState extends State<_LinkListView> {
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
 
-    if (widget.items.isEmpty) {
+    if (items.isEmpty) {
       return _buildEmptyState(l10n.mediaNoLinks, l10n.mediaNoLinksDescription, Icons.link_off_rounded);
     }
 
-    final groupedItems = _groupByMonth(widget.items);
+    final groupedItems = _groupByMonth(items);
     final months = groupedItems.keys.toList();
 
     return ListView.builder(
-      controller: _scrollController,
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      padding: const EdgeInsets.only(left: 16, right: 16, bottom: 16),
       itemCount: months.length,
       itemBuilder: (context, index) {
         final month = months[index];
@@ -598,38 +593,17 @@ class _LinkListViewState extends State<_LinkListView> {
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            _buildMonthHeader(month),
-            const SizedBox(height: 12),
+            _MonthSeparator(label: month),
             ...monthItems.map((item) => Padding(
-              padding: const EdgeInsets.only(bottom: 12),
-              child: _LinkListItem(item: item),
+              padding: const EdgeInsets.only(bottom: 8),
+              child: _LinkListItem(
+                item: item,
+                isMine: item.message.senderId == currentUserId,
+              ),
             )),
-            const SizedBox(height: 8),
           ],
         );
       },
-    );
-  }
-
-  Widget _buildMonthHeader(String month) {
-    return Center(
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-        decoration: BoxDecoration(
-          color: MediaColors.monthBadgeBg,
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: MediaColors.primary.withOpacity(0.2)),
-        ),
-        child: Text(
-          month.toUpperCase(),
-          style: const TextStyle(
-            fontSize: 12,
-            fontWeight: FontWeight.w600,
-            color: MediaColors.monthBadgeText,
-            letterSpacing: 1.2,
-          ),
-        ),
-      ),
     );
   }
 
@@ -641,10 +615,10 @@ class _LinkListViewState extends State<_LinkListView> {
           Container(
             padding: const EdgeInsets.all(24),
             decoration: BoxDecoration(
-              color: MediaColors.surface,
+              color: MediaColors.tealLight.withOpacity(0.1),
               shape: BoxShape.circle,
             ),
-            child: Icon(icon, size: 48, color: MediaColors.primary),
+            child: Icon(icon, size: 48, color: MediaColors.tealLight),
           ),
           const SizedBox(height: 20),
           Text(
@@ -652,7 +626,7 @@ class _LinkListViewState extends State<_LinkListView> {
             style: const TextStyle(
               fontSize: 18,
               fontWeight: FontWeight.w600,
-              color: MediaColors.text,
+              color: MediaColors.tealDark,
             ),
           ),
           const SizedBox(height: 8),
@@ -669,8 +643,12 @@ class _LinkListViewState extends State<_LinkListView> {
 
 class _LinkListItem extends StatelessWidget {
   final _LinkItem item;
+  final bool isMine;
 
-  const _LinkListItem({required this.item});
+  const _LinkListItem({
+    required this.item,
+    required this.isMine,
+  });
 
   String _getDomain(String url) {
     try {
@@ -694,37 +672,38 @@ class _LinkListItem extends StatelessWidget {
     final title = item.message.linkTitle ?? _getDomain(url);
     final description = item.message.linkDescription;
     final domain = _getDomain(url);
+    final accentColor = isMine ? MediaColors.mine : MediaColors.theirs;
 
     return GestureDetector(
       onTap: () => _openLink(context, url),
       child: Container(
-        padding: const EdgeInsets.all(14),
+        padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
           color: Colors.white,
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: MediaColors.primary.withOpacity(0.15)),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: accentColor.withOpacity(0.3), width: 1.5),
           boxShadow: [
             BoxShadow(
-              color: MediaColors.primary.withOpacity(0.06),
-              blurRadius: 8,
+              color: Colors.black.withOpacity(0.04),
+              blurRadius: 4,
               offset: const Offset(0, 2),
             ),
           ],
         ),
         child: Row(
           children: [
-            // Icona link con stile viola
+            // Icona link
             Container(
-              width: 48,
-              height: 48,
+              width: 44,
+              height: 44,
               decoration: BoxDecoration(
-                color: MediaColors.iconLink.withOpacity(0.15),
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: MediaColors.iconLink.withOpacity(0.3)),
+                color: accentColor.withOpacity(0.15),
+                shape: BoxShape.circle,
+                border: Border.all(color: accentColor.withOpacity(0.3)),
               ),
-              child: const Icon(Icons.link_rounded, color: MediaColors.iconLink, size: 24),
+              child: Icon(Icons.link_rounded, color: accentColor, size: 22),
             ),
-            const SizedBox(width: 14),
+            const SizedBox(width: 12),
             // Info link
             Expanded(
               child: Column(
@@ -732,49 +711,38 @@ class _LinkListItem extends StatelessWidget {
                 children: [
                   Text(
                     title,
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontWeight: FontWeight.w600,
-                      fontSize: 15,
-                      color: MediaColors.text,
+                      fontSize: 14,
+                      color: Colors.grey[800],
                     ),
-                    maxLines: 2,
+                    maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
                   if (description != null && description.isNotEmpty) ...[
-                    const SizedBox(height: 4),
+                    const SizedBox(height: 2),
                     Text(
                       description,
-                      style: TextStyle(
-                        fontSize: 13,
-                        color: Colors.grey[600],
-                      ),
-                      maxLines: 2,
+                      style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                      maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
                   ],
-                  const SizedBox(height: 6),
+                  const SizedBox(height: 4),
                   Row(
                     children: [
-                      const Icon(Icons.public, size: 12, color: MediaColors.iconLink),
+                      Icon(Icons.public, size: 11, color: accentColor),
                       const SizedBox(width: 4),
                       Expanded(
                         child: Text(
                           domain,
-                          style: const TextStyle(
-                            fontSize: 12,
-                            color: MediaColors.iconLink,
-                            fontWeight: FontWeight.w500,
-                          ),
+                          style: TextStyle(fontSize: 11, color: accentColor, fontWeight: FontWeight.w500),
                           overflow: TextOverflow.ellipsis,
                         ),
                       ),
-                      const SizedBox(width: 8),
                       Text(
-                        DateFormat('dd/MM/yyyy').format(item.message.timestamp),
-                        style: TextStyle(
-                          fontSize: 11,
-                          color: Colors.grey[500],
-                        ),
+                        DateFormat('dd/MM').format(item.message.timestamp),
+                        style: TextStyle(fontSize: 10, color: Colors.grey[500]),
                       ),
                     ],
                   ),
@@ -782,19 +750,7 @@ class _LinkListItem extends StatelessWidget {
               ),
             ),
             const SizedBox(width: 8),
-            // Arrow
-            Container(
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                color: MediaColors.surface,
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: const Icon(
-                Icons.arrow_forward_ios_rounded,
-                size: 14,
-                color: MediaColors.primary,
-              ),
-            ),
+            Icon(Icons.chevron_right, color: accentColor, size: 20),
           ],
         ),
       ),
@@ -803,10 +759,10 @@ class _LinkListItem extends StatelessWidget {
 }
 
 // ============================================================================
-// VISTA DOCUMENTI (LISTA) CON DIVISORI MESE
+// VISTA DOCUMENTI (LISTA)
 // ============================================================================
 
-class _DocumentListView extends StatefulWidget {
+class _DocumentListView extends StatelessWidget {
   final List<_MediaItem> items;
   final String? currentUserId;
   final AttachmentService? attachmentService;
@@ -816,29 +772,6 @@ class _DocumentListView extends StatefulWidget {
     this.currentUserId,
     this.attachmentService,
   });
-
-  @override
-  State<_DocumentListView> createState() => _DocumentListViewState();
-}
-
-class _DocumentListViewState extends State<_DocumentListView> {
-  final ScrollController _scrollController = ScrollController();
-
-  @override
-  void initState() {
-    super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (_scrollController.hasClients) {
-        _scrollController.jumpTo(_scrollController.position.maxScrollExtent);
-      }
-    });
-  }
-
-  @override
-  void dispose() {
-    _scrollController.dispose();
-    super.dispose();
-  }
 
   Map<String, List<_MediaItem>> _groupByMonth(List<_MediaItem> items) {
     final Map<String, List<_MediaItem>> grouped = {};
@@ -854,16 +787,15 @@ class _DocumentListViewState extends State<_DocumentListView> {
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
 
-    if (widget.items.isEmpty) {
+    if (items.isEmpty) {
       return _buildEmptyState(l10n.mediaNoDocuments, l10n.mediaNoDocumentsDescription, Icons.description_outlined);
     }
 
-    final groupedItems = _groupByMonth(widget.items);
+    final groupedItems = _groupByMonth(items);
     final months = groupedItems.keys.toList();
 
     return ListView.builder(
-      controller: _scrollController,
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      padding: const EdgeInsets.only(left: 16, right: 16, bottom: 16),
       itemCount: months.length,
       itemBuilder: (context, index) {
         final month = months[index];
@@ -872,42 +804,19 @@ class _DocumentListViewState extends State<_DocumentListView> {
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            _buildMonthHeader(month),
-            const SizedBox(height: 12),
+            _MonthSeparator(label: month),
             ...monthItems.map((item) => Padding(
-              padding: const EdgeInsets.only(bottom: 12),
+              padding: const EdgeInsets.only(bottom: 8),
               child: _DocumentListItem(
                 item: item,
-                currentUserId: widget.currentUserId,
-                attachmentService: widget.attachmentService,
+                isMine: item.message.senderId == currentUserId,
+                currentUserId: currentUserId,
+                attachmentService: attachmentService,
               ),
             )),
-            const SizedBox(height: 8),
           ],
         );
       },
-    );
-  }
-
-  Widget _buildMonthHeader(String month) {
-    return Center(
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-        decoration: BoxDecoration(
-          color: MediaColors.monthBadgeBg,
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: MediaColors.primary.withOpacity(0.2)),
-        ),
-        child: Text(
-          month.toUpperCase(),
-          style: const TextStyle(
-            fontSize: 12,
-            fontWeight: FontWeight.w600,
-            color: MediaColors.monthBadgeText,
-            letterSpacing: 1.2,
-          ),
-        ),
-      ),
     );
   }
 
@@ -919,10 +828,10 @@ class _DocumentListViewState extends State<_DocumentListView> {
           Container(
             padding: const EdgeInsets.all(24),
             decoration: BoxDecoration(
-              color: MediaColors.surface,
+              color: MediaColors.tealLight.withOpacity(0.1),
               shape: BoxShape.circle,
             ),
-            child: Icon(icon, size: 48, color: MediaColors.primary),
+            child: Icon(icon, size: 48, color: MediaColors.tealLight),
           ),
           const SizedBox(height: 20),
           Text(
@@ -930,7 +839,7 @@ class _DocumentListViewState extends State<_DocumentListView> {
             style: const TextStyle(
               fontSize: 18,
               fontWeight: FontWeight.w600,
-              color: MediaColors.text,
+              color: MediaColors.tealDark,
             ),
           ),
           const SizedBox(height: 8),
@@ -947,11 +856,13 @@ class _DocumentListViewState extends State<_DocumentListView> {
 
 class _DocumentListItem extends StatelessWidget {
   final _MediaItem item;
+  final bool isMine;
   final String? currentUserId;
   final AttachmentService? attachmentService;
 
   const _DocumentListItem({
     required this.item,
+    required this.isMine,
     this.currentUserId,
     this.attachmentService,
   });
@@ -976,7 +887,7 @@ class _DocumentListItem extends StatelessWidget {
       case 'pptx':
         return const Color(0xFFFF7043);
       default:
-        return MediaColors.primary;
+        return MediaColors.tealLight;
     }
   }
 
@@ -994,6 +905,7 @@ class _DocumentListItem extends StatelessWidget {
   Widget build(BuildContext context) {
     final fileExtension = _getFileExtension(item.attachment.fileName);
     final fileColor = _getFileColor(item.attachment.fileName);
+    final accentColor = isMine ? MediaColors.mine : MediaColors.theirs;
     final l10n = AppLocalizations.of(context)!;
 
     return GestureDetector(
@@ -1016,21 +928,21 @@ class _DocumentListItem extends StatelessWidget {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text(l10n.mediaDocumentOpenHint),
-              backgroundColor: MediaColors.primary,
+              backgroundColor: MediaColors.tealLight,
             ),
           );
         }
       },
       child: Container(
-        padding: const EdgeInsets.all(14),
+        padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
           color: Colors.white,
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: MediaColors.primary.withOpacity(0.15)),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: accentColor.withOpacity(0.3), width: 1.5),
           boxShadow: [
             BoxShadow(
-              color: MediaColors.primary.withOpacity(0.06),
-              blurRadius: 8,
+              color: Colors.black.withOpacity(0.04),
+              blurRadius: 4,
               offset: const Offset(0, 2),
             ),
           ],
@@ -1039,30 +951,29 @@ class _DocumentListItem extends StatelessWidget {
           children: [
             // Icona documento
             Container(
-              width: 48,
-              height: 48,
+              width: 44,
+              height: 44,
               decoration: BoxDecoration(
                 color: fileColor.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(12),
+                borderRadius: BorderRadius.circular(10),
                 border: Border.all(color: fileColor.withOpacity(0.3)),
               ),
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Icon(Icons.description, color: fileColor, size: 20),
-                  const SizedBox(height: 2),
+                  Icon(Icons.description, color: fileColor, size: 18),
                   Text(
                     fileExtension,
                     style: TextStyle(
                       color: fileColor,
-                      fontSize: 8,
+                      fontSize: 7,
                       fontWeight: FontWeight.bold,
                     ),
                   ),
                 ],
               ),
             ),
-            const SizedBox(width: 14),
+            const SizedBox(width: 12),
             // Info documento
             Expanded(
               child: Column(
@@ -1070,50 +981,36 @@ class _DocumentListItem extends StatelessWidget {
                 children: [
                   Text(
                     item.attachment.fileName,
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontWeight: FontWeight.w600,
-                      fontSize: 15,
-                      color: MediaColors.text,
+                      fontSize: 14,
+                      color: Colors.grey[800],
                     ),
-                    maxLines: 2,
+                    maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
-                  const SizedBox(height: 6),
+                  const SizedBox(height: 4),
                   Row(
                     children: [
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                        padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
                         decoration: BoxDecoration(
                           color: fileColor.withOpacity(0.1),
                           borderRadius: BorderRadius.circular(4),
                         ),
                         child: Text(
                           _formatFileSize(item.attachment.fileSize),
-                          style: TextStyle(
-                            fontSize: 11,
-                            color: fileColor,
-                            fontWeight: FontWeight.w500,
-                          ),
+                          style: TextStyle(fontSize: 10, color: fileColor, fontWeight: FontWeight.w500),
                         ),
                       ),
                       const SizedBox(width: 8),
-                      Icon(Icons.lock_outline, size: 12, color: Colors.grey[500]),
-                      const SizedBox(width: 4),
-                      Expanded(
-                        child: Text(
-                          'E2E',
-                          style: TextStyle(
-                            fontSize: 11,
-                            color: Colors.grey[500],
-                          ),
-                        ),
-                      ),
+                      Icon(Icons.lock_outline, size: 10, color: Colors.grey[500]),
+                      const SizedBox(width: 2),
+                      Text('E2E', style: TextStyle(fontSize: 10, color: Colors.grey[500])),
+                      const Spacer(),
                       Text(
-                        DateFormat('dd/MM/yyyy').format(item.message.timestamp),
-                        style: TextStyle(
-                          fontSize: 11,
-                          color: Colors.grey[500],
-                        ),
+                        DateFormat('dd/MM').format(item.message.timestamp),
+                        style: TextStyle(fontSize: 10, color: Colors.grey[500]),
                       ),
                     ],
                   ),
@@ -1121,19 +1018,7 @@ class _DocumentListItem extends StatelessWidget {
               ),
             ),
             const SizedBox(width: 8),
-            // Arrow
-            Container(
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                color: MediaColors.surface,
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: const Icon(
-                Icons.arrow_forward_ios_rounded,
-                size: 14,
-                color: MediaColors.primary,
-              ),
-            ),
+            Icon(Icons.chevron_right, color: accentColor, size: 20),
           ],
         ),
       ),
@@ -1193,12 +1078,9 @@ class _FullscreenImageViewerState extends State<_FullscreenImageViewer> {
                     return Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        const CircularProgressIndicator(color: MediaColors.accent),
+                        const CircularProgressIndicator(color: MediaColors.tealLight),
                         const SizedBox(height: 16),
-                        Text(
-                          l10n.mediaLoadingImage,
-                          style: const TextStyle(color: Colors.white70),
-                        ),
+                        Text(l10n.mediaLoadingImage, style: const TextStyle(color: Colors.white70)),
                       ],
                     );
                   }
@@ -1209,10 +1091,7 @@ class _FullscreenImageViewerState extends State<_FullscreenImageViewer> {
                       children: [
                         const Icon(Icons.error, color: Colors.red, size: 64),
                         const SizedBox(height: 16),
-                        Text(
-                          l10n.mediaImageLoadError,
-                          style: const TextStyle(color: Colors.white70),
-                        ),
+                        Text(l10n.mediaImageLoadError, style: const TextStyle(color: Colors.white70)),
                       ],
                     );
                   }
@@ -1239,7 +1118,7 @@ class _FullscreenImageViewerState extends State<_FullscreenImageViewer> {
                       icon: const Icon(Icons.close, color: Colors.white, size: 32),
                       onPressed: () => Navigator.of(context).pop(),
                       style: IconButton.styleFrom(
-                        backgroundColor: MediaColors.primary.withOpacity(0.7),
+                        backgroundColor: MediaColors.tealLight.withOpacity(0.7),
                       ),
                     ),
                   ),
@@ -1261,10 +1140,7 @@ class _FullscreenImageViewerState extends State<_FullscreenImageViewer> {
                       gradient: LinearGradient(
                         begin: Alignment.bottomCenter,
                         end: Alignment.topCenter,
-                        colors: [
-                          Colors.black.withOpacity(0.7),
-                          Colors.transparent,
-                        ],
+                        colors: [Colors.black.withOpacity(0.7), Colors.transparent],
                       ),
                     ),
                     child: Column(
@@ -1272,18 +1148,14 @@ class _FullscreenImageViewerState extends State<_FullscreenImageViewer> {
                       children: [
                         Text(
                           widget.attachment.fileName,
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 14,
-                            fontWeight: FontWeight.w500,
-                          ),
+                          style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w500),
                           textAlign: TextAlign.center,
                         ),
                         const SizedBox(height: 4),
                         Row(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            const Icon(Icons.lock, color: MediaColors.accent, size: 14),
+                            const Icon(Icons.lock, color: MediaColors.tealLight, size: 14),
                             const SizedBox(width: 4),
                             Text(
                               '${l10n.mediaEncryptedE2E} • ${_formatFileSize(widget.attachment.fileSize)}',
