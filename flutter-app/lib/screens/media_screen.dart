@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
 import 'package:open_filex/open_filex.dart';
 import 'package:path_provider/path_provider.dart';
+import 'package:flutter_staggered_grid_view/flutter_staggered_grid_view.dart';
 import 'package:private_messaging/generated/l10n/app_localizations.dart';
 import '../services/chat_service.dart';
 import '../services/pairing_service.dart';
@@ -220,9 +221,10 @@ class _MediaScreenState extends State<MediaScreen> {
           attachmentService: _attachmentService,
         );
       case 1:
-        return _LinkListView(
+        return _LinkGridView(
           items: linkItems,
           currentUserId: _currentUserId,
+          attachmentService: _attachmentService,
         );
       case 2:
         return _DocumentListView(
@@ -572,16 +574,18 @@ class _PhotoGridItem extends StatelessWidget {
 }
 
 // ============================================================================
-// VISTA LINK (LISTA)
+// VISTA LINK (GRIGLIA MASONRY STILE PINTEREST)
 // ============================================================================
 
-class _LinkListView extends StatelessWidget {
+class _LinkGridView extends StatelessWidget {
   final List<_LinkItem> items;
   final String? currentUserId;
+  final AttachmentService? attachmentService;
 
-  const _LinkListView({
+  const _LinkGridView({
     required this.items,
     this.currentUserId,
+    this.attachmentService,
   });
 
   Map<String, List<_LinkItem>> _groupByMonth(List<_LinkItem> items) {
@@ -606,7 +610,7 @@ class _LinkListView extends StatelessWidget {
     final months = groupedItems.keys.toList();
 
     return ListView.builder(
-      padding: const EdgeInsets.only(left: 16, right: 16, bottom: 16),
+      padding: const EdgeInsets.only(left: 8, right: 8, bottom: 16),
       itemCount: months.length,
       itemBuilder: (context, index) {
         final month = months[index];
@@ -616,13 +620,25 @@ class _LinkListView extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             _MonthSeparator(label: month),
-            ...monthItems.map((item) => Padding(
-              padding: const EdgeInsets.only(bottom: 8),
-              child: _LinkListItem(
-                item: item,
-                isMine: item.message.senderId == currentUserId,
-              ),
-            )),
+            // Griglia masonry con 2 colonne
+            MasonryGridView.count(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              padding: EdgeInsets.zero,
+              crossAxisCount: 2,
+              mainAxisSpacing: 8,
+              crossAxisSpacing: 8,
+              itemCount: monthItems.length,
+              itemBuilder: (context, itemIndex) {
+                final item = monthItems[itemIndex];
+                return _LinkGridItem(
+                  item: item,
+                  isMine: item.message.senderId == currentUserId,
+                  attachmentService: attachmentService,
+                  currentUserId: currentUserId,
+                );
+              },
+            ),
           ],
         );
       },
@@ -663,13 +679,17 @@ class _LinkListView extends StatelessWidget {
   }
 }
 
-class _LinkListItem extends StatelessWidget {
+class _LinkGridItem extends StatelessWidget {
   final _LinkItem item;
   final bool isMine;
+  final AttachmentService? attachmentService;
+  final String? currentUserId;
 
-  const _LinkListItem({
+  const _LinkGridItem({
     required this.item,
     required this.isMine,
+    this.attachmentService,
+    this.currentUserId,
   });
 
   String _getDomain(String url) {
@@ -688,6 +708,17 @@ class _LinkListItem extends StatelessWidget {
     }
   }
 
+  /// Cerca la thumbnail del link tra gli attachment del messaggio
+  Attachment? _findLinkThumbnail() {
+    if (item.message.attachments == null) return null;
+    for (var attachment in item.message.attachments!) {
+      if (attachment.fileName.startsWith('link_preview_') && attachment.type == 'photo') {
+        return attachment;
+      }
+    }
+    return null;
+  }
+
   @override
   Widget build(BuildContext context) {
     final url = item.message.linkUrl ?? '';
@@ -695,76 +726,129 @@ class _LinkListItem extends StatelessWidget {
     final description = item.message.linkDescription;
     final domain = _getDomain(url);
     final accentColor = isMine ? MediaColors.mine : MediaColors.theirs;
+    final thumbnail = _findLinkThumbnail();
 
     return GestureDetector(
       onTap: () => _openLink(context, url),
       child: Container(
-        padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(12),
           border: Border.all(color: accentColor.withOpacity(0.3), width: 1.5),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.04),
-              blurRadius: 4,
+              color: Colors.black.withOpacity(0.06),
+              blurRadius: 6,
               offset: const Offset(0, 2),
             ),
           ],
         ),
-        child: Row(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Icona link
-            Container(
-              width: 44,
-              height: 44,
-              decoration: BoxDecoration(
-                color: accentColor.withOpacity(0.15),
-                shape: BoxShape.circle,
-                border: Border.all(color: accentColor.withOpacity(0.3)),
+            // Thumbnail (se disponibile)
+            if (thumbnail != null && attachmentService != null)
+              ClipRRect(
+                borderRadius: const BorderRadius.vertical(top: Radius.circular(11)),
+                child: FutureBuilder<Uint8List?>(
+                  future: attachmentService!.downloadAndDecryptAttachment(
+                    thumbnail,
+                    currentUserId ?? '',
+                    item.message.senderId,
+                    useThumbnail: true,
+                  ),
+                  builder: (context, snapshot) {
+                    if (snapshot.connectionState == ConnectionState.waiting) {
+                      return Container(
+                        height: 100,
+                        color: accentColor.withOpacity(0.1),
+                        child: Center(
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: accentColor,
+                          ),
+                        ),
+                      );
+                    }
+
+                    if (snapshot.hasData && snapshot.data != null) {
+                      return Image.memory(
+                        snapshot.data!,
+                        width: double.infinity,
+                        fit: BoxFit.cover,
+                      );
+                    }
+
+                    // Fallback: icona link se non c'è thumbnail
+                    return Container(
+                      height: 80,
+                      color: accentColor.withOpacity(0.1),
+                      child: Center(
+                        child: Icon(Icons.link_rounded, color: accentColor, size: 32),
+                      ),
+                    );
+                  },
+                ),
+              )
+            else
+              // Nessuna thumbnail: mostra icona link
+              ClipRRect(
+                borderRadius: const BorderRadius.vertical(top: Radius.circular(11)),
+                child: Container(
+                  height: 60,
+                  color: accentColor.withOpacity(0.1),
+                  child: Center(
+                    child: Icon(Icons.link_rounded, color: accentColor, size: 28),
+                  ),
+                ),
               ),
-              child: Icon(Icons.link_rounded, color: accentColor, size: 22),
-            ),
-            const SizedBox(width: 12),
-            // Info link
-            Expanded(
+
+            // Contenuto testuale
+            Padding(
+              padding: const EdgeInsets.all(10),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+                  // Titolo
                   Text(
                     title,
                     style: TextStyle(
                       fontWeight: FontWeight.w600,
-                      fontSize: 14,
+                      fontSize: 13,
                       color: Colors.grey[800],
                     ),
-                    maxLines: 1,
+                    maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                   ),
+
+                  // Descrizione (se presente)
                   if (description != null && description.isNotEmpty) ...[
-                    const SizedBox(height: 2),
+                    const SizedBox(height: 4),
                     Text(
                       description,
-                      style: TextStyle(fontSize: 12, color: Colors.grey[600]),
-                      maxLines: 1,
+                      style: TextStyle(fontSize: 11, color: Colors.grey[600]),
+                      maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                     ),
                   ],
-                  const SizedBox(height: 4),
+
+                  const SizedBox(height: 6),
+
+                  // Dominio + data
                   Row(
                     children: [
-                      Icon(Icons.public, size: 11, color: accentColor),
-                      const SizedBox(width: 4),
+                      Icon(Icons.public, size: 10, color: accentColor),
+                      const SizedBox(width: 3),
                       Expanded(
                         child: Text(
                           domain,
-                          style: TextStyle(fontSize: 11, color: accentColor, fontWeight: FontWeight.w500),
+                          style: TextStyle(fontSize: 10, color: accentColor, fontWeight: FontWeight.w500),
                           overflow: TextOverflow.ellipsis,
                         ),
                       ),
                       Text(
                         DateFormat('dd/MM').format(item.message.timestamp),
-                        style: TextStyle(fontSize: 10, color: Colors.grey[500]),
+                        style: TextStyle(fontSize: 9, color: Colors.grey[500]),
                       ),
                     ],
                   ),
