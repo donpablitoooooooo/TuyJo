@@ -14,10 +14,6 @@ import 'package:url_launcher/url_launcher.dart';
 class MediaColors {
   static const Color tealLight = Color(0xFF3BA8B0);
   static const Color tealDark = Color(0xFF145A60);
-  // Colori icone come nella modale allegati
-  static const Color iconPhoto = Color(0xFF2196F3);    // Blu
-  static const Color iconLink = Color(0xFF9C27B0);     // Viola
-  static const Color iconDocument = Color(0xFF4CAF50); // Verde
   // Colori mio/tuo
   static const Color mine = Color(0xFF3BA8B0);         // Teal per "mio"
   static const Color theirs = Color(0xFF9E9E9E);       // Grigio per "tuo"
@@ -54,13 +50,17 @@ class _MediaScreenState extends State<MediaScreen> {
   }
 
   /// Ottiene foto e video dai messaggi (più recenti prima)
+  /// Esclude le preview dei link (fileName inizia con 'link_preview_')
   List<_MediaItem> _getPhotoItems(List<Message> messages) {
     final List<_MediaItem> items = [];
     for (var message in messages) {
       if (message.attachments != null && message.attachments!.isNotEmpty) {
         for (var attachment in message.attachments!) {
           if (attachment.type == 'photo' || attachment.type == 'video') {
-            items.add(_MediaItem(attachment: attachment, message: message));
+            // Escludi le preview dei link
+            if (!attachment.fileName.startsWith('link_preview_')) {
+              items.add(_MediaItem(attachment: attachment, message: message));
+            }
           }
         }
       }
@@ -120,6 +120,9 @@ class _MediaScreenState extends State<MediaScreen> {
           // Tab selector solo icone
           _buildTabSelector(),
 
+          // Spazio uniforme (stesso della distanza bandiera-contenuto)
+          const SizedBox(height: 8),
+
           // Content area
           Expanded(
             child: _buildContent(l10n, photoItems, linkItems, documentItems),
@@ -151,15 +154,16 @@ class _MediaScreenState extends State<MediaScreen> {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceEvenly,
         children: [
-          _buildTabIcon(0, Icons.photo_library, MediaColors.iconPhoto),
-          _buildTabIcon(1, Icons.link_rounded, MediaColors.iconLink),
-          _buildTabIcon(2, Icons.description, MediaColors.iconDocument),
+          // Stesse icone della modale attach
+          _buildTabIcon(0, Icons.photo_library),
+          _buildTabIcon(1, Icons.link_rounded),
+          _buildTabIcon(2, Icons.insert_drive_file),
         ],
       ),
     );
   }
 
-  Widget _buildTabIcon(int index, IconData icon, Color iconColor) {
+  Widget _buildTabIcon(int index, IconData icon) {
     final isSelected = _selectedTabIndex == index;
     return GestureDetector(
       onTap: () => setState(() => _selectedTabIndex = index),
@@ -184,7 +188,8 @@ class _MediaScreenState extends State<MediaScreen> {
         child: Icon(
           icon,
           size: 22,
-          color: isSelected ? iconColor : Colors.white,
+          // Selezionato: teal su bianco, non selezionato: bianco su teal
+          color: isSelected ? MediaColors.tealLight : Colors.white,
         ),
       ),
     );
