@@ -60,16 +60,20 @@ class _MediaScreenState extends State<MediaScreen> {
   /// Ottiene foto e video dai messaggi (più recenti prima)
   /// Esclude le preview dei link (fileName inizia con 'link_preview_')
   /// Esclude i messaggi eliminati
+  /// Esclude i messaggi che sono link (hanno linkUrl)
   List<_MediaItem> _getPhotoItems(List<Message> messages) {
     final List<_MediaItem> items = [];
     for (var message in messages) {
       // Salta messaggi eliminati
       if (message.deleted == true) continue;
 
+      // Salta messaggi che sono link (gli attachment sono preview del link)
+      if (message.linkUrl != null && message.linkUrl!.isNotEmpty) continue;
+
       if (message.attachments != null && message.attachments!.isNotEmpty) {
         for (var attachment in message.attachments!) {
           if (attachment.type == 'photo' || attachment.type == 'video') {
-            // Escludi le preview dei link
+            // Escludi le preview dei link (doppia sicurezza)
             if (!attachment.fileName.startsWith('link_preview_')) {
               items.add(_MediaItem(attachment: attachment, message: message));
             }
