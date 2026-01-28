@@ -25,7 +25,7 @@ class ShareViewController: UIViewController {
             }
         }
 
-        // Cerca sia testo che URL per decidere quale usare
+        // Seconda passa: cerca URL o testo (PRIMA dei documenti per evitare che .html venga trattato come documento)
         var hasText = false
         var hasUrl = false
         var textAttachment: NSItemProvider?
@@ -42,6 +42,54 @@ class ShareViewController: UIViewController {
             }
         }
 
+        // Se c'è un URL o testo con URL, gestiscilo come link (non come documento)
+        if hasUrl || hasText {
+            handleTextOrUrl(hasText: hasText, hasUrl: hasUrl, textAttachment: textAttachment, urlAttachment: urlAttachment)
+            return
+        }
+
+        // Terza passa: cerca documenti (PDF, DOC, XLS, PPT, etc.) - solo se non c'è URL
+        for attachment in attachments {
+            // Controlla tipi specifici di documento (esclude fileURL generico per evitare conflitti con link)
+            if attachment.hasItemConformingToTypeIdentifier(UTType.pdf.identifier) ||
+               attachment.hasItemConformingToTypeIdentifier("com.microsoft.word.doc") ||
+               attachment.hasItemConformingToTypeIdentifier("org.openxmlformats.wordprocessingml.document") ||
+               attachment.hasItemConformingToTypeIdentifier("com.microsoft.excel.xls") ||
+               attachment.hasItemConformingToTypeIdentifier("org.openxmlformats.spreadsheetml.sheet") ||
+               attachment.hasItemConformingToTypeIdentifier("com.microsoft.powerpoint.ppt") ||
+               attachment.hasItemConformingToTypeIdentifier("org.openxmlformats.presentationml.presentation") {
+                handleDocument(attachment)
+                return
+            }
+        }
+
+        // Quarta passa: fileURL generico (solo per file locali, non web)
+        for attachment in attachments {
+            if attachment.hasItemConformingToTypeIdentifier(UTType.fileURL.identifier) {
+                // Verifica che non sia un URL web
+                attachment.loadItem(forTypeIdentifier: UTType.fileURL.identifier, options: nil) { [weak self] (item, error) in
+                    if let url = item as? URL {
+                        let urlString = url.absoluteString.lowercased()
+                        // Se è un URL web, trattalo come link
+                        if urlString.hasPrefix("http://") || urlString.hasPrefix("https://") {
+                            self?.saveToAppGroup(text: url.absoluteString, key: "shared_text")
+                            self?.openMainApp()
+                        } else {
+                            // È un file locale, trattalo come documento
+                            self?.handleDocumentFromFileURL(url)
+                        }
+                    } else {
+                        self?.closeExtension()
+                    }
+                }
+                return
+            }
+        }
+
+        closeExtension()
+    }
+
+    private func handleTextOrUrl(hasText: Bool, hasUrl: Bool, textAttachment: NSItemProvider?, urlAttachment: NSItemProvider?) {
         // Strategia: preferisci il testo se contiene un URL (più completo)
         // Altrimenti usa l'URL diretto
         if hasText, let textAtt = textAttachment {
@@ -103,6 +151,118 @@ class ShareViewController: UIViewController {
         }
 
         closeExtension()
+    }
+
+    private func handleDocumentFromFileURL(_ url: URL) {
+        // Accedi al file con security scope se necessario
+        let accessing = url.startAccessingSecurityScopedResource()
+        defer {
+            if accessing { url.stopAccessingSecurityScopedResource() }
+        }
+
+        if let data = try? Data(contentsOf: url) {
+            let fileName = url.lastPathComponent
+            if let documentPath = saveDocumentToAppGroup(data: data, fileName: fileName) {
+                saveToAppGroup(text: documentPath, key: "shared_document_path")
+                openMainApp()
+                return
+            }
+        }
+        closeExtension()
+    }
+
+    private func handleDocument(_ attachment: NSItemProvider) {
+        // Prova con fileURL prima (più comune per documenti)
+        if attachment.hasItemConformingToTypeIdentifier(UTType.fileURL.identifier) {
+            attachment.loadItem(forTypeIdentifier: UTType.fileURL.identifier, options: nil) { [weak self] (item, error) in
+                guard let self = self else { return }
+
+                if let url = item as? URL {
+                    // Accedi al file con security scope se necessario
+                    let accessing = url.startAccessingSecurityScopedResource()
+                    defer {
+                        if accessing { url.stopAccessingSecurityScopedResource() }
+                    }
+
+                    if let data = try? Data(contentsOf: url) {
+                        let fileName = url.lastPathComponent
+                        if let documentPath = self.saveDocumentToAppGroup(data: data, fileName: fileName) {
+                            self.saveToAppGroup(text: documentPath, key: "shared_document_path")
+                            self.openMainApp()
+                            return
+                        }
+                    }
+                }
+                self.closeExtension()
+            }
+            return
+        }
+
+        // Fallback: prova con data generico
+        if attachment.hasItemConformingToTypeIdentifier(UTType.data.identifier) {
+            attachment.loadItem(forTypeIdentifier: UTType.data.identifier, options: nil) { [weak self] (item, error) in
+                guard let self = self else { return }
+
+                var documentData: Data?
+                var fileName = "shared_document"
+
+                if let url = item as? URL {
+                    documentData = try? Data(contentsOf: url)
+                    fileName = url.lastPathComponent
+                } else if let data = item as? Data {
+                    documentData = data
+                    // Prova a determinare l'estensione dal suggestedName
+                    if let suggestedName = attachment.suggestedName {
+                        fileName = suggestedName
+                    }
+                }
+
+                guard let data = documentData else {
+                    self.closeExtension()
+                    return
+                }
+
+                if let documentPath = self.saveDocumentToAppGroup(data: data, fileName: fileName) {
+                    self.saveToAppGroup(text: documentPath, key: "shared_document_path")
+                    self.openMainApp()
+                } else {
+                    self.closeExtension()
+                }
+            }
+            return
+        }
+
+        closeExtension()
+    }
+
+    private func saveDocumentToAppGroup(data: Data, fileName: String) -> String? {
+        guard let containerURL = FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: appGroupId) else {
+            print("❌ Failed to get App Group container")
+            return nil
+        }
+
+        let sharedDir = containerURL.appendingPathComponent("shared_media", isDirectory: true)
+
+        do {
+            try FileManager.default.createDirectory(at: sharedDir, withIntermediateDirectories: true)
+        } catch {
+            print("❌ Failed to create shared_media directory: \(error)")
+            return nil
+        }
+
+        let timestamp = Int(Date().timeIntervalSince1970 * 1000)
+        // Usa il nome file originale con timestamp per evitare conflitti
+        let safeFileName = "\(timestamp)_\(fileName)"
+        let fileURL = sharedDir.appendingPathComponent(safeFileName)
+
+        do {
+            try data.write(to: fileURL)
+            print("✅ Saved document to: \(fileURL.path)")
+            return fileURL.path
+        } catch {
+            print("❌ Failed to save document: \(error)")
+            return nil
+        }
     }
 
     private func handleImage(_ attachment: NSItemProvider) {

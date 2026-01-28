@@ -4,9 +4,17 @@ import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 import 'package:pdfx/pdfx.dart';
 import 'package:path_provider/path_provider.dart';
+import 'package:share_plus/share_plus.dart';
 import 'package:private_messaging/generated/l10n/app_localizations.dart';
 import '../models/message.dart';
 import '../services/attachment_service.dart';
+
+// Colori teal per lo stile uniforme
+const Color _tealLight = Color(0xFF3BA8B0);
+const Color _tealDark = Color(0xFF145A60);
+
+/// Icona share platform-specific (iOS usa ios_share, Android usa share)
+IconData get _platformShareIcon => Platform.isIOS ? Icons.ios_share : Icons.share;
 
 /// Schermo per visualizzare PDF cifrati con zoom e scroll
 class PdfViewerScreen extends StatefulWidget {
@@ -107,77 +115,132 @@ class _PdfViewerScreenState extends State<PdfViewerScreen> {
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
     return Scaffold(
-      backgroundColor: Colors.black,
+      extendBodyBehindAppBar: true,
+      backgroundColor: Colors.transparent,
       appBar: AppBar(
-        backgroundColor: Colors.black,
-        title: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              widget.attachment.fileName,
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 16,
-                fontWeight: FontWeight.w500,
-              ),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-            ),
-            if (_totalPages > 0)
-              Text(
-                'Pagina $_currentPage di $_totalPages',
-                style: const TextStyle(
-                  color: Colors.white70,
-                  fontSize: 12,
-                ),
-              ),
-          ],
-        ),
+        backgroundColor: Colors.transparent,
+        elevation: 0,
         leading: IconButton(
           icon: const Icon(Icons.close, color: Colors.white),
           onPressed: () => Navigator.of(context).pop(),
         ),
         actions: [
           IconButton(
-            icon: const Icon(Icons.info_outline, color: Colors.white),
-            onPressed: () {
-              showDialog(
-                context: context,
-                builder: (context) => AlertDialog(
-                  title: Text(l10n.pdfViewerDocumentInfoTitle),
-                  content: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(l10n.pdfViewerDocumentName(widget.attachment.fileName)),
-                      const SizedBox(height: 8),
-                      Text(l10n.pdfViewerDocumentSize(_formatFileSize(widget.attachment.fileSize))),
-                      const SizedBox(height: 8),
-                      Text(l10n.pdfViewerDocumentPages(_totalPages.toString())),
-                      const SizedBox(height: 8),
-                      Row(
-                        children: [
-                          const Icon(Icons.lock, size: 16, color: Colors.green),
-                          const SizedBox(width: 4),
-                          Text(l10n.pdfViewerEncrypted),
-                        ],
-                      ),
-                    ],
-                  ),
-                  actions: [
-                    TextButton(
-                      onPressed: () => Navigator.of(context).pop(),
-                      child: Text(l10n.close),
-                    ),
-                  ],
-                ),
-              );
-            },
+            icon: Icon(_platformShareIcon, color: Colors.white),
+            onPressed: () => _shareDocument(context),
           ),
         ],
       ),
-      body: _buildBody(),
+      body: Container(
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [_tealLight, _tealDark],
+          ),
+        ),
+        child: Column(
+          children: [
+            // Spazio per AppBar
+            const SizedBox(height: kToolbarHeight + 40),
+
+            // Info documento (stile location sharing)
+            Container(
+              margin: const EdgeInsets.symmetric(horizontal: 32),
+              padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 24),
+              decoration: BoxDecoration(
+                color: Colors.white.withOpacity(0.15),
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(
+                  color: Colors.white.withOpacity(0.2),
+                  width: 1,
+                ),
+              ),
+              child: Column(
+                children: [
+                  Text(
+                    widget.attachment.fileName,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 16,
+                      fontWeight: FontWeight.w500,
+                    ),
+                    textAlign: TextAlign.center,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  const SizedBox(height: 8),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      const Icon(Icons.lock, color: Colors.white70, size: 14),
+                      const SizedBox(width: 4),
+                      Text(
+                        '${l10n.mediaEncryptedE2E} • ${_formatFileSize(widget.attachment.fileSize)}',
+                        style: const TextStyle(color: Colors.white70, fontSize: 12),
+                      ),
+                    ],
+                  ),
+                  if (_totalPages > 0) ...[
+                    const SizedBox(height: 4),
+                    Text(
+                      'Pagina $_currentPage di $_totalPages',
+                      style: const TextStyle(color: Colors.white70, fontSize: 12),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+
+            const SizedBox(height: 16),
+
+            // PDF content
+            Expanded(child: _buildBody()),
+          ],
+        ),
+      ),
     );
+  }
+
+  Future<void> _shareDocument(BuildContext context) async {
+    final l10n = AppLocalizations.of(context)!;
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Row(
+          children: [
+            const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white)),
+            const SizedBox(width: 12),
+            Text(l10n.mediaDownloadingDocument),
+          ],
+        ),
+        backgroundColor: _tealLight,
+        duration: const Duration(seconds: 10),
+      ),
+    );
+
+    try {
+      final bytes = await widget.attachmentService.downloadAndDecryptAttachment(
+        widget.attachment,
+        widget.currentUserId ?? '',
+        widget.senderId ?? '',
+      );
+
+      if (bytes == null) {
+        ScaffoldMessenger.of(context).hideCurrentSnackBar();
+        return;
+      }
+
+      final tempDir = await getTemporaryDirectory();
+      final tempFile = File('${tempDir.path}/${widget.attachment.fileName}');
+      await tempFile.writeAsBytes(bytes);
+
+      ScaffoldMessenger.of(context).hideCurrentSnackBar();
+
+      await Share.shareXFiles([XFile(tempFile.path)]);
+    } catch (e) {
+      ScaffoldMessenger.of(context).hideCurrentSnackBar();
+    }
   }
 
   Widget _buildBody() {

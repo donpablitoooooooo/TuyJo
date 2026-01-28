@@ -1,13 +1,31 @@
+import 'dart:io';
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
+import 'package:open_filex/open_filex.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:flutter_staggered_grid_view/flutter_staggered_grid_view.dart';
 import 'package:private_messaging/generated/l10n/app_localizations.dart';
 import '../services/chat_service.dart';
 import '../services/pairing_service.dart';
 import '../services/attachment_service.dart';
 import '../models/message.dart';
 import 'pdf_viewer_screen.dart';
+import 'package:url_launcher/url_launcher.dart';
+import 'package:share_plus/share_plus.dart';
+
+// Colori (stile modale allegati)
+class MediaColors {
+  static const Color tealLight = Color(0xFF3BA8B0);
+  static const Color tealDark = Color(0xFF145A60);
+  // Colori mio/tuo
+  static const Color mine = Color(0xFF3BA8B0);         // Teal per "mio"
+  static const Color theirs = Color(0xFF9E9E9E);       // Grigio per "tuo"
+}
+
+/// Icona share platform-specific (iOS usa ios_share, Android usa share)
+IconData get platformShareIcon => Platform.isIOS ? Icons.ios_share : Icons.share;
 
 class MediaScreen extends StatefulWidget {
   const MediaScreen({super.key});
@@ -19,6 +37,7 @@ class MediaScreen extends StatefulWidget {
 class _MediaScreenState extends State<MediaScreen> {
   String? _currentUserId;
   AttachmentService? _attachmentService;
+  int _selectedTabIndex = 0; // 0 = Foto, 1 = Link, 2 = Doc
 
   @override
   void initState() {
@@ -30,7 +49,6 @@ class _MediaScreenState extends State<MediaScreen> {
     final pairingService = Provider.of<PairingService>(context, listen: false);
     final chatService = Provider.of<ChatService>(context, listen: false);
 
-    // Inizializza AttachmentService con EncryptionService condiviso
     _attachmentService = AttachmentService(encryptionService: chatService.encryptionService);
 
     final userId = await pairingService.getMyUserId();
@@ -39,24 +57,70 @@ class _MediaScreenState extends State<MediaScreen> {
     });
   }
 
-  /// Ottiene tutti gli allegati dai messaggi
-  List<_MediaItem> _getAllAttachments(List<Message> messages) {
+  /// Ottiene foto e video dai messaggi (più recenti prima)
+  /// Esclude le preview dei link (fileName inizia con 'link_preview_')
+  /// Esclude i messaggi eliminati
+  /// Esclude i messaggi che sono link (hanno linkUrl)
+  List<_MediaItem> _getPhotoItems(List<Message> messages) {
     final List<_MediaItem> items = [];
-
     for (var message in messages) {
+      // Salta messaggi eliminati
+      if (message.deleted == true) continue;
+
+      // Salta messaggi che sono link (gli attachment sono preview del link)
+      if (message.linkUrl != null && message.linkUrl!.isNotEmpty) continue;
+
       if (message.attachments != null && message.attachments!.isNotEmpty) {
         for (var attachment in message.attachments!) {
-          items.add(_MediaItem(
-            attachment: attachment,
-            message: message,
-          ));
+          if (attachment.type == 'photo' || attachment.type == 'video') {
+            // Escludi le preview dei link (doppia sicurezza)
+            if (!attachment.fileName.startsWith('link_preview_')) {
+              items.add(_MediaItem(attachment: attachment, message: message));
+            }
+          }
         }
       }
     }
+    // Più recenti prima
+    items.sort((a, b) => b.message.timestamp.compareTo(a.message.timestamp));
+    return items;
+  }
 
-    // Ordina per data più vecchia (vecchi in alto, nuovi in basso)
-    items.sort((a, b) => a.message.timestamp.compareTo(b.message.timestamp));
+  /// Ottiene i link dai messaggi (più recenti prima)
+  /// Esclude i messaggi eliminati
+  List<_LinkItem> _getLinkItems(List<Message> messages) {
+    final List<_LinkItem> items = [];
+    for (var message in messages) {
+      // Salta messaggi eliminati
+      if (message.deleted == true) continue;
 
+      if (message.linkUrl != null && message.linkUrl!.isNotEmpty) {
+        items.add(_LinkItem(message: message));
+      }
+    }
+    // Più recenti prima
+    items.sort((a, b) => b.message.timestamp.compareTo(a.message.timestamp));
+    return items;
+  }
+
+  /// Ottiene i documenti dai messaggi (più recenti prima)
+  /// Esclude i messaggi eliminati
+  List<_MediaItem> _getDocumentItems(List<Message> messages) {
+    final List<_MediaItem> items = [];
+    for (var message in messages) {
+      // Salta messaggi eliminati
+      if (message.deleted == true) continue;
+
+      if (message.attachments != null && message.attachments!.isNotEmpty) {
+        for (var attachment in message.attachments!) {
+          if (attachment.type == 'document') {
+            items.add(_MediaItem(attachment: attachment, message: message));
+          }
+        }
+      }
+    }
+    // Più recenti prima
+    items.sort((a, b) => b.message.timestamp.compareTo(a.message.timestamp));
     return items;
   }
 
@@ -66,46 +130,115 @@ class _MediaScreenState extends State<MediaScreen> {
     final chatService = Provider.of<ChatService>(context);
     final messages = chatService.messages;
 
-    final allMedia = _getAllAttachments(messages);
+    final photoItems = _getPhotoItems(messages);
+    final linkItems = _getLinkItems(messages);
+    final documentItems = _getDocumentItems(messages);
 
     return Scaffold(
-      body: allMedia.isEmpty
-          ? Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(
-                    Icons.perm_media_outlined,
-                    size: 64,
-                    color: Colors.grey[400],
-                  ),
-                  const SizedBox(height: 16),
-                  Text(
-                    l10n.mediaNoMedia,
-                    style: TextStyle(
-                      fontSize: 18,
-                      color: Colors.grey[600],
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    l10n.mediaNoMediaDescription,
-                    style: TextStyle(
-                      fontSize: 14,
-                      color: Colors.grey[500],
-                    ),
-                    textAlign: TextAlign.center,
-                  ),
-                ],
-              ),
-            )
-          : _AllMediaList(
-              items: allMedia,
-              currentUserId: _currentUserId,
-              attachmentService: _attachmentService,
-            ),
+      backgroundColor: Colors.grey[50],
+      body: Column(
+        children: [
+          // Spazio per hamburger/ciliegie
+          const SizedBox(height: 100),
+
+          // Tab selector solo icone
+          _buildTabSelector(),
+
+          // Content area (MonthSeparator ha già padding top)
+          Expanded(
+            child: _buildContent(l10n, photoItems, linkItems, documentItems),
+          ),
+        ],
+      ),
     );
+  }
+
+  Widget _buildTabSelector() {
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 80),
+      padding: const EdgeInsets.all(6),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          colors: [MediaColors.tealLight, MediaColors.tealDark],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(30),
+        boxShadow: [
+          BoxShadow(
+            color: MediaColors.tealLight.withOpacity(0.3),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+        children: [
+          // Stesse icone della modale attach
+          _buildTabIcon(0, Icons.photo_library),
+          _buildTabIcon(1, Icons.link_rounded),
+          _buildTabIcon(2, Icons.insert_drive_file),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTabIcon(int index, IconData icon) {
+    final isSelected = _selectedTabIndex == index;
+    return GestureDetector(
+      onTap: () => setState(() => _selectedTabIndex = index),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        width: 48,
+        height: 48,
+        decoration: BoxDecoration(
+          color: isSelected ? Colors.white : Colors.white.withOpacity(0.2),
+          shape: BoxShape.circle,
+          border: isSelected ? null : Border.all(color: Colors.white.withOpacity(0.3)),
+          boxShadow: isSelected
+              ? [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.15),
+                    blurRadius: 4,
+                    offset: const Offset(0, 2),
+                  ),
+                ]
+              : null,
+        ),
+        child: Icon(
+          icon,
+          size: 22,
+          // Selezionato: teal su bianco, non selezionato: bianco su teal
+          color: isSelected ? MediaColors.tealLight : Colors.white,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildContent(AppLocalizations l10n, List<_MediaItem> photoItems, List<_LinkItem> linkItems, List<_MediaItem> documentItems) {
+    switch (_selectedTabIndex) {
+      case 0:
+        return _PhotoGridView(
+          items: photoItems,
+          currentUserId: _currentUserId,
+          attachmentService: _attachmentService,
+        );
+      case 1:
+        return _LinkGridView(
+          items: linkItems,
+          currentUserId: _currentUserId,
+          attachmentService: _attachmentService,
+        );
+      case 2:
+        return _DocumentListView(
+          items: documentItems,
+          currentUserId: _currentUserId,
+          attachmentService: _attachmentService,
+        );
+      default:
+        return const SizedBox.shrink();
+    }
   }
 }
 
@@ -114,184 +247,246 @@ class _MediaItem {
   final Attachment attachment;
   final Message message;
 
-  _MediaItem({
-    required this.attachment,
-    required this.message,
-  });
+  _MediaItem({required this.attachment, required this.message});
 }
 
-/// Lista unificata per tutti i media
-class _AllMediaList extends StatefulWidget {
-  final List<_MediaItem> items;
-  final String? currentUserId;
-  final AttachmentService? attachmentService;
+/// Rappresenta un link item
+class _LinkItem {
+  final Message message;
 
-  const _AllMediaList({
-    required this.items,
-    this.currentUserId,
-    this.attachmentService,
-  });
-
-  @override
-  State<_AllMediaList> createState() => _AllMediaListState();
+  _LinkItem({required this.message});
 }
 
-class _AllMediaListState extends State<_AllMediaList> {
-  final ScrollController _scrollController = ScrollController();
+// ============================================================================
+// DATE SEPARATOR (identico alla chat)
+// ============================================================================
 
-  @override
-  void initState() {
-    super.initState();
-    // Posiziona lo scroll in basso dopo il primo frame
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (_scrollController.hasClients) {
-        _scrollController.jumpTo(_scrollController.position.maxScrollExtent);
-      }
-    });
-  }
+class _MonthSeparator extends StatelessWidget {
+  final String label;
 
-  @override
-  void dispose() {
-    _scrollController.dispose();
-    super.dispose();
-  }
+  const _MonthSeparator({required this.label});
 
   @override
   Widget build(BuildContext context) {
-    // Mostra tutti i media (foto, video, documenti) in un'unica griglia
-    return GridView.builder(
-      controller: _scrollController,
-      padding: const EdgeInsets.all(4),
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 3,
-        crossAxisSpacing: 4,
-        mainAxisSpacing: 4,
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+      child: Row(
+        children: [
+          Expanded(
+            child: Container(
+              height: 1,
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [
+                    Colors.transparent,
+                    Colors.grey[300]!,
+                  ],
+                ),
+              ),
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+              decoration: BoxDecoration(
+                gradient: const LinearGradient(
+                  colors: [
+                    Color(0xFF3BA8B0),
+                    Color(0xFF145A60),
+                  ],
+                ),
+                borderRadius: BorderRadius.circular(16),
+                boxShadow: [
+                  BoxShadow(
+                    color: const Color(0xFF3BA8B0).withOpacity(0.3),
+                    blurRadius: 8,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(
+                    Icons.flag_rounded,
+                    size: 14,
+                    color: Colors.white,
+                  ),
+                  const SizedBox(width: 6),
+                  Text(
+                    label,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      letterSpacing: 0.5,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          Expanded(
+            child: Container(
+              height: 1,
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [
+                    Colors.grey[300]!,
+                    Colors.transparent,
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ],
       ),
-      itemCount: widget.items.length,
-      itemBuilder: (context, index) {
-        final item = widget.items[index];
-        final type = item.attachment.type;
-
-        // Renderizza in base al tipo
-        if (type == 'photo' || type == 'video') {
-          return _MediaGridItem(
-            item: item,
-            isVideo: type == 'video',
-            currentUserId: widget.currentUserId,
-            attachmentService: widget.attachmentService,
-          );
-        } else if (type == 'document') {
-          return _DocumentGridItem(
-            item: item,
-            currentUserId: widget.currentUserId,
-            attachmentService: widget.attachmentService,
-          );
-        }
-
-        return const SizedBox.shrink();
-      },
     );
   }
 }
 
-/// Griglia per foto e video (cifrati)
-class _MediaGrid extends StatelessWidget {
+// ============================================================================
+// VISTA FOTO (GRIGLIA)
+// ============================================================================
+
+class _PhotoGridView extends StatelessWidget {
   final List<_MediaItem> items;
-  final String type;
   final String? currentUserId;
   final AttachmentService? attachmentService;
 
-  const _MediaGrid({
+  const _PhotoGridView({
     required this.items,
-    required this.type,
     this.currentUserId,
     this.attachmentService,
   });
+
+  /// Raggruppa gli items per mese/anno (più recenti prima)
+  Map<String, List<_MediaItem>> _groupByMonth(List<_MediaItem> items) {
+    final Map<String, List<_MediaItem>> grouped = {};
+    for (var item in items) {
+      final key = DateFormat('MMMM yyyy', 'it').format(item.message.timestamp);
+      grouped.putIfAbsent(key, () => []);
+      grouped[key]!.add(item);
+    }
+    return grouped;
+  }
 
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
+
     if (items.isEmpty) {
-      return Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(
-              type == 'photo' ? Icons.photo_library_outlined : Icons.videocam_outlined,
-              size: 64,
-              color: Colors.grey[400],
-            ),
-            const SizedBox(height: 16),
-            Text(
-              type == 'photo' ? l10n.mediaNoPhotos : l10n.mediaNoVideos,
-              style: TextStyle(
-                fontSize: 18,
-                color: Colors.grey[600],
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              l10n.mediaNoPhotosDescription,
-              style: TextStyle(
-                fontSize: 14,
-                color: Colors.grey[500],
-              ),
-              textAlign: TextAlign.center,
-            ),
-          ],
-        ),
-      );
+      return _buildEmptyState(l10n.mediaNoPhotos, l10n.mediaNoPhotosDescription, Icons.photo_library_outlined);
     }
 
-    return GridView.builder(
-      padding: const EdgeInsets.all(4),
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 3,
-        crossAxisSpacing: 4,
-        mainAxisSpacing: 4,
-      ),
-      itemCount: items.length,
+    final groupedItems = _groupByMonth(items);
+    final months = groupedItems.keys.toList();
+
+    return ListView.builder(
+      padding: const EdgeInsets.only(left: 8, right: 8, bottom: 8),
+      itemCount: months.length,
       itemBuilder: (context, index) {
-        final item = items[index];
-        return _MediaGridItem(
-          item: item,
-          isVideo: type == 'video',
-          currentUserId: currentUserId,
-          attachmentService: attachmentService,
+        final month = months[index];
+        final monthItems = groupedItems[month]!;
+
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _MonthSeparator(label: month),
+            GridView.builder(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              padding: EdgeInsets.zero, // Rimuove padding default della GridView
+              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: 3,
+                crossAxisSpacing: 4,
+                mainAxisSpacing: 4,
+              ),
+              itemCount: monthItems.length,
+              itemBuilder: (context, itemIndex) {
+                final item = monthItems[itemIndex];
+                final isMine = item.message.senderId == currentUserId;
+                return _PhotoGridItem(
+                  item: item,
+                  isVideo: item.attachment.type == 'video',
+                  isMine: isMine,
+                  currentUserId: currentUserId,
+                  attachmentService: attachmentService,
+                );
+              },
+            ),
+          ],
         );
       },
     );
   }
+
+  Widget _buildEmptyState(String title, String description, IconData icon) {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Container(
+            padding: const EdgeInsets.all(24),
+            decoration: BoxDecoration(
+              color: MediaColors.tealLight.withOpacity(0.1),
+              shape: BoxShape.circle,
+            ),
+            child: Icon(icon, size: 48, color: MediaColors.tealLight),
+          ),
+          const SizedBox(height: 20),
+          Text(
+            title,
+            style: const TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.w600,
+              color: MediaColors.tealDark,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            description,
+            style: TextStyle(fontSize: 14, color: Colors.grey[600]),
+            textAlign: TextAlign.center,
+          ),
+        ],
+      ),
+    );
+  }
 }
 
-/// Singolo elemento della griglia (foto/video cifrato)
-class _MediaGridItem extends StatelessWidget {
+class _PhotoGridItem extends StatelessWidget {
   final _MediaItem item;
   final bool isVideo;
+  final bool isMine;
   final String? currentUserId;
   final AttachmentService? attachmentService;
 
-  const _MediaGridItem({
+  const _PhotoGridItem({
     required this.item,
     required this.isVideo,
+    required this.isMine,
     this.currentUserId,
     this.attachmentService,
   });
 
   @override
   Widget build(BuildContext context) {
-    // Se attachmentService non è disponibile, mostra un placeholder
     if (attachmentService == null) {
       return Container(
-        color: Colors.grey[200],
+        decoration: BoxDecoration(
+          color: Colors.grey[200],
+          borderRadius: BorderRadius.circular(8),
+        ),
         child: const Center(child: Icon(Icons.error, color: Colors.grey)),
       );
     }
 
+    final badgeColor = isMine ? MediaColors.mine : MediaColors.theirs;
+
     return GestureDetector(
       onTap: () {
-        // Apri fullscreen viewer solo per foto
         if (!isVideo && attachmentService != null) {
           Navigator.of(context).push(
             MaterialPageRoute(
@@ -305,292 +500,477 @@ class _MediaGridItem extends StatelessWidget {
           );
         }
       },
-      child: Stack(
-        fit: StackFit.expand,
-        children: [
-          FutureBuilder<Uint8List?>(
-            future: attachmentService!.downloadAndDecryptAttachment(
-              item.attachment,
-              currentUserId ?? '',
-              item.message.senderId,
-              useThumbnail: true, // Usa thumbnail per performance nella griglia
-            ),
-            builder: (context, snapshot) {
-              if (snapshot.connectionState == ConnectionState.waiting) {
-                return Container(
-                  color: Colors.grey[200],
-                  child: const Center(
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  ),
-                );
-              }
-
-              if (snapshot.hasError || !snapshot.hasData || snapshot.data == null) {
-                return Container(
-                  color: Colors.grey[300],
-                  child: const Center(
-                    child: Icon(Icons.error, color: Colors.red, size: 24),
-                  ),
-                );
-              }
-
-              return Image.memory(
-                snapshot.data!,
-                fit: BoxFit.cover,
-              );
-            },
-          ),
-          if (isVideo)
-            Container(
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                  colors: [
-                    Colors.transparent,
-                    Colors.black.withOpacity(0.3),
-                  ],
-                ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(8),
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            FutureBuilder<Uint8List?>(
+              future: attachmentService!.downloadAndDecryptAttachment(
+                item.attachment,
+                currentUserId ?? '',
+                item.message.senderId,
+                useThumbnail: true,
               ),
-              child: const Align(
-                alignment: Alignment.center,
-                child: Icon(
-                  Icons.play_circle_outline,
-                  color: Colors.white,
-                  size: 40,
-                ),
-              ),
-            ),
-          // Data in basso a destra
-          Positioned(
-            bottom: 4,
-            right: 4,
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-              decoration: BoxDecoration(
-                color: Colors.black.withOpacity(0.6),
-                borderRadius: BorderRadius.circular(4),
-              ),
-              child: Text(
-                DateFormat('dd/MM').format(item.message.timestamp),
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 10,
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-/// Singolo elemento della griglia per documenti (cifrato)
-class _DocumentGridItem extends StatelessWidget {
-  final _MediaItem item;
-  final String? currentUserId;
-  final AttachmentService? attachmentService;
-
-  const _DocumentGridItem({
-    required this.item,
-    this.currentUserId,
-    this.attachmentService,
-  });
-
-  String _getFileExtension(String fileName) {
-    final parts = fileName.split('.');
-    return parts.length > 1 ? parts.last.toUpperCase() : 'FILE';
-  }
-
-  Color _getFileColor(String fileName) {
-    final ext = _getFileExtension(fileName).toLowerCase();
-    switch (ext) {
-      case 'pdf':
-        return Colors.red;
-      case 'doc':
-      case 'docx':
-        return Colors.blue;
-      case 'xls':
-      case 'xlsx':
-        return Colors.green;
-      case 'ppt':
-      case 'pptx':
-        return Colors.orange;
-      default:
-        return Colors.grey;
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final fileExtension = _getFileExtension(item.attachment.fileName);
-    final fileColor = _getFileColor(item.attachment.fileName);
-
-    return GestureDetector(
-      onTap: () {
-        if (attachmentService == null) return;
-
-        // Check if it's a PDF - open with integrated viewer
-        final isPdf = item.attachment.fileName.toLowerCase().endsWith('.pdf');
-
-        if (isPdf) {
-          // Open PDF with integrated viewer
-          Navigator.of(context).push(
-            MaterialPageRoute(
-              builder: (context) => PdfViewerScreen(
-                attachment: item.attachment,
-                attachmentService: attachmentService!,
-                currentUserId: currentUserId,
-                senderId: item.message.senderId,
-              ),
-            ),
-          );
-        } else {
-          // For non-PDF documents, show a message
-          final l10n = AppLocalizations.of(context)!;
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(l10n.mediaDocumentOpenHint),
-            ),
-          );
-        }
-      },
-      child: Stack(
-        fit: StackFit.expand,
-        children: [
-          // Background con colore del tipo di file
-          Container(
-            decoration: BoxDecoration(
-              color: fileColor.withOpacity(0.1),
-              border: Border.all(color: fileColor.withOpacity(0.3)),
-            ),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(
-                  Icons.insert_drive_file,
-                  color: fileColor,
-                  size: 48,
-                ),
-                const SizedBox(height: 4),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                  decoration: BoxDecoration(
-                    color: fileColor,
-                    borderRadius: BorderRadius.circular(4),
-                  ),
-                  child: Text(
-                    fileExtension,
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 10,
-                      fontWeight: FontWeight.bold,
+              builder: (context, snapshot) {
+                if (snapshot.connectionState == ConnectionState.waiting) {
+                  return Container(
+                    color: Colors.grey[200],
+                    child: Center(
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: badgeColor,
+                      ),
                     ),
+                  );
+                }
+
+                if (snapshot.hasError || !snapshot.hasData || snapshot.data == null) {
+                  return Container(
+                    color: Colors.grey[300],
+                    child: const Center(
+                      child: Icon(Icons.error, color: Colors.red, size: 24),
+                    ),
+                  );
+                }
+
+                return Image.memory(snapshot.data!, fit: BoxFit.cover);
+              },
+            ),
+            if (isVideo)
+              Container(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [Colors.transparent, Colors.black.withOpacity(0.4)],
                   ),
                 ),
-              ],
-            ),
-          ),
-          // Data in basso a destra
-          Positioned(
-            bottom: 4,
-            right: 4,
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-              decoration: BoxDecoration(
-                color: Colors.black.withOpacity(0.6),
-                borderRadius: BorderRadius.circular(4),
+                child: const Center(
+                  child: Icon(Icons.play_circle_filled, color: Colors.white, size: 36),
+                ),
               ),
-              child: Text(
-                DateFormat('dd/MM').format(item.message.timestamp),
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 10,
-                  fontWeight: FontWeight.w500,
+            // Data badge con colore mio/tuo
+            Positioned(
+              bottom: 4,
+              right: 4,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                decoration: BoxDecoration(
+                  color: badgeColor.withOpacity(0.9),
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: Text(
+                  DateFormat('dd/MM').format(item.message.timestamp),
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 9,
+                    fontWeight: FontWeight.w500,
+                  ),
                 ),
               ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
 }
 
-/// Lista per documenti (cifrati)
-class _MediaList extends StatelessWidget {
-  final List<_MediaItem> items;
+// ============================================================================
+// VISTA LINK (GRIGLIA MASONRY STILE PINTEREST)
+// ============================================================================
+
+class _LinkGridView extends StatelessWidget {
+  final List<_LinkItem> items;
   final String? currentUserId;
   final AttachmentService? attachmentService;
 
-  const _MediaList({
+  const _LinkGridView({
     required this.items,
     this.currentUserId,
     this.attachmentService,
   });
 
+  Map<String, List<_LinkItem>> _groupByMonth(List<_LinkItem> items) {
+    final Map<String, List<_LinkItem>> grouped = {};
+    for (var item in items) {
+      final key = DateFormat('MMMM yyyy', 'it').format(item.message.timestamp);
+      grouped.putIfAbsent(key, () => []);
+      grouped[key]!.add(item);
+    }
+    return grouped;
+  }
+
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
+
     if (items.isEmpty) {
-      return Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(
-              Icons.insert_drive_file_outlined,
-              size: 64,
-              color: Colors.grey[400],
-            ),
-            const SizedBox(height: 16),
-            Text(
-              l10n.mediaNoDocuments,
-              style: TextStyle(
-                fontSize: 18,
-                color: Colors.grey[600],
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              l10n.mediaNoDocumentsDescription,
-              style: TextStyle(
-                fontSize: 14,
-                color: Colors.grey[500],
-              ),
-              textAlign: TextAlign.center,
-            ),
-          ],
-        ),
-      );
+      return _buildEmptyState(l10n.mediaNoLinks, l10n.mediaNoLinksDescription, Icons.link_off_rounded);
     }
 
-    return ListView.separated(
-      padding: const EdgeInsets.all(16),
-      itemCount: items.length,
-      separatorBuilder: (context, index) => const SizedBox(height: 12),
+    final groupedItems = _groupByMonth(items);
+    final months = groupedItems.keys.toList();
+
+    return ListView.builder(
+      padding: const EdgeInsets.only(left: 8, right: 8, bottom: 16),
+      itemCount: months.length,
       itemBuilder: (context, index) {
-        final item = items[index];
-        return _DocumentListItem(
-          item: item,
-          currentUserId: currentUserId,
-          attachmentService: attachmentService,
+        final month = months[index];
+        final monthItems = groupedItems[month]!;
+
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _MonthSeparator(label: month),
+            // Griglia masonry con 2 colonne
+            MasonryGridView.count(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              padding: EdgeInsets.zero,
+              crossAxisCount: 2,
+              mainAxisSpacing: 8,
+              crossAxisSpacing: 8,
+              itemCount: monthItems.length,
+              itemBuilder: (context, itemIndex) {
+                final item = monthItems[itemIndex];
+                return _LinkGridItem(
+                  item: item,
+                  isMine: item.message.senderId == currentUserId,
+                  attachmentService: attachmentService,
+                  currentUserId: currentUserId,
+                );
+              },
+            ),
+          ],
         );
       },
     );
   }
+
+  Widget _buildEmptyState(String title, String description, IconData icon) {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Container(
+            padding: const EdgeInsets.all(24),
+            decoration: BoxDecoration(
+              color: MediaColors.tealLight.withOpacity(0.1),
+              shape: BoxShape.circle,
+            ),
+            child: Icon(icon, size: 48, color: MediaColors.tealLight),
+          ),
+          const SizedBox(height: 20),
+          Text(
+            title,
+            style: const TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.w600,
+              color: MediaColors.tealDark,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            description,
+            style: TextStyle(fontSize: 14, color: Colors.grey[600]),
+            textAlign: TextAlign.center,
+          ),
+        ],
+      ),
+    );
+  }
 }
 
-/// Singolo elemento della lista documenti (cifrato)
+class _LinkGridItem extends StatelessWidget {
+  final _LinkItem item;
+  final bool isMine;
+  final AttachmentService? attachmentService;
+  final String? currentUserId;
+
+  const _LinkGridItem({
+    required this.item,
+    required this.isMine,
+    this.attachmentService,
+    this.currentUserId,
+  });
+
+  String _getDomain(String url) {
+    try {
+      final uri = Uri.parse(url);
+      return uri.host.replaceAll('www.', '');
+    } catch (e) {
+      return url;
+    }
+  }
+
+  Future<void> _openLink(BuildContext context, String url) async {
+    final uri = Uri.parse(url);
+    if (await canLaunchUrl(uri)) {
+      await launchUrl(uri, mode: LaunchMode.externalApplication);
+    }
+  }
+
+  /// Cerca la thumbnail del link tra gli attachment del messaggio
+  Attachment? _findLinkThumbnail() {
+    if (item.message.attachments == null) return null;
+    for (var attachment in item.message.attachments!) {
+      if (attachment.fileName.startsWith('link_preview_') && attachment.type == 'photo') {
+        return attachment;
+      }
+    }
+    return null;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final url = item.message.linkUrl ?? '';
+    final title = item.message.linkTitle ?? _getDomain(url);
+    final description = item.message.linkDescription;
+    final domain = _getDomain(url);
+    final accentColor = isMine ? MediaColors.mine : MediaColors.theirs;
+    final thumbnail = _findLinkThumbnail();
+
+    return GestureDetector(
+      onTap: () => _openLink(context, url),
+      child: Container(
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: accentColor.withOpacity(0.3), width: 1.5),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.06),
+              blurRadius: 6,
+              offset: const Offset(0, 2),
+            ),
+          ],
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Thumbnail (se disponibile)
+            if (thumbnail != null && attachmentService != null)
+              ClipRRect(
+                borderRadius: const BorderRadius.vertical(top: Radius.circular(11)),
+                child: FutureBuilder<Uint8List?>(
+                  future: attachmentService!.downloadAndDecryptAttachment(
+                    thumbnail,
+                    currentUserId ?? '',
+                    item.message.senderId,
+                    useThumbnail: true,
+                  ),
+                  builder: (context, snapshot) {
+                    if (snapshot.connectionState == ConnectionState.waiting) {
+                      return Container(
+                        height: 100,
+                        color: accentColor.withOpacity(0.1),
+                        child: Center(
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: accentColor,
+                          ),
+                        ),
+                      );
+                    }
+
+                    if (snapshot.hasData && snapshot.data != null) {
+                      return Image.memory(
+                        snapshot.data!,
+                        width: double.infinity,
+                        fit: BoxFit.cover,
+                      );
+                    }
+
+                    // Fallback: icona link se non c'è thumbnail
+                    return Container(
+                      height: 80,
+                      color: accentColor.withOpacity(0.1),
+                      child: Center(
+                        child: Icon(Icons.link_rounded, color: accentColor, size: 32),
+                      ),
+                    );
+                  },
+                ),
+              )
+            else
+              // Nessuna thumbnail: mostra icona link
+              ClipRRect(
+                borderRadius: const BorderRadius.vertical(top: Radius.circular(11)),
+                child: Container(
+                  height: 60,
+                  color: accentColor.withOpacity(0.1),
+                  child: Center(
+                    child: Icon(Icons.link_rounded, color: accentColor, size: 28),
+                  ),
+                ),
+              ),
+
+            // Contenuto testuale
+            Padding(
+              padding: const EdgeInsets.all(10),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Titolo
+                  Text(
+                    title,
+                    style: TextStyle(
+                      fontWeight: FontWeight.w600,
+                      fontSize: 13,
+                      color: Colors.grey[800],
+                    ),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+
+                  // Descrizione (se presente)
+                  if (description != null && description.isNotEmpty) ...[
+                    const SizedBox(height: 4),
+                    Text(
+                      description,
+                      style: TextStyle(fontSize: 11, color: Colors.grey[600]),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
+
+                  const SizedBox(height: 6),
+
+                  // Dominio + data
+                  Row(
+                    children: [
+                      Icon(Icons.public, size: 10, color: accentColor),
+                      const SizedBox(width: 3),
+                      Expanded(
+                        child: Text(
+                          domain,
+                          style: TextStyle(fontSize: 10, color: accentColor, fontWeight: FontWeight.w500),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      Text(
+                        DateFormat('dd/MM').format(item.message.timestamp),
+                        style: TextStyle(fontSize: 9, color: Colors.grey[500]),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ============================================================================
+// VISTA DOCUMENTI (LISTA)
+// ============================================================================
+
+class _DocumentListView extends StatelessWidget {
+  final List<_MediaItem> items;
+  final String? currentUserId;
+  final AttachmentService? attachmentService;
+
+  const _DocumentListView({
+    required this.items,
+    this.currentUserId,
+    this.attachmentService,
+  });
+
+  Map<String, List<_MediaItem>> _groupByMonth(List<_MediaItem> items) {
+    final Map<String, List<_MediaItem>> grouped = {};
+    for (var item in items) {
+      final key = DateFormat('MMMM yyyy', 'it').format(item.message.timestamp);
+      grouped.putIfAbsent(key, () => []);
+      grouped[key]!.add(item);
+    }
+    return grouped;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
+
+    if (items.isEmpty) {
+      return _buildEmptyState(l10n.mediaNoDocuments, l10n.mediaNoDocumentsDescription, Icons.description_outlined);
+    }
+
+    final groupedItems = _groupByMonth(items);
+    final months = groupedItems.keys.toList();
+
+    return ListView.builder(
+      padding: const EdgeInsets.only(left: 16, right: 16, bottom: 16),
+      itemCount: months.length,
+      itemBuilder: (context, index) {
+        final month = months[index];
+        final monthItems = groupedItems[month]!;
+
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _MonthSeparator(label: month),
+            ...monthItems.map((item) => Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: _DocumentListItem(
+                item: item,
+                isMine: item.message.senderId == currentUserId,
+                currentUserId: currentUserId,
+                attachmentService: attachmentService,
+              ),
+            )),
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _buildEmptyState(String title, String description, IconData icon) {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Container(
+            padding: const EdgeInsets.all(24),
+            decoration: BoxDecoration(
+              color: MediaColors.tealLight.withOpacity(0.1),
+              shape: BoxShape.circle,
+            ),
+            child: Icon(icon, size: 48, color: MediaColors.tealLight),
+          ),
+          const SizedBox(height: 20),
+          Text(
+            title,
+            style: const TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.w600,
+              color: MediaColors.tealDark,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            description,
+            style: TextStyle(fontSize: 14, color: Colors.grey[600]),
+            textAlign: TextAlign.center,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _DocumentListItem extends StatelessWidget {
   final _MediaItem item;
+  final bool isMine;
   final String? currentUserId;
   final AttachmentService? attachmentService;
 
   const _DocumentListItem({
     required this.item,
+    required this.isMine,
     this.currentUserId,
     this.attachmentService,
   });
@@ -598,25 +978,6 @@ class _DocumentListItem extends StatelessWidget {
   String _getFileExtension(String fileName) {
     final parts = fileName.split('.');
     return parts.length > 1 ? parts.last.toUpperCase() : 'FILE';
-  }
-
-  Color _getFileColor(String fileName) {
-    final ext = _getFileExtension(fileName).toLowerCase();
-    switch (ext) {
-      case 'pdf':
-        return Colors.red;
-      case 'doc':
-      case 'docx':
-        return Colors.blue;
-      case 'xls':
-      case 'xlsx':
-        return Colors.green;
-      case 'ppt':
-      case 'pptx':
-        return Colors.orange;
-      default:
-        return Colors.grey;
-    }
   }
 
   String _formatFileSize(int bytes) {
@@ -632,44 +993,44 @@ class _DocumentListItem extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final fileExtension = _getFileExtension(item.attachment.fileName);
-    final fileColor = _getFileColor(item.attachment.fileName);
+    final accentColor = isMine ? MediaColors.mine : MediaColors.theirs;
 
-    return InkWell(
-      onTap: () {
-        // TODO: Apri documento
-      },
-      borderRadius: BorderRadius.circular(12),
+    return GestureDetector(
+      onTap: () => _openDocument(context),
       child: Container(
         padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
-          color: Colors.grey[100],
+          color: Colors.white,
           borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: Colors.grey[300]!),
+          border: Border.all(color: accentColor.withOpacity(0.3), width: 1.5),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.04),
+              blurRadius: 4,
+              offset: const Offset(0, 2),
+            ),
+          ],
         ),
         child: Row(
           children: [
-            // Icona del file con estensione
+            // Icona documento - colore verde (mio) o grigio (suo)
             Container(
-              width: 56,
-              height: 56,
+              width: 44,
+              height: 44,
               decoration: BoxDecoration(
-                color: fileColor.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(8),
+                color: accentColor.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: accentColor.withOpacity(0.3)),
               ),
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Icon(
-                    Icons.insert_drive_file,
-                    color: fileColor,
-                    size: 24,
-                  ),
-                  const SizedBox(height: 2),
+                  Icon(Icons.description, color: accentColor, size: 18),
                   Text(
                     fileExtension,
                     style: TextStyle(
-                      color: fileColor,
-                      fontSize: 10,
+                      color: accentColor,
+                      fontSize: 7,
                       fontWeight: FontWeight.bold,
                     ),
                   ),
@@ -677,42 +1038,43 @@ class _DocumentListItem extends StatelessWidget {
               ),
             ),
             const SizedBox(width: 12),
-            // Info file
+            // Info documento
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
                     item.attachment.fileName,
-                    style: const TextStyle(
-                      fontWeight: FontWeight.w500,
-                      fontSize: 15,
+                    style: TextStyle(
+                      fontWeight: FontWeight.w600,
+                      fontSize: 14,
+                      color: Colors.grey[800],
                     ),
-                    maxLines: 2,
+                    maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
                   const SizedBox(height: 4),
                   Row(
                     children: [
-                      Text(
-                        _formatFileSize(item.attachment.fileSize),
-                        style: TextStyle(
-                          color: Colors.grey[600],
-                          fontSize: 13,
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                        decoration: BoxDecoration(
+                          color: accentColor.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: Text(
+                          _formatFileSize(item.attachment.fileSize),
+                          style: TextStyle(fontSize: 10, color: accentColor, fontWeight: FontWeight.w500),
                         ),
                       ),
                       const SizedBox(width: 8),
+                      Icon(Icons.lock_outline, size: 10, color: Colors.grey[500]),
+                      const SizedBox(width: 2),
+                      Text('E2E', style: TextStyle(fontSize: 10, color: Colors.grey[500])),
+                      const Spacer(),
                       Text(
-                        '•',
-                        style: TextStyle(color: Colors.grey[400]),
-                      ),
-                      const SizedBox(width: 8),
-                      Text(
-                        DateFormat('dd/MM/yyyy').format(item.message.timestamp),
-                        style: TextStyle(
-                          color: Colors.grey[600],
-                          fontSize: 13,
-                        ),
+                        DateFormat('dd/MM').format(item.message.timestamp),
+                        style: TextStyle(fontSize: 10, color: Colors.grey[500]),
                       ),
                     ],
                   ),
@@ -720,19 +1082,164 @@ class _DocumentListItem extends StatelessWidget {
               ),
             ),
             const SizedBox(width: 8),
-            // Icona download
-            Icon(
-              Icons.file_download_outlined,
-              color: Colors.grey[600],
+            // Bottone condividi
+            GestureDetector(
+              onTap: () => _shareDocument(context),
+              child: Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: accentColor.withOpacity(0.1),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(platformShareIcon, color: accentColor, size: 18),
+              ),
             ),
           ],
         ),
       ),
     );
   }
+
+  Future<void> _shareDocument(BuildContext context) async {
+    if (attachmentService == null) return;
+    final l10n = AppLocalizations.of(context)!;
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Row(
+          children: [
+            const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white)),
+            const SizedBox(width: 12),
+            Text(l10n.mediaDownloadingDocument),
+          ],
+        ),
+        backgroundColor: MediaColors.tealLight,
+        duration: const Duration(seconds: 10),
+      ),
+    );
+
+    try {
+      final bytes = await attachmentService!.downloadAndDecryptAttachment(
+        item.attachment,
+        currentUserId ?? '',
+        item.message.senderId,
+      );
+
+      if (bytes == null) {
+        ScaffoldMessenger.of(context).hideCurrentSnackBar();
+        return;
+      }
+
+      final tempDir = await getTemporaryDirectory();
+      final tempFile = File('${tempDir.path}/${item.attachment.fileName}');
+      await tempFile.writeAsBytes(bytes);
+
+      ScaffoldMessenger.of(context).hideCurrentSnackBar();
+
+      await Share.shareXFiles([XFile(tempFile.path)], text: item.attachment.fileName);
+    } catch (e) {
+      ScaffoldMessenger.of(context).hideCurrentSnackBar();
+    }
+  }
+
+  Future<void> _openDocument(BuildContext context) async {
+    if (attachmentService == null) return;
+
+    final isPdf = item.attachment.fileName.toLowerCase().endsWith('.pdf');
+
+    if (isPdf) {
+      // PDF: apri con viewer interno
+      Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (context) => PdfViewerScreen(
+            attachment: item.attachment,
+            attachmentService: attachmentService!,
+            currentUserId: currentUserId,
+            senderId: item.message.senderId,
+          ),
+        ),
+      );
+    } else {
+      // Altri documenti: scarica e apri con app esterna
+      await _downloadAndOpenWithExternalApp(context);
+    }
+  }
+
+  Future<void> _downloadAndOpenWithExternalApp(BuildContext context) async {
+    final l10n = AppLocalizations.of(context)!;
+
+    // Mostra loading
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Row(
+          children: [
+            const SizedBox(
+              width: 16,
+              height: 16,
+              child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+            ),
+            const SizedBox(width: 12),
+            Text(l10n.mediaDownloadingDocument),
+          ],
+        ),
+        backgroundColor: MediaColors.tealLight,
+        duration: const Duration(seconds: 10),
+      ),
+    );
+
+    try {
+      // Scarica e decripta il file
+      final bytes = await attachmentService!.downloadAndDecryptAttachment(
+        item.attachment,
+        currentUserId ?? '',
+        item.message.senderId,
+      );
+
+      if (bytes == null) {
+        ScaffoldMessenger.of(context).hideCurrentSnackBar();
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(l10n.mediaDocumentDownloadError),
+            backgroundColor: Colors.red,
+          ),
+        );
+        return;
+      }
+
+      // Salva in file temporaneo
+      final tempDir = await getTemporaryDirectory();
+      final tempFile = File('${tempDir.path}/${item.attachment.fileName}');
+      await tempFile.writeAsBytes(bytes);
+
+      ScaffoldMessenger.of(context).hideCurrentSnackBar();
+
+      // Apri con app esterna usando open_filex
+      final result = await OpenFilex.open(tempFile.path);
+
+      if (result.type != ResultType.done) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(l10n.mediaNoAppForDocument),
+            backgroundColor: Colors.orange,
+          ),
+        );
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).hideCurrentSnackBar();
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(l10n.mediaDocumentOpenError),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
 }
 
-/// Widget per visualizzare immagine a schermo intero con zoom
+// ============================================================================
+// FULLSCREEN IMAGE VIEWER
+// ============================================================================
+
 class _FullscreenImageViewer extends StatefulWidget {
   final Attachment attachment;
   final AttachmentService attachmentService;
@@ -763,142 +1270,168 @@ class _FullscreenImageViewerState extends State<_FullscreenImageViewer> {
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
     return Scaffold(
-      backgroundColor: Colors.black,
-      body: GestureDetector(
-        onTap: _toggleOverlay,
-        child: Stack(
-          children: [
-            // Immagine full screen con zoom
-            Center(
-              child: FutureBuilder<Uint8List?>(
-                future: widget.attachmentService.downloadAndDecryptAttachment(
-                  widget.attachment,
-                  widget.currentUserId ?? '',
-                  widget.senderId ?? '',
-                  useThumbnail: false, // Carica immagine FULL RESOLUTION
-                ),
-                builder: (context, snapshot) {
-                  if (snapshot.connectionState == ConnectionState.waiting) {
-                    // Loading
-                    return Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        const CircularProgressIndicator(color: Colors.white),
-                        const SizedBox(height: 16),
-                        Text(
-                          l10n.mediaLoadingImage,
-                          style: const TextStyle(color: Colors.white70),
-                        ),
-                      ],
-                    );
-                  }
-
-                  if (snapshot.hasError || !snapshot.hasData || snapshot.data == null) {
-                    // Errore
-                    return Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        const Icon(Icons.error, color: Colors.red, size: 64),
-                        const SizedBox(height: 16),
-                        Text(
-                          l10n.mediaImageLoadError,
-                          style: const TextStyle(color: Colors.white70),
-                        ),
-                      ],
-                    );
-                  }
-
-                  // Immagine decifrata con zoom
-                  return InteractiveViewer(
-                    minScale: 0.5,
-                    maxScale: 4.0,
-                    child: Image.memory(
-                      snapshot.data!,
-                      fit: BoxFit.contain,
-                    ),
-                  );
-                },
-              ),
-            ),
-
-            // Overlay con animazione fade (pulsante chiudi in alto a destra)
-            AnimatedOpacity(
-              opacity: _showOverlay ? 1.0 : 0.0,
-              duration: const Duration(milliseconds: 200),
-              child: SafeArea(
-                child: Align(
-                  alignment: Alignment.topRight,
-                  child: Padding(
-                    padding: const EdgeInsets.all(16),
-                    child: IconButton(
-                      icon: const Icon(Icons.close, color: Colors.white, size: 32),
-                      onPressed: () => Navigator.of(context).pop(),
-                      style: IconButton.styleFrom(
-                        backgroundColor: Colors.black.withOpacity(0.5),
-                      ),
-                    ),
+      extendBodyBehindAppBar: true,
+      backgroundColor: Colors.transparent,
+      appBar: AppBar(
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        leading: IconButton(
+          icon: const Icon(Icons.close, color: Colors.white),
+          onPressed: () => Navigator.pop(context),
+        ),
+        actions: [
+          IconButton(
+            icon: Icon(platformShareIcon, color: Colors.white),
+            onPressed: () => _shareImage(context),
+          ),
+        ],
+      ),
+      body: Container(
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [
+              MediaColors.tealLight,
+              MediaColors.tealDark,
+            ],
+          ),
+        ),
+        child: GestureDetector(
+          onTap: _toggleOverlay,
+          child: Stack(
+            children: [
+              Center(
+                child: FutureBuilder<Uint8List?>(
+                  future: widget.attachmentService.downloadAndDecryptAttachment(
+                    widget.attachment,
+                    widget.currentUserId ?? '',
+                    widget.senderId ?? '',
+                    useThumbnail: false,
                   ),
+                  builder: (context, snapshot) {
+                    if (snapshot.connectionState == ConnectionState.waiting) {
+                      return Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          const CircularProgressIndicator(color: Colors.white),
+                          const SizedBox(height: 16),
+                          Text(l10n.mediaLoadingImage, style: const TextStyle(color: Colors.white70)),
+                        ],
+                      );
+                    }
+
+                    if (snapshot.hasError || !snapshot.hasData || snapshot.data == null) {
+                      return Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          const Icon(Icons.error, color: Colors.white, size: 64),
+                          const SizedBox(height: 16),
+                          Text(l10n.mediaImageLoadError, style: const TextStyle(color: Colors.white70)),
+                        ],
+                      );
+                    }
+
+                    return InteractiveViewer(
+                      minScale: 0.5,
+                      maxScale: 4.0,
+                      child: Image.memory(snapshot.data!, fit: BoxFit.contain),
+                    );
+                  },
                 ),
               ),
-            ),
 
-            // Overlay con animazione fade (info file in basso)
-            AnimatedOpacity(
-              opacity: _showOverlay ? 1.0 : 0.0,
-              duration: const Duration(milliseconds: 200),
-              child: SafeArea(
-                child: Align(
-                  alignment: Alignment.bottomCenter,
-                  child: Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        begin: Alignment.bottomCenter,
-                        end: Alignment.topCenter,
-                        colors: [
-                          Colors.black.withOpacity(0.7),
-                          Colors.transparent,
+              // Bottom info
+              AnimatedOpacity(
+                opacity: _showOverlay ? 1.0 : 0.0,
+                duration: const Duration(milliseconds: 200),
+                child: SafeArea(
+                  child: Align(
+                    alignment: Alignment.bottomCenter,
+                    child: Container(
+                      margin: const EdgeInsets.symmetric(horizontal: 32, vertical: 24),
+                      padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 24),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withOpacity(0.15),
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(
+                          color: Colors.white.withOpacity(0.2),
+                          width: 1,
+                        ),
+                      ),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            widget.attachment.fileName,
+                            style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w500),
+                            textAlign: TextAlign.center,
+                          ),
+                          const SizedBox(height: 4),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              const Icon(Icons.lock, color: Colors.white70, size: 14),
+                              const SizedBox(width: 4),
+                              Text(
+                                '${l10n.mediaEncryptedE2E} • ${_formatFileSize(widget.attachment.fileSize)}',
+                                style: const TextStyle(color: Colors.white70, fontSize: 12),
+                              ),
+                            ],
+                          ),
                         ],
                       ),
                     ),
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text(
-                          widget.attachment.fileName,
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 14,
-                            fontWeight: FontWeight.w500,
-                          ),
-                          textAlign: TextAlign.center,
-                        ),
-                        const SizedBox(height: 4),
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            const Icon(Icons.lock, color: Colors.white70, size: 14),
-                            const SizedBox(width: 4),
-                            Text(
-                              '${l10n.mediaEncryptedE2E} • ${_formatFileSize(widget.attachment.fileSize)}',
-                              style: const TextStyle(
-                                color: Colors.white70,
-                                fontSize: 12,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ],
-                    ),
                   ),
                 ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
+  }
+
+  Future<void> _shareImage(BuildContext context) async {
+    final l10n = AppLocalizations.of(context)!;
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Row(
+          children: [
+            const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white)),
+            const SizedBox(width: 12),
+            Text(l10n.mediaDownloadingDocument),
+          ],
+        ),
+        backgroundColor: MediaColors.tealLight,
+        duration: const Duration(seconds: 10),
+      ),
+    );
+
+    try {
+      final bytes = await widget.attachmentService.downloadAndDecryptAttachment(
+        widget.attachment,
+        widget.currentUserId ?? '',
+        widget.senderId ?? '',
+        useThumbnail: false,
+      );
+
+      if (bytes == null) {
+        ScaffoldMessenger.of(context).hideCurrentSnackBar();
+        return;
+      }
+
+      final tempDir = await getTemporaryDirectory();
+      final tempFile = File('${tempDir.path}/${widget.attachment.fileName}');
+      await tempFile.writeAsBytes(bytes);
+
+      ScaffoldMessenger.of(context).hideCurrentSnackBar();
+
+      await Share.shareXFiles([XFile(tempFile.path)]);
+    } catch (e) {
+      ScaffoldMessenger.of(context).hideCurrentSnackBar();
+    }
   }
 
   String _formatFileSize(int bytes) {

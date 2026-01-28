@@ -145,6 +145,10 @@
     "mediaLoadingImage": "Caricamento immagine...",
     "mediaImageLoadError": "Errore caricamento immagine",
     "mediaEncryptedE2E": "Cifrato E2E",
+    "mediaDownloadingDocument": "Download documento...",
+    "mediaDocumentDownloadError": "Errore download documento",
+    "mediaNoAppForDocument": "Nessuna app disponibile per aprire questo documento",
+    "mediaDocumentOpenError": "Errore apertura documento",
     "pdfViewerDocumentInfoTitle": "Info Documento",
     "pdfViewerDocumentName": "Nome: {name}",
     "pdfViewerDocumentSize": "Dimensione: {size}",
@@ -240,5 +244,10 @@
     "navChat": "Chat",
     "navMedia": "Media",
     "notificationTodoTitle": "🔔 Nuovo To Do",
-    "notificationTodoBody": "Evento imminente"
+    "notificationTodoBody": "Evento imminente",
+    "mediaTabPhotos": "Foto",
+    "mediaTabLinks": "Link",
+    "mediaTabDocuments": "Doc",
+    "mediaNoLinks": "Nessun link",
+    "mediaNoLinksDescription": "I link condivisi appariranno qui"
 }

@@ -131,7 +131,7 @@
     "chatTodoDefault": "Todo",
     "chatLongPressToComplete": "Mantingueu premut per completar",
     "chatLongPressToReact": "Mantingueu premut per reaccionar",
-    "chatConfirm": "Ell confirma",
+    "chatConfirm": "Confirma",
     "chatLoadingImage": "S'està carregant la imatge...",
     "chatImageLoadError": "Error de càrrega de la imatge",
     "mediaNoMedia": "Sense contingut multimèdia",
@@ -145,6 +145,10 @@
     "mediaLoadingImage": "S'està carregant la imatge...",
     "mediaImageLoadError": "Error de càrrega de la imatge",
     "mediaEncryptedE2E": "E2E xifrat",
+    "mediaDownloadingDocument": "Descarregant document...",
+    "mediaDocumentDownloadError": "Error en descarregar el document",
+    "mediaNoAppForDocument": "No hi ha cap app disponible per obrir aquest document",
+    "mediaDocumentOpenError": "Error en obrir el document",
     "pdfViewerDocumentInfoTitle": "Informació del document",
     "pdfViewerDocumentName": "Nom: {name}",
     "pdfViewerDocumentSize": "Mida: {size}",
@@ -241,5 +245,10 @@
     "navChat": "Xat",
     "navMedia": "Media",
     "notificationTodoTitle": "🔔 Nou To Do",
-    "notificationTodoBody": "Esdeveniment pròxim"
+    "notificationTodoBody": "Esdeveniment pròxim",
+    "mediaTabPhotos": "Fotos",
+    "mediaTabLinks": "Enllaços",
+    "mediaTabDocuments": "Docs",
+    "mediaNoLinks": "Cap enllaç",
+    "mediaNoLinksDescription": "Els enllaços compartits apareixeran aquí"
 }

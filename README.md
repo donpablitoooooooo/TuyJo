@@ -1,6 +1,6 @@
 # Tuijo - Private Messaging & Family Organization App
 
-**Version:** 1.14.0 (Build 19) | **Status:** 🚀 Production Ready
+**Version:** 1.20.0 (Build 22) | **Status:** 🚀 Production Ready
 
 [![Flutter](https://img.shields.io/badge/Flutter-3.x-blue)](https://flutter.dev)
 [![Firebase](https://img.shields.io/badge/Firebase-Firestore-orange)](https://firebase.google.com)
@@ -56,52 +56,40 @@ A secure, end-to-end encrypted messaging and family organization app built with 
 
 ---
 
-## 🚀 What's New in 1.14.0 - Location Sharing & Production Release
+## 🚀 What's New in 1.20.0 - Media Section Redesign
 
-### 📍 Real-Time Location Sharing (NEW!)
-- **Share Your Position**: Start sharing your real-time GPS location for 1 or 8 hours
-- **Live Navigation**: Interactive radar screen with arrow pointing to partner's location
-- **Distance & Time**: See exact distance and how recent the partner's position is
-- **Compass Support**: Arrow rotates based on device heading and partner's bearing
-- **Automatic Expiry**: Location sessions expire automatically, data cleaned up from servers
-- **Stop Anytime**: Either partner can stop sharing, other is notified immediately
-- **Production Ready**: All test offsets removed, shows real GPS coordinates
+### 🎨 Pinterest-Style Link Gallery (NEW!)
+- **Masonry Grid Layout**: Links displayed in 2-column Pinterest-style grid with variable heights
+- **Thumbnail Preview**: Link preview images shown for rich visual browsing
+- **Smart Fallback**: Link icon displayed when no preview image available
+- **Compact Cards**: Title, description, domain, and date in beautiful cards
 
-### 🌍 Complete Localization
-- **All Texts Localized**: Every single UI element now supports all 4 languages (IT, ES, EN, CA)
-- **Location UI**: Distance, time indicators, dialog texts - fully translated
-- **Message Actions**: Edit, Delete, Stop Sharing - fully localized
-- **Time & Alert Pickers**: All labels and alert options in user's language
-- **Error Messages**: All user-facing errors now show in user's language
-- **41 New Keys**: Added to all .arb files for complete coverage (location, todos, navigation)
+### 📸 Media Viewer Redesign (NEW!)
+- **Location Sharing Style**: Photo and document viewers now match the elegant teal gradient design
+- **Unified Navigation**: X close button on left, share button on right (consistent with location screen)
+- **Platform Icons**: iOS uses ios_share icon, Android uses share icon
+- **Glassmorphism Info Panel**: Semi-transparent info panel with file details
 
-### 📝 Message Editing Improvements
-- **Edit Pending Messages**: Can now edit messages that are still uploading/failed
-- **Delete Pending Messages**: Remove stuck pending messages without errors
-- **Smart Handling**: Pending messages are removed locally, normal messages updated in Firestore
-- **Attachment Filtering**: Only successfully uploaded attachments shown during edit
+### 🗑️ Complete Message Deletion
+- **Attachment Cleanup**: Deleting a message now also removes all attachments from Firebase Storage
+- **Thumbnail Removal**: Preview thumbnails are also deleted
+- **Metadata Cleanup**: Link metadata (URL, title, description) removed from Firestore
+- **Media Section Sync**: Deleted items immediately disappear from Photos/Links/Documents tabs
 
-### 🎨 UX Improvements
-- **Calendar Close Button**: Added X button at top right to close calendar modal
-- **Removed Calendar Screen**: Todo calendar now fully integrated into chat
-- **Streamlined Navigation**: 3-tab interface (Chat, Media, Settings) instead of 4
-- **Cleaner Drawer**: Simplified menu with essential sections only
-- **Better UX**: All todo management happens in chat where todos are created
+### ⚙️ Settings Improvements
+- **Version Display**: App version now shown at bottom of Settings screen
+- **Dynamic Version**: Uses package_info_plus for accurate version info
 
 ### 🐛 Bug Fixes
-- ✅ Removed 1km test offset from location sharing (production ready)
-- ✅ Fixed Catalan translations (actionEdit/actionDelete now proper infinitive)
-- ✅ Fixed pending message deletion errors (empty attachment URLs)
-- ✅ Fixed Firestore NOT_FOUND errors on pending message operations
-- ✅ Fixed attachment URL validation before deletion attempts
-- ✅ Improved error messages for message updates
+- ✅ Fixed photo grid spacing from tab selector (removed GridView default padding)
+- ✅ Fixed link preview images appearing in photo gallery (excluded messages with linkUrl)
+- ✅ Unified spacing between all media section tabs
 
 ### Technical Improvements
-- Location service with session management and automatic cleanup
-- Compass integration for real-time heading updates
-- Localization keys organized and consistent across all languages
-- Better pending message state management
-- Improved attachment cleanup logic
+- Added `flutter_staggered_grid_view` for masonry layout
+- Added `package_info_plus` for version info
+- Platform-specific share icons using `Platform.isIOS`
+- Better separation of link/photo content in media queries
 
 ---
 
@@ -361,7 +349,7 @@ platform.setMethodCallHandler((call) async {
 - [x] TestFlight beta testing completed
 - [x] Pending message edit/delete functionality
 - [x] Calendar screen removed, integrated into chat
-- [x] Version bumped to 1.14.0 (Build 19)
+- [x] Version bumped to 1.20.0 (Build 22)
 
 ### App Store Connect
 **Bundle ID**: `com.privatemessaging.tuyjo`
@@ -446,6 +434,16 @@ Proprietary - All rights reserved
 
 ## 🎉 Version History
 
+### 1.20.0 (Build 22) - January 28, 2026 - Media Redesign
+**NEW**: Pinterest-style link gallery with masonry grid layout
+**NEW**: Redesigned media viewers with location sharing style (teal gradient)
+**NEW**: Platform-specific share icons (iOS/Android)
+**NEW**: Version display in Settings screen
+**IMPROVED**: Complete message deletion now removes attachments from Storage
+**IMPROVED**: Link cards show thumbnails when available
+**FIXED**: Photo grid spacing from tab selector
+**FIXED**: Link preview images no longer appear in photo gallery
+
 ### 1.14.0 (Build 19) - January 21, 2026 - Production Ready
 **NEW**: Real-time location sharing with live navigation and compass
 **NEW**: Complete localization - all UI elements in 4 languages (IT, ES, EN, CA)
@@ -471,5 +469,5 @@ Android Firebase release
 ---
 
 **Status**: ✅ Production Ready - App Store & Play Store
-**Last Updated**: January 21, 2026
-**Build**: 1.14.0+19
+**Last Updated**: January 28, 2026
+**Build**: 1.20.0+22
