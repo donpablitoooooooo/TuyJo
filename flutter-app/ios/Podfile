@@ -1,6 +1,11 @@
 # Uncomment this line to define a global platform for your project
 platform :ios, '15.0'
 
+# ⚠️ IMPORTANT: Build Phase Order Issue
+# If you get "dependency cycle" errors, the Thin Binary build phase is in the wrong position.
+# In Runner.xcodeproj/project.pbxproj, Thin Binary MUST come AFTER Embed Frameworks.
+# Run: ./scripts/fix_xcode_build_phases.sh to fix automatically.
+
 # CocoaPods analytics sends network stats synchronously affecting flutter build latency.
 ENV['COCOAPODS_DISABLE_STATS'] = 'true'
 
