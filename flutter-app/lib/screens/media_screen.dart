@@ -23,6 +23,9 @@ class MediaColors {
   static const Color theirs = Color(0xFF9E9E9E);       // Grigio per "tuo"
 }
 
+/// Icona share platform-specific (iOS usa ios_share, Android usa share)
+IconData get platformShareIcon => Platform.isIOS ? Icons.ios_share : Icons.share;
+
 class MediaScreen extends StatefulWidget {
   const MediaScreen({super.key});
 
@@ -136,8 +139,8 @@ class _MediaScreenState extends State<MediaScreen> {
           // Tab selector solo icone
           _buildTabSelector(),
 
-          // Spazio uniforme (stesso della distanza bandiera-contenuto)
-          const SizedBox(height: 0),
+          // Spazio tra tab e contenuto
+          const SizedBox(height: 16),
 
           // Content area
           Expanded(
@@ -770,19 +773,6 @@ class _LinkListItem extends StatelessWidget {
                 ],
               ),
             ),
-            const SizedBox(width: 8),
-            // Bottone condividi
-            GestureDetector(
-              onTap: () => Share.share(url, subject: title),
-              child: Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: accentColor.withOpacity(0.1),
-                  shape: BoxShape.circle,
-                ),
-                child: Icon(Icons.share, color: accentColor, size: 18),
-              ),
-            ),
           ],
         ),
       ),
@@ -1015,7 +1005,7 @@ class _DocumentListItem extends StatelessWidget {
                   color: accentColor.withOpacity(0.1),
                   shape: BoxShape.circle,
                 ),
-                child: Icon(Icons.share, color: accentColor, size: 18),
+                child: Icon(platformShareIcon, color: accentColor, size: 18),
               ),
             ),
           ],
@@ -1194,127 +1184,123 @@ class _FullscreenImageViewerState extends State<_FullscreenImageViewer> {
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
     return Scaffold(
-      backgroundColor: Colors.black,
-      body: GestureDetector(
-        onTap: _toggleOverlay,
-        child: Stack(
-          children: [
-            Center(
-              child: FutureBuilder<Uint8List?>(
-                future: widget.attachmentService.downloadAndDecryptAttachment(
-                  widget.attachment,
-                  widget.currentUserId ?? '',
-                  widget.senderId ?? '',
-                  useThumbnail: false,
-                ),
-                builder: (context, snapshot) {
-                  if (snapshot.connectionState == ConnectionState.waiting) {
-                    return Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        const CircularProgressIndicator(color: MediaColors.tealLight),
-                        const SizedBox(height: 16),
-                        Text(l10n.mediaLoadingImage, style: const TextStyle(color: Colors.white70)),
-                      ],
-                    );
-                  }
-
-                  if (snapshot.hasError || !snapshot.hasData || snapshot.data == null) {
-                    return Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        const Icon(Icons.error, color: Colors.red, size: 64),
-                        const SizedBox(height: 16),
-                        Text(l10n.mediaImageLoadError, style: const TextStyle(color: Colors.white70)),
-                      ],
-                    );
-                  }
-
-                  return InteractiveViewer(
-                    minScale: 0.5,
-                    maxScale: 4.0,
-                    child: Image.memory(snapshot.data!, fit: BoxFit.contain),
-                  );
-                },
-              ),
-            ),
-
-            // Top buttons (close + share)
-            AnimatedOpacity(
-              opacity: _showOverlay ? 1.0 : 0.0,
-              duration: const Duration(milliseconds: 200),
-              child: SafeArea(
-                child: Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      // Share button
-                      IconButton(
-                        icon: const Icon(Icons.share, color: Colors.white, size: 28),
-                        onPressed: () => _shareImage(context),
-                        style: IconButton.styleFrom(
-                          backgroundColor: MediaColors.tealLight.withOpacity(0.7),
-                        ),
-                      ),
-                      // Close button
-                      IconButton(
-                        icon: const Icon(Icons.close, color: Colors.white, size: 32),
-                        onPressed: () => Navigator.of(context).pop(),
-                        style: IconButton.styleFrom(
-                          backgroundColor: MediaColors.tealLight.withOpacity(0.7),
-                        ),
-                      ),
-                    ],
+      extendBodyBehindAppBar: true,
+      backgroundColor: Colors.transparent,
+      appBar: AppBar(
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        leading: IconButton(
+          icon: const Icon(Icons.close, color: Colors.white),
+          onPressed: () => Navigator.pop(context),
+        ),
+        actions: [
+          IconButton(
+            icon: Icon(platformShareIcon, color: Colors.white),
+            onPressed: () => _shareImage(context),
+          ),
+        ],
+      ),
+      body: Container(
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [
+              MediaColors.tealLight,
+              MediaColors.tealDark,
+            ],
+          ),
+        ),
+        child: GestureDetector(
+          onTap: _toggleOverlay,
+          child: Stack(
+            children: [
+              Center(
+                child: FutureBuilder<Uint8List?>(
+                  future: widget.attachmentService.downloadAndDecryptAttachment(
+                    widget.attachment,
+                    widget.currentUserId ?? '',
+                    widget.senderId ?? '',
+                    useThumbnail: false,
                   ),
+                  builder: (context, snapshot) {
+                    if (snapshot.connectionState == ConnectionState.waiting) {
+                      return Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          const CircularProgressIndicator(color: Colors.white),
+                          const SizedBox(height: 16),
+                          Text(l10n.mediaLoadingImage, style: const TextStyle(color: Colors.white70)),
+                        ],
+                      );
+                    }
+
+                    if (snapshot.hasError || !snapshot.hasData || snapshot.data == null) {
+                      return Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          const Icon(Icons.error, color: Colors.white, size: 64),
+                          const SizedBox(height: 16),
+                          Text(l10n.mediaImageLoadError, style: const TextStyle(color: Colors.white70)),
+                        ],
+                      );
+                    }
+
+                    return InteractiveViewer(
+                      minScale: 0.5,
+                      maxScale: 4.0,
+                      child: Image.memory(snapshot.data!, fit: BoxFit.contain),
+                    );
+                  },
                 ),
               ),
-            ),
 
-            // Bottom info
-            AnimatedOpacity(
-              opacity: _showOverlay ? 1.0 : 0.0,
-              duration: const Duration(milliseconds: 200),
-              child: SafeArea(
-                child: Align(
-                  alignment: Alignment.bottomCenter,
-                  child: Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        begin: Alignment.bottomCenter,
-                        end: Alignment.topCenter,
-                        colors: [Colors.black.withOpacity(0.7), Colors.transparent],
+              // Bottom info
+              AnimatedOpacity(
+                opacity: _showOverlay ? 1.0 : 0.0,
+                duration: const Duration(milliseconds: 200),
+                child: SafeArea(
+                  child: Align(
+                    alignment: Alignment.bottomCenter,
+                    child: Container(
+                      margin: const EdgeInsets.symmetric(horizontal: 32, vertical: 24),
+                      padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 24),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withOpacity(0.15),
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(
+                          color: Colors.white.withOpacity(0.2),
+                          width: 1,
+                        ),
                       ),
-                    ),
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text(
-                          widget.attachment.fileName,
-                          style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w500),
-                          textAlign: TextAlign.center,
-                        ),
-                        const SizedBox(height: 4),
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            const Icon(Icons.lock, color: MediaColors.tealLight, size: 14),
-                            const SizedBox(width: 4),
-                            Text(
-                              '${l10n.mediaEncryptedE2E} • ${_formatFileSize(widget.attachment.fileSize)}',
-                              style: const TextStyle(color: Colors.white70, fontSize: 12),
-                            ),
-                          ],
-                        ),
-                      ],
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            widget.attachment.fileName,
+                            style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w500),
+                            textAlign: TextAlign.center,
+                          ),
+                          const SizedBox(height: 4),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              const Icon(Icons.lock, color: Colors.white70, size: 14),
+                              const SizedBox(width: 4),
+                              Text(
+                                '${l10n.mediaEncryptedE2E} • ${_formatFileSize(widget.attachment.fileSize)}',
+                                style: const TextStyle(color: Colors.white70, fontSize: 12),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
                     ),
                   ),
                 ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
