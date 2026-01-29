@@ -1734,7 +1734,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                         ),
                       ),
 
-                    const SizedBox(height: 16),
+                    const SizedBox(height: 8),
 
                     // Indicatore TODO in modifica/creazione (bubble stile chat, centrata)
                     if (_messageController.text.isNotEmpty)
@@ -1743,7 +1743,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                           constraints: BoxConstraints(
                             maxWidth: MediaQuery.of(context).size.width * 0.75,
                           ),
-                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
                           decoration: BoxDecoration(
                             gradient: const LinearGradient(
                               colors: [Color(0xFF3BA8B0), Color(0xFF145A60)],
@@ -1759,34 +1759,21 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                               ),
                             ],
                           ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Icon(
-                                _editingMessageId != null ? Icons.edit : Icons.add_task,
-                                color: Colors.white,
-                                size: 16,
-                              ),
-                              const SizedBox(width: 8),
-                              Flexible(
-                                child: Text(
-                                  _messageController.text,
-                                  style: const TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 14,
-                                    fontWeight: FontWeight.w500,
-                                  ),
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                              ),
-                            ],
+                          child: Text(
+                            _messageController.text,
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 14,
+                              fontWeight: FontWeight.w500,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
                           ),
                         ),
                       ),
 
                     if (_messageController.text.isNotEmpty)
-                      const SizedBox(height: 12),
+                      const SizedBox(height: 8),
 
                   // Lista TODO in container bianco Expanded
                   Expanded(
