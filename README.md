@@ -358,8 +358,9 @@ version: 1.21.0+23
 cd flutter-app
 flutter clean
 flutter pub get
-flutter build ios      # per iOS
-flutter build appbundle  # per Android
+cd ios && pod install && cd ..   # IMPORTANTE per iOS!
+flutter build ios                # per iOS
+flutter build appbundle          # per Android
 ```
 
 ### Perche' funziona cosi'?
