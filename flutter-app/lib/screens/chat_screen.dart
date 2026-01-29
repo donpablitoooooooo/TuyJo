@@ -1636,12 +1636,10 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                       ),
                     ),
 
-                    // Calendario con sfondo verde trasparente e altezza fissa
-                    SizedBox(
-                      height: 350,
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 16),
-                        child: TableCalendar(
+                    // Calendario (senza altezza fissa, si adatta al contenuto)
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      child: TableCalendar(
                       locale: Localizations.localeOf(context).toString(),
                       firstDay: DateTime.now(),
                       lastDay: DateTime.now().add(const Duration(days: 365)),
@@ -1731,8 +1729,9 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                         });
                       },
                     ),
-                        ),
-                      ),
+                    ),
+
+                    const SizedBox(height: 12),
 
                     // Indicatore TODO in modifica/creazione (bubble stile chat, centrata)
                     if (_messageController.text.isNotEmpty)
@@ -1769,6 +1768,9 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                           ),
                         ),
                       ),
+
+                    if (_messageController.text.isNotEmpty)
+                      const SizedBox(height: 12),
 
                   // Lista TODO in container bianco Expanded
                   Expanded(
