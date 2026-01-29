@@ -607,6 +607,7 @@ class ChatService extends ChangeNotifier {
     String recipientPublicKey, {
     DateTime? rangeEnd, // Parametro opzionale per TODO con range
     List<Attachment>? attachments, // Allegati opzionali per TODO
+    int? alertHours, // Ore di preavviso per l'alert
   }) async {
     try {
       final timestamp = DateTime.now();
@@ -624,6 +625,11 @@ class ChatService extends ChangeNotifier {
       // Aggiungi range_end se presente
       if (rangeEnd != null) {
         todoData['range_end'] = rangeEnd.toIso8601String();
+      }
+
+      // Aggiungi alert_hours se presente
+      if (alertHours != null) {
+        todoData['alert_hours'] = alertHours;
       }
 
       final plaintext = json.encode(todoData);
@@ -680,6 +686,7 @@ class ChatService extends ChangeNotifier {
     String recipientPublicKey, {
     DateTime? rangeEnd, // Parametro opzionale per TODO con range
     List<Attachment>? attachments, // Allegati opzionali per TODO
+    int? alertHours, // Ore di preavviso per l'alert
   }) async {
     try {
       // IMPORTANTE:
@@ -697,6 +704,11 @@ class ChatService extends ChangeNotifier {
       // Aggiungi range_end se presente
       if (rangeEnd != null) {
         reminderData['range_end'] = rangeEnd.toIso8601String();
+      }
+
+      // Aggiungi alert_hours se presente
+      if (alertHours != null) {
+        reminderData['alert_hours'] = alertHours;
       }
 
       final plaintext = json.encode(reminderData);
@@ -1399,9 +1411,17 @@ class ChatService extends ChangeNotifier {
           final isReminderRaw = data['is_reminder'];
           message.isReminder = isReminderRaw == true;
 
+          // Parse alert_hours se presente
+          if (data['alert_hours'] != null) {
+            message.alertHours = data['alert_hours'] as int;
+          }
+
           if (kDebugMode) {
             print('📅 Todo message detected: ${message.decryptedContent}');
             print('   Due date: ${message.dueDate}');
+            if (message.alertHours != null) {
+              print('   Alert: ${message.alertHours}h before');
+            }
             if (message.rangeEnd != null) {
               print('   Range end: ${message.rangeEnd}');
             }

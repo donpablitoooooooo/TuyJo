@@ -89,6 +89,16 @@ class TodoMessageBubble extends StatelessWidget {
     ];
   }
 
+  /// Formatta l'alert in formato breve (es. "1h", "2h", "1d", "2d")
+  String _formatAlertShort(int hours, AppLocalizations l10n) {
+    if (hours >= 24) {
+      final days = hours ~/ 24;
+      return l10n.alertShortDays(days);
+    } else {
+      return l10n.alertShortHours(hours);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
@@ -271,6 +281,27 @@ class TodoMessageBubble extends StatelessWidget {
                                     ),
                                   ),
                                 ),
+                                // Mostra alert se presente
+                                if (message.alertHours != null) ...[
+                                  const SizedBox(width: 8),
+                                  Icon(
+                                    Icons.notifications_active_outlined,
+                                    size: 12,
+                                    color: isMe
+                                        ? Colors.white.withOpacity(0.9)
+                                        : Colors.black54,
+                                  ),
+                                  const SizedBox(width: 2),
+                                  Text(
+                                    _formatAlertShort(message.alertHours!, l10n),
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      color: isMe
+                                          ? Colors.white.withOpacity(0.9)
+                                          : Colors.black54,
+                                    ),
+                                  ),
+                                ],
                               ],
                             ),
                           ],

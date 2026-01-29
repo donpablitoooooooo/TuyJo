@@ -142,6 +142,7 @@ class Message {
   bool? completed;
   String? originalTodoId; // Per messaggi di tipo 'todo_completed'
   bool? isReminder; // true se questo è un messaggio di reminder (icona campanello)
+  int? alertHours; // Ore di preavviso per l'alert (1, 2, 8, 24, 48)
 
   // Campi per stato del messaggio (read receipts)
   bool? delivered; // true quando il messaggio è stato salvato in Firestore
@@ -183,6 +184,7 @@ class Message {
     this.completed,
     this.originalTodoId,
     this.isReminder,
+    this.alertHours,
     this.delivered,
     this.read,
     this.readAt,

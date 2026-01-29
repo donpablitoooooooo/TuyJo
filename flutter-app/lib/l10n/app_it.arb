@@ -241,6 +241,8 @@
     "alertTwoDaysBefore": "Alert: 2 giorni prima",
     "alertOneDayBefore": "Alert: 1 giorno prima",
     "alertHoursBefore": "Alert: {hours}h prima",
+    "alertShortHours": "{hours}h",
+    "alertShortDays": "{days}g",
     "navChat": "Chat",
     "navMedia": "Media",
     "notificationTodoTitle": "🔔 Nuovo To Do",

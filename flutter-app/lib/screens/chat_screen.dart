@@ -2437,6 +2437,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
           _partnerPublicKey!,
           rangeEnd: rangeEnd, // Passa rangeEnd come parametro
           attachments: uploadedAttachments, // Passa attachments
+          alertHours: reminderHours, // Passa ore di preavviso
         );
 
         if (success && reminderHours != null && reminderHours > 0) {
@@ -2451,6 +2452,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
             _partnerPublicKey!,
             rangeEnd: rangeEnd, // Passa rangeEnd anche al reminder
             attachments: uploadedAttachments, // Passa attachments anche al reminder
+            alertHours: reminderHours, // Passa ore di preavviso
           );
         }
 
@@ -2470,6 +2472,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
           myPublicKey,
           _partnerPublicKey!,
           attachments: uploadedAttachments, // Passa attachments
+          alertHours: reminderHours, // Passa ore di preavviso
         );
 
         if (success && reminderHours != null && reminderHours > 0) {
@@ -2483,6 +2486,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
             myPublicKey,
             _partnerPublicKey!,
             attachments: uploadedAttachments, // Passa attachments anche al reminder
+            alertHours: reminderHours, // Passa ore di preavviso anche al reminder
           );
           print('✅ Todo sent with reminder ($reminderHours hours before)');
         } else {
