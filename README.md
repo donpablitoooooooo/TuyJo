@@ -340,6 +340,39 @@ platform.setMethodCallHandler((call) async {
 
 ---
 
+## 🔢 Version Management
+
+### Come aggiornare la versione (UNICO FILE!)
+
+**Modifica SOLO `flutter-app/pubspec.yaml`:**
+```yaml
+version: 1.21.0+23
+        ^^^^^  ^^
+        |      |
+        |      +-- Build number (incrementa ad ogni release)
+        +--------- Version name (major.minor.patch)
+```
+
+**Poi rebuilda:**
+```bash
+cd flutter-app
+flutter clean
+flutter pub get
+flutter build ios      # per iOS
+flutter build appbundle  # per Android
+```
+
+### Perche' funziona cosi'?
+- **Android**: legge direttamente da pubspec.yaml
+- **iOS**: Flutter genera `Generated.xcconfig` che sovrascrive tutto
+
+### IGNORA questi file (non toccarli MAI per la versione):
+- `ios/Runner.xcodeproj/project.pbxproj` (MARKETING_VERSION e' ignorato)
+- `ios/Runner/Info.plist` (usa variabili Flutter)
+- Qualsiasi altro .xcconfig
+
+---
+
 ## ✅ Release Checklist
 
 ### Pre-Submission
