@@ -41,9 +41,25 @@ class LinkMetadataService {
       caseSensitive: false,
     );
 
+    // Regex per URL senza protocollo (es. www.corriere.it)
+    final urlWithoutProtocol = RegExp(
+      r'(?<![/\w])www\.[a-zA-Z0-9][-a-zA-Z0-9]*\.[^\s]+',
+      caseSensitive: false,
+    );
+
     // Cerca tutti gli URL con protocollo
     for (final match in urlWithProtocol.allMatches(text)) {
       urls.add(match.group(0)!);
+    }
+
+    // Cerca URL senza protocollo e normalizzali
+    for (final match in urlWithoutProtocol.allMatches(text)) {
+      final url = match.group(0)!;
+      // Evita duplicati (se l'URL era già stato trovato con protocollo)
+      final normalized = normalizeUrl(url);
+      if (!urls.contains(normalized) && !urls.any((u) => u.contains(url))) {
+        urls.add(normalized);
+      }
     }
 
     return urls;
