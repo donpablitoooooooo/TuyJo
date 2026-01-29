@@ -1736,6 +1736,42 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
 
                     const SizedBox(height: 16),
 
+                    // Indicatore TODO in modifica/creazione (testo bianco su verde)
+                    if (_messageController.text.isNotEmpty)
+                      Container(
+                        margin: const EdgeInsets.symmetric(horizontal: 16),
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF2E7D32), // Verde scuro
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Row(
+                          children: [
+                            Icon(
+                              _editingMessageId != null ? Icons.edit : Icons.add_task,
+                              color: Colors.white,
+                              size: 18,
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                _messageController.text,
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+
+                    if (_messageController.text.isNotEmpty)
+                      const SizedBox(height: 12),
+
                   // Lista TODO in container bianco Expanded
                   Expanded(
                     child: Container(
@@ -2076,7 +2112,14 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                                         isMe: isMe,
                                         isCompleted: isCompleted,
                                         onReact: (reactionType) => _addReaction(todo.id, reactionType),
-                                        onAction: (actionType) => _addAction(todo.id, actionType, todo),
+                                        onAction: (actionType) {
+                                          // Se è Edit, chiudi prima la modale calendario
+                                          // per evitare sovrapposizione di modali
+                                          if (actionType == 'edit') {
+                                            Navigator.pop(context);
+                                          }
+                                          _addAction(todo.id, actionType, todo);
+                                        },
                                         formattedDate: formattedDate,
                                         attachmentService: _attachmentService,
                                         senderId: todo.senderId,
