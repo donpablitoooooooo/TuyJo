@@ -1129,13 +1129,15 @@ class ChatService extends ChangeNotifier {
         print('   familyChatId: $familyChatId');
       }
 
-      // Prima cerca il messaggio per ottenere gli allegati
+      // Prima cerca il messaggio per ottenere gli allegati e il tipo
       List<Attachment>? attachmentsToDelete;
+      String? messageType;
 
       // Cerca prima nella lista locale
       final localIndex = _messages.indexWhere((m) => m.id == messageId);
       if (localIndex != -1) {
         attachmentsToDelete = _messages[localIndex].attachments;
+        messageType = _messages[localIndex].messageType;
       } else {
         // Se non è nella lista locale, leggi da Firestore
         final messageDoc = await _firestore
@@ -1147,6 +1149,7 @@ class ChatService extends ChangeNotifier {
 
         if (messageDoc.exists && messageDoc.data() != null) {
           final data = messageDoc.data()!;
+          messageType = data['message_type'] as String?;
           if (data['attachments'] != null && data['attachments'] is List) {
             try {
               attachmentsToDelete = (data['attachments'] as List)
@@ -1156,6 +1159,14 @@ class ChatService extends ChangeNotifier {
               if (kDebugMode) print('⚠️ [deleteMessage] Error parsing attachments: $e');
             }
           }
+        }
+      }
+
+      // Se è un TODO, cancella la notifica schedulata
+      if (messageType == 'todo') {
+        _cancelReminderNotification(messageId);
+        if (kDebugMode) {
+          print('🔕 [deleteMessage] Cancelled scheduled notification for TODO');
         }
       }
 
