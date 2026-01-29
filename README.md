@@ -1,6 +1,6 @@
 # Tuijo - Private Messaging & Family Organization App
 
-**Version:** 1.20.0 (Build 22) | **Status:** 🚀 Production Ready
+**Version:** 1.21.0 (Build 23) | **Status:** 🚀 Production Ready
 
 [![Flutter](https://img.shields.io/badge/Flutter-3.x-blue)](https://flutter.dev)
 [![Firebase](https://img.shields.io/badge/Firebase-Firestore-orange)](https://firebase.google.com)
@@ -56,40 +56,45 @@ A secure, end-to-end encrypted messaging and family organization app built with 
 
 ---
 
-## 🚀 What's New in 1.20.0 - Media Section Redesign
+## 🚀 What's New in 1.21.0 - Link Preview & TODO Enhancements
 
-### 🎨 Pinterest-Style Link Gallery (NEW!)
-- **Masonry Grid Layout**: Links displayed in 2-column Pinterest-style grid with variable heights
-- **Thumbnail Preview**: Link preview images shown for rich visual browsing
-- **Smart Fallback**: Link icon displayed when no preview image available
-- **Compact Cards**: Title, description, domain, and date in beautiful cards
+### 🔗 Smart Link Detection (NEW!)
+- **Automatic URL Recognition**: Detects URLs without protocol (www.example.com, example.com)
+- **Link Preview Extraction**: Automatically fetches title, description, and preview image from Open Graph/Twitter meta tags
+- **TLD Whitelist**: Supports 25+ common TLDs (.com, .org, .it, .co, .io, etc.)
+- **Protocol Normalization**: Adds https:// automatically to detected URLs
 
-### 📸 Media Viewer Redesign (NEW!)
-- **Location Sharing Style**: Photo and document viewers now match the elegant teal gradient design
-- **Unified Navigation**: X close button on left, share button on right (consistent with location screen)
-- **Platform Icons**: iOS uses ios_share icon, Android uses share icon
-- **Glassmorphism Info Panel**: Semi-transparent info panel with file details
+### 🔔 TODO Alert Indicator (NEW!)
+- **Visual Alert Badge**: TODO bubbles now display reminder time (🔔 1h, 🔔 2d)
+- **Localized Format**: Days shown in local language (IT: "g", others: "d")
+- **Alert Hours Storage**: alertHours field persisted in message model
 
-### 🗑️ Complete Message Deletion
-- **Attachment Cleanup**: Deleting a message now also removes all attachments from Firebase Storage
-- **Thumbnail Removal**: Preview thumbnails are also deleted
-- **Metadata Cleanup**: Link metadata (URL, title, description) removed from Firestore
-- **Media Section Sync**: Deleted items immediately disappear from Photos/Links/Documents tabs
+### 📅 TODO Calendar Improvements (NEW!)
+- **Editing Indicator**: Chat-style bubble shows what TODO is being created/edited
+- **Teal Gradient Design**: Editing indicator matches app theme
+- **Modal Fix**: Calendar modal now closes properly when editing from TODO list
 
-### ⚙️ Settings Improvements
-- **Version Display**: App version now shown at bottom of Settings screen
-- **Dynamic Version**: Uses package_info_plus for accurate version info
+### 🔒 Security Enhancements
+- **Edit Own Messages Only**: Edit button now restricted to own messages (cryptographic security)
+- **Reminder Filtering**: TODO reminders no longer appear in media section (prevents duplicates)
+- **Deleted Flag Persistence**: SQLite cache now persists deleted status across app restarts
+
+### 🗑️ Complete Attachment Deletion
+- **Firebase Storage Cleanup**: Deleting TODO/message removes attachments from Storage
+- **Cache Cleanup**: Local cache also cleared when attachments deleted
+- **Notification Cancellation**: Deleting TODO cancels any scheduled reminders
 
 ### 🐛 Bug Fixes
-- ✅ Fixed photo grid spacing from tab selector (removed GridView default padding)
-- ✅ Fixed link preview images appearing in photo gallery (excluded messages with linkUrl)
-- ✅ Unified spacing between all media section tabs
+- ✅ Fixed URL not detected when typed (vs pasted from iOS share)
+- ✅ Fixed deleted attachments still appearing in media section
+- ✅ Fixed modal stacking when editing TODO from calendar list
+- ✅ Fixed reminders showing duplicate attachments in media section
 
 ### Technical Improvements
-- Added `flutter_staggered_grid_view` for masonry layout
-- Added `package_info_plus` for version info
-- Platform-specific share icons using `Platform.isIOS`
-- Better separation of link/photo content in media queries
+- Added `alertHours` field to Message model
+- New URL detection regex patterns for www. and bare domain URLs
+- SQLite cache migration v6 for deleted flag
+- Localization strings for alertShortHours/alertShortDays in all 4 languages
 
 ---
 
@@ -349,7 +354,7 @@ platform.setMethodCallHandler((call) async {
 - [x] TestFlight beta testing completed
 - [x] Pending message edit/delete functionality
 - [x] Calendar screen removed, integrated into chat
-- [x] Version bumped to 1.20.0 (Build 22)
+- [x] Version bumped to 1.21.0 (Build 23)
 
 ### App Store Connect
 **Bundle ID**: `com.privatemessaging.tuyjo`
@@ -434,6 +439,19 @@ Proprietary - All rights reserved
 
 ## 🎉 Version History
 
+### 1.21.0 (Build 23) - January 29, 2026 - Link Preview & TODO Enhancements
+**NEW**: Smart URL detection for www.example.com and bare domain URLs
+**NEW**: Link preview extraction with Open Graph/Twitter meta tags
+**NEW**: TODO alert indicator (🔔 1h, 🔔 2d) visible on bubbles
+**NEW**: TODO editing indicator between calendar and list
+**IMPROVED**: Edit button restricted to own messages (cryptographic security)
+**IMPROVED**: Complete attachment deletion including Firebase Storage + cache
+**IMPROVED**: Deleted flag persisted in SQLite cache across restarts
+**FIXED**: URL detection when typing (not just pasting)
+**FIXED**: Deleted attachments appearing in media section
+**FIXED**: Modal not closing when editing TODO from calendar
+**FIXED**: Reminders showing duplicate attachments in media
+
 ### 1.20.0 (Build 22) - January 28, 2026 - Media Redesign
 **NEW**: Pinterest-style link gallery with masonry grid layout
 **NEW**: Redesigned media viewers with location sharing style (teal gradient)
@@ -469,5 +487,5 @@ Android Firebase release
 ---
 
 **Status**: ✅ Production Ready - App Store & Play Store
-**Last Updated**: January 28, 2026
-**Build**: 1.20.0+22
+**Last Updated**: January 29, 2026
+**Build**: 1.21.0+23
