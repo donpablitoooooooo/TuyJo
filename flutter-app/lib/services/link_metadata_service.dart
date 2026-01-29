@@ -41,9 +41,41 @@ class LinkMetadataService {
       caseSensitive: false,
     );
 
+    // Regex per URL senza protocollo che iniziano con www (es. www.corriere.it)
+    final urlWithWww = RegExp(
+      r'(?<![/\w])www\.[a-zA-Z0-9][-a-zA-Z0-9]*\.[^\s]+',
+      caseSensitive: false,
+    );
+
+    // Regex per domini senza www né protocollo (es. corriere.it)
+    // Usa lista di TLD comuni per evitare falsi positivi (es. file.txt)
+    final urlBareDomain = RegExp(
+      r'(?<![/\w@.])[a-zA-Z0-9][-a-zA-Z0-9]*\.(com|org|net|io|it|co|me|info|biz|eu|de|fr|es|uk|us|ca|au|jp|app|dev|ai|tv|cc|ly|to|gg|xyz|online|site|tech|store|blog|shop)(?:[/?#][^\s]*)?(?=\s|$|[,;:!?\)\]\}])',
+      caseSensitive: false,
+    );
+
     // Cerca tutti gli URL con protocollo
     for (final match in urlWithProtocol.allMatches(text)) {
       urls.add(match.group(0)!);
+    }
+
+    // Cerca URL con www senza protocollo e normalizzali
+    for (final match in urlWithWww.allMatches(text)) {
+      final url = match.group(0)!;
+      // Evita duplicati (se l'URL era già stato trovato con protocollo)
+      final normalized = normalizeUrl(url);
+      if (!urls.contains(normalized) && !urls.any((u) => u.contains(url))) {
+        urls.add(normalized);
+      }
+    }
+
+    // Cerca domini senza www né protocollo e normalizzali
+    for (final match in urlBareDomain.allMatches(text)) {
+      final url = match.group(0)!;
+      final normalized = normalizeUrl(url);
+      if (!urls.contains(normalized) && !urls.any((u) => u.contains(url))) {
+        urls.add(normalized);
+      }
     }
 
     return urls;

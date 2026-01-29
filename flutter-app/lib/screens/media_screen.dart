@@ -61,11 +61,15 @@ class _MediaScreenState extends State<MediaScreen> {
   /// Esclude le preview dei link (fileName inizia con 'link_preview_')
   /// Esclude i messaggi eliminati
   /// Esclude i messaggi che sono link (hanno linkUrl)
+  /// Esclude i reminder (hanno allegati duplicati dal TODO originale)
   List<_MediaItem> _getPhotoItems(List<Message> messages) {
     final List<_MediaItem> items = [];
     for (var message in messages) {
       // Salta messaggi eliminati
       if (message.deleted == true) continue;
+
+      // Salta reminder (hanno allegati duplicati dal TODO originale)
+      if (message.isReminder == true) continue;
 
       // Salta messaggi che sono link (gli attachment sono preview del link)
       if (message.linkUrl != null && message.linkUrl!.isNotEmpty) continue;
@@ -105,11 +109,15 @@ class _MediaScreenState extends State<MediaScreen> {
 
   /// Ottiene i documenti dai messaggi (più recenti prima)
   /// Esclude i messaggi eliminati
+  /// Esclude i reminder (hanno allegati duplicati dal TODO originale)
   List<_MediaItem> _getDocumentItems(List<Message> messages) {
     final List<_MediaItem> items = [];
     for (var message in messages) {
       // Salta messaggi eliminati
       if (message.deleted == true) continue;
+
+      // Salta reminder (hanno allegati duplicati dal TODO originale)
+      if (message.isReminder == true) continue;
 
       if (message.attachments != null && message.attachments!.isNotEmpty) {
         for (var attachment in message.attachments!) {

@@ -7,7 +7,7 @@ import '../models/message.dart';
 /// Permette caricamento istantaneo, ricerca con LIKE, e lazy loading
 class MessageCacheService {
   static const String _dbName = 'messages_cache.db';
-  static const int _dbVersion = 5; // Incrementato per aggiungere colonna reaction
+  static const int _dbVersion = 6; // Incrementato per aggiungere colonna deleted
   static const String _messagesTable = 'messages';
 
   Database? _database;
@@ -67,7 +67,8 @@ class MessageCacheService {
         read INTEGER DEFAULT 0,
         read_at INTEGER,
         attachments_json TEXT,
-        reaction_json TEXT
+        reaction_json TEXT,
+        deleted INTEGER DEFAULT 0
       )
     ''');
 
@@ -105,6 +106,10 @@ class MessageCacheService {
     if (oldVersion < 5) {
       // Aggiungi colonna reaction_json per salvare reactions come JSON
       await db.execute('ALTER TABLE $_messagesTable ADD COLUMN reaction_json TEXT');
+    }
+    if (oldVersion < 6) {
+      // Aggiungi colonna deleted per tracciare messaggi eliminati
+      await db.execute('ALTER TABLE $_messagesTable ADD COLUMN deleted INTEGER DEFAULT 0');
     }
   }
 
@@ -150,6 +155,7 @@ class MessageCacheService {
       'read_at': message.readAt?.millisecondsSinceEpoch,
       'attachments_json': attachmentsJson,
       'reaction_json': reactionJson,
+      'deleted': message.deleted == true ? 1 : 0,
     };
 
     // Inserisci o aggiorna il messaggio
@@ -204,6 +210,7 @@ class MessageCacheService {
         'read_at': message.readAt?.millisecondsSinceEpoch,
         'attachments_json': attachmentsJson,
         'reaction_json': reactionJson,
+        'deleted': message.deleted == true ? 1 : 0,
       };
 
       batch.insert(_messagesTable, data, conflictAlgorithm: ConflictAlgorithm.replace);
@@ -431,6 +438,7 @@ class MessageCacheService {
           : null,
       attachments: attachments,
       reaction: reaction,
+      deleted: map['deleted'] == 1,
     );
   }
 

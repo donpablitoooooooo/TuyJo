@@ -1636,12 +1636,10 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                       ),
                     ),
 
-                    // Calendario con sfondo verde trasparente e altezza fissa
-                    SizedBox(
-                      height: 380,
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 16),
-                        child: TableCalendar(
+                    // Calendario (senza altezza fissa, si adatta al contenuto)
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      child: TableCalendar(
                       locale: Localizations.localeOf(context).toString(),
                       firstDay: DateTime.now(),
                       lastDay: DateTime.now().add(const Duration(days: 365)),
@@ -1731,10 +1729,48 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                         });
                       },
                     ),
+                    ),
+
+                    const SizedBox(height: 12),
+
+                    // Indicatore TODO in modifica/creazione (bubble stile chat, centrata)
+                    if (_messageController.text.isNotEmpty)
+                      Center(
+                        child: Container(
+                          constraints: BoxConstraints(
+                            maxWidth: MediaQuery.of(context).size.width * 0.75,
+                          ),
+                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                          decoration: BoxDecoration(
+                            gradient: const LinearGradient(
+                              colors: [Color(0xFF3BA8B0), Color(0xFF145A60)],
+                              begin: Alignment.topLeft,
+                              end: Alignment.bottomRight,
+                            ),
+                            borderRadius: BorderRadius.circular(20),
+                            boxShadow: [
+                              BoxShadow(
+                                color: const Color(0xFF3BA8B0).withOpacity(0.3),
+                                blurRadius: 8,
+                                offset: const Offset(0, 2),
+                              ),
+                            ],
+                          ),
+                          child: Text(
+                            _messageController.text,
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 14,
+                              fontWeight: FontWeight.w500,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
                         ),
                       ),
 
-                    const SizedBox(height: 16),
+                    if (_messageController.text.isNotEmpty)
+                      const SizedBox(height: 12),
 
                   // Lista TODO in container bianco Expanded
                   Expanded(
@@ -2076,7 +2112,14 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                                         isMe: isMe,
                                         isCompleted: isCompleted,
                                         onReact: (reactionType) => _addReaction(todo.id, reactionType),
-                                        onAction: (actionType) => _addAction(todo.id, actionType, todo),
+                                        onAction: (actionType) {
+                                          // Se è Edit, chiudi prima la modale calendario
+                                          // per evitare sovrapposizione di modali
+                                          if (actionType == 'edit') {
+                                            Navigator.pop(context);
+                                          }
+                                          _addAction(todo.id, actionType, todo);
+                                        },
                                         formattedDate: formattedDate,
                                         attachmentService: _attachmentService,
                                         senderId: todo.senderId,
@@ -2394,6 +2437,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
           _partnerPublicKey!,
           rangeEnd: rangeEnd, // Passa rangeEnd come parametro
           attachments: uploadedAttachments, // Passa attachments
+          alertHours: reminderHours, // Passa ore di preavviso
         );
 
         if (success && reminderHours != null && reminderHours > 0) {
@@ -2408,6 +2452,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
             _partnerPublicKey!,
             rangeEnd: rangeEnd, // Passa rangeEnd anche al reminder
             attachments: uploadedAttachments, // Passa attachments anche al reminder
+            alertHours: reminderHours, // Passa ore di preavviso
           );
         }
 
@@ -2427,6 +2472,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
           myPublicKey,
           _partnerPublicKey!,
           attachments: uploadedAttachments, // Passa attachments
+          alertHours: reminderHours, // Passa ore di preavviso
         );
 
         if (success && reminderHours != null && reminderHours > 0) {
@@ -2440,6 +2486,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
             myPublicKey,
             _partnerPublicKey!,
             attachments: uploadedAttachments, // Passa attachments anche al reminder
+            alertHours: reminderHours, // Passa ore di preavviso anche al reminder
           );
           print('✅ Todo sent with reminder ($reminderHours hours before)');
         } else {

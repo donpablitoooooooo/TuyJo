@@ -607,6 +607,7 @@ class ChatService extends ChangeNotifier {
     String recipientPublicKey, {
     DateTime? rangeEnd, // Parametro opzionale per TODO con range
     List<Attachment>? attachments, // Allegati opzionali per TODO
+    int? alertHours, // Ore di preavviso per l'alert
   }) async {
     try {
       final timestamp = DateTime.now();
@@ -624,6 +625,11 @@ class ChatService extends ChangeNotifier {
       // Aggiungi range_end se presente
       if (rangeEnd != null) {
         todoData['range_end'] = rangeEnd.toIso8601String();
+      }
+
+      // Aggiungi alert_hours se presente
+      if (alertHours != null) {
+        todoData['alert_hours'] = alertHours;
       }
 
       final plaintext = json.encode(todoData);
@@ -680,6 +686,7 @@ class ChatService extends ChangeNotifier {
     String recipientPublicKey, {
     DateTime? rangeEnd, // Parametro opzionale per TODO con range
     List<Attachment>? attachments, // Allegati opzionali per TODO
+    int? alertHours, // Ore di preavviso per l'alert
   }) async {
     try {
       // IMPORTANTE:
@@ -697,6 +704,11 @@ class ChatService extends ChangeNotifier {
       // Aggiungi range_end se presente
       if (rangeEnd != null) {
         reminderData['range_end'] = rangeEnd.toIso8601String();
+      }
+
+      // Aggiungi alert_hours se presente
+      if (alertHours != null) {
+        reminderData['alert_hours'] = alertHours;
       }
 
       final plaintext = json.encode(reminderData);
@@ -1129,13 +1141,15 @@ class ChatService extends ChangeNotifier {
         print('   familyChatId: $familyChatId');
       }
 
-      // Prima cerca il messaggio per ottenere gli allegati
+      // Prima cerca il messaggio per ottenere gli allegati e il tipo
       List<Attachment>? attachmentsToDelete;
+      String? messageType;
 
       // Cerca prima nella lista locale
       final localIndex = _messages.indexWhere((m) => m.id == messageId);
       if (localIndex != -1) {
         attachmentsToDelete = _messages[localIndex].attachments;
+        messageType = _messages[localIndex].messageType;
       } else {
         // Se non è nella lista locale, leggi da Firestore
         final messageDoc = await _firestore
@@ -1147,6 +1161,7 @@ class ChatService extends ChangeNotifier {
 
         if (messageDoc.exists && messageDoc.data() != null) {
           final data = messageDoc.data()!;
+          messageType = data['message_type'] as String?;
           if (data['attachments'] != null && data['attachments'] is List) {
             try {
               attachmentsToDelete = (data['attachments'] as List)
@@ -1156,6 +1171,14 @@ class ChatService extends ChangeNotifier {
               if (kDebugMode) print('⚠️ [deleteMessage] Error parsing attachments: $e');
             }
           }
+        }
+      }
+
+      // Se è un TODO, cancella la notifica schedulata
+      if (messageType == 'todo') {
+        _cancelReminderNotification(messageId);
+        if (kDebugMode) {
+          print('🔕 [deleteMessage] Cancelled scheduled notification for TODO');
         }
       }
 
@@ -1388,9 +1411,17 @@ class ChatService extends ChangeNotifier {
           final isReminderRaw = data['is_reminder'];
           message.isReminder = isReminderRaw == true;
 
+          // Parse alert_hours se presente
+          if (data['alert_hours'] != null) {
+            message.alertHours = data['alert_hours'] as int;
+          }
+
           if (kDebugMode) {
             print('📅 Todo message detected: ${message.decryptedContent}');
             print('   Due date: ${message.dueDate}');
+            if (message.alertHours != null) {
+              print('   Alert: ${message.alertHours}h before');
+            }
             if (message.rangeEnd != null) {
               print('   Range end: ${message.rangeEnd}');
             }
