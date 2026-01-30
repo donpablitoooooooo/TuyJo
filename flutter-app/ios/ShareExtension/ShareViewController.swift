@@ -383,15 +383,52 @@ class ShareViewController: UIViewController {
             return
         }
 
-        // Dispatch to main thread — openMainApp() is called from loadItem
-        // completion handlers which run on background threads.
-        // extensionContext?.open() requires the main thread on iOS 26.
+        // Must dispatch to main thread — called from loadItem background callbacks
         DispatchQueue.main.async { [weak self] in
-            self?.extensionContext?.open(url) { _ in
+            guard let self = self else { return }
+
+            // 1) Try the official NSExtensionContext.open API
+            self.extensionContext?.open(url) { success in
+                if success {
+                    // App opened — do NOT call completeRequest, it can cancel the open
+                    return
+                }
+                // 2) Fallback: walk the responder chain with the modern selector
                 DispatchQueue.main.async {
-                    self?.closeExtension()
+                    self.openViaResponderChain(url)
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                        self.closeExtension()
+                    }
                 }
             }
+        }
+    }
+
+    private func openViaResponderChain(_ url: URL) {
+        // Modern open(_:options:completionHandler:) — needed on iOS 18+
+        let selector = sel_registerName("openURL:options:completionHandler:")
+        var responder: UIResponder? = self as UIResponder
+
+        while let r = responder {
+            if r.responds(to: selector), let imp = r.method(for: selector) {
+                typealias Fn = @convention(c) (AnyObject, Selector, Any, Any, Any?) -> Void
+                let open = unsafeBitCast(imp, to: Fn.self)
+                let cb: @convention(block) (Bool) -> Void = { _ in }
+                open(r, selector, url as Any, [:] as NSDictionary as Any, cb as Any)
+                return
+            }
+            responder = r.next
+        }
+
+        // Legacy openURL: for iOS < 18
+        let legacy = sel_registerName("openURL:")
+        responder = self as UIResponder
+        while let r = responder {
+            if r.responds(to: legacy) {
+                r.perform(legacy, with: url)
+                return
+            }
+            responder = r.next
         }
     }
 
