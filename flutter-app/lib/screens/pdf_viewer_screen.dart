@@ -237,7 +237,7 @@ class _PdfViewerScreenState extends State<PdfViewerScreen> {
 
       ScaffoldMessenger.of(context).hideCurrentSnackBar();
 
-      await Share.shareXFiles([XFile(tempFile.path)]);
+      await SharePlus.instance.share(ShareParams(files: [XFile(tempFile.path)]));
     } catch (e) {
       ScaffoldMessenger.of(context).hideCurrentSnackBar();
     }

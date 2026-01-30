@@ -1144,7 +1144,7 @@ class _DocumentListItem extends StatelessWidget {
 
       ScaffoldMessenger.of(context).hideCurrentSnackBar();
 
-      await Share.shareXFiles([XFile(tempFile.path)], text: item.attachment.fileName);
+      await SharePlus.instance.share(ShareParams(files: [XFile(tempFile.path)], text: item.attachment.fileName));
     } catch (e) {
       ScaffoldMessenger.of(context).hideCurrentSnackBar();
     }
@@ -1436,7 +1436,7 @@ class _FullscreenImageViewerState extends State<_FullscreenImageViewer> {
 
       ScaffoldMessenger.of(context).hideCurrentSnackBar();
 
-      await Share.shareXFiles([XFile(tempFile.path)]);
+      await SharePlus.instance.share(ShareParams(files: [XFile(tempFile.path)]));
     } catch (e) {
       ScaffoldMessenger.of(context).hideCurrentSnackBar();
     }
