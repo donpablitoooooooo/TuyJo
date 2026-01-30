@@ -33,6 +33,35 @@ import Flutter
     return super.application(application, didFinishLaunchingWithOptions: launchOptions)
   }
 
+  // Check for pending shared data when app becomes active
+  // This is the safety net for iOS 26+ where the Share Extension may not be able
+  // to open the main app via URL scheme. The extension saves data to App Group,
+  // and when the user manually switches to the app, this picks it up.
+  override func applicationDidBecomeActive(_ application: UIApplication) {
+    super.applicationDidBecomeActive(application)
+    checkForPendingSharedData()
+  }
+
+  private func checkForPendingSharedData() {
+    if let imagePath = loadSharedImagePathFromAppGroup() {
+      print("📱 Found pending shared image in App Group: \(imagePath)")
+      handleSharedMedia([URL(fileURLWithPath: imagePath)])
+      return
+    }
+
+    if let documentPath = loadSharedDocumentPathFromAppGroup() {
+      print("📱 Found pending shared document in App Group: \(documentPath)")
+      handleSharedMedia([URL(fileURLWithPath: documentPath)])
+      return
+    }
+
+    if let sharedText = loadSharedTextFromAppGroup() {
+      print("📱 Found pending shared text in App Group: \(sharedText)")
+      handleSharedText(sharedText)
+      return
+    }
+  }
+
   // Gestisce l'apertura di file/foto/URL condivisi (iOS 9+)
   override func application(_ app: UIApplication, open url: URL, options: [UIApplication.OpenURLOptionsKey : Any] = [:]) -> Bool {
     print("📱 AppDelegate: application:open:options called with URL: \(url)")
