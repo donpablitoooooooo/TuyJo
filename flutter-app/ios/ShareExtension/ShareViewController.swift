@@ -378,75 +378,20 @@ class ShareViewController: UIViewController {
     }
 
     private func openMainApp() {
-        let urlString = "ShareMedia://open"
-
-        guard let url = URL(string: urlString) else {
+        guard let url = URL(string: "ShareMedia://open") else {
             closeExtension()
             return
         }
 
-        // Thread-safe flag to ensure only one completion path executes
-        let lock = NSLock()
-        var didHandle = false
-
-        let handleResult: (Bool) -> Void = { [weak self] success in
-            lock.lock()
-            guard !didHandle else { lock.unlock(); return }
-            didHandle = true
-            lock.unlock()
-
-            DispatchQueue.main.async {
-                if !success {
-                    // extensionContext.open failed or timed out, try responder chain
-                    self?.openMainAppViaResponderChain(url)
-                }
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+        // Dispatch to main thread — openMainApp() is called from loadItem
+        // completion handlers which run on background threads.
+        // extensionContext?.open() requires the main thread on iOS 26.
+        DispatchQueue.main.async { [weak self] in
+            self?.extensionContext?.open(url) { _ in
+                DispatchQueue.main.async {
                     self?.closeExtension()
                 }
             }
-        }
-
-        // Primary: use NSExtensionContext.open (official Apple API for extensions)
-        // On iOS 26+ this is the most reliable method for Share Extensions
-        extensionContext?.open(url, completionHandler: { success in
-            handleResult(success)
-        })
-
-        // Safety timeout: if extensionContext.open doesn't respond within 0.5s,
-        // fall back to the responder chain approach
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
-            handleResult(false)
-        }
-    }
-
-    /// Fallback: walk the responder chain to find UIApplication and call open
-    private func openMainAppViaResponderChain(_ url: URL) {
-        // Try the modern open(_:options:completionHandler:) selector first
-        // Required on iOS 18+ where the deprecated openURL: is force-rejected
-        let modernSelector = sel_registerName("openURL:options:completionHandler:")
-        var responder: UIResponder? = self as UIResponder
-
-        while let r = responder {
-            if r.responds(to: modernSelector), let imp = r.method(for: modernSelector) {
-                typealias OpenFunc = @convention(c) (AnyObject, Selector, Any, Any, Any?) -> Void
-                let open = unsafeBitCast(imp, to: OpenFunc.self)
-                // A non-nil completion handler is required on iOS 18+
-                let handler: @convention(block) (Bool) -> Void = { _ in }
-                open(r, modernSelector, url as Any, [:] as NSDictionary as Any, handler as Any)
-                return
-            }
-            responder = r.next
-        }
-
-        // Legacy fallback for older iOS versions (< iOS 18)
-        let legacySelector = sel_registerName("openURL:")
-        responder = self as UIResponder
-        while let r = responder {
-            if r.responds(to: legacySelector) {
-                r.perform(legacySelector, with: url)
-                return
-            }
-            responder = r.next
         }
     }
 
