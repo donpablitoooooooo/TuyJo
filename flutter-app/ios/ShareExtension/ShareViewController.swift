@@ -5,9 +5,23 @@ import UniformTypeIdentifiers
 class ShareViewController: UIViewController {
     private let appGroupId = "group.com.privatemessaging.tuyjo"
 
+    override func loadView() {
+        // No visible UI — just process and open the main app
+        let v = UIView()
+        v.backgroundColor = .clear
+        v.isOpaque = false
+        self.view = v
+    }
+
     override func viewDidLoad() {
         super.viewDidLoad()
         handleSharedContent()
+    }
+
+    override func viewWillAppear(_ animated: Bool) {
+        super.viewWillAppear(animated)
+        // Also clear the system-provided container background
+        view.superview?.backgroundColor = .clear
     }
 
     private func handleSharedContent() {
