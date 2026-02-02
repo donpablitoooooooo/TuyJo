@@ -308,7 +308,7 @@ exports.sendCallNotification = functions
           // Android: alta priorità per svegliare l'app in Doze mode
           android: {
             priority: 'high',
-            ttl: '30s',
+            ttl: 30000,
           },
           // iOS: alta priorità + content-available per svegliare l'app in background
           apns: {
