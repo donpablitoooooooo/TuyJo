@@ -131,6 +131,9 @@ class NotificationService {
     // 2.5. Inizializza CallKit event listeners
     _initializeCallKitListeners();
 
+    // 2.6. Richiedi permessi CallKit (Android 14+ full screen intent, notifiche)
+    await _requestCallKitPermissions();
+
     // 3. Richiedi permessi FCM
     NotificationSettings settings = await _firebaseMessaging.requestPermission(
       alert: true,
@@ -228,6 +231,31 @@ class NotificationService {
           ),
         ),
       );
+    }
+  }
+
+  /// Richiedi permessi necessari per CallKit (Android 14+ full screen intent)
+  Future<void> _requestCallKitPermissions() async {
+    try {
+      // Android 13+: permesso notifiche (necessario per mostrare la UI di chiamata)
+      await FlutterCallkitIncoming.requestNotificationPermission({
+        "rationaleMessagePermission": "Per ricevere le chiamate in arrivo è necessario il permesso notifiche.",
+        "postNotificationMessage": "Per ricevere le chiamate in arrivo, abilita le notifiche nelle impostazioni.",
+      });
+
+      // Android 14+: permesso full screen intent (schermata chiamata a schermo intero)
+      final canFullScreen = await FlutterCallkitIncoming.canUseFullScreenIntent();
+      if (canFullScreen == false) {
+        await FlutterCallkitIncoming.requestFullIntentPermission();
+      }
+
+      if (kDebugMode) {
+        print('✅ [CALLKIT] Permissions requested (fullScreen: $canFullScreen)');
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        print('⚠️ [CALLKIT] Error requesting permissions: $e');
+      }
     }
   }
 
