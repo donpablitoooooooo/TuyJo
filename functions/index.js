@@ -14,6 +14,10 @@ const NOTIFICATION_TEXTS = {
       title: '📅 Nuovo To Do',
       body: 'Il tuo partner ha creato un nuovo promemoria',
     },
+    incomingCall: {
+      title: '📞 Chiamata in arrivo',
+      body: 'Il tuo partner ti sta chiamando',
+    },
   },
   en: {
     newMessage: {
@@ -23,6 +27,10 @@ const NOTIFICATION_TEXTS = {
     newTodo: {
       title: '📅 New To Do',
       body: 'Your partner has created a new reminder',
+    },
+    incomingCall: {
+      title: '📞 Incoming call',
+      body: 'Your partner is calling you',
     },
   },
   es: {
@@ -34,6 +42,10 @@ const NOTIFICATION_TEXTS = {
       title: '📅 Nuevo To Do',
       body: 'Tu pareja ha creado un nuevo recordatorio',
     },
+    incomingCall: {
+      title: '📞 Llamada entrante',
+      body: 'Tu pareja te está llamando',
+    },
   },
   ca: {
     newMessage: {
@@ -44,12 +56,17 @@ const NOTIFICATION_TEXTS = {
       title: '📅 Nou To Do',
       body: 'La teva parella ha creat un nou recordatori',
     },
+    incomingCall: {
+      title: '📞 Trucada entrant',
+      body: 'La teva parella et truca',
+    },
   },
 };
 
 // Funzione helper per ottenere i testi localizzati (default: italiano)
 function getLocalizedText(language, messageType) {
   const lang = NOTIFICATION_TEXTS[language] || NOTIFICATION_TEXTS.it;
+  if (messageType === 'incoming_call') return lang.incomingCall;
   return messageType === 'todo' ? lang.newTodo : lang.newMessage;
 }
 
@@ -190,6 +207,174 @@ exports.sendMessageNotification = functions
       return null;
     } catch (error) {
       console.error('❌ Error in sendMessageNotification:', error);
+      return null;
+    }
+  });
+
+/**
+ * Cloud Function che invia una notifica push ad alta priorità quando viene avviata una chiamata
+ * Triggered da: Firestore onWrite su /families/{familyChatId}/calls/current
+ * Region: europe-west1 (Belgio - EU)
+ *
+ * La notifica è ad alta priorità per svegliare il dispositivo anche in Doze mode
+ */
+exports.sendCallNotification = functions
+  .region('europe-west1')
+  .firestore
+  .document('families/{familyChatId}/calls/current')
+  .onWrite(async (change, context) => {
+    try {
+      const familyChatId = context.params.familyChatId;
+
+      // Se il documento è stato eliminato, non fare nulla
+      if (!change.after.exists) {
+        console.log('📞 Call document deleted, skipping');
+        return null;
+      }
+
+      const callData = change.after.data();
+      const callerId = callData.caller_id;
+      const status = callData.status;
+
+      console.log('📞 Call signal detected:', {familyChatId, callerId, status});
+
+      // Invia notifica solo quando lo stato è "ringing" (nuova chiamata)
+      if (status !== 'ringing') {
+        console.log(`⏭️ Skipping notification for call status: ${status}`);
+        return null;
+      }
+
+      // Se il documento esisteva già con status ringing, non reinviare
+      if (change.before.exists) {
+        const prevData = change.before.data();
+        if (prevData.status === 'ringing') {
+          console.log('⏭️ Call was already ringing, skipping duplicate notification');
+          return null;
+        }
+      }
+
+      // 1. Ottieni tutti gli utenti della famiglia
+      const usersSnapshot = await admin
+        .firestore()
+        .collection('families')
+        .doc(familyChatId)
+        .collection('users')
+        .get();
+
+      if (usersSnapshot.empty) {
+        console.log('⚠️ No users found in this family');
+        return null;
+      }
+
+      // 2. Trova il destinatario (chi NON è il caller)
+      const recipients = [];
+      usersSnapshot.forEach((doc) => {
+        const userId = doc.id;
+        const userData = doc.data();
+        if (userId !== callerId && userData.fcm_token) {
+          recipients.push({
+            userId,
+            token: userData.fcm_token,
+            language: userData.language || 'it',
+          });
+        }
+      });
+
+      if (recipients.length === 0) {
+        console.log('⚠️ No recipients with FCM tokens found for call');
+        return null;
+      }
+
+      console.log(`📤 Sending HIGH PRIORITY call notifications to ${recipients.length} recipients`);
+
+      // 3. Invia notifica ad alta priorità a ciascun destinatario
+      const notifications = recipients.map((recipient) => {
+        const localizedText = getLocalizedText(recipient.language, 'incoming_call');
+
+        const message = {
+          // Notification payload (per mostrare la notifica visiva)
+          notification: {
+            title: localizedText.title,
+            body: localizedText.body,
+          },
+          // Data payload (per gestione programmatica)
+          data: {
+            type: 'incoming_call',
+            familyChatId: familyChatId,
+            callerId: callerId,
+            status: status,
+          },
+          token: recipient.token,
+          // Android: alta priorità + canale chiamate
+          android: {
+            priority: 'high',
+            ttl: 30000, // 30 secondi TTL (la chiamata non dura per sempre)
+            notification: {
+              channelId: 'call_channel',
+              priority: 'max',
+              sound: 'default',
+              defaultVibrateTimings: false,
+              vibrateTimingsMillis: [0, 500, 200, 500, 200, 500],
+              visibility: 'public',
+              tag: 'incoming_call',
+            },
+          },
+          // iOS: alta priorità + content-available per svegliare l'app
+          apns: {
+            headers: {
+              'apns-priority': '10', // Alta priorità
+              'apns-push-type': 'alert',
+            },
+            payload: {
+              aps: {
+                alert: {
+                  title: localizedText.title,
+                  body: localizedText.body,
+                },
+                sound: {
+                  critical: 1,
+                  name: 'default',
+                  volume: 1.0,
+                },
+                badge: 1,
+                'content-available': 1,
+                'interruption-level': 'time-sensitive',
+              },
+            },
+          },
+        };
+
+        return admin
+          .messaging()
+          .send(message)
+          .then((response) => {
+            console.log('✅ Call notification sent to:', recipient.userId, response);
+            return response;
+          })
+          .catch((error) => {
+            console.error('❌ Error sending call notification to:', recipient.userId, error);
+            if (error.code === 'messaging/invalid-registration-token' ||
+                error.code === 'messaging/registration-token-not-registered') {
+              console.log('🗑️ Removing invalid token for user:', recipient.userId);
+              return admin
+                .firestore()
+                .collection('families')
+                .doc(familyChatId)
+                .collection('users')
+                .doc(recipient.userId)
+                .update({
+                  fcm_token: admin.firestore.FieldValue.delete(),
+                });
+            }
+            return null;
+          });
+      });
+
+      await Promise.all(notifications);
+      console.log('✅ All call notifications processed');
+      return null;
+    } catch (error) {
+      console.error('❌ Error in sendCallNotification:', error);
       return null;
     }
   });

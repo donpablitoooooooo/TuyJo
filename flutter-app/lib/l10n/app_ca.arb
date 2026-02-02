@@ -269,5 +269,9 @@
     "voiceCallNotPaired": "Necessites estar emparellat per fer una trucada",
     "settingsSectionProfilePhoto": "Foto de Perfil",
     "settingsChangeProfilePhoto": "Canviar Foto de Perfil",
-    "settingsProfilePhotoDescription": "Canvia la foto de parella mostrada al xat"
+    "settingsProfilePhotoDescription": "Canvia la foto de parella mostrada al xat",
+    "notificationIncomingCallTitle": "Trucada entrant",
+    "notificationIncomingCallBody": "La teva parella et truca",
+    "notificationChannelCalls": "Trucades",
+    "notificationChannelCallsDescription": "Notificacions per a trucades de veu entrants"
 }

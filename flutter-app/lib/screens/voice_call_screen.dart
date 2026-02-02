@@ -6,6 +6,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:private_messaging/generated/l10n/app_localizations.dart';
 import '../services/pairing_service.dart';
 import '../services/couple_selfie_service.dart';
+import '../services/notification_service.dart';
 
 /// Schermo per la chiamata vocale con il partner
 class VoiceCallScreen extends StatefulWidget {
@@ -57,6 +58,10 @@ class _VoiceCallScreenState extends State<VoiceCallScreen>
     );
 
     _initCall();
+
+    // Cancella la notifica di chiamata se presente
+    final notificationService = Provider.of<NotificationService>(context, listen: false);
+    notificationService.cancelCallNotification();
   }
 
   @override

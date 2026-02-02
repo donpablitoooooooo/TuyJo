@@ -269,5 +269,9 @@
     "voiceCallNotPaired": "Necesitas estar emparejado para hacer una llamada",
     "settingsSectionProfilePhoto": "Foto de Perfil",
     "settingsChangeProfilePhoto": "Cambiar Foto de Perfil",
-    "settingsProfilePhotoDescription": "Cambia la foto de pareja mostrada en el chat"
+    "settingsProfilePhotoDescription": "Cambia la foto de pareja mostrada en el chat",
+    "notificationIncomingCallTitle": "Llamada entrante",
+    "notificationIncomingCallBody": "Tu pareja te está llamando",
+    "notificationChannelCalls": "Llamadas",
+    "notificationChannelCallsDescription": "Notificaciones para llamadas de voz entrantes"
 }

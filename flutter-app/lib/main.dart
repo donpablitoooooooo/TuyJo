@@ -3,6 +3,7 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:provider/provider.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'screens/main_screen.dart';
+import 'screens/voice_call_screen.dart';
 import 'services/auth_service.dart';
 import 'services/chat_service.dart';
 import 'services/encryption_service.dart';
@@ -54,6 +55,19 @@ void main() async {
     );
 
     print('✅ [MAIN] Cache cleanup completed');
+  };
+
+  // Configura callback per chiamate in arrivo (push notification)
+  notificationService.onIncomingCall = (String familyChatId, String callerId) {
+    print('📞 [MAIN] Incoming call from $callerId in family $familyChatId');
+    final navigatorState = NotificationService.navigatorKey.currentState;
+    if (navigatorState != null) {
+      navigatorState.push(
+        MaterialPageRoute(
+          builder: (context) => const VoiceCallScreen(isOutgoing: false),
+        ),
+      );
+    }
   };
 
   // Inizializza in background (non blocca lo startup)
@@ -109,6 +123,7 @@ class MyApp extends StatelessWidget {
         Provider.value(value: attachmentService),
       ],
       child: MaterialApp(
+        navigatorKey: NotificationService.navigatorKey,
         onGenerateTitle: (context) => AppLocalizations.of(context)!.appTitle,
         localizationsDelegates: const [
           AppLocalizations.delegate,

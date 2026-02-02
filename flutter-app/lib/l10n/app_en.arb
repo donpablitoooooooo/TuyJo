@@ -269,5 +269,9 @@
     "voiceCallNotPaired": "You need to be paired to make a call",
     "settingsSectionProfilePhoto": "Profile Photo",
     "settingsChangeProfilePhoto": "Change Profile Photo",
-    "settingsProfilePhotoDescription": "Change the couple photo shown in the chat"
+    "settingsProfilePhotoDescription": "Change the couple photo shown in the chat",
+    "notificationIncomingCallTitle": "Incoming call",
+    "notificationIncomingCallBody": "Your partner is calling you",
+    "notificationChannelCalls": "Calls",
+    "notificationChannelCallsDescription": "Notifications for incoming voice calls"
 }

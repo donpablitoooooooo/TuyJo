@@ -1,5 +1,6 @@
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:timezone/data/latest_all.dart' as tz;
@@ -20,6 +21,12 @@ class NotificationService {
       FlutterLocalNotificationsPlugin();
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
+  /// GlobalKey per navigare dall'esterno (usato per aprire VoiceCallScreen dalle notifiche)
+  static final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
+
+  /// Callback per gestire la chiamata in arrivo (impostato da main.dart)
+  void Function(String familyChatId, String callerId)? onIncomingCall;
+
   static const AndroidNotificationChannel _channel = AndroidNotificationChannel(
     'messages_channel',
     'Messaggi',
@@ -34,6 +41,17 @@ class NotificationService {
     importance: Importance.defaultImportance,
     playSound: true,
     enableVibration: true,
+  );
+
+  /// Canale ad alta priorità per le chiamate vocali
+  static const AndroidNotificationChannel _callChannel = AndroidNotificationChannel(
+    'call_channel',
+    'Chiamate',
+    description: 'Notifiche per le chiamate vocali in arrivo',
+    importance: Importance.max,
+    playSound: true,
+    enableVibration: true,
+    enableLights: true,
   );
 
   // Inizializza le notifiche
@@ -75,19 +93,37 @@ class NotificationService {
       FirebaseMessaging.onMessage.listen((RemoteMessage message) {
         if (kDebugMode) {
           print('📨 Foreground message: ${message.notification?.title}');
+          print('   Data: ${message.data}');
         }
-        _showLocalNotification(message);
+
+        // Controlla se è una notifica di chiamata
+        if (message.data['type'] == 'incoming_call') {
+          _handleIncomingCallNotification(message);
+        } else {
+          _showLocalNotification(message);
+        }
       });
 
       FirebaseMessaging.onMessageOpenedApp.listen((RemoteMessage message) {
         if (kDebugMode) {
-          print('🔔 App opened from notification');
+          print('🔔 App opened from notification: ${message.data}');
+        }
+        // Se l'utente ha tappato su una notifica di chiamata
+        if (message.data['type'] == 'incoming_call') {
+          _handleIncomingCallNotification(message);
         }
       });
 
       RemoteMessage? initialMessage = await _firebaseMessaging.getInitialMessage();
-      if (initialMessage != null && kDebugMode) {
-        print('🚀 App opened from terminated state');
+      if (initialMessage != null) {
+        if (kDebugMode) print('🚀 App opened from terminated state');
+        // Se l'app è stata aperta da una notifica di chiamata
+        if (initialMessage.data['type'] == 'incoming_call') {
+          // Ritarda per dare tempo al widget tree di costruirsi
+          Future.delayed(const Duration(seconds: 1), () {
+            _handleIncomingCallNotification(initialMessage);
+          });
+        }
       }
     }
   }
@@ -116,6 +152,7 @@ class NotificationService {
 
     await androidImplementation?.createNotificationChannel(_channel);
     await androidImplementation?.createNotificationChannel(_todoChannel);
+    await androidImplementation?.createNotificationChannel(_callChannel);
 
     // Richiedi permessi Android 13+ per notifiche
     await androidImplementation?.requestNotificationsPermission();
@@ -138,6 +175,67 @@ class NotificationService {
         ),
       );
     }
+  }
+
+  /// Gestisce una notifica di chiamata in arrivo
+  void _handleIncomingCallNotification(RemoteMessage message) {
+    final familyChatId = message.data['familyChatId'] as String?;
+    final callerId = message.data['callerId'] as String?;
+
+    if (kDebugMode) {
+      print('📞 [CALL] Incoming call notification:');
+      print('   familyChatId: $familyChatId');
+      print('   callerId: $callerId');
+    }
+
+    if (familyChatId != null && callerId != null) {
+      // Mostra notifica locale ad alta priorità
+      _showCallNotification(message);
+
+      // Invoca il callback per navigare alla schermata di chiamata
+      if (onIncomingCall != null) {
+        onIncomingCall!(familyChatId, callerId);
+      }
+    }
+  }
+
+  /// Mostra una notifica locale ad alta priorità per la chiamata
+  Future<void> _showCallNotification(RemoteMessage message) async {
+    final notification = message.notification;
+    final title = notification?.title ?? 'Incoming Call';
+    final body = notification?.body ?? '';
+
+    await _localNotifications.show(
+      'call'.hashCode, // ID fisso per le chiamate (una sola attiva alla volta)
+      title,
+      body,
+      NotificationDetails(
+        android: AndroidNotificationDetails(
+          _callChannel.id,
+          _callChannel.name,
+          channelDescription: _callChannel.description,
+          importance: Importance.max,
+          priority: Priority.max,
+          icon: 'ic_notification',
+          fullScreenIntent: true,
+          category: AndroidNotificationCategory.call,
+          visibility: NotificationVisibility.public,
+          ongoing: true,
+          autoCancel: false,
+        ),
+        iOS: const DarwinNotificationDetails(
+          presentAlert: true,
+          presentBadge: true,
+          presentSound: true,
+          interruptionLevel: InterruptionLevel.timeSensitive,
+        ),
+      ),
+    );
+  }
+
+  /// Cancella la notifica di chiamata attiva
+  Future<void> cancelCallNotification() async {
+    await _localNotifications.cancel('call'.hashCode);
   }
 
   Future<String?> getToken() async {

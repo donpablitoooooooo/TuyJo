@@ -268,5 +268,9 @@
     "voiceCallNotPaired": "Devi essere accoppiato per effettuare una chiamata",
     "settingsSectionProfilePhoto": "Foto Profilo",
     "settingsChangeProfilePhoto": "Cambia Foto Profilo",
-    "settingsProfilePhotoDescription": "Cambia la foto di coppia mostrata nella chat"
+    "settingsProfilePhotoDescription": "Cambia la foto di coppia mostrata nella chat",
+    "notificationIncomingCallTitle": "Chiamata in arrivo",
+    "notificationIncomingCallBody": "Il tuo partner ti sta chiamando",
+    "notificationChannelCalls": "Chiamate",
+    "notificationChannelCallsDescription": "Notifiche per le chiamate vocali in arrivo"
 }
