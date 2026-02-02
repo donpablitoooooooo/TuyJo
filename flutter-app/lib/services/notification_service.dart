@@ -3,6 +3,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter_callkit_incoming/flutter_callkit_incoming.dart';
+import 'package:flutter_callkit_incoming/entities/call_event.dart';
 import 'package:flutter_callkit_incoming/entities/call_kit_params.dart';
 import 'package:flutter_callkit_incoming/entities/android_params.dart';
 import 'package:flutter_callkit_incoming/entities/ios_params.dart';
@@ -245,38 +246,29 @@ class NotificationService {
       final callerId = extra?['callerId'] as String? ?? '';
       final uuid = body?['id'] as String?;
 
-      switch (event.event) {
-        case Event.actionCallAccept:
-          if (kDebugMode) print('📞 [CALLKIT] Call accepted');
-          _activeCallUuid = uuid;
-          if (onIncomingCall != null) {
-            onIncomingCall!(familyChatId, callerId);
-          }
-          break;
+      final eventType = event.event;
 
-        case Event.actionCallDecline:
-          if (kDebugMode) print('📞 [CALLKIT] Call declined');
-          _activeCallUuid = null;
-          if (onCallDeclined != null) {
-            onCallDeclined!(familyChatId, callerId);
-          }
-          break;
-
-        case Event.actionCallEnded:
-          if (kDebugMode) print('📞 [CALLKIT] Call ended');
-          _activeCallUuid = null;
-          if (onCallEnded != null) {
-            onCallEnded!(familyChatId, callerId);
-          }
-          break;
-
-        case Event.actionCallTimeout:
-          if (kDebugMode) print('📞 [CALLKIT] Call timeout');
-          _activeCallUuid = null;
-          break;
-
-        default:
-          break;
+      if (eventType == Event.actionCallAccept) {
+        if (kDebugMode) print('📞 [CALLKIT] Call accepted');
+        _activeCallUuid = uuid;
+        if (onIncomingCall != null) {
+          onIncomingCall!(familyChatId, callerId);
+        }
+      } else if (eventType == Event.actionCallDecline) {
+        if (kDebugMode) print('📞 [CALLKIT] Call declined');
+        _activeCallUuid = null;
+        if (onCallDeclined != null) {
+          onCallDeclined!(familyChatId, callerId);
+        }
+      } else if (eventType == Event.actionCallEnded) {
+        if (kDebugMode) print('📞 [CALLKIT] Call ended');
+        _activeCallUuid = null;
+        if (onCallEnded != null) {
+          onCallEnded!(familyChatId, callerId);
+        }
+      } else if (eventType == Event.actionCallTimeout) {
+        if (kDebugMode) print('📞 [CALLKIT] Call timeout');
+        _activeCallUuid = null;
       }
     });
   }
