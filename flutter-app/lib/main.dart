@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:provider/provider.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'screens/main_screen.dart';
 import 'screens/voice_call_screen.dart';
 import 'services/auth_service.dart';
@@ -57,9 +58,9 @@ void main() async {
     print('✅ [MAIN] Cache cleanup completed');
   };
 
-  // Configura callback per chiamate in arrivo (push notification)
+  // Configura callback per chiamate in arrivo (CallKit accept)
   notificationService.onIncomingCall = (String familyChatId, String callerId) {
-    print('📞 [MAIN] Incoming call from $callerId in family $familyChatId');
+    print('📞 [MAIN] Call accepted via CallKit from $callerId in family $familyChatId');
     final navigatorState = NotificationService.navigatorKey.currentState;
     if (navigatorState != null) {
       navigatorState.push(
@@ -68,6 +69,33 @@ void main() async {
         ),
       );
     }
+  };
+
+  // Configura callback per rifiuto chiamata (CallKit decline)
+  notificationService.onCallDeclined = (String familyChatId, String callerId) {
+    print('📞 [MAIN] Call declined via CallKit from $callerId in family $familyChatId');
+    // Aggiorna Firestore con status "declined"
+    FirebaseFirestore.instance
+        .collection('families')
+        .doc(familyChatId)
+        .collection('calls')
+        .doc('current')
+        .set({
+      'status': 'declined',
+      'updated_at': FieldValue.serverTimestamp(),
+    }, SetOptions(merge: true));
+  };
+
+  // Configura callback per fine chiamata (CallKit end)
+  notificationService.onCallEnded = (String familyChatId, String callerId) {
+    print('📞 [MAIN] Call ended via CallKit from $callerId in family $familyChatId');
+    // Pulisci il documento della chiamata su Firestore
+    FirebaseFirestore.instance
+        .collection('families')
+        .doc(familyChatId)
+        .collection('calls')
+        .doc('current')
+        .delete();
   };
 
   // Inizializza in background (non blocca lo startup)

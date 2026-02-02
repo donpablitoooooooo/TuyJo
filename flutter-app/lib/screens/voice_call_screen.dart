@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 import 'package:provider/provider.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter_callkit_incoming/flutter_callkit_incoming.dart';
 import 'package:private_messaging/generated/l10n/app_localizations.dart';
 import '../services/pairing_service.dart';
 import '../services/couple_selfie_service.dart';
@@ -69,6 +70,8 @@ class _VoiceCallScreenState extends State<VoiceCallScreen>
     _callTimer?.cancel();
     _callSubscription?.cancel();
     _pulseController.dispose();
+    // Termina la chiamata CallKit se ancora attiva
+    FlutterCallkitIncoming.endAllCalls();
     // Pulisci lo stato della chiamata su Firestore
     _cleanupCallState();
     super.dispose();
@@ -168,6 +171,9 @@ class _VoiceCallScreenState extends State<VoiceCallScreen>
   Future<void> _endCall() async {
     await _writeCallSignal('ended');
     _callTimer?.cancel();
+    // Termina la chiamata CallKit
+    final notificationService = Provider.of<NotificationService>(context, listen: false);
+    await notificationService.endCallKit();
     setState(() {
       _callState = CallState.ended;
     });
@@ -187,6 +193,9 @@ class _VoiceCallScreenState extends State<VoiceCallScreen>
 
   Future<void> _declineCall() async {
     await _writeCallSignal('declined');
+    // Termina la chiamata CallKit
+    final notificationService = Provider.of<NotificationService>(context, listen: false);
+    await notificationService.endCallKit();
     if (mounted) {
       Navigator.of(context).pop();
     }

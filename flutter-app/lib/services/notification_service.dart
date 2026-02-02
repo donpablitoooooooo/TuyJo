@@ -2,6 +2,10 @@ import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:flutter_callkit_incoming/flutter_callkit_incoming.dart';
+import 'package:flutter_callkit_incoming/entities/call_kit_params.dart';
+import 'package:flutter_callkit_incoming/entities/android_params.dart';
+import 'package:flutter_callkit_incoming/entities/ios_params.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:timezone/data/latest_all.dart' as tz;
 import 'package:timezone/timezone.dart' as tz;
@@ -11,8 +15,57 @@ import 'dart:ui' as ui;
 @pragma('vm:entry-point')
 Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   if (kDebugMode) {
-    print('📱 Background message received: ${message.notification?.title}');
+    print('📱 Background message received: ${message.data}');
   }
+
+  // Se è una notifica di chiamata, mostra la UI nativa CallKit
+  if (message.data['type'] == 'incoming_call') {
+    await _showCallKitIncoming(message.data);
+  }
+}
+
+/// Mostra la UI nativa di chiamata in arrivo via CallKit (top-level per background handler)
+Future<void> _showCallKitIncoming(Map<String, dynamic> data) async {
+  final callerId = data['callerId'] ?? '';
+  final familyChatId = data['familyChatId'] ?? '';
+  // Genera UUID univoco per la chiamata
+  final uuid = '${familyChatId}_${DateTime.now().millisecondsSinceEpoch}';
+
+  final params = CallKitParams(
+    id: uuid,
+    nameCaller: data['callerName'] ?? 'Partner',
+    handle: 'TuyJo',
+    type: 0, // 0 = audio call
+    duration: 30000, // 30 secondi timeout
+    textAccept: 'Accept',
+    textDecline: 'Decline',
+    extra: <String, dynamic>{
+      'familyChatId': familyChatId,
+      'callerId': callerId,
+    },
+    android: const AndroidParams(
+      isCustomNotification: false,
+      isShowLogo: false,
+      ringtonePath: 'system_ringtone_default',
+      backgroundColor: '#1A1A2E',
+      actionColor: '#3BA8B0',
+      isShowFullLockedScreen: true,
+    ),
+    ios: const IOSParams(
+      iconName: 'AppIcon',
+      handleType: 'generic',
+      supportsVideo: false,
+      maximumCallGroups: 1,
+      maximumCallsPerCallGroup: 1,
+      audioSessionMode: 'default',
+      audioSessionActive: true,
+      audioSessionPreferredSampleRate: 44100.0,
+      audioSessionPreferredIOBufferDuration: 0.005,
+      ringtonePath: 'system_ringtone_default',
+    ),
+  );
+
+  await FlutterCallkitIncoming.showCallkitIncoming(params);
 }
 
 class NotificationService {
@@ -24,8 +77,14 @@ class NotificationService {
   /// GlobalKey per navigare dall'esterno (usato per aprire VoiceCallScreen dalle notifiche)
   static final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 
-  /// Callback per gestire la chiamata in arrivo (impostato da main.dart)
+  /// Callback per gestire la chiamata in arrivo (accept) — impostato da main.dart
   void Function(String familyChatId, String callerId)? onIncomingCall;
+
+  /// Callback per gestire il rifiuto della chiamata — impostato da main.dart
+  void Function(String familyChatId, String callerId)? onCallDeclined;
+
+  /// Callback per gestire la fine della chiamata — impostato da main.dart
+  void Function(String familyChatId, String callerId)? onCallEnded;
 
   static const AndroidNotificationChannel _channel = AndroidNotificationChannel(
     'messages_channel',
@@ -43,16 +102,8 @@ class NotificationService {
     enableVibration: true,
   );
 
-  /// Canale ad alta priorità per le chiamate vocali
-  static const AndroidNotificationChannel _callChannel = AndroidNotificationChannel(
-    'call_channel',
-    'Chiamate',
-    description: 'Notifiche per le chiamate vocali in arrivo',
-    importance: Importance.max,
-    playSound: true,
-    enableVibration: true,
-    enableLights: true,
-  );
+  /// UUID della chiamata CallKit attiva (per poterla terminare)
+  String? _activeCallUuid;
 
   // Inizializza le notifiche
   Future<void> initialize() async {
@@ -75,6 +126,9 @@ class NotificationService {
 
     // 2. Inizializza notifiche locali
     await _initializeLocalNotifications();
+
+    // 2.5. Inizializza CallKit event listeners
+    _initializeCallKitListeners();
 
     // 3. Richiedi permessi FCM
     NotificationSettings settings = await _firebaseMessaging.requestPermission(
@@ -152,7 +206,6 @@ class NotificationService {
 
     await androidImplementation?.createNotificationChannel(_channel);
     await androidImplementation?.createNotificationChannel(_todoChannel);
-    await androidImplementation?.createNotificationChannel(_callChannel);
 
     // Richiedi permessi Android 13+ per notifiche
     await androidImplementation?.requestNotificationsPermission();
@@ -177,65 +230,89 @@ class NotificationService {
     }
   }
 
-  /// Gestisce una notifica di chiamata in arrivo
+  /// Inizializza i listener per gli eventi CallKit (accept, decline, end, timeout)
+  void _initializeCallKitListeners() {
+    FlutterCallkitIncoming.onEvent.listen((CallEvent? event) {
+      if (event == null) return;
+
+      if (kDebugMode) {
+        print('📞 [CALLKIT] Event: ${event.event}, body: ${event.body}');
+      }
+
+      final body = event.body as Map<dynamic, dynamic>?;
+      final extra = body?['extra'] as Map<dynamic, dynamic>?;
+      final familyChatId = extra?['familyChatId'] as String? ?? '';
+      final callerId = extra?['callerId'] as String? ?? '';
+      final uuid = body?['id'] as String?;
+
+      switch (event.event) {
+        case Event.actionCallAccept:
+          if (kDebugMode) print('📞 [CALLKIT] Call accepted');
+          _activeCallUuid = uuid;
+          if (onIncomingCall != null) {
+            onIncomingCall!(familyChatId, callerId);
+          }
+          break;
+
+        case Event.actionCallDecline:
+          if (kDebugMode) print('📞 [CALLKIT] Call declined');
+          _activeCallUuid = null;
+          if (onCallDeclined != null) {
+            onCallDeclined!(familyChatId, callerId);
+          }
+          break;
+
+        case Event.actionCallEnded:
+          if (kDebugMode) print('📞 [CALLKIT] Call ended');
+          _activeCallUuid = null;
+          if (onCallEnded != null) {
+            onCallEnded!(familyChatId, callerId);
+          }
+          break;
+
+        case Event.actionCallTimeout:
+          if (kDebugMode) print('📞 [CALLKIT] Call timeout');
+          _activeCallUuid = null;
+          break;
+
+        default:
+          break;
+      }
+    });
+  }
+
+  /// Gestisce una notifica di chiamata in arrivo (app in foreground)
   void _handleIncomingCallNotification(RemoteMessage message) {
     final familyChatId = message.data['familyChatId'] as String?;
     final callerId = message.data['callerId'] as String?;
 
     if (kDebugMode) {
-      print('📞 [CALL] Incoming call notification:');
+      print('📞 [CALL] Incoming call notification (foreground):');
       print('   familyChatId: $familyChatId');
       print('   callerId: $callerId');
     }
 
     if (familyChatId != null && callerId != null) {
-      // Mostra notifica locale ad alta priorità
-      _showCallNotification(message);
-
-      // Invoca il callback per navigare alla schermata di chiamata
-      if (onIncomingCall != null) {
-        onIncomingCall!(familyChatId, callerId);
-      }
+      // Mostra la UI nativa di chiamata via CallKit
+      _showCallKitIncoming(message.data);
     }
   }
 
-  /// Mostra una notifica locale ad alta priorità per la chiamata
-  Future<void> _showCallNotification(RemoteMessage message) async {
-    final notification = message.notification;
-    final title = notification?.title ?? 'Incoming Call';
-    final body = notification?.body ?? '';
-
-    await _localNotifications.show(
-      'call'.hashCode, // ID fisso per le chiamate (una sola attiva alla volta)
-      title,
-      body,
-      NotificationDetails(
-        android: AndroidNotificationDetails(
-          _callChannel.id,
-          _callChannel.name,
-          channelDescription: _callChannel.description,
-          importance: Importance.max,
-          priority: Priority.max,
-          icon: 'ic_notification',
-          fullScreenIntent: true,
-          category: AndroidNotificationCategory.call,
-          visibility: NotificationVisibility.public,
-          ongoing: true,
-          autoCancel: false,
-        ),
-        iOS: const DarwinNotificationDetails(
-          presentAlert: true,
-          presentBadge: true,
-          presentSound: true,
-          interruptionLevel: InterruptionLevel.timeSensitive,
-        ),
-      ),
-    );
+  /// Termina la chiamata CallKit attiva
+  Future<void> endCallKit() async {
+    if (_activeCallUuid != null) {
+      await FlutterCallkitIncoming.endCall(_activeCallUuid!);
+      _activeCallUuid = null;
+    } else {
+      // Termina tutte le chiamate attive
+      await FlutterCallkitIncoming.endAllCalls();
+    }
   }
 
-  /// Cancella la notifica di chiamata attiva
+  /// Cancella la notifica di chiamata attiva (legacy + CallKit)
   Future<void> cancelCallNotification() async {
-    await _localNotifications.cancel('call'.hashCode);
+    await FlutterCallkitIncoming.endAllCalls();
+    _activeCallUuid = null;
   }
 
   Future<String?> getToken() async {

@@ -287,58 +287,38 @@ exports.sendCallNotification = functions
 
       console.log(`📤 Sending HIGH PRIORITY call notifications to ${recipients.length} recipients`);
 
-      // 3. Invia notifica ad alta priorità a ciascun destinatario
+      // 3. Invia notifica DATA-ONLY ad alta priorità a ciascun destinatario
+      // NOTA: Data-only (senza notification payload) permette al background handler
+      // di processare il messaggio e mostrare la UI nativa CallKit
       const notifications = recipients.map((recipient) => {
         const localizedText = getLocalizedText(recipient.language, 'incoming_call');
 
         const message = {
-          // Notification payload (per mostrare la notifica visiva)
-          notification: {
-            title: localizedText.title,
-            body: localizedText.body,
-          },
-          // Data payload (per gestione programmatica)
+          // Solo data payload — NO notification payload!
+          // Questo è fondamentale per CallKit: il background handler Flutter
+          // riceve il data message e chiama FlutterCallkitIncoming.showCallkitIncoming()
           data: {
             type: 'incoming_call',
             familyChatId: familyChatId,
             callerId: callerId,
+            callerName: localizedText.body, // "Il tuo partner ti sta chiamando"
             status: status,
           },
           token: recipient.token,
-          // Android: alta priorità + canale chiamate
+          // Android: alta priorità per svegliare l'app in Doze mode
           android: {
             priority: 'high',
-            ttl: 30000, // 30 secondi TTL (la chiamata non dura per sempre)
-            notification: {
-              channelId: 'call_channel',
-              priority: 'max',
-              sound: 'default',
-              defaultVibrateTimings: false,
-              vibrateTimingsMillis: [0, 500, 200, 500, 200, 500],
-              visibility: 'public',
-              tag: 'incoming_call',
-            },
+            ttl: '30s',
           },
-          // iOS: alta priorità + content-available per svegliare l'app
+          // iOS: alta priorità + content-available per svegliare l'app in background
           apns: {
             headers: {
-              'apns-priority': '10', // Alta priorità
-              'apns-push-type': 'alert',
+              'apns-priority': '10',
+              'apns-push-type': 'background',
             },
             payload: {
               aps: {
-                alert: {
-                  title: localizedText.title,
-                  body: localizedText.body,
-                },
-                sound: {
-                  critical: 1,
-                  name: 'default',
-                  volume: 1.0,
-                },
-                badge: 1,
                 'content-available': 1,
-                'interruption-level': 'time-sensitive',
               },
             },
           },
