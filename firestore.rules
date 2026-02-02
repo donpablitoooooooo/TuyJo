@@ -56,6 +56,15 @@ service cloud.firestore {
         // Usato per condivisione posizione temporanea (1h/8h)
         allow read, write: if true;
       }
+
+      // ───────────────────────────────────────────────────────────
+      // CALLS SUBCOLLECTION (Voice call signaling)
+      // ───────────────────────────────────────────────────────────
+      match /calls/{callId} {
+        // ✅ Leggi/scrivi segnali chiamata SE conosci familyId
+        // Usato per segnalazione stato chiamata (ringing, connected, ended)
+        allow read, write: if true;
+      }
     }
   }
 }
