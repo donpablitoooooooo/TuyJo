@@ -1,0 +1,506 @@
+import 'dart:async';
+import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
+import 'package:provider/provider.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:private_messaging/generated/l10n/app_localizations.dart';
+import '../services/pairing_service.dart';
+import '../services/couple_selfie_service.dart';
+
+/// Schermo per la chiamata vocale con il partner
+class VoiceCallScreen extends StatefulWidget {
+  /// Se true, questa è una chiamata in uscita (noi chiamiamo)
+  /// Se false, è una chiamata in entrata (il partner ci chiama)
+  final bool isOutgoing;
+
+  const VoiceCallScreen({
+    Key? key,
+    this.isOutgoing = true,
+  }) : super(key: key);
+
+  @override
+  State<VoiceCallScreen> createState() => _VoiceCallScreenState();
+}
+
+enum CallState {
+  ringing,
+  connected,
+  ended,
+}
+
+class _VoiceCallScreenState extends State<VoiceCallScreen>
+    with TickerProviderStateMixin {
+  CallState _callState = CallState.ringing;
+  bool _isMuted = false;
+  bool _isSpeakerOn = false;
+  Timer? _callTimer;
+  int _callDurationSeconds = 0;
+  String? _familyChatId;
+  String? _myUserId;
+  StreamSubscription? _callSubscription;
+
+  // Animazione pulsazione per stato "chiamata in corso"
+  late AnimationController _pulseController;
+  late Animation<double> _pulseAnimation;
+
+  @override
+  void initState() {
+    super.initState();
+
+    _pulseController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1500),
+    )..repeat(reverse: true);
+
+    _pulseAnimation = Tween<double>(begin: 1.0, end: 1.15).animate(
+      CurvedAnimation(parent: _pulseController, curve: Curves.easeInOut),
+    );
+
+    _initCall();
+  }
+
+  @override
+  void dispose() {
+    _callTimer?.cancel();
+    _callSubscription?.cancel();
+    _pulseController.dispose();
+    // Pulisci lo stato della chiamata su Firestore
+    _cleanupCallState();
+    super.dispose();
+  }
+
+  Future<void> _initCall() async {
+    final pairingService = Provider.of<PairingService>(context, listen: false);
+    _familyChatId = await pairingService.getFamilyChatId();
+    _myUserId = await pairingService.getMyUserId();
+
+    if (_familyChatId == null || _myUserId == null) return;
+
+    if (widget.isOutgoing) {
+      // Chiamata in uscita: scrivi lo stato su Firestore
+      await _writeCallSignal('ringing');
+      // Ascolta la risposta del partner
+      _listenForCallResponse();
+    } else {
+      // Chiamata in entrata: mostra UI di risposta
+      _listenForCallResponse();
+    }
+  }
+
+  /// Scrive il segnale della chiamata su Firestore
+  Future<void> _writeCallSignal(String status) async {
+    if (_familyChatId == null || _myUserId == null) return;
+
+    try {
+      await FirebaseFirestore.instance
+          .collection('families')
+          .doc(_familyChatId)
+          .collection('calls')
+          .doc('current')
+          .set({
+        'caller_id': _myUserId,
+        'status': status, // ringing, connected, ended, declined
+        'started_at': FieldValue.serverTimestamp(),
+        'updated_at': FieldValue.serverTimestamp(),
+      }, SetOptions(merge: true));
+    } catch (e) {
+      if (kDebugMode) print('❌ [VOICE_CALL] Error writing call signal: $e');
+    }
+  }
+
+  /// Ascolta i cambiamenti dello stato della chiamata
+  void _listenForCallResponse() {
+    if (_familyChatId == null) return;
+
+    _callSubscription = FirebaseFirestore.instance
+        .collection('families')
+        .doc(_familyChatId)
+        .collection('calls')
+        .doc('current')
+        .snapshots()
+        .listen((snapshot) {
+      if (!snapshot.exists || !mounted) return;
+
+      final data = snapshot.data()!;
+      final status = data['status'] as String?;
+
+      if (status == 'connected' && _callState != CallState.connected) {
+        setState(() {
+          _callState = CallState.connected;
+        });
+        _pulseController.stop();
+        _startCallTimer();
+      } else if (status == 'ended' || status == 'declined') {
+        setState(() {
+          _callState = CallState.ended;
+        });
+        _pulseController.stop();
+        _callTimer?.cancel();
+        // Chiudi lo schermo dopo un breve delay
+        Future.delayed(const Duration(seconds: 1), () {
+          if (mounted) Navigator.of(context).pop();
+        });
+      }
+    });
+  }
+
+  void _startCallTimer() {
+    _callTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (mounted) {
+        setState(() {
+          _callDurationSeconds++;
+        });
+      }
+    });
+  }
+
+  String _formatDuration(int totalSeconds) {
+    final minutes = totalSeconds ~/ 60;
+    final seconds = totalSeconds % 60;
+    return '${minutes.toString().padLeft(2, '0')}:${seconds.toString().padLeft(2, '0')}';
+  }
+
+  Future<void> _endCall() async {
+    await _writeCallSignal('ended');
+    _callTimer?.cancel();
+    setState(() {
+      _callState = CallState.ended;
+    });
+    if (mounted) {
+      Navigator.of(context).pop();
+    }
+  }
+
+  Future<void> _acceptCall() async {
+    await _writeCallSignal('connected');
+    setState(() {
+      _callState = CallState.connected;
+    });
+    _pulseController.stop();
+    _startCallTimer();
+  }
+
+  Future<void> _declineCall() async {
+    await _writeCallSignal('declined');
+    if (mounted) {
+      Navigator.of(context).pop();
+    }
+  }
+
+  Future<void> _cleanupCallState() async {
+    if (_familyChatId == null) return;
+    try {
+      await FirebaseFirestore.instance
+          .collection('families')
+          .doc(_familyChatId)
+          .collection('calls')
+          .doc('current')
+          .delete();
+    } catch (e) {
+      if (kDebugMode) print('⚠️ [VOICE_CALL] Error cleaning up call state: $e');
+    }
+  }
+
+  void _toggleMute() {
+    setState(() {
+      _isMuted = !_isMuted;
+    });
+  }
+
+  void _toggleSpeaker() {
+    setState(() {
+      _isSpeakerOn = !_isSpeakerOn;
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
+
+    return Scaffold(
+      body: Container(
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [
+              Color(0xFF1A1A2E),
+              Color(0xFF16213E),
+              Color(0xFF0F3460),
+            ],
+          ),
+        ),
+        child: SafeArea(
+          child: Column(
+            children: [
+              const SizedBox(height: 40),
+
+              // Stato chiamata
+              Text(
+                _callState == CallState.ringing
+                    ? (widget.isOutgoing
+                        ? l10n.voiceCallCalling
+                        : l10n.voiceCallIncoming)
+                    : _callState == CallState.connected
+                        ? _formatDuration(_callDurationSeconds)
+                        : l10n.voiceCallEnded,
+                style: TextStyle(
+                  color: Colors.white.withOpacity(0.7),
+                  fontSize: 16,
+                  letterSpacing: 1.2,
+                ),
+              ),
+
+              const Spacer(flex: 1),
+
+              // Avatar partner con animazione pulsazione
+              ScaleTransition(
+                scale: _callState == CallState.ringing
+                    ? _pulseAnimation
+                    : const AlwaysStoppedAnimation(1.0),
+                child: _buildPartnerAvatar(),
+              ),
+
+              const SizedBox(height: 32),
+
+              // Nome / titolo
+              Text(
+                l10n.voiceCallTitle,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 28,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+
+              const Spacer(flex: 2),
+
+              // Pulsanti di controllo
+              if (_callState == CallState.ringing && !widget.isOutgoing) ...[
+                // Chiamata in entrata: Accept / Decline
+                _buildIncomingCallButtons(l10n),
+              ] else ...[
+                // Chiamata in uscita o connessa: Mute / Speaker / End
+                _buildCallControls(l10n),
+              ],
+
+              const SizedBox(height: 60),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildPartnerAvatar() {
+    return Consumer<CoupleSelfieService>(
+      builder: (context, coupleSelfieService, _) {
+        final hasSelfie = coupleSelfieService.hasSelfie;
+        final cachedSelfieBytes = coupleSelfieService.cachedSelfieBytes;
+
+        return Container(
+          width: 160,
+          height: 160,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            border: Border.all(
+              color: _callState == CallState.connected
+                  ? const Color(0xFF3BA8B0)
+                  : Colors.white.withOpacity(0.3),
+              width: 4,
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: (_callState == CallState.connected
+                        ? const Color(0xFF3BA8B0)
+                        : Colors.white)
+                    .withOpacity(0.2),
+                blurRadius: 30,
+                spreadRadius: 5,
+              ),
+            ],
+          ),
+          child: ClipOval(
+            child: hasSelfie && cachedSelfieBytes != null
+                ? Image.memory(
+                    cachedSelfieBytes,
+                    fit: BoxFit.cover,
+                    errorBuilder: (_, __, ___) => _buildDefaultAvatar(),
+                  )
+                : _buildDefaultAvatar(),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildDefaultAvatar() {
+    return Container(
+      color: const Color(0xFF3BA8B0).withOpacity(0.3),
+      child: const Icon(
+        Icons.person,
+        size: 80,
+        color: Colors.white70,
+      ),
+    );
+  }
+
+  Widget _buildCallControls(AppLocalizations l10n) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 40),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+        children: [
+          // Mute
+          _buildControlButton(
+            icon: _isMuted ? Icons.mic_off : Icons.mic,
+            label: l10n.voiceCallMute,
+            isActive: _isMuted,
+            onPressed: _toggleMute,
+          ),
+
+          // End call
+          _buildEndCallButton(l10n),
+
+          // Speaker
+          _buildControlButton(
+            icon: _isSpeakerOn ? Icons.volume_up : Icons.volume_down,
+            label: l10n.voiceCallSpeaker,
+            isActive: _isSpeakerOn,
+            onPressed: _toggleSpeaker,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildIncomingCallButtons(AppLocalizations l10n) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 60),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          // Decline
+          Column(
+            children: [
+              GestureDetector(
+                onTap: _declineCall,
+                child: Container(
+                  width: 72,
+                  height: 72,
+                  decoration: const BoxDecoration(
+                    color: Colors.red,
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(
+                    Icons.call_end,
+                    color: Colors.white,
+                    size: 36,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 12),
+              Text(
+                l10n.voiceCallDecline,
+                style: const TextStyle(color: Colors.white70, fontSize: 14),
+              ),
+            ],
+          ),
+
+          // Accept
+          Column(
+            children: [
+              GestureDetector(
+                onTap: _acceptCall,
+                child: Container(
+                  width: 72,
+                  height: 72,
+                  decoration: const BoxDecoration(
+                    color: Colors.green,
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(
+                    Icons.call,
+                    color: Colors.white,
+                    size: 36,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 12),
+              Text(
+                l10n.voiceCallAccept,
+                style: const TextStyle(color: Colors.white70, fontSize: 14),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildControlButton({
+    required IconData icon,
+    required String label,
+    required bool isActive,
+    required VoidCallback onPressed,
+  }) {
+    return Column(
+      children: [
+        GestureDetector(
+          onTap: onPressed,
+          child: Container(
+            width: 60,
+            height: 60,
+            decoration: BoxDecoration(
+              color: isActive
+                  ? Colors.white.withOpacity(0.3)
+                  : Colors.white.withOpacity(0.1),
+              shape: BoxShape.circle,
+            ),
+            child: Icon(icon, color: Colors.white, size: 28),
+          ),
+        ),
+        const SizedBox(height: 8),
+        Text(
+          label,
+          style: const TextStyle(color: Colors.white70, fontSize: 12),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildEndCallButton(AppLocalizations l10n) {
+    return Column(
+      children: [
+        GestureDetector(
+          onTap: _endCall,
+          child: Container(
+            width: 72,
+            height: 72,
+            decoration: const BoxDecoration(
+              color: Colors.red,
+              shape: BoxShape.circle,
+              boxShadow: [
+                BoxShadow(
+                  color: Color(0x66FF0000),
+                  blurRadius: 16,
+                  spreadRadius: 2,
+                ),
+              ],
+            ),
+            child: const Icon(
+              Icons.call_end,
+              color: Colors.white,
+              size: 36,
+            ),
+          ),
+        ),
+        const SizedBox(height: 8),
+        Text(
+          l10n.voiceCallEnd,
+          style: const TextStyle(color: Colors.white70, fontSize: 12),
+        ),
+      ],
+    );
+  }
+}

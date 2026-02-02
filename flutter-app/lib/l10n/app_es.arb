@@ -252,5 +252,22 @@
     "mediaTabLinks": "Enlaces",
     "mediaTabDocuments": "Docs",
     "mediaNoLinks": "Sin enlaces",
-    "mediaNoLinksDescription": "Los enlaces compartidos aparecerán aquí"
+    "mediaNoLinksDescription": "Los enlaces compartidos aparecerán aquí",
+    "voiceCallTitle": "Llamada de Voz",
+    "voiceCallCalling": "Llamando...",
+    "voiceCallConnected": "Conectado",
+    "voiceCallEnded": "Llamada finalizada",
+    "voiceCallPartnerBusy": "Tu pareja está ocupada",
+    "voiceCallPartnerDeclined": "Tu pareja rechazó la llamada",
+    "voiceCallPartnerNotAvailable": "Tu pareja no está disponible",
+    "voiceCallMute": "Silenciar",
+    "voiceCallSpeaker": "Altavoz",
+    "voiceCallEnd": "Finalizar",
+    "voiceCallIncoming": "Llamada entrante...",
+    "voiceCallAccept": "Aceptar",
+    "voiceCallDecline": "Rechazar",
+    "voiceCallNotPaired": "Necesitas estar emparejado para hacer una llamada",
+    "settingsSectionProfilePhoto": "Foto de Perfil",
+    "settingsChangeProfilePhoto": "Cambiar Foto de Perfil",
+    "settingsProfilePhotoDescription": "Cambia la foto de pareja mostrada en el chat"
 }

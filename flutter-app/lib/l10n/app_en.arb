@@ -252,5 +252,22 @@
     "mediaTabLinks": "Links",
     "mediaTabDocuments": "Docs",
     "mediaNoLinks": "No links",
-    "mediaNoLinksDescription": "Shared links will appear here"
+    "mediaNoLinksDescription": "Shared links will appear here",
+    "voiceCallTitle": "Voice Call",
+    "voiceCallCalling": "Calling...",
+    "voiceCallConnected": "Connected",
+    "voiceCallEnded": "Call ended",
+    "voiceCallPartnerBusy": "Partner is busy",
+    "voiceCallPartnerDeclined": "Partner declined the call",
+    "voiceCallPartnerNotAvailable": "Partner is not available",
+    "voiceCallMute": "Mute",
+    "voiceCallSpeaker": "Speaker",
+    "voiceCallEnd": "End",
+    "voiceCallIncoming": "Incoming call...",
+    "voiceCallAccept": "Accept",
+    "voiceCallDecline": "Decline",
+    "voiceCallNotPaired": "You need to be paired to make a call",
+    "settingsSectionProfilePhoto": "Profile Photo",
+    "settingsChangeProfilePhoto": "Change Profile Photo",
+    "settingsProfilePhotoDescription": "Change the couple photo shown in the chat"
 }

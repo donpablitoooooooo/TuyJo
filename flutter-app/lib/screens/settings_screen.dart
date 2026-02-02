@@ -11,6 +11,7 @@ import '../services/chat_service.dart';
 import '../services/notification_service.dart';
 import '../services/couple_selfie_service.dart';
 import 'pairing_wizard_screen.dart';
+import 'couple_selfie_screen.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 class SettingsScreen extends StatefulWidget {
@@ -634,6 +635,84 @@ class _SettingsScreenState extends State<SettingsScreen> {
             ],
           ],
         ),
+
+        // Profile Photo Section (only if paired)
+        if (isPaired) ...[
+          const SizedBox(height: 24),
+          _SettingsSection(
+            title: AppLocalizations.of(context)!.settingsSectionProfilePhoto,
+            icon: Icons.camera_alt,
+            iconColor: const Color(0xFF3BA8B0),
+            children: [
+              // Anteprima foto profilo corrente
+              Center(
+                child: Consumer<CoupleSelfieService>(
+                  builder: (context, coupleSelfieService, _) {
+                    final hasSelfie = coupleSelfieService.hasSelfie;
+                    final cachedSelfieBytes = coupleSelfieService.cachedSelfieBytes;
+
+                    return Container(
+                      width: 100,
+                      height: 100,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        border: Border.all(
+                          color: const Color(0xFF3BA8B0).withOpacity(0.3),
+                          width: 3,
+                        ),
+                        boxShadow: [
+                          BoxShadow(
+                            color: const Color(0xFF3BA8B0).withOpacity(0.15),
+                            blurRadius: 12,
+                            offset: const Offset(0, 4),
+                          ),
+                        ],
+                      ),
+                      child: ClipOval(
+                        child: hasSelfie && cachedSelfieBytes != null
+                            ? Image.memory(
+                                cachedSelfieBytes,
+                                fit: BoxFit.cover,
+                                errorBuilder: (_, __, ___) => Image.asset(
+                                  'assets/logo_teal.png',
+                                  width: 100,
+                                  height: 100,
+                                  fit: BoxFit.cover,
+                                ),
+                              )
+                            : Image.asset(
+                                'assets/logo_teal.png',
+                                width: 100,
+                                height: 100,
+                                fit: BoxFit.cover,
+                              ),
+                      ),
+                    );
+                  },
+                ),
+              ),
+              const SizedBox(height: 16),
+              Text(
+                AppLocalizations.of(context)!.settingsProfilePhotoDescription,
+                style: const TextStyle(color: Colors.grey, fontSize: 14),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 16),
+              _PurpleButton(
+                onPressed: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const CoupleSelfieScreen(),
+                    ),
+                  );
+                },
+                icon: Icons.camera_alt,
+                label: AppLocalizations.of(context)!.settingsChangeProfilePhoto,
+              ),
+            ],
+          ),
+        ],
 
         // Delete Section (only if paired)
         if (isPaired) ...[

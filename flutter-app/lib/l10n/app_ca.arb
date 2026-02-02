@@ -252,5 +252,22 @@
     "mediaTabLinks": "Enllaços",
     "mediaTabDocuments": "Docs",
     "mediaNoLinks": "Cap enllaç",
-    "mediaNoLinksDescription": "Els enllaços compartits apareixeran aquí"
+    "mediaNoLinksDescription": "Els enllaços compartits apareixeran aquí",
+    "voiceCallTitle": "Trucada de Veu",
+    "voiceCallCalling": "Trucant...",
+    "voiceCallConnected": "Connectat",
+    "voiceCallEnded": "Trucada finalitzada",
+    "voiceCallPartnerBusy": "La teva parella està ocupada",
+    "voiceCallPartnerDeclined": "La teva parella ha rebutjat la trucada",
+    "voiceCallPartnerNotAvailable": "La teva parella no està disponible",
+    "voiceCallMute": "Silenciar",
+    "voiceCallSpeaker": "Altaveu",
+    "voiceCallEnd": "Finalitzar",
+    "voiceCallIncoming": "Trucada entrant...",
+    "voiceCallAccept": "Acceptar",
+    "voiceCallDecline": "Rebutjar",
+    "voiceCallNotPaired": "Necessites estar emparellat per fer una trucada",
+    "settingsSectionProfilePhoto": "Foto de Perfil",
+    "settingsChangeProfilePhoto": "Canviar Foto de Perfil",
+    "settingsProfilePhotoDescription": "Canvia la foto de parella mostrada al xat"
 }
