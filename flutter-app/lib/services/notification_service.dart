@@ -45,41 +45,53 @@ Future<void> _showCallKitIncoming(Map<String, dynamic> data) async {
   // Genera UUID v4 valido (RFC 4122) — iOS CallKit richiede questo formato
   final uuid = _generateUUID();
 
-  final params = CallKitParams(
-    id: uuid,
-    nameCaller: data['callerName'] ?? 'Partner',
-    handle: 'TuyJo',
-    type: 0, // 0 = audio call
-    duration: 30000, // 30 secondi timeout
-    textAccept: 'Accept',
-    textDecline: 'Decline',
-    extra: <String, dynamic>{
-      'familyChatId': familyChatId,
-      'callerId': callerId,
-    },
-    android: const AndroidParams(
-      isCustomNotification: false,
-      isShowLogo: false,
-      ringtonePath: 'system_ringtone_default',
-      backgroundColor: '#1A1A2E',
-      actionColor: '#3BA8B0',
-      isShowFullLockedScreen: true,
-    ),
-    ios: const IOSParams(
-      iconName: 'AppIcon',
-      handleType: 'generic',
-      supportsVideo: false,
-      maximumCallGroups: 1,
-      maximumCallsPerCallGroup: 1,
-      audioSessionMode: 'default',
-      audioSessionActive: true,
-      audioSessionPreferredSampleRate: 44100.0,
-      audioSessionPreferredIOBufferDuration: 0.005,
-      ringtonePath: 'system_ringtone_default',
-    ),
-  );
+  if (kDebugMode) {
+    print('📞 [CALLKIT] Showing incoming call UI:');
+    print('   uuid: $uuid');
+    print('   callerId: $callerId');
+    print('   familyChatId: $familyChatId');
+  }
 
-  await FlutterCallkitIncoming.showCallkitIncoming(params);
+  try {
+    final params = CallKitParams(
+      id: uuid,
+      nameCaller: 'Partner',
+      handle: 'TuyJo',
+      type: 0, // 0 = audio call
+      duration: 30000, // 30 secondi timeout
+      textAccept: 'Accept',
+      textDecline: 'Decline',
+      extra: <String, dynamic>{
+        'familyChatId': familyChatId,
+        'callerId': callerId,
+      },
+      android: const AndroidParams(
+        isCustomNotification: false,
+        isShowLogo: false,
+        ringtonePath: 'system_ringtone_default',
+        backgroundColor: '#1A1A2E',
+        actionColor: '#3BA8B0',
+        isShowFullLockedScreen: true,
+      ),
+      ios: const IOSParams(
+        iconName: 'AppIcon',
+        handleType: 'generic',
+        supportsVideo: false,
+        maximumCallGroups: 1,
+        maximumCallsPerCallGroup: 1,
+        audioSessionMode: 'default',
+        audioSessionActive: true,
+        audioSessionPreferredSampleRate: 44100.0,
+        audioSessionPreferredIOBufferDuration: 0.005,
+        ringtonePath: 'system_ringtone_default',
+      ),
+    );
+
+    await FlutterCallkitIncoming.showCallkitIncoming(params);
+    if (kDebugMode) print('✅ [CALLKIT] showCallkitIncoming called successfully');
+  } catch (e) {
+    if (kDebugMode) print('❌ [CALLKIT] Error showing incoming call: $e');
+  }
 }
 
 class NotificationService {
@@ -333,18 +345,26 @@ class NotificationService {
 
   /// Termina la chiamata CallKit attiva
   Future<void> endCallKit() async {
-    if (_activeCallUuid != null) {
-      await FlutterCallkitIncoming.endCall(_activeCallUuid!);
+    try {
+      if (_activeCallUuid != null) {
+        await FlutterCallkitIncoming.endCall(_activeCallUuid!);
+        _activeCallUuid = null;
+      } else {
+        await FlutterCallkitIncoming.endAllCalls();
+      }
+    } catch (e) {
+      if (kDebugMode) print('⚠️ [CALLKIT] Error ending call: $e');
       _activeCallUuid = null;
-    } else {
-      // Termina tutte le chiamate attive
-      await FlutterCallkitIncoming.endAllCalls();
     }
   }
 
   /// Cancella la notifica di chiamata attiva (legacy + CallKit)
   Future<void> cancelCallNotification() async {
-    await FlutterCallkitIncoming.endAllCalls();
+    try {
+      await FlutterCallkitIncoming.endAllCalls();
+    } catch (e) {
+      if (kDebugMode) print('⚠️ [CALLKIT] Error cancelling call: $e');
+    }
     _activeCallUuid = null;
   }
 

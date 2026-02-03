@@ -170,12 +170,12 @@ class _VoiceCallScreenState extends State<VoiceCallScreen>
         });
         _pulseController.stop();
         _startCallTimer();
-      } else if (status == 'ended' || status == 'declined') {
+      } else if ((status == 'ended' || status == 'declined') && _callState != CallState.ended) {
+        _callTimer?.cancel();
         setState(() {
           _callState = CallState.ended;
         });
         _pulseController.stop();
-        _callTimer?.cancel();
         // Chiudi lo schermo dopo un breve delay
         Future.delayed(const Duration(seconds: 1), () {
           if (mounted) Navigator.of(context).pop();
@@ -201,14 +201,16 @@ class _VoiceCallScreenState extends State<VoiceCallScreen>
   }
 
   Future<void> _endCall() async {
-    await _writeCallSignal('ended');
+    if (_callState == CallState.ended) return; // Evita doppia chiusura
     _callTimer?.cancel();
-    // Termina la chiamata CallKit
-    final notificationService = Provider.of<NotificationService>(context, listen: false);
-    await notificationService.endCallKit();
     setState(() {
       _callState = CallState.ended;
     });
+    // Scrivi stato ended su Firestore (non bloccare la UI)
+    _writeCallSignal('ended');
+    // Termina CallKit (non bloccare la UI)
+    final notificationService = Provider.of<NotificationService>(context, listen: false);
+    notificationService.endCallKit();
     if (mounted) {
       Navigator.of(context).pop();
     }
@@ -228,10 +230,9 @@ class _VoiceCallScreenState extends State<VoiceCallScreen>
   }
 
   Future<void> _declineCall() async {
-    await _writeCallSignal('declined');
-    // Termina la chiamata CallKit
+    _writeCallSignal('declined');
     final notificationService = Provider.of<NotificationService>(context, listen: false);
-    await notificationService.endCallKit();
+    notificationService.endCallKit();
     if (mounted) {
       Navigator.of(context).pop();
     }
