@@ -13,10 +13,13 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 class WebRTCService {
   RTCPeerConnection? _peerConnection;
   MediaStream? _localStream;
+  MediaStream? _remoteStream;
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
   StreamSubscription? _remoteCandidatesSubscription;
   StreamSubscription? _answerSubscription;
+
+  bool _remoteDescriptionSet = false;
 
   /// Callback quando la connessione è stabilita
   VoidCallback? onConnected;
@@ -47,6 +50,15 @@ class WebRTCService {
       await _peerConnection!.addTrack(track, _localStream!);
     }
 
+    // Ricevi l'audio remoto dal partner
+    _peerConnection!.onTrack = (RTCTrackEvent event) {
+      if (kDebugMode) print('📞 [WEBRTC] Remote track received: ${event.track.kind}');
+      if (event.streams.isNotEmpty) {
+        _remoteStream = event.streams[0];
+        if (kDebugMode) print('📞 [WEBRTC] Remote audio stream active');
+      }
+    };
+
     // Monitora lo stato della connessione
     _peerConnection!.onConnectionState = (RTCPeerConnectionState state) {
       if (kDebugMode) print('📞 [WEBRTC] Connection state: $state');
@@ -76,6 +88,7 @@ class WebRTCService {
 
     // Raccogli ICE candidates locali e scrivili su Firestore
     _peerConnection!.onIceCandidate = (RTCIceCandidate candidate) {
+      if (kDebugMode) print('📞 [WEBRTC] Caller ICE candidate: ${candidate.candidate}');
       callDoc.collection('callerCandidates').add({
         'candidate': candidate.candidate,
         'sdpMid': candidate.sdpMid,
@@ -101,7 +114,8 @@ class WebRTCService {
     _answerSubscription = callDoc.snapshots().listen((snapshot) async {
       if (!snapshot.exists) return;
       final data = snapshot.data()!;
-      if (data['answer'] != null && _peerConnection?.getRemoteDescription() == null) {
+      if (data['answer'] != null && !_remoteDescriptionSet) {
+        _remoteDescriptionSet = true;
         final answer = RTCSessionDescription(
           data['answer']['sdp'],
           data['answer']['type'],
@@ -119,6 +133,7 @@ class WebRTCService {
       for (var change in snapshot.docChanges) {
         if (change.type == DocumentChangeType.added) {
           final data = change.doc.data()!;
+          if (kDebugMode) print('📞 [WEBRTC] Adding callee ICE candidate');
           _peerConnection!.addCandidate(RTCIceCandidate(
             data['candidate'],
             data['sdpMid'],
@@ -149,9 +164,12 @@ class WebRTCService {
     final offerData = callData.data()!['offer'];
     final offer = RTCSessionDescription(offerData['sdp'], offerData['type']);
     await _peerConnection!.setRemoteDescription(offer);
+    _remoteDescriptionSet = true;
+    if (kDebugMode) print('📞 [WEBRTC] Remote offer set');
 
     // Raccogli ICE candidates locali e scrivili su Firestore
     _peerConnection!.onIceCandidate = (RTCIceCandidate candidate) {
+      if (kDebugMode) print('📞 [WEBRTC] Callee ICE candidate: ${candidate.candidate}');
       callDoc.collection('calleeCandidates').add({
         'candidate': candidate.candidate,
         'sdpMid': candidate.sdpMid,
@@ -181,6 +199,7 @@ class WebRTCService {
       for (var change in snapshot.docChanges) {
         if (change.type == DocumentChangeType.added) {
           final data = change.doc.data()!;
+          if (kDebugMode) print('📞 [WEBRTC] Adding caller ICE candidate');
           _peerConnection!.addCandidate(RTCIceCandidate(
             data['candidate'],
             data['sdpMid'],
@@ -197,6 +216,7 @@ class WebRTCService {
       for (var track in _localStream!.getAudioTracks()) {
         track.enabled = !muted;
       }
+      if (kDebugMode) print('📞 [WEBRTC] Mic ${muted ? "muted" : "unmuted"}');
     }
   }
 
@@ -206,6 +226,7 @@ class WebRTCService {
       for (var track in _localStream!.getAudioTracks()) {
         track.enableSpeakerphone(speakerOn);
       }
+      if (kDebugMode) print('📞 [WEBRTC] Speaker ${speakerOn ? "on" : "off"}');
     }
   }
 
@@ -238,7 +259,7 @@ class WebRTCService {
     _answerSubscription?.cancel();
     _remoteCandidatesSubscription?.cancel();
 
-    // Chiudi tracce audio
+    // Chiudi tracce audio locali
     if (_localStream != null) {
       for (var track in _localStream!.getAudioTracks()) {
         await track.stop();
@@ -247,11 +268,16 @@ class WebRTCService {
       _localStream = null;
     }
 
+    // Chiudi stream remoto
+    _remoteStream = null;
+
     // Chiudi peer connection
     if (_peerConnection != null) {
       await _peerConnection!.close();
       _peerConnection = null;
     }
+
+    _remoteDescriptionSet = false;
 
     if (kDebugMode) print('📞 [WEBRTC] Disposed');
   }
