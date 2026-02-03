@@ -197,10 +197,10 @@ class _PairingWizardScreenState extends State<PairingWizardScreen> {
         ),
         child: Stack(
           children: [
-            // Floating back button
+            // Floating close button
             Positioned(
               top: 48,
-              left: 16,
+              right: 16,
               child: Container(
                 decoration: BoxDecoration(
                   color: Colors.white,
@@ -214,7 +214,7 @@ class _PairingWizardScreenState extends State<PairingWizardScreen> {
                   ],
                 ),
                 child: IconButton(
-                  icon: const Icon(Icons.arrow_back, color: Color(0xFF3BA8B0)),
+                  icon: const Icon(Icons.close, color: Color(0xFF3BA8B0)),
                   onPressed: () {
                     Navigator.of(context, rootNavigator: false).pop();
                   },
@@ -247,9 +247,9 @@ class _PairingWizardScreenState extends State<PairingWizardScreen> {
                       builder: (context) {
                         final l10n = AppLocalizations.of(context)!;
                         return SingleChildScrollView(
-                          padding: const EdgeInsets.fromLTRB(24, 80, 24, 24),
+                          padding: const EdgeInsets.fromLTRB(24, 60, 24, 24),
                           child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
+                            crossAxisAlignment: CrossAxisAlignment.center,
                             children: [
                               // Header
                               Text(
@@ -259,16 +259,20 @@ class _PairingWizardScreenState extends State<PairingWizardScreen> {
                                   fontWeight: FontWeight.bold,
                                   color: Colors.white,
                                 ),
+                                textAlign: TextAlign.center,
                               ),
-                              const SizedBox(height: 8),
+                              const SizedBox(height: 12),
+                              // Intro text
                               Text(
-                                l10n.pairingWizardSubtitle,
+                                l10n.pairingWizardIntro,
                                 style: const TextStyle(
                                   fontSize: 14,
                                   color: Colors.white70,
+                                  height: 1.4,
                                 ),
+                                textAlign: TextAlign.center,
                               ),
-                              const SizedBox(height: 32),
+                              const SizedBox(height: 24),
 
                               // STEP 1: Mostra il tuo QR
                               _buildStepCard(
@@ -280,10 +284,10 @@ class _PairingWizardScreenState extends State<PairingWizardScreen> {
                             child: Column(
                               children: [
                                 // Mostra il QR finché non siamo entrambi paired
-                                if (_myQrData != null && !_bothPaired) ...[
+                                if (_myQrData != null && !_bothPaired && !_step2Completed) ...[
                                   Center(
                                     child: Container(
-                                      padding: const EdgeInsets.all(16),
+                                      padding: const EdgeInsets.all(12),
                                       decoration: BoxDecoration(
                                         color: Colors.white,
                                         borderRadius: BorderRadius.circular(16),
@@ -298,7 +302,7 @@ class _PairingWizardScreenState extends State<PairingWizardScreen> {
                                       child: QrImageView(
                                         data: _myQrData!,
                                         version: QrVersions.auto,
-                                        size: 200,
+                                        size: 240,
                                         backgroundColor: Colors.white,
                                         eyeStyle: const QrEyeStyle(
                                           eyeShape: QrEyeShape.square,
@@ -311,9 +315,9 @@ class _PairingWizardScreenState extends State<PairingWizardScreen> {
                                       ),
                                     ),
                                   ),
-                                ] else if (_bothPaired) ...[
+                                ] else if (_step2Completed || _bothPaired) ...[
                                   Container(
-                                    padding: const EdgeInsets.all(16),
+                                    padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
                                     decoration: BoxDecoration(
                                       color: const Color(0xFF3BA8B0).withOpacity(0.1),
                                       borderRadius: BorderRadius.circular(12),
@@ -321,25 +325,15 @@ class _PairingWizardScreenState extends State<PairingWizardScreen> {
                                         color: const Color(0xFF3BA8B0),
                                       ),
                                     ),
-                                    child: Row(
-                                      children: [
-                                        const Icon(
-                                          Icons.check_circle,
+                                    child: Center(
+                                      child: Text(
+                                        l10n.pairingWizardStepCompleted,
+                                        style: const TextStyle(
                                           color: Color(0xFF3BA8B0),
-                                          size: 32,
+                                          fontWeight: FontWeight.w600,
+                                          fontSize: 14,
                                         ),
-                                        const SizedBox(width: 12),
-                                        Expanded(
-                                          child: Text(
-                                            l10n.pairingWizardPairingCompleted,
-                                            style: const TextStyle(
-                                              color: Color(0xFF3BA8B0),
-                                              fontWeight: FontWeight.w600,
-                                              fontSize: 14,
-                                            ),
-                                          ),
-                                        ),
-                                      ],
+                                      ),
                                     ),
                                   ),
                                 ],
@@ -414,7 +408,7 @@ class _PairingWizardScreenState extends State<PairingWizardScreen> {
                                   ),
                                 ] else ...[
                                   Container(
-                                    padding: const EdgeInsets.all(16),
+                                    padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
                                     decoration: BoxDecoration(
                                       color: const Color(0xFF3BA8B0).withOpacity(0.1),
                                       borderRadius: BorderRadius.circular(12),
@@ -422,25 +416,15 @@ class _PairingWizardScreenState extends State<PairingWizardScreen> {
                                         color: const Color(0xFF3BA8B0),
                                       ),
                                     ),
-                                    child: Row(
-                                      children: [
-                                        const Icon(
-                                          Icons.check_circle,
+                                    child: Center(
+                                      child: Text(
+                                        l10n.pairingWizardStepCompleted,
+                                        style: const TextStyle(
                                           color: Color(0xFF3BA8B0),
-                                          size: 32,
+                                          fontWeight: FontWeight.w600,
+                                          fontSize: 14,
                                         ),
-                                        const SizedBox(width: 12),
-                                        Expanded(
-                                          child: Text(
-                                            l10n.pairingWizardQRScannedSuccess,
-                                            style: const TextStyle(
-                                              color: Color(0xFF3BA8B0),
-                                              fontWeight: FontWeight.w600,
-                                              fontSize: 14,
-                                            ),
-                                          ),
-                                        ),
-                                      ],
+                                      ),
                                     ),
                                   ),
                                 ],
@@ -592,65 +576,27 @@ class _PairingWizardScreenState extends State<PairingWizardScreen> {
       ),
       padding: const EdgeInsets.all(20),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          Row(
-            children: [
-              Container(
-                width: 48,
-                height: 48,
-                decoration: BoxDecoration(
-                  gradient: isCompleted
-                      ? const LinearGradient(
-                          colors: [
-                            Color(0xFF3BA8B0),
-                            Color(0xFF145A60),
-                          ],
-                        )
-                      : null,
-                  color: isCompleted ? null : Colors.grey.shade200,
-                  shape: BoxShape.circle,
-                ),
-                child: Center(
-                  child: isCompleted
-                      ? const Icon(Icons.check, color: Colors.white, size: 24)
-                      : Text(
-                          '$stepNumber',
-                          style: TextStyle(
-                            color: Colors.grey.shade600,
-                            fontWeight: FontWeight.bold,
-                            fontSize: 20,
-                          ),
-                        ),
-                ),
-              ),
-              const SizedBox(width: 16),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      title,
-                      style: const TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                        color: Color(0xFF2d3436),
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      description,
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: Colors.grey.shade600,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
+          Text(
+            title,
+            style: const TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+              color: Color(0xFF2d3436),
+            ),
+            textAlign: TextAlign.center,
           ),
-          const SizedBox(height: 20),
+          const SizedBox(height: 4),
+          Text(
+            description,
+            style: TextStyle(
+              fontSize: 12,
+              color: Colors.grey.shade600,
+            ),
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 16),
           child,
         ],
       ),
@@ -693,7 +639,7 @@ class _PairingWizardScreenState extends State<PairingWizardScreen> {
               ),
             ),
 
-            // Floating back button
+            // Floating close button
             Positioned(
               top: 48,
               left: 16,
@@ -710,7 +656,7 @@ class _PairingWizardScreenState extends State<PairingWizardScreen> {
                   ],
                 ),
                 child: IconButton(
-                  icon: const Icon(Icons.arrow_back, color: Color(0xFF3BA8B0)),
+                  icon: const Icon(Icons.close, color: Color(0xFF3BA8B0)),
                   onPressed: () {
                     controller.dispose();
                     setState(() {
