@@ -618,7 +618,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
               // Unpaired: testo introduttivo e scelta Nuovo vs Ripristino
               Text(
                 AppLocalizations.of(context)!.pairingWizardIntro,
-                style: const TextStyle(
+                style: TextStyle(
                   color: Colors.grey.shade700,
                   fontSize: 14,
                   height: 1.4,
