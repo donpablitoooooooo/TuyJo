@@ -8,6 +8,7 @@ import 'package:private_messaging/generated/l10n/app_localizations.dart';
 import '../services/pairing_service.dart';
 import '../services/couple_selfie_service.dart';
 import '../services/notification_service.dart';
+import '../services/webrtc_service.dart';
 
 /// Schermo per la chiamata vocale con il partner
 class VoiceCallScreen extends StatefulWidget {
@@ -40,6 +41,7 @@ class _VoiceCallScreenState extends State<VoiceCallScreen>
   String? _familyChatId;
   String? _myUserId;
   StreamSubscription? _callSubscription;
+  final WebRTCService _webrtcService = WebRTCService();
 
   // Animazione pulsazione per stato "chiamata in corso"
   late AnimationController _pulseController;
@@ -70,6 +72,8 @@ class _VoiceCallScreenState extends State<VoiceCallScreen>
     _callTimer?.cancel();
     _callSubscription?.cancel();
     _pulseController.dispose();
+    // Chiudi WebRTC (stream audio + peer connection)
+    _webrtcService.dispose();
     // Termina la chiamata CallKit se ancora attiva
     FlutterCallkitIncoming.endAllCalls();
     // Pulisci lo stato della chiamata su Firestore
@@ -84,13 +88,30 @@ class _VoiceCallScreenState extends State<VoiceCallScreen>
 
     if (_familyChatId == null || _myUserId == null) return;
 
+    // Inizializza WebRTC (cattura microfono, crea peer connection)
+    _webrtcService.onConnected = () {
+      if (mounted && _callState != CallState.connected) {
+        setState(() {
+          _callState = CallState.connected;
+        });
+        _pulseController.stop();
+        _startCallTimer();
+      }
+    };
+    _webrtcService.onDisconnected = () {
+      if (mounted && _callState == CallState.connected) {
+        _endCall();
+      }
+    };
+    await _webrtcService.initialize();
+
     if (widget.isOutgoing) {
-      // Chiamata in uscita: scrivi lo stato su Firestore
+      // Chiamata in uscita: scrivi lo stato + crea offer WebRTC
       await _writeCallSignal('ringing');
-      // Ascolta la risposta del partner
+      await _webrtcService.createOffer(_familyChatId!);
       _listenForCallResponse();
     } else {
-      // Chiamata in entrata: mostra UI di risposta
+      // Chiamata in entrata: ascolta e mostra UI di risposta
       _listenForCallResponse();
     }
   }
@@ -184,6 +205,10 @@ class _VoiceCallScreenState extends State<VoiceCallScreen>
 
   Future<void> _acceptCall() async {
     await _writeCallSignal('connected');
+    // Crea answer WebRTC (legge offer, stabilisce connessione audio)
+    if (_familyChatId != null) {
+      await _webrtcService.createAnswer(_familyChatId!);
+    }
     setState(() {
       _callState = CallState.connected;
     });
@@ -204,12 +229,8 @@ class _VoiceCallScreenState extends State<VoiceCallScreen>
   Future<void> _cleanupCallState() async {
     if (_familyChatId == null) return;
     try {
-      await FirebaseFirestore.instance
-          .collection('families')
-          .doc(_familyChatId)
-          .collection('calls')
-          .doc('current')
-          .delete();
+      // Pulisci ICE candidates + documento chiamata
+      await _webrtcService.cleanupFirestore(_familyChatId!);
     } catch (e) {
       if (kDebugMode) print('⚠️ [VOICE_CALL] Error cleaning up call state: $e');
     }
@@ -219,12 +240,14 @@ class _VoiceCallScreenState extends State<VoiceCallScreen>
     setState(() {
       _isMuted = !_isMuted;
     });
+    _webrtcService.setMicMuted(_isMuted);
   }
 
   void _toggleSpeaker() {
     setState(() {
       _isSpeakerOn = !_isSpeakerOn;
     });
+    _webrtcService.setSpeakerOn(_isSpeakerOn);
   }
 
   @override

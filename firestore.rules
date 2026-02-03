@@ -58,12 +58,17 @@ service cloud.firestore {
       }
 
       // ───────────────────────────────────────────────────────────
-      // CALLS SUBCOLLECTION (Voice call signaling)
+      // CALLS SUBCOLLECTION (Voice call signaling + WebRTC)
       // ───────────────────────────────────────────────────────────
       match /calls/{callId} {
         // ✅ Leggi/scrivi segnali chiamata SE conosci familyId
-        // Usato per segnalazione stato chiamata (ringing, connected, ended)
+        // Contiene: status, offer SDP, answer SDP
         allow read, write: if true;
+
+        // ICE candidates per WebRTC (caller e callee)
+        match /{subcollection}/{candidateId} {
+          allow read, write: if true;
+        }
       }
     }
   }
