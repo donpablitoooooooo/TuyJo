@@ -572,6 +572,31 @@ class _SettingsScreenState extends State<SettingsScreen> {
         ),
         const SizedBox(height: 40),
 
+        // Welcome intro (only when not paired)
+        if (!isPaired) ...[
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              color: const Color(0xFF3BA8B0).withOpacity(0.08),
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(
+                color: const Color(0xFF3BA8B0).withOpacity(0.3),
+              ),
+            ),
+            child: Text(
+              AppLocalizations.of(context)!.pairingWizardIntro,
+              style: TextStyle(
+                color: Colors.grey.shade700,
+                fontSize: 14,
+                height: 1.4,
+              ),
+              textAlign: TextAlign.center,
+            ),
+          ),
+          const SizedBox(height: 24),
+        ],
+
         // Pairing Section
         _SettingsSection(
           title: AppLocalizations.of(context)!.settingsSectionPairing,
@@ -615,17 +640,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 label: AppLocalizations.of(context)!.settingsBackupKeyButton,
               ),
             ] else ...[
-              // Unpaired: testo introduttivo e scelta Nuovo vs Ripristino
-              Text(
-                AppLocalizations.of(context)!.pairingWizardIntro,
-                style: TextStyle(
-                  color: Colors.grey.shade700,
-                  fontSize: 14,
-                  height: 1.4,
-                ),
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 16),
+              // Unpaired: scelta Nuovo vs Ripristino
               Text(
                 AppLocalizations.of(context)!.settingsChooseAction,
                 style: const TextStyle(color: Colors.grey, fontSize: 14),

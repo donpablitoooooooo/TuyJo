@@ -197,29 +197,6 @@ class _PairingWizardScreenState extends State<PairingWizardScreen> {
         ),
         child: Stack(
           children: [
-            // Floating close button
-            Positioned(
-              top: 48,
-              left: 16,
-              child: Container(
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  shape: BoxShape.circle,
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(0.1),
-                      blurRadius: 8,
-                      offset: const Offset(0, 2),
-                    ),
-                  ],
-                ),
-                child: IconButton(
-                  icon: const Icon(Icons.close, color: Color(0xFF3BA8B0)),
-                  onPressed: () => Navigator.of(context).pop(),
-                ),
-              ),
-            ),
-
             // Main content
             SafeArea(
               child: _isGeneratingQR
@@ -279,8 +256,7 @@ class _PairingWizardScreenState extends State<PairingWizardScreen> {
                                 isCompleted: _step1Completed,
                             child: Column(
                               children: [
-                                // Mostra il QR finché non siamo entrambi paired
-                                if (_myQrData != null && !_bothPaired) ...[
+                                if (_myQrData != null) ...[
                                   Center(
                                     child: Container(
                                       padding: const EdgeInsets.all(12),
@@ -307,27 +283,6 @@ class _PairingWizardScreenState extends State<PairingWizardScreen> {
                                         dataModuleStyle: const QrDataModuleStyle(
                                           dataModuleShape: QrDataModuleShape.square,
                                           color: Color(0xFF3BA8B0),
-                                        ),
-                                      ),
-                                    ),
-                                  ),
-                                ] else if (_bothPaired) ...[
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
-                                    decoration: BoxDecoration(
-                                      color: const Color(0xFF3BA8B0).withOpacity(0.1),
-                                      borderRadius: BorderRadius.circular(12),
-                                      border: Border.all(
-                                        color: const Color(0xFF3BA8B0),
-                                      ),
-                                    ),
-                                    child: Center(
-                                      child: Text(
-                                        l10n.pairingWizardStepCompleted,
-                                        style: const TextStyle(
-                                          color: Color(0xFF3BA8B0),
-                                          fontWeight: FontWeight.w600,
-                                          fontSize: 14,
                                         ),
                                       ),
                                     ),
@@ -543,6 +498,29 @@ class _PairingWizardScreenState extends State<PairingWizardScreen> {
                     );
                     },
                   ),
+            ),
+
+            // Floating close button (last in Stack so it's on top)
+            Positioned(
+              top: 48,
+              left: 16,
+              child: Container(
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  shape: BoxShape.circle,
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.1),
+                      blurRadius: 8,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
+                ),
+                child: IconButton(
+                  icon: const Icon(Icons.close, color: Color(0xFF3BA8B0)),
+                  onPressed: () => Navigator.of(context).pop(),
+                ),
+              ),
             ),
           ],
         ),
