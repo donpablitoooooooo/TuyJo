@@ -5,17 +5,46 @@ import UniformTypeIdentifiers
 class ShareViewController: UIViewController {
     private let appGroupId = "group.com.privatemessaging.tuyjo"
 
+    override func loadView() {
+        let v = UIView()
+        v.backgroundColor = .clear
+        v.isOpaque = false
+        self.view = v
+    }
+
     override func viewDidLoad() {
         super.viewDidLoad()
+        debugLog("viewDidLoad")
+    }
+
+    override func viewWillAppear(_ animated: Bool) {
+        super.viewWillAppear(animated)
+        view.superview?.backgroundColor = .clear
+    }
+
+    override func viewDidAppear(_ animated: Bool) {
+        super.viewDidAppear(animated)
+        debugLog("viewDidAppear — starting")
         handleSharedContent()
+    }
+
+    // Write debug info to App Group so the main app can read it
+    private func debugLog(_ msg: String) {
+        guard let ud = UserDefaults(suiteName: appGroupId) else { return }
+        let prev = ud.string(forKey: "share_debug_log") ?? ""
+        let ts = ISO8601DateFormatter().string(from: Date())
+        ud.set(prev + "[\(ts)] \(msg)\n", forKey: "share_debug_log")
+        ud.synchronize()
     }
 
     private func handleSharedContent() {
         guard let extensionItem = extensionContext?.inputItems.first as? NSExtensionItem,
               let attachments = extensionItem.attachments else {
+            debugLog("handleSharedContent: no inputItems or attachments — closing")
             closeExtension()
             return
         }
+        debugLog("handleSharedContent: found \(attachments.count) attachment(s)")
 
         // Prima passa: cerca immagini
         for attachment in attachments {
@@ -378,30 +407,103 @@ class ShareViewController: UIViewController {
     }
 
     private func openMainApp() {
-        let urlString = "ShareMedia://open"
-
-        guard let url = URL(string: urlString) else {
+        guard let url = URL(string: "ShareMedia://open") else {
+            debugLog("openMainApp: failed to create URL")
             closeExtension()
             return
         }
 
-        let selector = sel_registerName("openURL:")
+        debugLog("openMainApp: trying extensionContext.open")
+
+        DispatchQueue.main.async { [weak self] in
+            guard let self = self else {
+                self?.debugLog("openMainApp: self is nil")
+                return
+            }
+
+            guard self.extensionContext != nil else {
+                self.debugLog("openMainApp: extensionContext is nil — trying responder chain")
+                self.openViaResponderChain(url)
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                    self.closeExtension()
+                }
+                return
+            }
+
+            // 1) Official API
+            self.extensionContext?.open(url) { success in
+                self.debugLog("openMainApp: extensionContext.open result = \(success)")
+                if success { return }
+
+                // 2) Responder chain
+                DispatchQueue.main.async {
+                    self.debugLog("openMainApp: trying responder chain")
+                    self.openViaResponderChain(url)
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                        self.closeExtension()
+                    }
+                }
+            }
+        }
+    }
+
+    private func openViaResponderChain(_ url: URL) {
+        // Try UIApplication.shared via NSClassFromString (direct access)
+        if let appClass = NSClassFromString("UIApplication"),
+           let sharedSel = NSSelectorFromString("sharedApplication") as Selector?,
+           (appClass as AnyObject).responds(to: sharedSel),
+           let appObj = (appClass as AnyObject).perform(sharedSel)?.takeUnretainedValue() as? NSObject {
+
+            let openSel = sel_registerName("openURL:options:completionHandler:")
+            if appObj.responds(to: openSel), let imp = appObj.method(for: openSel) {
+                debugLog("responderChain: found UIApplication.shared — calling open:options:completionHandler:")
+                typealias Fn = @convention(c) (AnyObject, Selector, Any, Any, Any?) -> Void
+                let open = unsafeBitCast(imp, to: Fn.self)
+                let cb: @convention(block) (Bool) -> Void = { [weak self] ok in
+                    self?.debugLog("responderChain: UIApplication.open result = \(ok)")
+                }
+                open(appObj, openSel, url as Any, [:] as NSDictionary as Any, cb as Any)
+                return
+            }
+        }
+
+        // Walk responder chain as fallback
+        let selector = sel_registerName("openURL:options:completionHandler:")
         var responder: UIResponder? = self as UIResponder
+        var depth = 0
 
         while let r = responder {
-            if r.responds(to: selector) {
-                r.perform(selector, with: url)
-                break
+            depth += 1
+            if r.responds(to: selector), let imp = r.method(for: selector) {
+                debugLog("responderChain: found responder at depth \(depth) (\(type(of: r)))")
+                typealias Fn = @convention(c) (AnyObject, Selector, Any, Any, Any?) -> Void
+                let open = unsafeBitCast(imp, to: Fn.self)
+                let cb: @convention(block) (Bool) -> Void = { [weak self] ok in
+                    self?.debugLog("responderChain: open result = \(ok)")
+                }
+                open(r, selector, url as Any, [:] as NSDictionary as Any, cb as Any)
+                return
             }
             responder = r.next
         }
 
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { [weak self] in
-            self?.closeExtension()
+        debugLog("responderChain: no responder found after \(depth) levels — trying legacy openURL:")
+
+        let legacy = sel_registerName("openURL:")
+        responder = self as UIResponder
+        while let r = responder {
+            if r.responds(to: legacy) {
+                debugLog("responderChain: found legacy responder (\(type(of: r)))")
+                r.perform(legacy, with: url)
+                return
+            }
+            responder = r.next
         }
+        debugLog("responderChain: nothing worked")
     }
 
     private func closeExtension() {
+        debugLog("closeExtension")
         extensionContext?.completeRequest(returningItems: nil, completionHandler: nil)
     }
 }

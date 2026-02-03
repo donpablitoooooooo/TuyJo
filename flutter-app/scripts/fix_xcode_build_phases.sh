@@ -2,7 +2,8 @@
 # Script to fix Xcode build phases order automatically
 # Run this after pod install if you get dependency cycle errors
 
-PBXPROJ="ios/Runner.xcodeproj/project.pbxproj"
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+PBXPROJ="$SCRIPT_DIR/../ios/Runner.xcodeproj/project.pbxproj"
 
 if [ ! -f "$PBXPROJ" ]; then
     echo "❌ project.pbxproj not found"
@@ -33,10 +34,13 @@ echo "🔧 Fixing build phases order..."
 cp "$PBXPROJ" "$PBXPROJ.backup"
 
 # This is tricky with sed, so we use a Python script for safety
+export PBXPROJ
 python3 << 'PYTHON_SCRIPT'
-import re
+import re, os
 
-with open("ios/Runner.xcodeproj/project.pbxproj", "r") as f:
+pbxproj_path = os.environ['PBXPROJ']
+
+with open(pbxproj_path, "r") as f:
     content = f.read()
 
 # Find the Runner target's buildPhases section
@@ -79,7 +83,7 @@ def fix_order(match):
 new_content = re.sub(pattern, fix_order, content, flags=re.DOTALL)
 
 if new_content != content:
-    with open("ios/Runner.xcodeproj/project.pbxproj", "w") as f:
+    with open(pbxproj_path, "w") as f:
         f.write(new_content)
     print("✅ File updated successfully")
 else:

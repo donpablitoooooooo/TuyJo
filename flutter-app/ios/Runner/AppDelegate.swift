@@ -33,6 +33,30 @@ import Flutter
     return super.application(application, didFinishLaunchingWithOptions: launchOptions)
   }
 
+  override func applicationDidBecomeActive(_ application: UIApplication) {
+    super.applicationDidBecomeActive(application)
+
+    // Print Share Extension debug log if present
+    let appGroupId = "group.com.privatemessaging.tuyjo"
+    if let ud = UserDefaults(suiteName: appGroupId) {
+      if let log = ud.string(forKey: "share_debug_log"), !log.isEmpty {
+        print("📋 Share Extension debug log:\n\(log)")
+        ud.removeObject(forKey: "share_debug_log")
+        ud.synchronize()
+      }
+    }
+
+    // Pick up any pending shared data (safety net for iOS 26+
+    // where the extension may not be able to open the app directly)
+    if let imagePath = loadSharedImagePathFromAppGroup() {
+      handleSharedMedia([URL(fileURLWithPath: imagePath)])
+    } else if let documentPath = loadSharedDocumentPathFromAppGroup() {
+      handleSharedMedia([URL(fileURLWithPath: documentPath)])
+    } else if let sharedText = loadSharedTextFromAppGroup() {
+      handleSharedText(sharedText)
+    }
+  }
+
   // Gestisce l'apertura di file/foto/URL condivisi (iOS 9+)
   override func application(_ app: UIApplication, open url: URL, options: [UIApplication.OpenURLOptionsKey : Any] = [:]) -> Bool {
     print("📱 AppDelegate: application:open:options called with URL: \(url)")
