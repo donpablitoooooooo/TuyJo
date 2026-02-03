@@ -27,7 +27,10 @@ class _PairingWizardScreenState extends State<PairingWizardScreen> {
   bool _showScanner = false;
   bool _isProcessingQR = false;
   bool _bothPaired = false; // Entrambi i dispositivi hanno completato il pairing
+  bool _myQrWasScanned = false; // Il partner ha scansionato il mio QR
+  String? _myPublicKey;
   StreamSubscription<QuerySnapshot>? _pairingStatusSubscription;
+  StreamSubscription? _qrScannedSubscription;
 
   @override
   void initState() {
@@ -38,6 +41,7 @@ class _PairingWizardScreenState extends State<PairingWizardScreen> {
   @override
   void dispose() {
     _pairingStatusSubscription?.cancel();
+    _qrScannedSubscription?.cancel();
     super.dispose();
   }
 
@@ -72,6 +76,18 @@ class _PairingWizardScreenState extends State<PairingWizardScreen> {
     });
   }
 
+  /// Ascolta quando il partner scansiona il nostro QR code
+  void _startListeningForQRScanned(String myPublicKey) {
+    final pairingService = Provider.of<PairingService>(context, listen: false);
+    _qrScannedSubscription = pairingService.listenForMyQRScanned(myPublicKey, () {
+      if (mounted && !_myQrWasScanned) {
+        setState(() {
+          _myQrWasScanned = true;
+        });
+      }
+    });
+  }
+
   Future<void> _generateMyQR() async {
     final pairingService = Provider.of<PairingService>(context, listen: false);
     final encryptionService = Provider.of<EncryptionService>(context, listen: false);
@@ -88,6 +104,11 @@ class _PairingWizardScreenState extends State<PairingWizardScreen> {
 
       // Salva la chiave pubblica
       await pairingService.saveMyPublicKey(myPublicKey);
+
+      // Store per uso futuro e avvia listener
+      _myPublicKey = myPublicKey;
+      await pairingService.cleanupPairingSignal(myPublicKey);
+      _startListeningForQRScanned(myPublicKey);
 
       // Genera QR data (solo public key!)
       final qrData = await pairingService.getMyPublicKeyQRData(myPublicKey);
@@ -256,7 +277,7 @@ class _PairingWizardScreenState extends State<PairingWizardScreen> {
                                 isCompleted: _step1Completed,
                             child: Column(
                               children: [
-                                if (_myQrData != null) ...[
+                                if (_myQrData != null && !_myQrWasScanned) ...[
                                   Center(
                                     child: Container(
                                       padding: const EdgeInsets.all(12),
@@ -283,6 +304,27 @@ class _PairingWizardScreenState extends State<PairingWizardScreen> {
                                         dataModuleStyle: const QrDataModuleStyle(
                                           dataModuleShape: QrDataModuleShape.square,
                                           color: Color(0xFF3BA8B0),
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                ] else if (_myQrWasScanned) ...[
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+                                    decoration: BoxDecoration(
+                                      color: const Color(0xFF3BA8B0).withOpacity(0.1),
+                                      borderRadius: BorderRadius.circular(12),
+                                      border: Border.all(
+                                        color: const Color(0xFF3BA8B0),
+                                      ),
+                                    ),
+                                    child: Center(
+                                      child: Text(
+                                        l10n.pairingWizardStepCompleted,
+                                        style: const TextStyle(
+                                          color: Color(0xFF3BA8B0),
+                                          fontWeight: FontWeight.w600,
+                                          fontSize: 14,
                                         ),
                                       ),
                                     ),
@@ -504,21 +546,29 @@ class _PairingWizardScreenState extends State<PairingWizardScreen> {
             Positioned(
               top: 48,
               left: 16,
-              child: Container(
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  shape: BoxShape.circle,
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(0.1),
-                      blurRadius: 8,
-                      offset: const Offset(0, 2),
-                    ),
-                  ],
-                ),
-                child: IconButton(
-                  icon: const Icon(Icons.close, color: Color(0xFF3BA8B0)),
-                  onPressed: () => Navigator.of(context).pop(),
+              child: GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onTap: () {
+                  if (kDebugMode) print('❌ [WIZARD] X button tapped - closing');
+                  Navigator.of(context).pop();
+                },
+                child: Container(
+                  width: 44,
+                  height: 44,
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    shape: BoxShape.circle,
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.1),
+                        blurRadius: 8,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
+                  ),
+                  child: const Center(
+                    child: Icon(Icons.close, color: Color(0xFF3BA8B0), size: 22),
+                  ),
                 ),
               ),
             ),

@@ -173,6 +173,9 @@ class PairingService extends ChangeNotifier {
           'partner_public_key': partnerPublicKey,
         });
         if (kDebugMode) print('✅ [PAIRING] Created my user document in family: $myUserId');
+
+        // Signal that we scanned this partner's QR code
+        await signalQRScanned(partnerPublicKey);
       }
 
       // Avvia il listener per monitorare lo stato della famiglia
@@ -590,6 +593,44 @@ class PairingService extends ChangeNotifier {
       // Mantieni _isPaired e _partnerPublicKey invariati
     },
   );
+  }
+
+  /// Signals that we scanned someone's QR code
+  /// Writes to pairing_signals/{SHA256(partnerPublicKey)}
+  Future<void> signalQRScanned(String partnerPublicKey) async {
+    final keyHash = sha256.convert(utf8.encode(partnerPublicKey)).toString();
+    await _firestore.collection('pairing_signals').doc(keyHash).set({
+      'scanned_at': FieldValue.serverTimestamp(),
+    });
+    if (kDebugMode) print('📡 [PAIRING] Signaled QR scanned for: ${keyHash.substring(0, 10)}...');
+  }
+
+  /// Listens for when our QR code gets scanned by the partner
+  StreamSubscription<DocumentSnapshot<Map<String, dynamic>>> listenForMyQRScanned(
+    String myPublicKey,
+    void Function() onScanned,
+  ) {
+    final keyHash = sha256.convert(utf8.encode(myPublicKey)).toString();
+    if (kDebugMode) print('👁️ [PAIRING] Listening for QR scan signal on: ${keyHash.substring(0, 10)}...');
+    return _firestore.collection('pairing_signals').doc(keyHash).snapshots().listen(
+      (snapshot) {
+        if (snapshot.exists) {
+          if (kDebugMode) print('🔔 [PAIRING] My QR was scanned by partner!');
+          onScanned();
+        }
+      },
+    );
+  }
+
+  /// Cleans up the pairing signal after pairing is complete
+  Future<void> cleanupPairingSignal(String publicKey) async {
+    final keyHash = sha256.convert(utf8.encode(publicKey)).toString();
+    try {
+      await _firestore.collection('pairing_signals').doc(keyHash).delete();
+      if (kDebugMode) print('🧹 [PAIRING] Cleaned up pairing signal: ${keyHash.substring(0, 10)}...');
+    } catch (e) {
+      if (kDebugMode) print('⚠️ [PAIRING] Error cleaning up signal: $e');
+    }
   }
 
   @override
