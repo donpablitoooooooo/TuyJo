@@ -71,6 +71,21 @@ service cloud.firestore {
         }
       }
     }
+
+    // ═══════════════════════════════════════════════════════════
+    // PAIRING SIGNALS COLLECTION
+    // ═══════════════════════════════════════════════════════════
+    match /pairing_signals/{signalId} {
+      // ❌ BLOCCA list() - Non puoi enumerare tutti i segnali
+      allow list: if false;
+
+      // ✅ PERMETTI get/read - Puoi leggere SE conosci il signalId
+      // signalId = SHA256(publicKey) = impossibile da indovinare
+      allow get: if true;
+
+      // ✅ PERMETTI write/delete - Per creare e pulire segnali
+      allow create, update, delete: if true;
+    }
   }
 }
 
