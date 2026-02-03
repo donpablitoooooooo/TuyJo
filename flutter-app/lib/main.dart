@@ -89,13 +89,8 @@ void main() async {
   // Configura callback per fine chiamata (CallKit end)
   notificationService.onCallEnded = (String familyChatId, String callerId) {
     print('📞 [MAIN] Call ended via CallKit from $callerId in family $familyChatId');
-    // Pulisci il documento della chiamata su Firestore
-    FirebaseFirestore.instance
-        .collection('families')
-        .doc(familyChatId)
-        .collection('calls')
-        .doc('current')
-        .delete();
+    // Non eliminare il documento qui — VoiceCallScreen.dispose() gestisce il cleanup
+    // Eliminarlo qui causa race condition: il callee non trova più l'offer SDP
   };
 
   // Inizializza in background (non blocca lo startup)

@@ -111,8 +111,19 @@ class _VoiceCallScreenState extends State<VoiceCallScreen>
       await _webrtcService.createOffer(_familyChatId!);
       _listenForCallResponse();
     } else {
-      // Chiamata in entrata: ascolta e mostra UI di risposta
+      // Chiamata in entrata (accettata via CallKit):
+      // Il callee ha già accettato dalla UI nativa CallKit, quindi
+      // creiamo subito l'answer WebRTC per stabilire la connessione audio.
       _listenForCallResponse();
+      await _writeCallSignal('connected');
+      await _webrtcService.createAnswer(_familyChatId!);
+      if (mounted) {
+        setState(() {
+          _callState = CallState.connected;
+        });
+        _pulseController.stop();
+        _startCallTimer();
+      }
     }
   }
 
