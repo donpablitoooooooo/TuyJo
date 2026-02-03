@@ -200,7 +200,7 @@ class _PairingWizardScreenState extends State<PairingWizardScreen> {
             // Floating close button
             Positioned(
               top: 48,
-              right: 16,
+              left: 16,
               child: Container(
                 decoration: BoxDecoration(
                   color: Colors.white,
@@ -215,9 +215,7 @@ class _PairingWizardScreenState extends State<PairingWizardScreen> {
                 ),
                 child: IconButton(
                   icon: const Icon(Icons.close, color: Color(0xFF3BA8B0)),
-                  onPressed: () {
-                    Navigator.of(context, rootNavigator: false).pop();
-                  },
+                  onPressed: () => Navigator.of(context).pop(),
                 ),
               ),
             ),
@@ -261,14 +259,12 @@ class _PairingWizardScreenState extends State<PairingWizardScreen> {
                                 ),
                                 textAlign: TextAlign.center,
                               ),
-                              const SizedBox(height: 12),
-                              // Intro text
+                              const SizedBox(height: 8),
                               Text(
-                                l10n.pairingWizardIntro,
+                                l10n.pairingWizardSubtitle,
                                 style: const TextStyle(
                                   fontSize: 14,
                                   color: Colors.white70,
-                                  height: 1.4,
                                 ),
                                 textAlign: TextAlign.center,
                               ),
@@ -284,7 +280,7 @@ class _PairingWizardScreenState extends State<PairingWizardScreen> {
                             child: Column(
                               children: [
                                 // Mostra il QR finché non siamo entrambi paired
-                                if (_myQrData != null && !_bothPaired && !_step2Completed) ...[
+                                if (_myQrData != null && !_bothPaired) ...[
                                   Center(
                                     child: Container(
                                       padding: const EdgeInsets.all(12),
@@ -315,7 +311,7 @@ class _PairingWizardScreenState extends State<PairingWizardScreen> {
                                       ),
                                     ),
                                   ),
-                                ] else if (_step2Completed || _bothPaired) ...[
+                                ] else if (_bothPaired) ...[
                                   Container(
                                     padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
                                     decoration: BoxDecoration(

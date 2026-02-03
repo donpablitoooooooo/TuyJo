@@ -615,7 +615,17 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 label: AppLocalizations.of(context)!.settingsBackupKeyButton,
               ),
             ] else ...[
-              // Unpaired: mostra scelta Nuovo vs Ripristino
+              // Unpaired: testo introduttivo e scelta Nuovo vs Ripristino
+              Text(
+                AppLocalizations.of(context)!.pairingWizardIntro,
+                style: const TextStyle(
+                  color: Colors.grey.shade700,
+                  fontSize: 14,
+                  height: 1.4,
+                ),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 16),
               Text(
                 AppLocalizations.of(context)!.settingsChooseAction,
                 style: const TextStyle(color: Colors.grey, fontSize: 14),
