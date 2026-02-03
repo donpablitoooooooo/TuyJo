@@ -11,6 +11,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:timezone/data/latest_all.dart' as tz;
 import 'package:timezone/timezone.dart' as tz;
 import 'dart:ui' as ui;
+import 'dart:math';
 
 // Handler per i messaggi in background (deve essere top-level function)
 @pragma('vm:entry-point')
@@ -25,12 +26,24 @@ Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   }
 }
 
+/// Genera un UUID v4 valido (RFC 4122) per iOS CallKit
+String _generateUUID() {
+  final random = Random();
+  final bytes = List<int>.generate(16, (_) => random.nextInt(256));
+  // Imposta versione 4 (0100xxxx)
+  bytes[6] = (bytes[6] & 0x0F) | 0x40;
+  // Imposta variante (10xxxxxx)
+  bytes[8] = (bytes[8] & 0x3F) | 0x80;
+  final hex = bytes.map((b) => b.toRadixString(16).padLeft(2, '0')).join();
+  return '${hex.substring(0, 8)}-${hex.substring(8, 12)}-${hex.substring(12, 16)}-${hex.substring(16, 20)}-${hex.substring(20, 32)}';
+}
+
 /// Mostra la UI nativa di chiamata in arrivo via CallKit (top-level per background handler)
 Future<void> _showCallKitIncoming(Map<String, dynamic> data) async {
   final callerId = data['callerId'] ?? '';
   final familyChatId = data['familyChatId'] ?? '';
-  // Genera UUID univoco per la chiamata
-  final uuid = '${familyChatId}_${DateTime.now().millisecondsSinceEpoch}';
+  // Genera UUID v4 valido (RFC 4122) — iOS CallKit richiede questo formato
+  final uuid = _generateUUID();
 
   final params = CallKitParams(
     id: uuid,
