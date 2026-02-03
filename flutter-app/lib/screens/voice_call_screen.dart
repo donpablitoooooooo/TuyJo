@@ -116,9 +116,11 @@ class _VoiceCallScreenState extends State<VoiceCallScreen>
       // Chiamata in entrata (accettata via CallKit):
       // Il callee ha già accettato dalla UI nativa CallKit, quindi
       // creiamo subito l'answer WebRTC per stabilire la connessione audio.
+      // IMPORTANTE: leggere l'offer PRIMA di scrivere 'connected',
+      // altrimenti la cache locale Firestore non ha ancora l'offer.
       _listenForCallResponse();
-      await _writeCallSignal('connected');
       await _webrtcService.createAnswer(_familyChatId!);
+      await _writeCallSignal('connected');
       if (mounted) {
         setState(() {
           _callState = CallState.connected;

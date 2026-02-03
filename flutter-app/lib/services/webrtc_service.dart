@@ -154,10 +154,21 @@ class WebRTCService {
         .collection('calls')
         .doc('current');
 
-    // Leggi l'offer dal documento
-    final callData = await callDoc.get();
-    if (!callData.exists || callData.data()?['offer'] == null) {
-      if (kDebugMode) print('❌ [WEBRTC] No offer found in Firestore');
+    // Leggi l'offer dal server (bypassa cache locale che potrebbe non avere l'offer)
+    DocumentSnapshot<Map<String, dynamic>>? callData;
+    for (int attempt = 0; attempt < 5; attempt++) {
+      try {
+        callData = await callDoc.get(const GetOptions(source: Source.server));
+        if (callData.exists && callData.data()?['offer'] != null) break;
+      } catch (e) {
+        if (kDebugMode) print('⚠️ [WEBRTC] Server read attempt $attempt failed: $e');
+      }
+      // Offer non ancora scritto dal caller, riprova dopo un breve delay
+      if (kDebugMode) print('⏳ [WEBRTC] Offer not found yet, retry ${attempt + 1}/5...');
+      await Future.delayed(Duration(milliseconds: 500 * (attempt + 1)));
+    }
+    if (callData == null || !callData.exists || callData.data()?['offer'] == null) {
+      if (kDebugMode) print('❌ [WEBRTC] No offer found in Firestore after 5 retries');
       return;
     }
 
