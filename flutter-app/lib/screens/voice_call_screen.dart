@@ -62,9 +62,13 @@ class _VoiceCallScreenState extends State<VoiceCallScreen>
 
     _initCall();
 
-    // Cancella la notifica di chiamata se presente
-    final notificationService = Provider.of<NotificationService>(context, listen: false);
-    notificationService.cancelCallNotification();
+    // Per chiamate in uscita, cancella eventuali notifiche residue
+    // Per chiamate in ENTRATA, NON terminare CallKit — iOS usa la sessione
+    // audio di CallKit per WebRTC. Terminarlo disattiva l'audio.
+    if (widget.isOutgoing) {
+      final notificationService = Provider.of<NotificationService>(context, listen: false);
+      notificationService.cancelCallNotification();
+    }
   }
 
   @override
@@ -74,8 +78,6 @@ class _VoiceCallScreenState extends State<VoiceCallScreen>
     _pulseController.dispose();
     // Chiudi WebRTC (stream audio + peer connection)
     _webrtcService.dispose();
-    // Termina la chiamata CallKit se ancora attiva
-    FlutterCallkitIncoming.endAllCalls();
     // Pulisci lo stato della chiamata su Firestore
     _cleanupCallState();
     super.dispose();
@@ -206,11 +208,13 @@ class _VoiceCallScreenState extends State<VoiceCallScreen>
     setState(() {
       _callState = CallState.ended;
     });
-    // Scrivi stato ended su Firestore (non bloccare la UI)
-    _writeCallSignal('ended');
-    // Termina CallKit (non bloccare la UI)
+    // Prima chiudi WebRTC (così l'audio si ferma)
+    await _webrtcService.dispose();
+    // Poi termina CallKit (ora è safe disattivare la sessione audio)
     final notificationService = Provider.of<NotificationService>(context, listen: false);
     notificationService.endCallKit();
+    // Scrivi stato ended su Firestore
+    _writeCallSignal('ended');
     if (mounted) {
       Navigator.of(context).pop();
     }
