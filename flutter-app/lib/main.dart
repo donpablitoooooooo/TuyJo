@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:provider/provider.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'screens/main_screen.dart';
+import 'screens/voice_call_screen.dart';
 import 'services/auth_service.dart';
 import 'services/chat_service.dart';
 import 'services/encryption_service.dart';
@@ -38,6 +40,7 @@ void main() async {
   );
   final attachmentService = AttachmentService(encryptionService: encryptionService);
   final locationService = LocationService();
+  locationService.restoreSessionIfNeeded(); // Ripristina condivisione posizione se era attiva
 
   // Configura callback per pulizia cache quando il partner richiede la cancellazione
   pairingService.onPartnerDeletedAll = (String familyChatId) async {
@@ -54,6 +57,41 @@ void main() async {
     );
 
     print('✅ [MAIN] Cache cleanup completed');
+  };
+
+  // Configura callback per chiamate in arrivo (CallKit accept)
+  notificationService.onIncomingCall = (String familyChatId, String callerId) {
+    print('📞 [MAIN] Call accepted via CallKit from $callerId in family $familyChatId');
+    final navigatorState = NotificationService.navigatorKey.currentState;
+    if (navigatorState != null) {
+      navigatorState.push(
+        MaterialPageRoute(
+          builder: (context) => const VoiceCallScreen(isOutgoing: false),
+        ),
+      );
+    }
+  };
+
+  // Configura callback per rifiuto chiamata (CallKit decline)
+  notificationService.onCallDeclined = (String familyChatId, String callerId) {
+    print('📞 [MAIN] Call declined via CallKit from $callerId in family $familyChatId');
+    // Aggiorna Firestore con status "declined"
+    FirebaseFirestore.instance
+        .collection('families')
+        .doc(familyChatId)
+        .collection('calls')
+        .doc('current')
+        .set({
+      'status': 'declined',
+      'updated_at': FieldValue.serverTimestamp(),
+    }, SetOptions(merge: true));
+  };
+
+  // Configura callback per fine chiamata (CallKit end)
+  notificationService.onCallEnded = (String familyChatId, String callerId) {
+    print('📞 [MAIN] Call ended via CallKit from $callerId in family $familyChatId');
+    // Non eliminare il documento qui — VoiceCallScreen.dispose() gestisce il cleanup
+    // Eliminarlo qui causa race condition: il callee non trova più l'offer SDP
   };
 
   // Inizializza in background (non blocca lo startup)
@@ -109,6 +147,7 @@ class MyApp extends StatelessWidget {
         Provider.value(value: attachmentService),
       ],
       child: MaterialApp(
+        navigatorKey: NotificationService.navigatorKey,
         onGenerateTitle: (context) => AppLocalizations.of(context)!.appTitle,
         localizationsDelegates: const [
           AppLocalizations.delegate,

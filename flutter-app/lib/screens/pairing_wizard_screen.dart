@@ -27,7 +27,10 @@ class _PairingWizardScreenState extends State<PairingWizardScreen> {
   bool _showScanner = false;
   bool _isProcessingQR = false;
   bool _bothPaired = false; // Entrambi i dispositivi hanno completato il pairing
+  bool _myQrWasScanned = false; // Il partner ha scansionato il mio QR
+  String? _myPublicKey;
   StreamSubscription<QuerySnapshot>? _pairingStatusSubscription;
+  StreamSubscription? _qrScannedSubscription;
 
   @override
   void initState() {
@@ -38,6 +41,7 @@ class _PairingWizardScreenState extends State<PairingWizardScreen> {
   @override
   void dispose() {
     _pairingStatusSubscription?.cancel();
+    _qrScannedSubscription?.cancel();
     super.dispose();
   }
 
@@ -72,6 +76,18 @@ class _PairingWizardScreenState extends State<PairingWizardScreen> {
     });
   }
 
+  /// Ascolta quando il partner scansiona il nostro QR code
+  void _startListeningForQRScanned(String myPublicKey) {
+    final pairingService = Provider.of<PairingService>(context, listen: false);
+    _qrScannedSubscription = pairingService.listenForMyQRScanned(myPublicKey, () {
+      if (mounted && !_myQrWasScanned) {
+        setState(() {
+          _myQrWasScanned = true;
+        });
+      }
+    });
+  }
+
   Future<void> _generateMyQR() async {
     final pairingService = Provider.of<PairingService>(context, listen: false);
     final encryptionService = Provider.of<EncryptionService>(context, listen: false);
@@ -88,6 +104,11 @@ class _PairingWizardScreenState extends State<PairingWizardScreen> {
 
       // Salva la chiave pubblica
       await pairingService.saveMyPublicKey(myPublicKey);
+
+      // Store per uso futuro e avvia listener
+      _myPublicKey = myPublicKey;
+      await pairingService.cleanupPairingSignal(myPublicKey);
+      _startListeningForQRScanned(myPublicKey);
 
       // Genera QR data (solo public key!)
       final qrData = await pairingService.getMyPublicKeyQRData(myPublicKey);
@@ -184,46 +205,23 @@ class _PairingWizardScreenState extends State<PairingWizardScreen> {
     }
 
     return Scaffold(
-      body: Container(
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [
-              Color(0xFF3BA8B0),
-              Color(0xFF145A60),
-            ],
-          ),
-        ),
-        child: Stack(
-          children: [
-            // Floating back button
-            Positioned(
-              top: 48,
-              left: 16,
-              child: Container(
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  shape: BoxShape.circle,
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(0.1),
-                      blurRadius: 8,
-                      offset: const Offset(0, 2),
-                    ),
-                  ],
-                ),
-                child: IconButton(
-                  icon: const Icon(Icons.arrow_back, color: Color(0xFF3BA8B0)),
-                  onPressed: () {
-                    Navigator.of(context, rootNavigator: false).pop();
-                  },
-                ),
-              ),
+      backgroundColor: const Color(0xFF145A60),
+      body: SizedBox.expand(
+        child: Container(
+          decoration: const BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: [
+                Color(0xFF3BA8B0),
+                Color(0xFF145A60),
+              ],
             ),
-
-            // Main content
-            SafeArea(
+          ),
+          child: Stack(
+            children: [
+              // Main content
+              SafeArea(
               child: _isGeneratingQR
                   ? Center(
                       child: Column(
@@ -247,9 +245,9 @@ class _PairingWizardScreenState extends State<PairingWizardScreen> {
                       builder: (context) {
                         final l10n = AppLocalizations.of(context)!;
                         return SingleChildScrollView(
-                          padding: const EdgeInsets.fromLTRB(24, 80, 24, 24),
+                          padding: const EdgeInsets.fromLTRB(24, 60, 24, 24),
                           child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
+                            crossAxisAlignment: CrossAxisAlignment.center,
                             children: [
                               // Header
                               Text(
@@ -259,6 +257,7 @@ class _PairingWizardScreenState extends State<PairingWizardScreen> {
                                   fontWeight: FontWeight.bold,
                                   color: Colors.white,
                                 ),
+                                textAlign: TextAlign.center,
                               ),
                               const SizedBox(height: 8),
                               Text(
@@ -267,8 +266,9 @@ class _PairingWizardScreenState extends State<PairingWizardScreen> {
                                   fontSize: 14,
                                   color: Colors.white70,
                                 ),
+                                textAlign: TextAlign.center,
                               ),
-                              const SizedBox(height: 32),
+                              const SizedBox(height: 24),
 
                               // STEP 1: Mostra il tuo QR
                               _buildStepCard(
@@ -279,11 +279,10 @@ class _PairingWizardScreenState extends State<PairingWizardScreen> {
                                 isCompleted: _step1Completed,
                             child: Column(
                               children: [
-                                // Mostra il QR finché non siamo entrambi paired
-                                if (_myQrData != null && !_bothPaired) ...[
+                                if (_myQrData != null && !_myQrWasScanned) ...[
                                   Center(
                                     child: Container(
-                                      padding: const EdgeInsets.all(16),
+                                      padding: const EdgeInsets.all(12),
                                       decoration: BoxDecoration(
                                         color: Colors.white,
                                         borderRadius: BorderRadius.circular(16),
@@ -298,7 +297,7 @@ class _PairingWizardScreenState extends State<PairingWizardScreen> {
                                       child: QrImageView(
                                         data: _myQrData!,
                                         version: QrVersions.auto,
-                                        size: 200,
+                                        size: 240,
                                         backgroundColor: Colors.white,
                                         eyeStyle: const QrEyeStyle(
                                           eyeShape: QrEyeShape.square,
@@ -311,9 +310,9 @@ class _PairingWizardScreenState extends State<PairingWizardScreen> {
                                       ),
                                     ),
                                   ),
-                                ] else if (_bothPaired) ...[
+                                ] else if (_myQrWasScanned) ...[
                                   Container(
-                                    padding: const EdgeInsets.all(16),
+                                    padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
                                     decoration: BoxDecoration(
                                       color: const Color(0xFF3BA8B0).withOpacity(0.1),
                                       borderRadius: BorderRadius.circular(12),
@@ -321,25 +320,15 @@ class _PairingWizardScreenState extends State<PairingWizardScreen> {
                                         color: const Color(0xFF3BA8B0),
                                       ),
                                     ),
-                                    child: Row(
-                                      children: [
-                                        const Icon(
-                                          Icons.check_circle,
+                                    child: Center(
+                                      child: Text(
+                                        l10n.pairingWizardStepCompleted,
+                                        style: const TextStyle(
                                           color: Color(0xFF3BA8B0),
-                                          size: 32,
+                                          fontWeight: FontWeight.w600,
+                                          fontSize: 14,
                                         ),
-                                        const SizedBox(width: 12),
-                                        Expanded(
-                                          child: Text(
-                                            l10n.pairingWizardPairingCompleted,
-                                            style: const TextStyle(
-                                              color: Color(0xFF3BA8B0),
-                                              fontWeight: FontWeight.w600,
-                                              fontSize: 14,
-                                            ),
-                                          ),
-                                        ),
-                                      ],
+                                      ),
                                     ),
                                   ),
                                 ],
@@ -414,7 +403,7 @@ class _PairingWizardScreenState extends State<PairingWizardScreen> {
                                   ),
                                 ] else ...[
                                   Container(
-                                    padding: const EdgeInsets.all(16),
+                                    padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
                                     decoration: BoxDecoration(
                                       color: const Color(0xFF3BA8B0).withOpacity(0.1),
                                       borderRadius: BorderRadius.circular(12),
@@ -422,25 +411,15 @@ class _PairingWizardScreenState extends State<PairingWizardScreen> {
                                         color: const Color(0xFF3BA8B0),
                                       ),
                                     ),
-                                    child: Row(
-                                      children: [
-                                        const Icon(
-                                          Icons.check_circle,
+                                    child: Center(
+                                      child: Text(
+                                        l10n.pairingWizardStepCompleted,
+                                        style: const TextStyle(
                                           color: Color(0xFF3BA8B0),
-                                          size: 32,
+                                          fontWeight: FontWeight.w600,
+                                          fontSize: 14,
                                         ),
-                                        const SizedBox(width: 12),
-                                        Expanded(
-                                          child: Text(
-                                            l10n.pairingWizardQRScannedSuccess,
-                                            style: const TextStyle(
-                                              color: Color(0xFF3BA8B0),
-                                              fontWeight: FontWeight.w600,
-                                              fontSize: 14,
-                                            ),
-                                          ),
-                                        ),
-                                      ],
+                                      ),
                                     ),
                                   ),
                                 ],
@@ -450,8 +429,8 @@ class _PairingWizardScreenState extends State<PairingWizardScreen> {
 
                           const SizedBox(height: 32),
 
-                          // Stato completamento
-                          if (_step1Completed && _step2Completed) ...[
+                          // Stato completamento - solo quando entrambi sono paired
+                          if (_bothPaired) ...[
                             Container(
                               width: double.infinity,
                               padding: const EdgeInsets.all(20),
@@ -468,93 +447,73 @@ class _PairingWizardScreenState extends State<PairingWizardScreen> {
                               ),
                               child: Column(
                                 children: [
-                                  Icon(
-                                    _bothPaired ? Icons.favorite : Icons.favorite_border,
-                                    color: const Color(0xFF3BA8B0),
+                                  const Icon(
+                                    Icons.favorite,
+                                    color: Color(0xFF3BA8B0),
                                     size: 48,
                                   ),
                                   const SizedBox(height: 12),
                                   Text(
-                                    _bothPaired
-                                        ? l10n.pairingWizardPairingCompleted
-                                        : l10n.pairingWizardYouCompletedPairing,
+                                    l10n.pairingWizardPairingCompleted,
                                     style: const TextStyle(
                                       color: Color(0xFF3BA8B0),
                                       fontWeight: FontWeight.bold,
                                       fontSize: 20,
                                     ),
                                   ),
-                                  const SizedBox(height: 8),
-                                  Text(
-                                    _bothPaired
-                                        ? l10n.pairingWizardBothReadyMessage
-                                        : l10n.pairingWizardWaitingForPartner,
-                                    style: const TextStyle(
-                                      color: Colors.grey,
-                                      fontSize: 14,
-                                    ),
-                                    textAlign: TextAlign.center,
-                                  ),
-                                ],
-                              ),
-                            ),
-                            const SizedBox(height: 16),
-                            SizedBox(
-                              width: double.infinity,
-                              child: Container(
-                                decoration: BoxDecoration(
-                                  gradient: _bothPaired
-                                      ? const LinearGradient(
+                                  const SizedBox(height: 16),
+                                  SizedBox(
+                                    width: double.infinity,
+                                    child: Container(
+                                      decoration: BoxDecoration(
+                                        gradient: const LinearGradient(
                                           colors: [
                                             Color(0xFF3BA8B0),
                                             Color(0xFF145A60),
                                           ],
-                                        )
-                                      : null,
-                                  color: _bothPaired ? null : Colors.grey.shade300,
-                                  borderRadius: BorderRadius.circular(12),
-                                  boxShadow: _bothPaired
-                                      ? [
+                                        ),
+                                        borderRadius: BorderRadius.circular(12),
+                                        boxShadow: [
                                           BoxShadow(
                                             color: const Color(0xFF3BA8B0).withOpacity(0.3),
                                             blurRadius: 8,
                                             offset: const Offset(0, 4),
                                           ),
-                                        ]
-                                      : null,
-                                ),
-                                child: Material(
-                                  color: Colors.transparent,
-                                  child: InkWell(
-                                    borderRadius: BorderRadius.circular(12),
-                                    onTap: _bothPaired
-                                        ? () {
+                                        ],
+                                      ),
+                                      child: Material(
+                                        color: Colors.transparent,
+                                        child: InkWell(
+                                          borderRadius: BorderRadius.circular(12),
+                                          onTap: () {
                                             Navigator.of(context).popUntil((route) => route.isFirst);
-                                          }
-                                        : null,
-                                    child: Container(
-                                      padding: const EdgeInsets.symmetric(vertical: 16),
-                                      child: Row(
-                                        mainAxisAlignment: MainAxisAlignment.center,
-                                        children: [
-                                          Icon(
-                                            _bothPaired ? Icons.chat : Icons.hourglass_empty,
-                                            color: _bothPaired ? Colors.white : Colors.grey.shade500,
-                                          ),
-                                          const SizedBox(width: 12),
-                                          Text(
-                                            _bothPaired ? l10n.pairingWizardGoToChatButton : l10n.pairingWizardWaitingButton,
-                                            style: TextStyle(
-                                              color: _bothPaired ? Colors.white : Colors.grey.shade500,
-                                              fontSize: 16,
-                                              fontWeight: FontWeight.w600,
+                                          },
+                                          child: Container(
+                                            padding: const EdgeInsets.symmetric(vertical: 16),
+                                            child: Row(
+                                              mainAxisAlignment: MainAxisAlignment.center,
+                                              children: [
+                                                const Icon(
+                                                  Icons.chat,
+                                                  color: Colors.white,
+                                                ),
+                                                const SizedBox(width: 12),
+                                                Text(
+                                                  l10n.pairingWizardGoToChatButton,
+                                                  style: const TextStyle(
+                                                    color: Colors.white,
+                                                    fontSize: 16,
+                                                    fontWeight: FontWeight.w600,
+                                                  ),
+                                                ),
+                                              ],
                                             ),
                                           ),
-                                        ],
+                                        ),
                                       ),
                                     ),
                                   ),
-                                ),
+                                ],
                               ),
                             ),
                           ],
@@ -564,8 +523,40 @@ class _PairingWizardScreenState extends State<PairingWizardScreen> {
                     },
                   ),
             ),
+
+            // Floating close button (last in Stack so it's on top)
+            Positioned(
+              top: 48,
+              left: 16,
+              child: GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onTap: () {
+                  if (kDebugMode) print('❌ [WIZARD] X button tapped - closing');
+                  Navigator.of(context).pop();
+                },
+                child: Container(
+                  width: 44,
+                  height: 44,
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    shape: BoxShape.circle,
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.1),
+                        blurRadius: 8,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
+                  ),
+                  child: const Center(
+                    child: Icon(Icons.close, color: Color(0xFF3BA8B0), size: 22),
+                  ),
+                ),
+              ),
+            ),
           ],
         ),
+      ),
       ),
     );
   }
@@ -592,65 +583,27 @@ class _PairingWizardScreenState extends State<PairingWizardScreen> {
       ),
       padding: const EdgeInsets.all(20),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          Row(
-            children: [
-              Container(
-                width: 48,
-                height: 48,
-                decoration: BoxDecoration(
-                  gradient: isCompleted
-                      ? const LinearGradient(
-                          colors: [
-                            Color(0xFF3BA8B0),
-                            Color(0xFF145A60),
-                          ],
-                        )
-                      : null,
-                  color: isCompleted ? null : Colors.grey.shade200,
-                  shape: BoxShape.circle,
-                ),
-                child: Center(
-                  child: isCompleted
-                      ? const Icon(Icons.check, color: Colors.white, size: 24)
-                      : Text(
-                          '$stepNumber',
-                          style: TextStyle(
-                            color: Colors.grey.shade600,
-                            fontWeight: FontWeight.bold,
-                            fontSize: 20,
-                          ),
-                        ),
-                ),
-              ),
-              const SizedBox(width: 16),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      title,
-                      style: const TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                        color: Color(0xFF2d3436),
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      description,
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: Colors.grey.shade600,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
+          Text(
+            title,
+            style: const TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+              color: Color(0xFF2d3436),
+            ),
+            textAlign: TextAlign.center,
           ),
-          const SizedBox(height: 20),
+          const SizedBox(height: 4),
+          Text(
+            description,
+            style: TextStyle(
+              fontSize: 12,
+              color: Colors.grey.shade600,
+            ),
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 16),
           child,
         ],
       ),
@@ -693,7 +646,7 @@ class _PairingWizardScreenState extends State<PairingWizardScreen> {
               ),
             ),
 
-            // Floating back button
+            // Floating close button
             Positioned(
               top: 48,
               left: 16,
@@ -710,7 +663,7 @@ class _PairingWizardScreenState extends State<PairingWizardScreen> {
                   ],
                 ),
                 child: IconButton(
-                  icon: const Icon(Icons.arrow_back, color: Color(0xFF3BA8B0)),
+                  icon: const Icon(Icons.close, color: Color(0xFF3BA8B0)),
                   onPressed: () {
                     controller.dispose();
                     setState(() {

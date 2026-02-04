@@ -6,6 +6,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:crypto/crypto.dart';
 import 'package:uuid/uuid.dart';
 import '../models/location_share.dart';
@@ -36,6 +37,90 @@ class LocationService extends ChangeNotifier {
   bool get isSharingLocation => _isSharingLocation;
   bool get isTrackingPartner => _isTrackingPartner;
   DateTime? get sharingExpiresAt => _sharingExpiresAt;
+
+  // Chiavi SharedPreferences per persistenza stato condivisione
+  static const String _prefSessionId = 'location_sharing_session_id';
+  static const String _prefExpiresAt = 'location_sharing_expires_at';
+  static const String _prefActive = 'location_sharing_active';
+
+  /// Pre-imposta sessione e stato attivo prima di mandare il messaggio Firestore,
+  /// così la UI mostra subito la condivisione come attiva.
+  void prepareSession(String sessionId, Duration duration) {
+    _currentSessionId = sessionId;
+    _isSharingLocation = true;
+    _sharingExpiresAt = DateTime.now().add(duration);
+    _persistSharingState();
+    notifyListeners();
+  }
+
+  /// Salva stato condivisione su SharedPreferences (sopravvive a restart app)
+  Future<void> _persistSharingState() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      if (_isSharingLocation && _currentSessionId != null && _sharingExpiresAt != null) {
+        await prefs.setString(_prefSessionId, _currentSessionId!);
+        await prefs.setString(_prefExpiresAt, _sharingExpiresAt!.toIso8601String());
+        await prefs.setBool(_prefActive, true);
+      } else {
+        await _clearPersistedSharingState();
+      }
+    } catch (e) {
+      if (kDebugMode) print('❌ [LOCATION] Error persisting sharing state: $e');
+    }
+  }
+
+  /// Cancella stato condivisione persistito
+  Future<void> _clearPersistedSharingState() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove(_prefSessionId);
+      await prefs.remove(_prefExpiresAt);
+      await prefs.remove(_prefActive);
+    } catch (e) {
+      if (kDebugMode) print('❌ [LOCATION] Error clearing persisted state: $e');
+    }
+  }
+
+  /// Ripristina stato condivisione da SharedPreferences (chiamato all'avvio app).
+  /// Se la sessione non è scaduta, ripristina stato e riavvia GPS.
+  Future<void> restoreSessionIfNeeded() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final active = prefs.getBool(_prefActive) ?? false;
+      if (!active) return;
+
+      final sessionId = prefs.getString(_prefSessionId);
+      final expiresAtStr = prefs.getString(_prefExpiresAt);
+      if (sessionId == null || expiresAtStr == null) return;
+
+      final expiresAt = DateTime.parse(expiresAtStr);
+      if (DateTime.now().isAfter(expiresAt)) {
+        // Scaduta → pulisci
+        if (kDebugMode) print('⏰ [LOCATION] Persisted session expired, clearing');
+        await _clearPersistedSharingState();
+        return;
+      }
+
+      // Ripristina stato in memoria
+      _currentSessionId = sessionId;
+      _isSharingLocation = true;
+      _sharingExpiresAt = expiresAt;
+      if (kDebugMode) {
+        print('🔄 [LOCATION] Restored sharing session: $sessionId');
+        print('   Expires at: $expiresAt');
+      }
+
+      notifyListeners();
+
+      // Riavvia GPS stream
+      final remaining = expiresAt.difference(DateTime.now());
+      if (remaining.inSeconds > 0) {
+        startSharingLocation(remaining, sessionId: sessionId);
+      }
+    } catch (e) {
+      if (kDebugMode) print('❌ [LOCATION] Error restoring session: $e');
+    }
+  }
 
   /// Verifica se la condivisione è scaduta
   bool get isSharingExpired {
@@ -120,7 +205,11 @@ class LocationService extends ChangeNotifier {
 
   /// Inizia a condividere la posizione per una durata specificata
   /// duration: Duration.hours(1) o Duration.hours(8)
-  Future<bool> startSharingLocation(Duration duration) async {
+  Future<bool> startSharingLocation(Duration duration, {String? sessionId}) async {
+    // Se sessionId è fornito, prepareSession() è già stato chiamato e il messaggio
+    // è già su Firestore. Non resettare lo stato se qualcosa fallisce.
+    final hasPreparedSession = sessionId != null;
+
     try {
       if (kDebugMode) print('🌍 [LOCATION] Attempting to start location sharing...');
 
@@ -136,27 +225,17 @@ class LocationService extends ChangeNotifier {
       final myUserId = await _getMyUserId();
       final familyChatId = await _getFamilyChatId();
 
-      if (kDebugMode) {
-        print('   myUserId: ${myUserId != null ? "✅ ${myUserId.substring(0, 8)}..." : "❌ NULL"}');
-        print('   familyChatId: ${familyChatId != null ? "✅ ${familyChatId.substring(0, 8)}..." : "❌ NULL"}');
-      }
-
       if (myUserId == null || familyChatId == null) {
-        if (kDebugMode) {
-          print('❌ [LOCATION] Cannot start sharing: not paired or missing data');
-          print('   myUserId is null: ${myUserId == null}');
-          print('   familyChatId is null: ${familyChatId == null}');
-        }
+        if (kDebugMode) print('❌ [LOCATION] Cannot start sharing: not paired or missing data');
         return false;
       }
 
-      // Genera nuovo session ID univoco per questa condivisione
-      _currentSessionId = const Uuid().v4();
+      // Usa session ID esterno se fornito, altrimenti genera nuovo
+      _currentSessionId = sessionId ?? const Uuid().v4();
 
       if (kDebugMode) {
         print('🌍 [LOCATION] Starting location sharing for ${duration.inHours}h');
         print('   Session ID: $_currentSessionId');
-        print('   Expires at: ${DateTime.now().add(duration)}');
       }
 
       // IMPORTANTE: Chiudi vecchie sessioni PRIMA di iniziare nuova
@@ -166,16 +245,31 @@ class LocationService extends ChangeNotifier {
       _sharingExpiresAt = DateTime.now().add(duration);
       _isSharingLocation = true;
 
-      // IMPORTANTE: Ottieni posizione iniziale PRIMA di avviare lo stream
-      // Se non riesci ad ottenere GPS, non permettere la condivisione
+      // Ottieni posizione iniziale
       if (kDebugMode) print('📍 [LOCATION] Verifico disponibilità GPS...');
       final initialPosition = await getCurrentPosition();
 
       if (initialPosition == null) {
-        if (kDebugMode) print('❌ [LOCATION] GPS non disponibile - impossibile condividere');
-        _isSharingLocation = false;
-        _currentSessionId = null;
-        return false;
+        if (kDebugMode) print('⚠️ [LOCATION] GPS non disponibile al momento');
+        if (!hasPreparedSession) {
+          // Nessun messaggio ancora → resetta stato
+          _isSharingLocation = false;
+          _currentSessionId = null;
+        } else {
+          // Messaggio già inviato → tieni lo stato attivo, il GPS stream proverà dopo
+          if (kDebugMode) print('   Messaggio già su Firestore, mantengo stato attivo');
+        }
+        // Avvia comunque lo stream: quando il GPS diventa disponibile, aggiornerà
+        _positionStreamSubscription = Geolocator.getPositionStream(
+          locationSettings: const LocationSettings(
+            accuracy: LocationAccuracy.high,
+            distanceFilter: 10,
+          ),
+        ).listen((Position position) {
+          _updateMyLocationToFirestore(position, myUserId, familyChatId);
+        });
+        notifyListeners();
+        return hasPreparedSession; // true se il messaggio esiste già
       }
 
       if (kDebugMode) print('✅ [LOCATION] GPS disponibile, avvio condivisione');
@@ -187,19 +281,24 @@ class LocationService extends ChangeNotifier {
       _positionStreamSubscription = Geolocator.getPositionStream(
         locationSettings: const LocationSettings(
           accuracy: LocationAccuracy.high,
-          distanceFilter: 10, // Aggiorna ogni 10 metri
+          distanceFilter: 10,
         ),
       ).listen((Position position) {
         _updateMyLocationToFirestore(position, myUserId, familyChatId);
       });
 
+      _persistSharingState();
       notifyListeners();
       return true;
     } catch (e) {
       if (kDebugMode) print('❌ [LOCATION] Error starting location sharing: $e');
-      _isSharingLocation = false;
+      if (!hasPreparedSession) {
+        _isSharingLocation = false;
+        _currentSessionId = null;
+        _clearPersistedSharingState();
+      }
       notifyListeners();
-      return false;
+      return hasPreparedSession;
     }
   }
 
@@ -243,8 +342,9 @@ class LocationService extends ChangeNotifier {
       _isSharingLocation = false;
       _sharingExpiresAt = null;
       _myLocation = null;
-      _currentSessionId = null; // Reset session ID
-      _locationShareMessageId = null; // Reset message ID
+      _currentSessionId = null;
+      _locationShareMessageId = null;
+      await _clearPersistedSharingState();
 
       notifyListeners();
     } catch (e) {
@@ -360,6 +460,7 @@ class LocationService extends ChangeNotifier {
             _myLocation = null;
             _currentSessionId = null;
             _locationShareMessageId = null;
+            _clearPersistedSharingState();
           }
 
           _partnerLocation = null;

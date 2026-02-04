@@ -56,6 +56,35 @@ service cloud.firestore {
         // Usato per condivisione posizione temporanea (1h/8h)
         allow read, write: if true;
       }
+
+      // ───────────────────────────────────────────────────────────
+      // CALLS SUBCOLLECTION (Voice call signaling + WebRTC)
+      // ───────────────────────────────────────────────────────────
+      match /calls/{callId} {
+        // ✅ Leggi/scrivi segnali chiamata SE conosci familyId
+        // Contiene: status, offer SDP, answer SDP
+        allow read, write: if true;
+
+        // ICE candidates per WebRTC (caller e callee)
+        match /{subcollection}/{candidateId} {
+          allow read, write: if true;
+        }
+      }
+    }
+
+    // ═══════════════════════════════════════════════════════════
+    // PAIRING SIGNALS COLLECTION
+    // ═══════════════════════════════════════════════════════════
+    match /pairing_signals/{signalId} {
+      // ❌ BLOCCA list() - Non puoi enumerare tutti i segnali
+      allow list: if false;
+
+      // ✅ PERMETTI get/read - Puoi leggere SE conosci il signalId
+      // signalId = SHA256(publicKey) = impossibile da indovinare
+      allow get: if true;
+
+      // ✅ PERMETTI write/delete - Per creare e pulire segnali
+      allow create, update, delete: if true;
     }
   }
 }

@@ -7,6 +7,7 @@ import 'chat_screen.dart';
 import 'media_screen.dart';
 import 'settings_screen.dart';
 import 'couple_selfie_screen.dart';
+import 'voice_call_screen.dart';
 
 class MainScreen extends StatefulWidget {
   const MainScreen({Key? key}) : super(key: key);
@@ -247,7 +248,7 @@ class _MainScreenState extends State<MainScreen> {
               ),
             ),
           ),
-          // Floating couple selfie / pairing status (top right)
+          // Floating voice call button + couple selfie (top right)
           Positioned(
             top: 48,
             right: 16,
@@ -257,57 +258,91 @@ class _MainScreenState extends State<MainScreen> {
                 final hasSelfie = coupleSelfieService.hasSelfie;
                 final cachedSelfieBytes = coupleSelfieService.cachedSelfieBytes;
 
-                return GestureDetector(
-                  onTap: isPaired
-                      ? () {
-                          // Navigate to couple selfie screen
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (context) => const CoupleSelfieScreen(),
+                return Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    // Icona chiamata vocale (solo se paired e su tab Chat)
+                    if (isPaired && _selectedIndex == 0)
+                      Container(
+                        width: 48,
+                        height: 48,
+                        margin: const EdgeInsets.only(right: 10),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          shape: BoxShape.circle,
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withOpacity(0.1),
+                              blurRadius: 8,
+                              offset: const Offset(0, 2),
                             ),
-                          );
-                        }
-                      : null,
-                  child: Container(
-                    width: 48,
-                    height: 48,
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      shape: BoxShape.circle,
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withOpacity(0.1),
-                          blurRadius: 8,
-                          offset: const Offset(0, 2),
+                          ],
                         ),
-                      ],
-                    ),
-                    child: ClipOval(
-                      // IMPORTANTE: mostra la foto SOLO se paired
-                      // Se unpaired, mostra sempre cuore grigio
-                      child: isPaired && hasSelfie && cachedSelfieBytes != null
-                          ? Image.memory(
-                              cachedSelfieBytes,
-                              fit: BoxFit.cover,
-                              errorBuilder: (context, error, stackTrace) {
-                                // Fallback to teal logo if image fails to load
-                                return Image.asset(
-                                  'assets/logo_teal.png',
+                        child: IconButton(
+                          icon: const Icon(Icons.call, color: Color(0xFF3BA8B0)),
+                          iconSize: 22,
+                          padding: EdgeInsets.zero,
+                          onPressed: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => const VoiceCallScreen(isOutgoing: true),
+                              ),
+                            );
+                          },
+                        ),
+                      ),
+
+                    // Couple selfie / pairing status
+                    GestureDetector(
+                      onTap: isPaired
+                          ? () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (context) => const CoupleSelfieScreen(),
+                                ),
+                              );
+                            }
+                          : null,
+                      child: Container(
+                        width: 48,
+                        height: 48,
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          shape: BoxShape.circle,
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withOpacity(0.1),
+                              blurRadius: 8,
+                              offset: const Offset(0, 2),
+                            ),
+                          ],
+                        ),
+                        child: ClipOval(
+                          child: isPaired && hasSelfie && cachedSelfieBytes != null
+                              ? Image.memory(
+                                  cachedSelfieBytes,
+                                  fit: BoxFit.cover,
+                                  errorBuilder: (context, error, stackTrace) {
+                                    return Image.asset(
+                                      'assets/logo_teal.png',
+                                      width: 48,
+                                      height: 48,
+                                      fit: BoxFit.cover,
+                                    );
+                                  },
+                                )
+                              : Image.asset(
+                                  isPaired ? 'assets/logo_teal.png' : 'assets/logo_grey.png',
                                   width: 48,
                                   height: 48,
                                   fit: BoxFit.cover,
-                                );
-                              },
-                            )
-                          : Image.asset(
-                              isPaired ? 'assets/logo_teal.png' : 'assets/logo_grey.png',
-                              width: 48,
-                              height: 48,
-                              fit: BoxFit.cover,
-                            ),
+                                ),
+                        ),
+                      ),
                     ),
-                  ),
+                  ],
                 );
               },
             ),

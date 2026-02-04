@@ -41,6 +41,13 @@ class _PdfViewerScreenState extends State<PdfViewerScreen> {
   String? _errorMessage;
   int _currentPage = 1;
   int _totalPages = 0;
+  bool _showOverlay = true;
+
+  void _toggleOverlay() {
+    setState(() {
+      _showOverlay = !_showOverlay;
+    });
+  }
 
   @override
   void initState() {
@@ -115,22 +122,7 @@ class _PdfViewerScreenState extends State<PdfViewerScreen> {
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
     return Scaffold(
-      extendBodyBehindAppBar: true,
-      backgroundColor: Colors.transparent,
-      appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        leading: IconButton(
-          icon: const Icon(Icons.close, color: Colors.white),
-          onPressed: () => Navigator.of(context).pop(),
-        ),
-        actions: [
-          IconButton(
-            icon: Icon(_platformShareIcon, color: Colors.white),
-            onPressed: () => _shareDocument(context),
-          ),
-        ],
-      ),
+      backgroundColor: _tealDark,
       body: Container(
         decoration: const BoxDecoration(
           gradient: LinearGradient(
@@ -139,64 +131,104 @@ class _PdfViewerScreenState extends State<PdfViewerScreen> {
             colors: [_tealLight, _tealDark],
           ),
         ),
-        child: Column(
-          children: [
-            // Spazio per AppBar
-            const SizedBox(height: kToolbarHeight + 40),
+        child: GestureDetector(
+          onTap: _toggleOverlay,
+          child: Stack(
+            children: [
+              // PDF content (full screen)
+              Positioned.fill(
+                child: SafeArea(child: _buildBody()),
+              ),
 
-            // Info documento (stile location sharing)
-            Container(
-              margin: const EdgeInsets.symmetric(horizontal: 32),
-              padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 24),
-              decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.15),
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(
-                  color: Colors.white.withOpacity(0.2),
-                  width: 1,
+              // Top bar: X a sinistra, share a destra
+              AnimatedOpacity(
+                opacity: _showOverlay ? 1.0 : 0.0,
+                duration: const Duration(milliseconds: 200),
+                child: IgnorePointer(
+                  ignoring: !_showOverlay,
+                  child: SafeArea(
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          IconButton(
+                            icon: const Icon(Icons.close, color: Colors.white, size: 28),
+                            onPressed: () => Navigator.of(context).pop(),
+                          ),
+                          IconButton(
+                            icon: Icon(_platformShareIcon, color: Colors.white, size: 28),
+                            onPressed: () => _shareDocument(context),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
                 ),
               ),
-              child: Column(
-                children: [
-                  Text(
-                    widget.attachment.fileName,
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 16,
-                      fontWeight: FontWeight.w500,
-                    ),
-                    textAlign: TextAlign.center,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  const SizedBox(height: 8),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      const Icon(Icons.lock, color: Colors.white70, size: 14),
-                      const SizedBox(width: 4),
-                      Text(
-                        '${l10n.mediaEncryptedE2E} • ${_formatFileSize(widget.attachment.fileSize)}',
-                        style: const TextStyle(color: Colors.white70, fontSize: 12),
+
+              // Bottom info
+              AnimatedOpacity(
+                opacity: _showOverlay ? 1.0 : 0.0,
+                duration: const Duration(milliseconds: 200),
+                child: IgnorePointer(
+                  ignoring: !_showOverlay,
+                  child: SafeArea(
+                    child: Align(
+                      alignment: Alignment.bottomCenter,
+                      child: Container(
+                        margin: const EdgeInsets.symmetric(horizontal: 32, vertical: 24),
+                        padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 24),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withOpacity(0.15),
+                          borderRadius: BorderRadius.circular(16),
+                          border: Border.all(
+                            color: Colors.white.withOpacity(0.2),
+                            width: 1,
+                          ),
+                        ),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              widget.attachment.fileName,
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 14,
+                                fontWeight: FontWeight.w500,
+                              ),
+                              textAlign: TextAlign.center,
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                            const SizedBox(height: 4),
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                const Icon(Icons.lock, color: Colors.white70, size: 14),
+                                const SizedBox(width: 4),
+                                Text(
+                                  '${l10n.mediaEncryptedE2E} • ${_formatFileSize(widget.attachment.fileSize)}',
+                                  style: const TextStyle(color: Colors.white70, fontSize: 12),
+                                ),
+                              ],
+                            ),
+                            if (_totalPages > 0) ...[
+                              const SizedBox(height: 4),
+                              Text(
+                                'Pagina $_currentPage di $_totalPages',
+                                style: const TextStyle(color: Colors.white70, fontSize: 12),
+                              ),
+                            ],
+                          ],
+                        ),
                       ),
-                    ],
-                  ),
-                  if (_totalPages > 0) ...[
-                    const SizedBox(height: 4),
-                    Text(
-                      'Pagina $_currentPage di $_totalPages',
-                      style: const TextStyle(color: Colors.white70, fontSize: 12),
                     ),
-                  ],
-                ],
+                  ),
+                ),
               ),
-            ),
-
-            const SizedBox(height: 16),
-
-            // PDF content
-            Expanded(child: _buildBody()),
-          ],
+            ],
+          ),
         ),
       ),
     );

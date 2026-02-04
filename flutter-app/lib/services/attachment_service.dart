@@ -269,52 +269,62 @@ class AttachmentService {
       }
 
       // 🖼️ GENERA E CARICA THUMBNAIL (solo per foto)
+      // Wrappato in try/catch separato: un errore thumbnail NON deve
+      // impedire il ritorno dell'Attachment (il full image è già caricato)
       String? thumbnailUrl;
       if (attachmentType == 'photo') {
-        if (kDebugMode) print('📐 Generating thumbnail for photo...');
+        try {
+          if (kDebugMode) print('📐 Generating thumbnail for photo...');
 
-        final Uint8List? thumbnailBytes = await _generateThumbnail(fileBytes);
+          final Uint8List? thumbnailBytes = await _generateThumbnail(fileBytes);
 
-        if (thumbnailBytes != null) {
-          // Cifra il thumbnail con le STESSE chiavi AES e IV del full image
-          final Uint8List encryptedThumbnailBytes = encryptionService.encryptFileWithExistingKey(
-            thumbnailBytes,
-            aesKey, // Usa la stessa chiave AES del full image
-            iv,     // Usa lo stesso IV del full image
-          );
+          if (thumbnailBytes != null) {
+            // Cifra il thumbnail con le STESSE chiavi AES e IV del full image
+            final Uint8List encryptedThumbnailBytes = encryptionService.encryptFileWithExistingKey(
+              thumbnailBytes,
+              aesKey, // Usa la stessa chiave AES del full image
+              iv,     // Usa lo stesso IV del full image
+            );
 
-          // Upload thumbnail cifrato con path diverso
-          final String thumbnailPath = 'families/$familyChatId/attachments/$attachmentType/thumbnails/$attachmentId';
-          final Reference thumbnailRef = _storage.ref().child(thumbnailPath);
+            // Upload thumbnail cifrato con path diverso
+            final String thumbnailPath = 'families/$familyChatId/attachments/$attachmentType/thumbnails/$attachmentId';
+            final Reference thumbnailRef = _storage.ref().child(thumbnailPath);
 
-          if (kDebugMode) {
-            print('📤 Uploading encrypted thumbnail...');
-            print('   Path: $thumbnailPath');
+            if (kDebugMode) {
+              print('📤 Uploading encrypted thumbnail...');
+              print('   Path: $thumbnailPath');
+            }
+
+            final UploadTask thumbnailUploadTask = thumbnailRef.putData(
+              encryptedThumbnailBytes,
+              SettableMetadata(
+                contentType: 'application/octet-stream',
+                customMetadata: {
+                  'senderId': senderId,
+                  'type': 'thumbnail',
+                  'encrypted': 'true',
+                },
+              ),
+            );
+
+            final TaskSnapshot thumbnailSnapshot = await thumbnailUploadTask;
+            thumbnailUrl = await thumbnailSnapshot.ref.getDownloadURL();
+
+            if (kDebugMode) {
+              print('✅ Thumbnail uploaded successfully');
+              print('   URL: $thumbnailUrl');
+            }
           }
-
-          final UploadTask thumbnailUploadTask = thumbnailRef.putData(
-            encryptedThumbnailBytes,
-            SettableMetadata(
-              contentType: 'application/octet-stream',
-              customMetadata: {
-                'senderId': senderId,
-                'type': 'thumbnail',
-                'encrypted': 'true',
-              },
-            ),
-          );
-
-          final TaskSnapshot thumbnailSnapshot = await thumbnailUploadTask;
-          thumbnailUrl = await thumbnailSnapshot.ref.getDownloadURL();
-
-          if (kDebugMode) {
-            print('✅ Thumbnail uploaded successfully');
-            print('   URL: $thumbnailUrl');
-          }
+        } catch (e) {
+          // Thumbnail fallito, ma il full image è già caricato → continua
+          if (kDebugMode) print('⚠️ Thumbnail generation/upload failed (non-fatal): $e');
         }
       }
 
       // Crea l'oggetto Attachment con metadata di cifratura
+      if (kDebugMode) {
+        print('✅ [uploadAttachment] Returning Attachment: id=$attachmentId, url=${downloadUrl.length > 50 ? '${downloadUrl.substring(0, 50)}...' : downloadUrl}');
+      }
       return Attachment(
         id: attachmentId,
         type: attachmentType,
@@ -327,8 +337,11 @@ class AttachmentService {
         encryptedKeySender: encryptedKeySender,
         iv: iv,
       );
-    } catch (e) {
-      if (kDebugMode) print('❌ Error uploading encrypted attachment: $e');
+    } catch (e, stackTrace) {
+      if (kDebugMode) {
+        print('❌ Error uploading encrypted attachment: $e');
+        print('   Stack: ${stackTrace.toString().split('\n').take(5).join('\n')}');
+      }
       return null;
     }
   }
@@ -402,10 +415,10 @@ class AttachmentService {
           ? attachment.thumbnailUrl!
           : attachment.url;
 
-      // Se URL è vuoto, l'attachment è ancora in upload - ritorna null
-      if (url.isEmpty) {
+      // Se URL è vuoto o è un path locale (placeholder in upload), non scaricare
+      if (url.isEmpty || (!url.startsWith('http') && !url.startsWith('gs://'))) {
         if (kDebugMode) {
-          print('⏳ Attachment URL is empty - file still uploading');
+          print('⏳ Attachment URL not ready (placeholder): $url');
         }
         _cacheService.completePendingRequest(attachment.id, null, isThumbnail: useThumbnail);
         return null;

@@ -305,29 +305,7 @@ class ChatService extends ChangeNotifier {
                 _decryptAndPopulateMessage(message, _myDeviceId!);
               }
 
-              // 🔄 SOSTITUISCI pending message con messaggio reale (optimistic update)
-              // Invece di rimuovere e aggiungere, sostituiamo in-place per evitare refresh visivo
-              final pendingIndex = _messages.indexWhere((m) =>
-                m.isPending == true &&
-                m.decryptedContent == message.decryptedContent &&
-                m.senderId == message.senderId
-              );
-
-              if (pendingIndex != -1) {
-                // Trovato pending message - sostituiscilo con quello reale
-                _messages[pendingIndex] = message;
-
-                // 💾 SALVA NELLA CACHE SQLITE
-                try {
-                  await _cacheService.saveMessage(message, familyChatId);
-                  if (kDebugMode) {
-                    print('🔄 [OPTIMISTIC] Replaced pending at index $pendingIndex with real message: ${message.id.substring(0, 8)}');
-                  }
-                } catch (e) {
-                  if (kDebugMode) print('❌ Error caching message: $e');
-                }
-              } else if (!_messages.any((m) => m.id == message.id)) {
-                // Nessun pending trovato E messaggio non esiste già - aggiungilo normalmente
+              if (!_messages.any((m) => m.id == message.id)) {
 
                 // 🔔 REMINDER TIMESTAMP UPDATE
                 // Se questo è un reminder appena diventato visibile, aggiorna il timestamp
@@ -872,50 +850,27 @@ class ChatService extends ChangeNotifier {
     }
   }
 
-  /// Aggiunge un messaggio pending alla lista (per invio ottimistico)
-  String addPendingMessage(
-    String content,
-    String senderId,
-    List<Attachment>? attachments,
-  ) {
-    if (kDebugMode) {
-      print('🔄 [OPTIMISTIC] addPendingMessage called');
-      print('   Content: $content');
-      print('   Current messages count: ${_messages.length}');
-    }
-
-    final tempId = 'pending_${DateTime.now().millisecondsSinceEpoch}';
-    final message = Message(
-      id: tempId,
-      senderId: senderId,
-      timestamp: DateTime.now(),
-      decryptedContent: content,
-      messageType: 'text',
-      isPending: true,
-      attachments: attachments,
-    );
-
-    _messages.insert(0, message); // Aggiungi in cima (messaggi recenti)
-
-    if (kDebugMode) {
-      print('   Message added with tempId: $tempId');
-      print('   New messages count: ${_messages.length}');
-    }
-
-    notifyListeners();
-
-    return tempId;
-  }
-
-  /// Rimuove un messaggio pending quando l'invio è completato
-  void removePendingMessage(String tempId) {
-    _messages.removeWhere((m) => m.id == tempId);
-    notifyListeners();
+  /// Invia un messaggio cifrato con RSA hybrid encryption e dual encryption
+  /// Ogni messaggio ha una chiave AES univoca, cifrata con ENTRAMBE le public key
+  /// Restituisce il messageId se il messaggio è stato inviato con successo, null altrimenti
+  /// Genera un message ID client-side per un dato family chat.
+  /// Usato per salvare il PendingUpload PRIMA di chiamare sendMessage,
+  /// così il PendingUpload sopravvive a un kill dell'app.
+  String generateMessageId(String familyChatId) {
+    return _firestore
+        .collection('families')
+        .doc(familyChatId)
+        .collection('messages')
+        .doc()
+        .id;
   }
 
   /// Invia un messaggio cifrato con RSA hybrid encryption e dual encryption
   /// Ogni messaggio ha una chiave AES univoca, cifrata con ENTRAMBE le public key
   /// Restituisce il messageId se il messaggio è stato inviato con successo, null altrimenti
+  ///
+  /// Se [messageId] è fornito, usa quell'ID per il documento Firestore
+  /// (pre-generato con [generateMessageId] per garantire PendingUpload persistence).
   Future<String?> sendMessage(
     String content,
     String familyChatId,
@@ -923,6 +878,7 @@ class ChatService extends ChangeNotifier {
     String senderPublicKey, // Nuova! Per cifrare anche per noi stessi
     String recipientPublicKey, {
     List<Attachment>? attachments, // Allegati opzionali
+    String? messageId, // ID pre-generato (opzionale)
   }) async {
     try {
       final timestamp = DateTime.now();
@@ -942,12 +898,14 @@ class ChatService extends ChangeNotifier {
         recipientPublicKey, // Per il destinatario
       );
 
-      // Scrivi nella chat condivisa
-      final messageRef = _firestore
+      // Scrivi nella chat condivisa (usa messageId pre-generato se disponibile)
+      final messagesCollection = _firestore
           .collection('families')
           .doc(familyChatId)
-          .collection('messages')
-          .doc();
+          .collection('messages');
+      final messageRef = messageId != null
+          ? messagesCollection.doc(messageId)
+          : messagesCollection.doc();
 
       await messageRef.set({
         'sender_id': senderId,
@@ -973,6 +931,32 @@ class ChatService extends ChangeNotifier {
     } catch (e) {
       if (kDebugMode) print('❌ Send message error: $e');
       return null;
+    }
+  }
+
+  /// Aggiorna un messaggio esistente aggiungendo gli allegati.
+  /// Usato quando l'upload su Storage avviene dopo l'invio del messaggio.
+  Future<bool> updateMessageAttachments(
+    String messageId,
+    String familyChatId,
+    List<Attachment> attachments,
+  ) async {
+    try {
+      await _firestore
+          .collection('families')
+          .doc(familyChatId)
+          .collection('messages')
+          .doc(messageId)
+          .update({
+        'attachments': attachments.map((a) => a.toJson()).toList(),
+      });
+      if (kDebugMode) {
+        print('✅ Updated message $messageId with ${attachments.length} attachments');
+      }
+      return true;
+    } catch (e) {
+      if (kDebugMode) print('❌ Update message attachments error: $e');
+      return false;
     }
   }
 

@@ -15,6 +15,7 @@ import 'package:flutter_linkify/flutter_linkify.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:table_calendar/table_calendar.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:uuid/uuid.dart';
 import 'package:private_messaging/generated/l10n/app_localizations.dart';
 import '../services/pairing_service.dart';
 import '../services/chat_service.dart';
@@ -23,6 +24,7 @@ import '../services/notification_service.dart';
 import '../services/attachment_service.dart';
 import '../services/location_service.dart';
 import '../services/link_metadata_service.dart';
+import '../services/pending_upload_service.dart';
 import '../models/message.dart';
 import '../widgets/todo_bubble.dart';
 import '../widgets/attachment_widgets.dart';
@@ -71,6 +73,14 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   String? _editingMessageId; // ID del messaggio che stiamo modificando (null = nuovo messaggio)
   List<Attachment> _editingAttachments = []; // Allegati esistenti del messaggio in modifica
   String? _editingMessageSenderId; // SenderId del messaggio in modifica (per decriptare allegati)
+  final PendingUploadService _pendingUploadService = PendingUploadService();
+  Timer? _pendingUploadRetryTimer; // Riprova pending uploads ogni 15s
+  bool _isProcessingPending = false; // Guard contro esecuzioni concorrenti
+
+  /// Messaggi locali in attesa di upload (non ancora su Firestore).
+  /// Mostrati nella chat con un indicatore di invio in corso.
+  /// Struttura: {pendingId: {text, files (List<File>), createdAt}}
+  final Map<String, Map<String, dynamic>> _pendingLocalMessages = {};
 
   // Method Channel per condivisione file da altre app (iOS)
   static const platform = MethodChannel('com.privatemessaging.tuyjo/shared_media');
@@ -615,7 +625,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   void didChangeAppLifecycleState(AppLifecycleState state) {
     super.didChangeAppLifecycleState(state);
 
-    // Quando l'app torna in foreground, marca i messaggi come letti
+    // Quando l'app torna in foreground, marca i messaggi come letti + riprova pending uploads
     if (state == AppLifecycleState.resumed) {
       if (_familyChatId != null && _myDeviceId != null) {
         final chatService = Provider.of<ChatService>(context, listen: false);
@@ -624,6 +634,9 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
         // 🔴 Azzera badge notifiche
         notificationService.clearBadge();
         if (kDebugMode) print('📱 App resumed - marking messages as read');
+
+        // OFFLINE QUEUE: Riprova pending uploads quando l'app torna in foreground
+        _processPendingUploads();
       }
     }
   }
@@ -775,6 +788,17 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
         // UNPAIR SYNC: Avvia background listener
         pairingService.startBackgroundUnpairListener();
       }
+
+      // OFFLINE QUEUE: Stampa log sessione precedente + processa pending uploads
+      await _pendingUploadService.printPreviousSessionDiag();
+      await _pendingUploadService.printQueueFileStatus();
+      _processPendingUploads();
+      // Timer periodico: riprova pending uploads ogni 15 secondi
+      // (copre il caso in cui si torna online senza passare per background/foreground)
+      _pendingUploadRetryTimer?.cancel();
+      _pendingUploadRetryTimer = Timer.periodic(const Duration(seconds: 15), (_) {
+        _processPendingUploads();
+      });
     } else {
       print('❌ Cannot start listener - missing chat ID or partner public key');
       setState(() => _isLoading = false);
@@ -784,12 +808,186 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     }
   }
 
+  /// Prova a uploadare i file in coda (foto che non erano riuscite a caricarsi offline).
+  Future<void> _processPendingUploads() async {
+    // Guard: evita esecuzioni concorrenti (timer + init + resume)
+    if (_isProcessingPending) return;
+    _isProcessingPending = true;
+
+    try {
+      if (_familyChatId == null || _myDeviceId == null || _attachmentService == null) return;
+      if (!mounted) return;
+
+      final chatService = Provider.of<ChatService>(context, listen: false);
+
+      final allPending = await _pendingUploadService.getPendingUploads();
+      final pending = allPending.where((u) => u.familyChatId == _familyChatId).toList();
+
+      // SEMPRE logga: conferma che il metodo è stato eseguito e mostra stato della coda
+      if (kDebugMode) {
+        print('🔄 [PENDING] Queue check: total on disk=${allPending.length}, for this family=${pending.length}');
+      }
+
+      if (pending.isEmpty) return;
+
+      for (final p in pending) {
+        if (kDebugMode) {
+          print('🔄 [PENDING] Queued: ${p.id} → msg ${p.messageId}');
+          for (final fp in p.filePaths) {
+            final exists = await File(fp).exists();
+            print('   file: $fp (exists: $exists)');
+          }
+        }
+      }
+
+      final successCount = await _pendingUploadService.processPendingUploads(
+        familyChatId: _familyChatId!,
+        attachmentService: _attachmentService!,
+        chatService: chatService,
+      );
+
+      if (mounted && kDebugMode) {
+        print('🔄 [PENDING] Result: $successCount/${pending.length} processed');
+      }
+    } catch (e) {
+      if (kDebugMode) print('❌ [PENDING] Error: $e');
+    } finally {
+      _isProcessingPending = false;
+    }
+  }
+
+  /// Aggiunge un messaggio locale "in invio" (non ancora su Firestore).
+  void _addLocalPendingMessage(String pendingId, String text, List<File> files) {
+    setState(() {
+      _pendingLocalMessages[pendingId] = {
+        'text': text,
+        'files': files,
+        'createdAt': DateTime.now(),
+      };
+    });
+  }
+
+  /// Rimuove un messaggio locale "in invio" (upload completato, ora è su Firestore).
+  void _removeLocalPendingMessage(String pendingId) {
+    setState(() {
+      _pendingLocalMessages.remove(pendingId);
+    });
+  }
+
+  /// Costruisce un bubble per un messaggio in attesa di upload.
+  /// Mostra l'anteprima locale della foto con uno spinner sovrapposto.
+  Widget _buildPendingMessageBubble(String pendingId, String text, List<File> files) {
+    return Align(
+      alignment: Alignment.centerRight,
+      child: Container(
+        margin: const EdgeInsets.only(left: 64, right: 0, bottom: 4),
+        padding: const EdgeInsets.all(4),
+        decoration: BoxDecoration(
+          color: Theme.of(context).colorScheme.primary.withOpacity(0.85),
+          borderRadius: BorderRadius.circular(16),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.end,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // Anteprima foto con spinner
+            ...files.map((file) {
+              final ext = path.extension(file.path).toLowerCase();
+              final isPhoto = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.heic'].contains(ext);
+              if (isPhoto && file.existsSync()) {
+                return ClipRRect(
+                  borderRadius: BorderRadius.circular(12),
+                  child: Stack(
+                    children: [
+                      Image.file(file, width: 200, height: 200, fit: BoxFit.cover),
+                      Positioned.fill(
+                        child: Container(
+                          color: Colors.black26,
+                          child: const Center(
+                            child: SizedBox(
+                              width: 28, height: 28,
+                              child: CircularProgressIndicator(strokeWidth: 2.5, color: Colors.white70),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              }
+              // Document/video placeholder
+              return Container(
+                width: 200, height: 56,
+                decoration: BoxDecoration(
+                  color: Colors.white24,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const SizedBox(
+                      width: 20, height: 20,
+                      child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white70),
+                    ),
+                    const SizedBox(width: 10),
+                    Flexible(
+                      child: Text(
+                        path.basename(file.path),
+                        style: const TextStyle(color: Colors.white70, fontSize: 12),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            }),
+            // Testo del messaggio (se c'è)
+            if (text.isNotEmpty)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(10, 4, 10, 2),
+                child: Text(
+                  text,
+                  style: const TextStyle(color: Colors.white, fontSize: 15),
+                ),
+              ),
+            // Indicatore "invio in corso"
+            Padding(
+              padding: const EdgeInsets.fromLTRB(10, 0, 10, 4),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  SizedBox(
+                    width: 10, height: 10,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 1.5,
+                      color: Colors.white.withOpacity(0.5),
+                    ),
+                  ),
+                  const SizedBox(width: 4),
+                  Text(
+                    'Sending...',
+                    style: TextStyle(
+                      color: Colors.white.withOpacity(0.5),
+                      fontSize: 11,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     _messageController.dispose();
     _scrollController.dispose();
     _typingTimer?.cancel();
+    _pendingUploadRetryTimer?.cancel();
     // Pulisci eventuali file temporanei iOS rimasti
     _cleanupAllIOSFiles();
     super.dispose();
@@ -953,13 +1151,9 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       // Modifica: popola i campi (per tutti i messaggi tranne location_share)
       if (kDebugMode) print('✏️ Editing message: $messageId');
 
-      final isPending = messageId.startsWith('pending_');
-
       setState(() {
-        // Per i pending, non settiamo _editingMessageId perché non esiste in Firestore
-        // Il messaggio pending verrà rimosso e l'utente invierà un nuovo messaggio
-        _editingMessageId = isPending ? null : messageId;
-        _editingMessageSenderId = isPending ? null : message.senderId;
+        _editingMessageId = messageId;
+        _editingMessageSenderId = message.senderId;
         _messageController.text = message.decryptedContent ?? '';
 
         // Popola gli allegati esistenti (solo quelli caricati con successo)
@@ -982,12 +1176,6 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
         }
       });
 
-      // Se è pending, rimuovilo dalla lista (verrà ricreato al nuovo invio)
-      if (isPending) {
-        if (kDebugMode) print('🗑️ Removing pending message to allow re-send');
-        chatService.removePendingMessage(messageId);
-      }
-
       // Se è un todo, apri anche il calendario
       if (message.messageType == 'todo') {
         _showDateTimePicker();
@@ -996,18 +1184,10 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       // Elimina: marca come deleted
       if (kDebugMode) print('🗑️ Deleting message: $messageId');
 
-      // Check if this is a pending message (still uploading)
-      final isPending = messageId.startsWith('pending_');
-
       // Elimina prima gli allegati se presenti
       if (message.attachments != null && message.attachments!.isNotEmpty && _attachmentService != null) {
         for (final attachment in message.attachments!) {
-          // Skip attachment deletion if URL is empty (still uploading)
-          if (attachment.url.isEmpty) {
-            if (kDebugMode) print('⏭️ Skipping empty attachment URL (still uploading)');
-            continue;
-          }
-
+          if (attachment.url.isEmpty) continue;
           try {
             await _attachmentService!.deleteAttachment(attachment.url);
             if (kDebugMode) print('🗑️ Deleted attachment: ${attachment.url}');
@@ -1017,15 +1197,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
         }
       }
 
-      // Handle pending vs normal messages differently
-      if (isPending) {
-        // Pending message - just remove from local list, don't try to update Firestore
-        if (kDebugMode) print('🗑️ Removing pending message locally');
-        chatService.removePendingMessage(messageId);
-      } else {
-        // Normal message - mark as deleted in Firestore
-        await chatService.deleteMessage(messageId, _familyChatId!);
-      }
+      await chatService.deleteMessage(messageId, _familyChatId!);
     } else {
       // Azione generica
       await chatService.addAction(
@@ -1381,64 +1553,54 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     );
 
     if (result != null && mounted) {
-      // Avvia condivisione posizione
       final locationService = Provider.of<LocationService>(context, listen: false);
-      final success = await locationService.startSharingLocation(result);
+      final chatService = Provider.of<ChatService>(context, listen: false);
+      final pairingService = Provider.of<PairingService>(context, listen: false);
+      final encryptionService = Provider.of<EncryptionService>(context, listen: false);
 
-      if (success) {
-        // Calcola expiresAt
-        final expiresAt = DateTime.now().add(result);
+      final familyChatId = await pairingService.getFamilyChatId();
+      final myDeviceId = await pairingService.getMyUserId();
+      final myPublicKey = await encryptionService.getPublicKey();
+      final partnerPublicKey = pairingService.partnerPublicKey;
 
-        // Invia messaggio di condivisione posizione
-        final chatService = Provider.of<ChatService>(context, listen: false);
-        final pairingService = Provider.of<PairingService>(context, listen: false);
-        final encryptionService = Provider.of<EncryptionService>(context, listen: false);
-
-        final familyChatId = await pairingService.getFamilyChatId();
-        final myDeviceId = await pairingService.getMyUserId();
-        final myPublicKey = await encryptionService.getPublicKey();
-        final partnerPublicKey = pairingService.partnerPublicKey;
-
-        if (familyChatId != null &&
-            myDeviceId != null &&
-            myPublicKey != null &&
-            partnerPublicKey != null &&
-            locationService.currentSessionId != null) {
-          final messageId = await chatService.sendLocationShare(
-            expiresAt,
-            locationService.currentSessionId!, // Session ID univoco
-            familyChatId,
-            myDeviceId,
-            myPublicKey,
-            partnerPublicKey,
-          );
-
-          if (messageId != null) {
-            // Salva il messageId nel LocationService per poterlo usare quando si ferma la condivisione
-            locationService.setLocationShareMessageId(messageId);
-          }
-        }
-      } else {
-        // Errore - controlla se è un problema di pairing o permessi
+      if (familyChatId == null || myDeviceId == null ||
+          myPublicKey == null || partnerPublicKey == null) {
         if (mounted) {
           final l10n = AppLocalizations.of(context)!;
-          String errorMessage = l10n.locationShareErrorGeneric;
-
-          // Controlla se l'utente è paired
-          if (_partnerPublicKey == null) {
-            errorMessage = l10n.locationShareErrorPairing;
-          } else {
-            errorMessage = l10n.locationShareErrorPermissions;
-          }
-
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text(errorMessage),
+              content: Text(l10n.locationShareErrorPairing),
               duration: const Duration(seconds: 5),
               backgroundColor: Colors.red[700],
             ),
           );
         }
+        return;
+      }
+
+      // 1) Prepara sessione così la UI mostra subito "attiva"
+      final sessionId = const Uuid().v4();
+      final expiresAt = DateTime.now().add(result);
+      locationService.prepareSession(sessionId, result);
+
+      // 2) Manda il messaggio su Firestore (funziona anche offline)
+      final messageId = await chatService.sendLocationShare(
+        expiresAt,
+        sessionId,
+        familyChatId,
+        myDeviceId,
+        myPublicKey,
+        partnerPublicKey,
+      );
+
+      if (messageId != null) {
+        locationService.setLocationShareMessageId(messageId);
+      }
+
+      // 3) Avvia GPS sharing (best-effort, se fallisce il messaggio esiste già)
+      final success = await locationService.startSharingLocation(result, sessionId: sessionId);
+      if (!success && mounted) {
+        if (kDebugMode) print('⚠️ [LOCATION] GPS sharing failed, but message was sent to Firestore');
       }
     }
   }
@@ -2278,6 +2440,11 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   }
 
   void _sendMessage() async {
+    // Log diagnostico incondizionato all'entrata del metodo
+    final _smAttachCount = _selectedAttachments.length;
+    final _smHasText = _messageController.text.trim().isNotEmpty;
+    await _pendingUploadService.logDiag('_sendMessage ENTER: attachments=$_smAttachCount, hasText=$_smHasText, editing=${_editingMessageId != null}, todoDate=${_selectedTodoDate}');
+
     // Se stiamo modificando un messaggio esistente, chiama updateMessage
     if (_editingMessageId != null) {
       await _updateExistingMessage();
@@ -2298,28 +2465,6 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
 
     final messageText = _messageController.text.trim();
     _messageController.clear(); // Clear subito per UX migliore
-
-    // Crea allegati placeholder per invio ottimistico
-    List<Attachment>? placeholderAttachments;
-    if (attachments.isNotEmpty) {
-      final timestamp = DateTime.now().millisecondsSinceEpoch;
-      placeholderAttachments = attachments.asMap().entries.map((entry) {
-        final index = entry.key;
-        final file = entry.value;
-        final fileName = file.path.split('/').last;
-        return Attachment(
-          id: 'uploading_${timestamp}_$index', // Aggiunge index per evitare duplicate keys
-          type: file.path.endsWith('.pdf') ? 'document' :
-                file.path.contains('video') ? 'video' : 'photo',
-          url: '', // URL vuoto indica che è in upload
-          fileName: fileName,
-          fileSize: 0,
-          encryptedKeyRecipient: '',
-          encryptedKeySender: '',
-          iv: '',
-        );
-      }).toList();
-    }
 
     // Salva reminderHours prima di resettare
     final reminderHours = _selectedReminderHours;
@@ -2525,80 +2670,132 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       }
 
       // FLUSSO NORMALE: messaggi senza URL o con URL multipli o con allegati
-      print('📤 Sending message...');
-      print('   To family chat: $_familyChatId');
-      print('   From device: $_myDeviceId');
-      print('   Content: $messageText');
-      print('   Attachments: ${attachments.length}');
-
-      // Aggiungi messaggio pending subito (invio ottimistico)
-      String? pendingMessageId;
-      if (messageText.isNotEmpty || placeholderAttachments != null) {
-        pendingMessageId = chatService.addPendingMessage(
-          messageText,
-          _myDeviceId!,
-          placeholderAttachments,
-        );
+      await _pendingUploadService.logDiag('_sendMessage NORMAL_FLOW: text=${messageText.length}, attachments=${attachments.length}');
+      if (kDebugMode) {
+        print('📤 Sending message...');
+        print('   Content: $messageText');
+        print('   Attachments: ${attachments.length}');
       }
 
-      // Upload allegati se presenti (con cifratura E2E dual)
-      List<Attachment>? uploadedAttachments;
       if (attachments.isNotEmpty) {
+        // ═══════════════════════════════════════════════════════════════
+        // FLUSSO CON ALLEGATI:
+        //   1. Pre-genera message ID
+        //   2. Copia file in storage permanente
+        //   3. Salva PendingUpload (flush su disco) ← SAFE POINT
+        //   4. Prova upload su Firebase Storage
+        //   5. Se upload OK → invia messaggio COMPLETO su Firestore
+        //   6. Se upload FAIL → resta in coda, riproverà al riavvio
+        //
+        // Il ricevente NON vede mai placeholder: riceve il messaggio
+        // solo quando l'upload è completato e gli allegati sono reali.
+        // ═══════════════════════════════════════════════════════════════
+
+        final preGeneratedMessageId = chatService.generateMessageId(_familyChatId!);
+        final pendingId = 'upload_${DateTime.now().millisecondsSinceEpoch}';
+        List<String> permanentPaths = [];
+
+        await _pendingUploadService.logDiag('PRE_GEN_ID: $preGeneratedMessageId');
+
+        // Salva copie permanenti + PendingUpload su disco
         try {
-          uploadedAttachments = await _attachmentService!.uploadMultipleAttachments(
+          await _pendingUploadService.logDiag('COPY_FILES START: ${attachments.length} files');
+          final filePaths = attachments.map((f) => f.path).toList();
+          for (final fp in filePaths) {
+            final exists = await File(fp).exists();
+            await _pendingUploadService.logDiag('  src: $fp (exists: $exists)');
+          }
+          permanentPaths = await _pendingUploadService.copyFilesToPending(filePaths);
+          await _pendingUploadService.logDiag('COPY_FILES DONE: ${permanentPaths.length} permanent paths');
+
+          await _pendingUploadService.addPendingUpload(PendingUpload(
+            id: pendingId,
+            messageId: preGeneratedMessageId,
+            familyChatId: _familyChatId!,
+            senderId: _myDeviceId!,
+            filePaths: permanentPaths,
+            senderPublicKey: myPublicKey,
+            recipientPublicKey: _partnerPublicKey!,
+            createdAt: DateTime.now(),
+            messageText: messageText,
+          ));
+          // ← SAFE POINT: PendingUpload è su disco, sopravvive a kill app
+        } catch (e, stack) {
+          await _pendingUploadService.logDiag('PENDING_SAVE EXCEPTION: $e\n$stack');
+          if (kDebugMode) print('❌ [PENDING] Failed to save pending upload: $e');
+        }
+
+        // Mostra subito il messaggio pending nella UI (bubble locale con spinner)
+        _addLocalPendingMessage(pendingId, messageText, attachments);
+
+        // Prova upload subito
+        await _pendingUploadService.logDiag('UPLOAD START: msg=$preGeneratedMessageId, files=${attachments.length}');
+        try {
+          if (kDebugMode) print('📤 [UPLOAD] Starting upload of ${attachments.length} files...');
+
+          final uploadedAttachments = await _attachmentService!.uploadMultipleAttachments(
             attachments,
             _familyChatId!,
             _myDeviceId!,
-            myPublicKey, // Chiave pubblica mittente
-            _partnerPublicKey!, // Chiave pubblica destinatario
+            myPublicKey,
+            _partnerPublicKey!,
           );
 
-          if (uploadedAttachments.isEmpty) {
-            throw Exception('No attachments uploaded');
-          }
+          await _pendingUploadService.logDiag('UPLOAD RESULT: ${uploadedAttachments.length} attachments returned');
+          if (kDebugMode) print('📤 [UPLOAD] uploadMultipleAttachments returned ${uploadedAttachments.length} attachments');
 
-          if (kDebugMode) {
-            print('✅ ${uploadedAttachments.length} attachments uploaded successfully');
+          if (uploadedAttachments.isNotEmpty) {
+            // Upload riuscito! Invia messaggio COMPLETO su Firestore
+            if (kDebugMode) print('📤 [UPLOAD] Sending complete message $preGeneratedMessageId...');
+
+            final sentId = await chatService.sendMessage(
+              messageText,
+              _familyChatId!,
+              _myDeviceId!,
+              myPublicKey,
+              _partnerPublicKey!,
+              attachments: uploadedAttachments,
+              messageId: preGeneratedMessageId,
+            );
+
+            await _pendingUploadService.logDiag('SEND_MSG DONE: sentId=$sentId');
+
+            if (sentId != null) {
+              if (kDebugMode) print('✅ [UPLOAD] Complete message sent: $sentId');
+              // Rimuovi pending, pulisci file
+              await _pendingUploadService.removePendingUpload(pendingId);
+              for (final p in permanentPaths) {
+                try { await File(p).delete(); } catch (_) {}
+              }
+              _removeLocalPendingMessage(pendingId);
+              await _pendingUploadService.logDiag('CLEANUP DONE');
+              success = true;
+            } else {
+              if (kDebugMode) print('⚠️ [UPLOAD] sendMessage returned null');
+              success = false;
+            }
+          } else {
+            if (kDebugMode) print('⚠️ [UPLOAD] uploadMultipleAttachments returned EMPTY');
+            // Upload fallito silenziosamente → PendingUpload resta in coda
+            success = true; // Non mostrare errore: il pending è salvato
           }
         } catch (e) {
-          if (kDebugMode) print('❌ Error uploading attachments: $e');
-          // Rimuovi messaggio pending in caso di errore
-          if (pendingMessageId != null) {
-            chatService.removePendingMessage(pendingMessageId);
-          }
-          setState(() => _isUploadingAttachments = false);
-          final l10n = AppLocalizations.of(context)!;
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(l10n.chatAttachmentUploadError),
-              backgroundColor: Colors.red,
-            ),
-          );
-          return;
+          // Upload fallito (offline?) → PendingUpload è su disco, riproverà
+          await _pendingUploadService.logDiag('UPLOAD EXCEPTION: $e');
+          if (kDebugMode) print('📤 [UPLOAD] Upload failed (will retry): $e');
+          success = true; // Non mostrare errore: il pending è salvato
         }
-      }
 
-      final sentMessageId = await chatService.sendMessage(
-        messageText,
-        _familyChatId!,
-        _myDeviceId!,
-        myPublicKey,
-        _partnerPublicKey!,
-        attachments: uploadedAttachments,
-      );
-
-      success = sentMessageId != null;
-
-      // Rimuovi messaggio pending dopo invio (successo o fallimento)
-      if (pendingMessageId != null) {
-        chatService.removePendingMessage(pendingMessageId);
-      }
-
-      if (success) {
-        print('✅ Message sent successfully with dual encryption, ID: $sentMessageId');
-        if (uploadedAttachments != null) {
-          print('   With ${uploadedAttachments.length} attachments');
-        }
+      } else {
+        // FLUSSO SENZA ALLEGATI: invia subito su Firestore (solo testo)
+        final sentMessageId = await chatService.sendMessage(
+          messageText,
+          _familyChatId!,
+          _myDeviceId!,
+          myPublicKey,
+          _partnerPublicKey!,
+        );
+        success = sentMessageId != null;
       }
     }
 
@@ -2721,15 +2918,23 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                         child: ListView.builder(
                           controller: _scrollController,
                           padding: const EdgeInsets.fromLTRB(12, 60, 12, 2),
-                          itemCount: chatService.messages.length,
+                          itemCount: chatService.messages.length + _pendingLocalMessages.length,
                           reverse: true, // 🔧 FIX: reverse per mostrare nuovi messaggi in basso
                           itemBuilder: (context, index) {
-                            final message = chatService.messages[index];
-                            final isMe = message.senderId == _myDeviceId;
-
-                            if (kDebugMode && message.isPending == true) {
-                              print('🎨 [RENDER] Building pending message at index $index, id: ${message.id}');
+                            // Pending messages appaiono in fondo (index 0..N-1 in lista reversed)
+                            final pendingCount = _pendingLocalMessages.length;
+                            if (index < pendingCount) {
+                              final pendingId = _pendingLocalMessages.keys.elementAt(pendingCount - 1 - index);
+                              final data = _pendingLocalMessages[pendingId]!;
+                              return _buildPendingMessageBubble(
+                                pendingId,
+                                data['text'] as String,
+                                data['files'] as List<File>,
+                              );
                             }
+
+                            final message = chatService.messages[index - pendingCount];
+                            final isMe = message.senderId == _myDeviceId;
 
                             // Verifica se è un messaggio di completamento todo
                             if (message.messageType == 'todo_completed') {
@@ -3651,6 +3856,134 @@ class _MessageBubble extends StatelessWidget {
 
     return [
       ...attachments!.map((attachment) {
+        // Placeholder: URL è un path locale (upload in corso) o vuoto
+        // NON passare a AttachmentImage/Doc che chiamerebbero Firebase Storage
+        final isPlaceholder = attachment.url.isEmpty ||
+            (attachment.url.startsWith('/') && attachment.encryptedKeyRecipient.isEmpty);
+
+        if (isPlaceholder) {
+          // Foto: se il file esiste (mittente), mostra anteprima + spinner
+          if (attachment.type == 'photo' && attachment.url.isNotEmpty) {
+            final localFile = File(attachment.url);
+            if (localFile.existsSync()) {
+              return ClipRRect(
+                borderRadius: BorderRadius.circular(12),
+                child: Stack(
+                  children: [
+                    Image.file(localFile, width: 200, height: 200, fit: BoxFit.cover),
+                    Positioned.fill(
+                      child: Container(
+                        color: Colors.black26,
+                        child: const Center(
+                          child: SizedBox(
+                            width: 28, height: 28,
+                            child: CircularProgressIndicator(strokeWidth: 2.5, color: Colors.white70),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            }
+          }
+          // Fallback: file non esiste (ricevente) o tipo doc
+          if (attachment.type == 'photo') {
+            if (isMe) {
+              // Mittente: il file locale è sparito (app restart) → spinner per retry
+              return ClipRRect(
+                borderRadius: BorderRadius.circular(12),
+                child: Container(
+                  width: 200,
+                  height: 200,
+                  color: Colors.white.withOpacity(0.1),
+                  child: const Center(
+                    child: SizedBox(
+                      width: 28, height: 28,
+                      child: CircularProgressIndicator(strokeWidth: 2.5),
+                    ),
+                  ),
+                ),
+              );
+            } else {
+              // Ricevente: il mittente sta caricando la foto.
+              // Mostra placeholder statico (no spinner) perché il ricevente
+              // non può fare nulla — deve aspettare che il mittente carichi.
+              return ClipRRect(
+                borderRadius: BorderRadius.circular(12),
+                child: Container(
+                  width: 200,
+                  height: 200,
+                  color: Colors.grey[200],
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(Icons.photo_outlined, size: 40, color: Colors.grey[400]),
+                      const SizedBox(height: 8),
+                      Icon(Icons.cloud_upload_outlined, size: 20, color: Colors.grey[400]),
+                    ],
+                  ),
+                ),
+              );
+            }
+          }
+          // Documenti: placeholder con nome file
+          if (isMe) {
+            // Mittente: spinner di upload
+            return ClipRRect(
+              borderRadius: BorderRadius.circular(12),
+              child: Container(
+                width: 200,
+                height: 56,
+                color: Colors.white24,
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const SizedBox(
+                      width: 20, height: 20,
+                      child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white70),
+                    ),
+                    const SizedBox(width: 10),
+                    Flexible(
+                      child: Text(
+                        attachment.fileName,
+                        style: const TextStyle(color: Colors.white70, fontSize: 12),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          } else {
+            // Ricevente: placeholder statico
+            return ClipRRect(
+              borderRadius: BorderRadius.circular(12),
+              child: Container(
+                width: 200,
+                height: 56,
+                color: Colors.grey.shade200,
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(Icons.description_outlined, size: 20, color: Colors.grey.shade400),
+                    const SizedBox(width: 10),
+                    Flexible(
+                      child: Text(
+                        attachment.fileName,
+                        style: TextStyle(color: Colors.grey.shade600, fontSize: 12),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          }
+        }
+
         if (attachment.type == 'photo') {
           // Se ci sono link metadata, mostra immagine + title/description
           if (hasLinkMetadata) {
