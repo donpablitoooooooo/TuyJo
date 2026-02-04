@@ -6,18 +6,19 @@ import 'package:path/path.dart' as p;
 import 'attachment_service.dart';
 import 'chat_service.dart';
 
-/// File in coda perché Firebase Storage era offline.
-/// Il messaggio è già su Firestore; qui ci sono i file da uploadare
-/// e aggiungere allo STESSO messaggio quando si torna online.
+/// Messaggio con allegati in attesa di upload su Firebase Storage.
+/// Il messaggio NON viene inviato a Firestore finché l'upload non è completo.
+/// Quando si torna online: upload file → invia messaggio completo a Firestore.
 class PendingUpload {
   final String id;
-  final String messageId; // ID del messaggio Firestore da aggiornare
+  final String messageId; // ID pre-generato per il messaggio Firestore
   final String familyChatId;
   final String senderId;
   final List<String> filePaths;
   final String senderPublicKey;
   final String recipientPublicKey;
   final DateTime createdAt;
+  final String messageText; // Testo del messaggio da inviare con gli allegati
 
   PendingUpload({
     required this.id,
@@ -28,6 +29,7 @@ class PendingUpload {
     required this.senderPublicKey,
     required this.recipientPublicKey,
     required this.createdAt,
+    this.messageText = '',
   });
 
   Map<String, dynamic> toJson() => {
@@ -39,6 +41,7 @@ class PendingUpload {
     'senderPublicKey': senderPublicKey,
     'recipientPublicKey': recipientPublicKey,
     'createdAt': createdAt.toIso8601String(),
+    'messageText': messageText,
   };
 
   factory PendingUpload.fromJson(Map<String, dynamic> json) => PendingUpload(
@@ -50,12 +53,13 @@ class PendingUpload {
     senderPublicKey: json['senderPublicKey'] ?? '',
     recipientPublicKey: json['recipientPublicKey'] ?? '',
     createdAt: DateTime.parse(json['createdAt'] ?? DateTime.now().toIso8601String()),
+    messageText: json['messageText'] ?? '',
   );
 }
 
-/// Coda per file che non sono riusciti a caricarsi su Firebase Storage (offline).
-/// Il messaggio è già su Firestore; qui ci sono i file da uploadare e aggiungere
-/// allo stesso messaggio (update) quando si torna online.
+/// Coda per messaggi con allegati che non sono riusciti a caricarsi (offline).
+/// Il messaggio NON è ancora su Firestore. Quando si torna online:
+/// upload file → sendMessage completo → ricevente vede tutto insieme.
 ///
 /// Usa persistenza su file (non SharedPreferences) perché SharedPreferences
 /// su Android usa apply() che è asincrono e può perdere dati se l'app viene
@@ -255,7 +259,8 @@ class PendingUploadService {
     }
   }
 
-  /// Prova a uploadare i file in coda e aggiornare il messaggio Firestore esistente.
+  /// Prova a uploadare i file in coda e inviare il messaggio completo su Firestore.
+  /// Il messaggio NON esiste ancora su Firestore: viene creato qui con gli allegati reali.
   Future<int> processPendingUploads({
     required String familyChatId,
     required AttachmentService attachmentService,
@@ -273,8 +278,9 @@ class PendingUploadService {
     for (final upload in pendingUploads) {
       try {
         if (kDebugMode) {
-          print('🔄 [PENDING] Processing upload ${upload.id} for message ${upload.messageId}');
+          print('🔄 [PENDING] Processing upload ${upload.id} for pre-gen ID ${upload.messageId}');
         }
+        await logDiag('PROCESS_PENDING START: id=${upload.id}, msgId=${upload.messageId}');
 
         final files = upload.filePaths.map((fp) => File(fp)).toList();
 
@@ -290,12 +296,13 @@ class PendingUploadService {
 
         if (!allExist) {
           if (kDebugMode) print('⚠️ [PENDING] Files missing for ${upload.id}, removing');
+          await logDiag('PROCESS_PENDING SKIP: files missing');
           await _cleanupFiles(upload);
           await removePendingUpload(upload.id);
           continue;
         }
 
-        // Upload su Firebase Storage
+        // 1) Upload file su Firebase Storage
         if (kDebugMode) print('📤 [PENDING] Uploading ${files.length} files...');
 
         final uploadedAttachments = await attachmentService.uploadMultipleAttachments(
@@ -306,30 +313,39 @@ class PendingUploadService {
           upload.recipientPublicKey,
         );
 
+        await logDiag('PROCESS_PENDING UPLOAD: ${uploadedAttachments.length} attachments');
         if (kDebugMode) print('📤 [PENDING] Upload returned ${uploadedAttachments.length} attachments');
 
         if (uploadedAttachments.isNotEmpty) {
-          // Upload riuscito! Aggiorna lo STESSO messaggio con gli allegati
-          if (kDebugMode) print('📤 [PENDING] Calling updateMessageAttachments for ${upload.messageId}...');
+          // 2) Upload riuscito! Invia il messaggio COMPLETO su Firestore
+          //    Il messaggio non esisteva ancora — lo creiamo ora con allegati reali.
+          if (kDebugMode) print('📤 [PENDING] Sending complete message ${upload.messageId} with ${uploadedAttachments.length} real attachments...');
 
-          final updated = await chatService.updateMessageAttachments(
-            upload.messageId,
+          final sentId = await chatService.sendMessage(
+            upload.messageText,
             upload.familyChatId,
-            uploadedAttachments,
+            upload.senderId,
+            upload.senderPublicKey,
+            upload.recipientPublicKey,
+            attachments: uploadedAttachments,
+            messageId: upload.messageId,
           );
 
-          if (updated) {
+          await logDiag('PROCESS_PENDING SENT: sentId=$sentId');
+
+          if (sentId != null) {
             await _cleanupFiles(upload);
             await removePendingUpload(upload.id);
             successCount++;
-            if (kDebugMode) print('✅ [PENDING] Updated message ${upload.messageId} with ${uploadedAttachments.length} attachments');
+            if (kDebugMode) print('✅ [PENDING] Sent complete message $sentId with ${uploadedAttachments.length} attachments');
           } else {
-            if (kDebugMode) print('⚠️ [PENDING] updateMessageAttachments returned false for ${upload.messageId}');
+            if (kDebugMode) print('⚠️ [PENDING] sendMessage returned null for ${upload.messageId}');
           }
         } else {
           if (kDebugMode) print('⚠️ [PENDING] Upload returned empty list for ${upload.id}');
         }
       } catch (e) {
+        await logDiag('PROCESS_PENDING EXCEPTION: $e');
         if (kDebugMode) print('❌ [PENDING] Upload ${upload.id} still failing: $e');
       }
     }
