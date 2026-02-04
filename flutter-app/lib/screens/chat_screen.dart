@@ -74,6 +74,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   List<Attachment> _editingAttachments = []; // Allegati esistenti del messaggio in modifica
   String? _editingMessageSenderId; // SenderId del messaggio in modifica (per decriptare allegati)
   final PendingUploadService _pendingUploadService = PendingUploadService();
+  Timer? _pendingUploadRetryTimer; // Riprova pending uploads ogni 15s
 
   // Method Channel per condivisione file da altre app (iOS)
   static const platform = MethodChannel('com.privatemessaging.tuyjo/shared_media');
@@ -784,6 +785,12 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
 
       // OFFLINE QUEUE: Carica e processa pending uploads (in background)
       _processPendingUploads();
+      // Timer periodico: riprova pending uploads ogni 15 secondi
+      // (copre il caso in cui si torna online senza passare per background/foreground)
+      _pendingUploadRetryTimer?.cancel();
+      _pendingUploadRetryTimer = Timer.periodic(const Duration(seconds: 15), (_) {
+        _processPendingUploads();
+      });
     } else {
       print('❌ Cannot start listener - missing chat ID or partner public key');
       setState(() => _isLoading = false);
@@ -796,9 +803,15 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   /// Prova a uploadare i file in coda (foto che non erano riuscite a caricarsi offline).
   Future<void> _processPendingUploads() async {
     if (_familyChatId == null || _myDeviceId == null || _attachmentService == null) return;
+    if (!mounted) return;
 
     try {
       final chatService = Provider.of<ChatService>(context, listen: false);
+
+      final pending = await _pendingUploadService.getPendingUploadsForFamily(_familyChatId!);
+      if (pending.isEmpty) return; // Niente da fare
+
+      if (kDebugMode) print('🔄 [PENDING] Found ${pending.length} pending uploads, processing...');
 
       final successCount = await _pendingUploadService.processPendingUploads(
         familyChatId: _familyChatId!,
@@ -806,8 +819,8 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
         chatService: chatService,
       );
 
-      if (successCount > 0 && mounted && kDebugMode) {
-        print('✅ [PENDING] Uploaded $successCount queued files');
+      if (mounted && kDebugMode) {
+        print('🔄 [PENDING] Result: $successCount/${pending.length} processed successfully');
       }
     } catch (e) {
       if (kDebugMode) print('❌ [PENDING] Error processing pending uploads: $e');
@@ -820,6 +833,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     _messageController.dispose();
     _scrollController.dispose();
     _typingTimer?.cancel();
+    _pendingUploadRetryTimer?.cancel();
     // Pulisci eventuali file temporanei iOS rimasti
     _cleanupAllIOSFiles();
     super.dispose();
@@ -2562,6 +2576,8 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
 
         // Prova upload subito
         try {
+          if (kDebugMode) print('📤 [UPLOAD] Starting upload of ${attachments.length} files for message $sentMessageId...');
+
           final uploadedAttachments = await _attachmentService!.uploadMultipleAttachments(
             attachments,
             _familyChatId!,
@@ -2570,22 +2586,33 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
             _partnerPublicKey!,
           );
 
+          if (kDebugMode) print('📤 [UPLOAD] uploadMultipleAttachments returned ${uploadedAttachments.length} attachments');
+
           if (uploadedAttachments.isNotEmpty) {
-            await chatService.updateMessageAttachments(
+            if (kDebugMode) print('📤 [UPLOAD] Calling updateMessageAttachments for message $sentMessageId...');
+
+            final updated = await chatService.updateMessageAttachments(
               sentMessageId,
               _familyChatId!,
               uploadedAttachments,
             );
-            if (kDebugMode) print('✅ ${uploadedAttachments.length} attachments added to message');
-            // Upload OK → rimuovi pending e file temporanei
-            await _pendingUploadService.removePendingUpload(pendingId);
-            for (final p in permanentPaths) {
-              try { await File(p).delete(); } catch (_) {}
+
+            if (updated) {
+              if (kDebugMode) print('✅ [UPLOAD] ${uploadedAttachments.length} attachments added to message $sentMessageId');
+              // Upload + update OK → rimuovi pending e file temporanei
+              await _pendingUploadService.removePendingUpload(pendingId);
+              for (final p in permanentPaths) {
+                try { await File(p).delete(); } catch (_) {}
+              }
+            } else {
+              if (kDebugMode) print('⚠️ [UPLOAD] updateMessageAttachments returned false for $sentMessageId - will retry via pending');
             }
+          } else {
+            if (kDebugMode) print('⚠️ [UPLOAD] uploadMultipleAttachments returned EMPTY list - upload may have failed silently');
           }
         } catch (e) {
           // Upload fallito → PendingUpload già salvato, riproverà al prossimo resume
-          if (kDebugMode) print('❌ Upload failed, will retry later: $e');
+          if (kDebugMode) print('❌ [UPLOAD] Upload/update failed for message $sentMessageId: $e');
         }
       }
     }
