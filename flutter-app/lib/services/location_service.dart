@@ -130,6 +130,10 @@ class LocationService extends ChangeNotifier {
   /// Inizia a condividere la posizione per una durata specificata
   /// duration: Duration.hours(1) o Duration.hours(8)
   Future<bool> startSharingLocation(Duration duration, {String? sessionId}) async {
+    // Se sessionId è fornito, prepareSession() è già stato chiamato e il messaggio
+    // è già su Firestore. Non resettare lo stato se qualcosa fallisce.
+    final hasPreparedSession = sessionId != null;
+
     try {
       if (kDebugMode) print('🌍 [LOCATION] Attempting to start location sharing...');
 
@@ -145,17 +149,8 @@ class LocationService extends ChangeNotifier {
       final myUserId = await _getMyUserId();
       final familyChatId = await _getFamilyChatId();
 
-      if (kDebugMode) {
-        print('   myUserId: ${myUserId != null ? "✅ ${myUserId.substring(0, 8)}..." : "❌ NULL"}');
-        print('   familyChatId: ${familyChatId != null ? "✅ ${familyChatId.substring(0, 8)}..." : "❌ NULL"}');
-      }
-
       if (myUserId == null || familyChatId == null) {
-        if (kDebugMode) {
-          print('❌ [LOCATION] Cannot start sharing: not paired or missing data');
-          print('   myUserId is null: ${myUserId == null}');
-          print('   familyChatId is null: ${familyChatId == null}');
-        }
+        if (kDebugMode) print('❌ [LOCATION] Cannot start sharing: not paired or missing data');
         return false;
       }
 
@@ -165,7 +160,6 @@ class LocationService extends ChangeNotifier {
       if (kDebugMode) {
         print('🌍 [LOCATION] Starting location sharing for ${duration.inHours}h');
         print('   Session ID: $_currentSessionId');
-        print('   Expires at: ${DateTime.now().add(duration)}');
       }
 
       // IMPORTANTE: Chiudi vecchie sessioni PRIMA di iniziare nuova
@@ -175,16 +169,31 @@ class LocationService extends ChangeNotifier {
       _sharingExpiresAt = DateTime.now().add(duration);
       _isSharingLocation = true;
 
-      // IMPORTANTE: Ottieni posizione iniziale PRIMA di avviare lo stream
-      // Se non riesci ad ottenere GPS, non permettere la condivisione
+      // Ottieni posizione iniziale
       if (kDebugMode) print('📍 [LOCATION] Verifico disponibilità GPS...');
       final initialPosition = await getCurrentPosition();
 
       if (initialPosition == null) {
-        if (kDebugMode) print('❌ [LOCATION] GPS non disponibile - impossibile condividere');
-        _isSharingLocation = false;
-        _currentSessionId = null;
-        return false;
+        if (kDebugMode) print('⚠️ [LOCATION] GPS non disponibile al momento');
+        if (!hasPreparedSession) {
+          // Nessun messaggio ancora → resetta stato
+          _isSharingLocation = false;
+          _currentSessionId = null;
+        } else {
+          // Messaggio già inviato → tieni lo stato attivo, il GPS stream proverà dopo
+          if (kDebugMode) print('   Messaggio già su Firestore, mantengo stato attivo');
+        }
+        // Avvia comunque lo stream: quando il GPS diventa disponibile, aggiornerà
+        _positionStreamSubscription = Geolocator.getPositionStream(
+          locationSettings: const LocationSettings(
+            accuracy: LocationAccuracy.high,
+            distanceFilter: 10,
+          ),
+        ).listen((Position position) {
+          _updateMyLocationToFirestore(position, myUserId, familyChatId);
+        });
+        notifyListeners();
+        return hasPreparedSession; // true se il messaggio esiste già
       }
 
       if (kDebugMode) print('✅ [LOCATION] GPS disponibile, avvio condivisione');
@@ -196,7 +205,7 @@ class LocationService extends ChangeNotifier {
       _positionStreamSubscription = Geolocator.getPositionStream(
         locationSettings: const LocationSettings(
           accuracy: LocationAccuracy.high,
-          distanceFilter: 10, // Aggiorna ogni 10 metri
+          distanceFilter: 10,
         ),
       ).listen((Position position) {
         _updateMyLocationToFirestore(position, myUserId, familyChatId);
@@ -206,9 +215,12 @@ class LocationService extends ChangeNotifier {
       return true;
     } catch (e) {
       if (kDebugMode) print('❌ [LOCATION] Error starting location sharing: $e');
-      _isSharingLocation = false;
+      if (!hasPreparedSession) {
+        _isSharingLocation = false;
+        _currentSessionId = null;
+      }
       notifyListeners();
-      return false;
+      return hasPreparedSession;
     }
   }
 
