@@ -494,8 +494,8 @@ class _FullscreenImageViewerState extends State<FullscreenImageViewer> {
           onTap: _toggleOverlay,
           child: Stack(
             children: [
-              // Immagine full screen con zoom
-              Center(
+              // Immagine full screen con zoom (Layer 2: sopra le bande, sotto i controlli)
+              Positioned.fill(
                 child: FutureBuilder<Uint8List?>(
                   future: widget.attachmentService.downloadAndDecryptAttachment(
                     widget.attachment,
@@ -505,32 +505,39 @@ class _FullscreenImageViewerState extends State<FullscreenImageViewer> {
                   ),
                   builder: (context, snapshot) {
                     if (snapshot.connectionState == ConnectionState.waiting) {
-                      return Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          const CircularProgressIndicator(color: Colors.white),
-                          const SizedBox(height: 16),
-                          Text(l10n.chatLoadingImage, style: const TextStyle(color: Colors.white70)),
-                        ],
+                      return Center(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            const CircularProgressIndicator(color: Colors.white),
+                            const SizedBox(height: 16),
+                            Text(l10n.chatLoadingImage, style: const TextStyle(color: Colors.white70)),
+                          ],
+                        ),
                       );
                     }
 
                     if (snapshot.hasError || !snapshot.hasData || snapshot.data == null) {
-                      return Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          const Icon(Icons.error, color: Colors.red, size: 64),
-                          const SizedBox(height: 16),
-                          Text(l10n.chatImageLoadError, style: const TextStyle(color: Colors.white70)),
-                        ],
+                      return Center(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            const Icon(Icons.error, color: Colors.red, size: 64),
+                            const SizedBox(height: 16),
+                            Text(l10n.chatImageLoadError, style: const TextStyle(color: Colors.white70)),
+                          ],
+                        ),
                       );
                     }
 
                     return InteractiveViewer(
                       transformationController: _transformController,
+                      clipBehavior: Clip.none,
                       minScale: 0.5,
                       maxScale: 4.0,
-                      child: Image.memory(snapshot.data!, fit: BoxFit.contain),
+                      child: Center(
+                        child: Image.memory(snapshot.data!, fit: BoxFit.contain),
+                      ),
                     );
                   },
                 ),
