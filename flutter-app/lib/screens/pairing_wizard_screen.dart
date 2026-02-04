@@ -205,21 +205,23 @@ class _PairingWizardScreenState extends State<PairingWizardScreen> {
     }
 
     return Scaffold(
-      body: Container(
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [
-              Color(0xFF3BA8B0),
-              Color(0xFF145A60),
-            ],
+      backgroundColor: const Color(0xFF145A60),
+      body: SizedBox.expand(
+        child: Container(
+          decoration: const BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: [
+                Color(0xFF3BA8B0),
+                Color(0xFF145A60),
+              ],
+            ),
           ),
-        ),
-        child: Stack(
-          children: [
-            // Main content
-            SafeArea(
+          child: Stack(
+            children: [
+              // Main content
+              SafeArea(
               child: _isGeneratingQR
                   ? Center(
                       child: Column(
@@ -574,6 +576,7 @@ class _PairingWizardScreenState extends State<PairingWizardScreen> {
             ),
           ],
         ),
+      ),
       ),
     );
   }
