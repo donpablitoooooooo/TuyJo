@@ -23,6 +23,7 @@ import '../services/notification_service.dart';
 import '../services/attachment_service.dart';
 import '../services/location_service.dart';
 import '../services/link_metadata_service.dart';
+import '../services/pending_upload_service.dart';
 import '../models/message.dart';
 import '../widgets/todo_bubble.dart';
 import '../widgets/attachment_widgets.dart';
@@ -71,6 +72,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   String? _editingMessageId; // ID del messaggio che stiamo modificando (null = nuovo messaggio)
   List<Attachment> _editingAttachments = []; // Allegati esistenti del messaggio in modifica
   String? _editingMessageSenderId; // SenderId del messaggio in modifica (per decriptare allegati)
+  final PendingUploadService _pendingUploadService = PendingUploadService();
 
   // Method Channel per condivisione file da altre app (iOS)
   static const platform = MethodChannel('com.privatemessaging.tuyjo/shared_media');
@@ -615,7 +617,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   void didChangeAppLifecycleState(AppLifecycleState state) {
     super.didChangeAppLifecycleState(state);
 
-    // Quando l'app torna in foreground, marca i messaggi come letti
+    // Quando l'app torna in foreground, marca i messaggi come letti + riprova pending uploads
     if (state == AppLifecycleState.resumed) {
       if (_familyChatId != null && _myDeviceId != null) {
         final chatService = Provider.of<ChatService>(context, listen: false);
@@ -624,6 +626,9 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
         // 🔴 Azzera badge notifiche
         notificationService.clearBadge();
         if (kDebugMode) print('📱 App resumed - marking messages as read');
+
+        // OFFLINE QUEUE: Riprova pending uploads quando l'app torna in foreground
+        _loadAndProcessPendingUploads();
       }
     }
   }
@@ -775,12 +780,67 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
         // UNPAIR SYNC: Avvia background listener
         pairingService.startBackgroundUnpairListener();
       }
+
+      // OFFLINE QUEUE: Carica e processa pending uploads (in background)
+      _loadAndProcessPendingUploads();
     } else {
       print('❌ Cannot start listener - missing chat ID or partner public key');
       setState(() => _isLoading = false);
 
       final totalDuration = DateTime.now().difference(startTime);
       if (kDebugMode) print('⏱️ [CHAT_SCREEN] Chat initialization failed in ${totalDuration.inMilliseconds}ms');
+    }
+  }
+
+  /// Carica i pending uploads dal disco e prova a processarli.
+  /// Crea pending messages per quelli non ancora in memoria.
+  Future<void> _loadAndProcessPendingUploads() async {
+    if (_familyChatId == null || _myDeviceId == null || _attachmentService == null) return;
+
+    try {
+      final chatService = Provider.of<ChatService>(context, listen: false);
+      final locationService = Provider.of<LocationService>(context, listen: false);
+
+      // Carica pending uploads per questa famiglia
+      final pendingUploads = await _pendingUploadService.getPendingUploadsForFamily(_familyChatId!);
+      if (pendingUploads.isEmpty) return;
+
+      if (kDebugMode) {
+        print('📦 [PENDING] Found ${pendingUploads.length} pending uploads to restore');
+      }
+
+      // Ricrea i pending messages se non sono già in memoria
+      for (final upload in pendingUploads) {
+        final exists = chatService.messages.any((m) => m.id == upload.id);
+        if (!exists) {
+          // Ricrea il pending message per mostrarlo nella UI
+          final message = Message(
+            id: upload.id,
+            senderId: upload.senderId,
+            timestamp: upload.createdAt,
+            decryptedContent: upload.messageText,
+            messageType: 'text',
+            isPending: true,
+          );
+          chatService.restorePendingMessage(message);
+        }
+      }
+
+      // Prova a processare i pending uploads (in background)
+      final successCount = await _pendingUploadService.processPendingUploads(
+        familyChatId: _familyChatId!,
+        attachmentService: _attachmentService!,
+        chatService: chatService,
+        locationService: locationService,
+      );
+
+      if (successCount > 0 && mounted) {
+        if (kDebugMode) {
+          print('✅ [PENDING] Processed $successCount pending uploads on startup');
+        }
+      }
+    } catch (e) {
+      if (kDebugMode) print('❌ [PENDING] Error loading/processing pending uploads: $e');
     }
   }
 
@@ -1420,24 +1480,63 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
         }
       } else {
         // Errore - controlla se è un problema di pairing o permessi
+        // OFFLINE QUEUE: se è un problema di rete, salva per invio successivo
         if (mounted) {
-          final l10n = AppLocalizations.of(context)!;
-          String errorMessage = l10n.locationShareErrorGeneric;
+          final chatService = Provider.of<ChatService>(context, listen: false);
+          final pairingService = Provider.of<PairingService>(context, listen: false);
+          final encryptionService = Provider.of<EncryptionService>(context, listen: false);
 
-          // Controlla se l'utente è paired
-          if (_partnerPublicKey == null) {
-            errorMessage = l10n.locationShareErrorPairing;
+          final familyChatId = await pairingService.getFamilyChatId();
+          final myDeviceId = await pairingService.getMyUserId();
+          final myPublicKey = await encryptionService.getPublicKey();
+          final partnerPublicKey = pairingService.partnerPublicKey;
+
+          // Se abbiamo tutti i dati del pairing, è un problema di rete → queue offline
+          if (familyChatId != null &&
+              myDeviceId != null &&
+              myPublicKey != null &&
+              partnerPublicKey != null) {
+            try {
+              final pendingId = chatService.addPendingMessage(
+                '',
+                myDeviceId,
+                null,
+              );
+              await _pendingUploadService.addPendingUpload(PendingUpload(
+                id: pendingId,
+                familyChatId: familyChatId,
+                senderId: myDeviceId,
+                messageText: '',
+                filePaths: [],
+                senderPublicKey: myPublicKey,
+                recipientPublicKey: partnerPublicKey,
+                createdAt: DateTime.now(),
+                type: 'location_share',
+                durationSeconds: result.inSeconds,
+              ));
+              if (kDebugMode) print('💾 [OFFLINE] Queued location share for later: $pendingId');
+            } catch (e) {
+              if (kDebugMode) print('❌ [OFFLINE] Failed to queue location share: $e');
+            }
           } else {
-            errorMessage = l10n.locationShareErrorPermissions;
-          }
+            // Se mancano dati pairing, mostra errore normale
+            final l10n = AppLocalizations.of(context)!;
+            String errorMessage = l10n.locationShareErrorGeneric;
 
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(errorMessage),
-              duration: const Duration(seconds: 5),
-              backgroundColor: Colors.red[700],
-            ),
-          );
+            if (_partnerPublicKey == null) {
+              errorMessage = l10n.locationShareErrorPairing;
+            } else {
+              errorMessage = l10n.locationShareErrorPermissions;
+            }
+
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(errorMessage),
+                duration: const Duration(seconds: 5),
+                backgroundColor: Colors.red[700],
+              ),
+            );
+          }
         }
       }
     }
@@ -2562,18 +2661,30 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
           }
         } catch (e) {
           if (kDebugMode) print('❌ Error uploading attachments: $e');
-          // Rimuovi messaggio pending in caso di errore
+          // OFFLINE QUEUE: salva i file localmente e tieni il messaggio pending
           if (pendingMessageId != null) {
-            chatService.removePendingMessage(pendingMessageId);
+            try {
+              final filePaths = attachments.map((f) => f.path).toList();
+              final permanentPaths = await _pendingUploadService.copyFilesToPending(filePaths);
+              await _pendingUploadService.addPendingUpload(PendingUpload(
+                id: pendingMessageId,
+                familyChatId: _familyChatId!,
+                senderId: _myDeviceId!,
+                messageText: messageText,
+                filePaths: permanentPaths,
+                senderPublicKey: myPublicKey,
+                recipientPublicKey: _partnerPublicKey!,
+                createdAt: DateTime.now(),
+                type: 'attachment',
+              ));
+              if (kDebugMode) print('💾 [OFFLINE] Queued attachment upload for later: $pendingMessageId');
+            } catch (saveError) {
+              if (kDebugMode) print('❌ [OFFLINE] Failed to queue upload: $saveError');
+              // If we can't save, remove the pending message
+              chatService.removePendingMessage(pendingMessageId);
+            }
           }
           setState(() => _isUploadingAttachments = false);
-          final l10n = AppLocalizations.of(context)!;
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(l10n.chatAttachmentUploadError),
-              backgroundColor: Colors.red,
-            ),
-          );
           return;
         }
       }
@@ -2826,6 +2937,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                                 reaction: message.reaction,
                                 onReact: (reactionType) => _addReaction(message.id, reactionType),
                                 messageObject: message,
+                                isPending: message.isPending,
                               );
                             }
 
@@ -3479,6 +3591,7 @@ class _MessageBubble extends StatelessWidget {
   final Reaction? reaction; // Reaction al messaggio
   final Function(String reactionType)? onReact; // Callback per aggiungere reaction
   final Message? messageObject; // Oggetto Message completo per il ReactionPicker
+  final bool isPending; // true se il messaggio è in coda offline
 
   const _MessageBubble({
     super.key,
@@ -3494,6 +3607,7 @@ class _MessageBubble extends StatelessWidget {
     this.reaction,
     this.onReact,
     this.messageObject,
+    this.isPending = false,
   });
 
   /// Costruisce widget di testo con URL abbreviati ma cliccabili
@@ -3873,7 +3987,7 @@ class _MessageBubble extends StatelessWidget {
                                   ),
                                 ),
                                 // Mostra le spunte solo per i messaggi inviati da me
-                                if (isMe) ...[
+                                if (isMe && !isPending) ...[
                                   const SizedBox(width: 4),
                                   Icon(
                                     read ? Icons.done_all : Icons.done,
@@ -3883,8 +3997,45 @@ class _MessageBubble extends StatelessWidget {
                                         : Colors.white.withOpacity(0.8),
                                   ),
                                 ],
+                                if (isPending) ...[
+                                  const SizedBox(width: 4),
+                                  Icon(
+                                    Icons.schedule,
+                                    size: 14,
+                                    color: isMe
+                                        ? Colors.white.withOpacity(0.6)
+                                        : Colors.black38,
+                                  ),
+                                ],
                               ],
                             ),
+                            // Offline indicator
+                            if (isPending) ...[
+                              const SizedBox(height: 4),
+                              Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(
+                                    Icons.cloud_off,
+                                    size: 12,
+                                    color: isMe
+                                        ? Colors.white.withOpacity(0.6)
+                                        : Colors.black38,
+                                  ),
+                                  const SizedBox(width: 4),
+                                  Text(
+                                    'OFFLINE - Riapri l\'app per inviare',
+                                    style: TextStyle(
+                                      fontSize: 10,
+                                      color: isMe
+                                          ? Colors.white.withOpacity(0.6)
+                                          : Colors.black38,
+                                      fontStyle: FontStyle.italic,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ],
                           ],
                         ),
                       ),
