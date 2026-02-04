@@ -874,111 +874,61 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     });
   }
 
-  /// Costruisce un bubble per un messaggio in attesa di upload.
-  /// Mostra l'anteprima locale della foto con uno spinner sovrapposto.
-  Widget _buildPendingMessageBubble(String pendingId, String text, List<File> files) {
-    return Align(
-      alignment: Alignment.centerRight,
-      child: Container(
-        margin: const EdgeInsets.only(left: 64, right: 0, bottom: 4),
-        padding: const EdgeInsets.all(4),
-        decoration: BoxDecoration(
-          color: Theme.of(context).colorScheme.primary.withOpacity(0.85),
-          borderRadius: BorderRadius.circular(16),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.end,
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            // Anteprima foto con spinner
-            ...files.map((file) {
-              final ext = path.extension(file.path).toLowerCase();
-              final isPhoto = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.heic'].contains(ext);
-              if (isPhoto && file.existsSync()) {
-                return ClipRRect(
-                  borderRadius: BorderRadius.circular(12),
-                  child: Stack(
-                    children: [
-                      Image.file(file, width: 200, height: 200, fit: BoxFit.cover),
-                      Positioned.fill(
-                        child: Container(
-                          color: Colors.black26,
-                          child: const Center(
-                            child: SizedBox(
-                              width: 28, height: 28,
-                              child: CircularProgressIndicator(strokeWidth: 2.5, color: Colors.white70),
-                            ),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                );
-              }
-              // Document/video placeholder
-              return Container(
-                width: 200, height: 56,
-                decoration: BoxDecoration(
-                  color: Colors.white24,
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    const SizedBox(
-                      width: 20, height: 20,
-                      child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white70),
-                    ),
-                    const SizedBox(width: 10),
-                    Flexible(
-                      child: Text(
-                        path.basename(file.path),
-                        style: const TextStyle(color: Colors.white70, fontSize: 12),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                  ],
-                ),
-              );
-            }),
-            // Testo del messaggio (se c'è)
-            if (text.isNotEmpty)
-              Padding(
-                padding: const EdgeInsets.fromLTRB(10, 4, 10, 2),
-                child: Text(
-                  text,
-                  style: const TextStyle(color: Colors.white, fontSize: 15),
-                ),
-              ),
-            // Indicatore "invio in corso"
-            Padding(
-              padding: const EdgeInsets.fromLTRB(10, 0, 10, 4),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  SizedBox(
-                    width: 10, height: 10,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 1.5,
-                      color: Colors.white.withOpacity(0.5),
-                    ),
-                  ),
-                  const SizedBox(width: 4),
-                  Text(
-                    'Sending...',
-                    style: TextStyle(
-                      color: Colors.white.withOpacity(0.5),
-                      fontSize: 11,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
+  /// Crea un Message sintetico dai dati di un pending upload.
+  /// Usato per passare direttamente a _MessageBubble senza duplicare la UI.
+  Message _buildSyntheticPendingMessage(String pendingId, String text, List<File> files) {
+    final createdAt = _pendingLocalMessages[pendingId]?['createdAt'] as DateTime? ?? DateTime.now();
+    return Message(
+      id: pendingId,
+      senderId: _myDeviceId ?? '',
+      timestamp: createdAt,
+      decryptedContent: text,
+      isPending: true,
+      attachments: files.map((file) {
+        final ext = path.extension(file.path).toLowerCase();
+        final isPhoto = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.heic'].contains(ext);
+        return Attachment(
+          id: file.path,
+          type: isPhoto ? 'photo' : 'document',
+          url: file.path,
+          fileName: path.basename(file.path),
+          fileSize: 0,
+          encryptedKeyRecipient: '',
+          encryptedKeySender: '',
+          iv: '',
+        );
+      }).toList(),
     );
+  }
+
+  /// Modifica un messaggio pending: rimette il testo nell'input e cancella il pending.
+  void _editPendingMessage(String pendingId, String text, List<File> files) {
+    setState(() {
+      _messageController.text = text;
+      // Rimuovi il pending dalla lista locale
+      _pendingLocalMessages.remove(pendingId);
+    });
+    // Rimuovi anche dalla coda di upload su disco
+    _pendingUploadService.removePendingUpload(pendingId);
+    // Pulisci i file permanenti copiati
+    for (final file in files) {
+      try { file.delete(); } catch (_) {}
+    }
+    if (kDebugMode) print('✏️ Pending message $pendingId moved back to input for editing');
+  }
+
+  /// Elimina un messaggio pending: rimuove dalla UI e dalla coda di upload.
+  void _deletePendingMessage(String pendingId, List<File> files) {
+    setState(() {
+      _pendingLocalMessages.remove(pendingId);
+    });
+    // Rimuovi dalla coda di upload su disco
+    _pendingUploadService.removePendingUpload(pendingId);
+    // Pulisci i file permanenti copiati
+    for (final file in files) {
+      try { file.delete(); } catch (_) {}
+    }
+    if (kDebugMode) print('🗑️ Pending message $pendingId deleted');
   }
 
   @override
@@ -1107,6 +1057,8 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     if (_familyChatId == null || _myDeviceId == null) {
       return;
     }
+    // Ignora reaction su messaggi pending (non ancora su Firestore)
+    if (_pendingLocalMessages.containsKey(messageId)) return;
 
     final chatService = Provider.of<ChatService>(context, listen: false);
 
@@ -1123,6 +1075,19 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   /// Aggiunge un'azione a un messaggio (con effetti logici)
   void _addAction(String messageId, String actionType, Message message) async {
     if (_familyChatId == null || _myDeviceId == null) {
+      return;
+    }
+
+    // Gestisci messaggi pending (non ancora su Firestore)
+    if (message.isPending) {
+      final data = _pendingLocalMessages[messageId];
+      if (data == null) return;
+      final files = data['files'] as List<File>;
+      if (actionType == 'edit') {
+        _editPendingMessage(messageId, data['text'] as String, files);
+      } else if (actionType == 'delete') {
+        _deletePendingMessage(messageId, files);
+      }
       return;
     }
 
@@ -2926,10 +2891,24 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                             if (index < pendingCount) {
                               final pendingId = _pendingLocalMessages.keys.elementAt(pendingCount - 1 - index);
                               final data = _pendingLocalMessages[pendingId]!;
-                              return _buildPendingMessageBubble(
+                              final pendingMessage = _buildSyntheticPendingMessage(
                                 pendingId,
                                 data['text'] as String,
                                 data['files'] as List<File>,
+                              );
+                              return _MessageBubble(
+                                key: ValueKey('pending_$pendingId'),
+                                message: pendingMessage.decryptedContent ?? '',
+                                timestamp: pendingMessage.timestamp,
+                                isMe: true,
+                                delivered: false,
+                                read: false,
+                                attachments: pendingMessage.attachments,
+                                senderId: pendingMessage.senderId,
+                                currentUserId: _myDeviceId,
+                                attachmentService: _attachmentService,
+                                onReact: (reactionType) => _addReaction(pendingMessage.id, reactionType),
+                                messageObject: pendingMessage,
                               );
                             }
 
