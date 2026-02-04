@@ -429,8 +429,8 @@ class _PairingWizardScreenState extends State<PairingWizardScreen> {
 
                           const SizedBox(height: 32),
 
-                          // Stato completamento
-                          if (_step1Completed && _step2Completed) ...[
+                          // Stato completamento - solo quando entrambi sono paired
+                          if (_bothPaired) ...[
                             Container(
                               width: double.infinity,
                               padding: const EdgeInsets.all(20),
@@ -447,93 +447,73 @@ class _PairingWizardScreenState extends State<PairingWizardScreen> {
                               ),
                               child: Column(
                                 children: [
-                                  Icon(
-                                    _bothPaired ? Icons.favorite : Icons.favorite_border,
-                                    color: const Color(0xFF3BA8B0),
+                                  const Icon(
+                                    Icons.favorite,
+                                    color: Color(0xFF3BA8B0),
                                     size: 48,
                                   ),
                                   const SizedBox(height: 12),
                                   Text(
-                                    _bothPaired
-                                        ? l10n.pairingWizardPairingCompleted
-                                        : l10n.pairingWizardYouCompletedPairing,
+                                    l10n.pairingWizardPairingCompleted,
                                     style: const TextStyle(
                                       color: Color(0xFF3BA8B0),
                                       fontWeight: FontWeight.bold,
                                       fontSize: 20,
                                     ),
                                   ),
-                                  const SizedBox(height: 8),
-                                  Text(
-                                    _bothPaired
-                                        ? l10n.pairingWizardBothReadyMessage
-                                        : l10n.pairingWizardWaitingForPartner,
-                                    style: const TextStyle(
-                                      color: Colors.grey,
-                                      fontSize: 14,
-                                    ),
-                                    textAlign: TextAlign.center,
-                                  ),
-                                ],
-                              ),
-                            ),
-                            const SizedBox(height: 16),
-                            SizedBox(
-                              width: double.infinity,
-                              child: Container(
-                                decoration: BoxDecoration(
-                                  gradient: _bothPaired
-                                      ? const LinearGradient(
+                                  const SizedBox(height: 16),
+                                  SizedBox(
+                                    width: double.infinity,
+                                    child: Container(
+                                      decoration: BoxDecoration(
+                                        gradient: const LinearGradient(
                                           colors: [
                                             Color(0xFF3BA8B0),
                                             Color(0xFF145A60),
                                           ],
-                                        )
-                                      : null,
-                                  color: _bothPaired ? null : Colors.grey.shade300,
-                                  borderRadius: BorderRadius.circular(12),
-                                  boxShadow: _bothPaired
-                                      ? [
+                                        ),
+                                        borderRadius: BorderRadius.circular(12),
+                                        boxShadow: [
                                           BoxShadow(
                                             color: const Color(0xFF3BA8B0).withOpacity(0.3),
                                             blurRadius: 8,
                                             offset: const Offset(0, 4),
                                           ),
-                                        ]
-                                      : null,
-                                ),
-                                child: Material(
-                                  color: Colors.transparent,
-                                  child: InkWell(
-                                    borderRadius: BorderRadius.circular(12),
-                                    onTap: _bothPaired
-                                        ? () {
+                                        ],
+                                      ),
+                                      child: Material(
+                                        color: Colors.transparent,
+                                        child: InkWell(
+                                          borderRadius: BorderRadius.circular(12),
+                                          onTap: () {
                                             Navigator.of(context).popUntil((route) => route.isFirst);
-                                          }
-                                        : null,
-                                    child: Container(
-                                      padding: const EdgeInsets.symmetric(vertical: 16),
-                                      child: Row(
-                                        mainAxisAlignment: MainAxisAlignment.center,
-                                        children: [
-                                          Icon(
-                                            _bothPaired ? Icons.chat : Icons.hourglass_empty,
-                                            color: _bothPaired ? Colors.white : Colors.grey.shade500,
-                                          ),
-                                          const SizedBox(width: 12),
-                                          Text(
-                                            _bothPaired ? l10n.pairingWizardGoToChatButton : l10n.pairingWizardWaitingButton,
-                                            style: TextStyle(
-                                              color: _bothPaired ? Colors.white : Colors.grey.shade500,
-                                              fontSize: 16,
-                                              fontWeight: FontWeight.w600,
+                                          },
+                                          child: Container(
+                                            padding: const EdgeInsets.symmetric(vertical: 16),
+                                            child: Row(
+                                              mainAxisAlignment: MainAxisAlignment.center,
+                                              children: [
+                                                const Icon(
+                                                  Icons.chat,
+                                                  color: Colors.white,
+                                                ),
+                                                const SizedBox(width: 12),
+                                                Text(
+                                                  l10n.pairingWizardGoToChatButton,
+                                                  style: const TextStyle(
+                                                    color: Colors.white,
+                                                    fontSize: 16,
+                                                    fontWeight: FontWeight.w600,
+                                                  ),
+                                                ),
+                                              ],
                                             ),
                                           ),
-                                        ],
+                                        ),
                                       ),
                                     ),
                                   ),
-                                ),
+                                ],
                               ),
                             ),
                           ],
