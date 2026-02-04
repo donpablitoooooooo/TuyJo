@@ -1,7 +1,6 @@
 import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/foundation.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:path/path.dart' as p;
 import 'attachment_service.dart';
@@ -57,8 +56,12 @@ class PendingUpload {
 /// Coda per file che non sono riusciti a caricarsi su Firebase Storage (offline).
 /// Il messaggio è già su Firestore; qui ci sono i file da uploadare e aggiungere
 /// allo stesso messaggio (update) quando si torna online.
+///
+/// Usa persistenza su file (non SharedPreferences) perché SharedPreferences
+/// su Android usa apply() che è asincrono e può perdere dati se l'app viene
+/// killata prima che il commit su disco sia completato.
 class PendingUploadService {
-  static const String _prefsKey = 'pending_uploads';
+  static const String _fileName = 'pending_uploads.json';
 
   Future<Directory> _getPendingDir() async {
     final appDir = await getApplicationDocumentsDirectory();
@@ -67,6 +70,20 @@ class PendingUploadService {
       pendingDir.createSync(recursive: true);
     }
     return pendingDir;
+  }
+
+  /// File JSON che contiene la lista di pending uploads.
+  /// Scritto con flush: true per garantire persistenza su disco.
+  Future<File> _getQueueFile() async {
+    final appDir = await getApplicationDocumentsDirectory();
+    return File(p.join(appDir.path, _fileName));
+  }
+
+  /// Scrive la lista su file con flush sincrono su disco.
+  Future<void> _writeQueue(List<PendingUpload> uploads) async {
+    final file = await _getQueueFile();
+    final jsonString = json.encode(uploads.map((u) => u.toJson()).toList());
+    await file.writeAsString(jsonString, flush: true);
   }
 
   Future<String> _copyFileToPending(String sourcePath) async {
@@ -94,27 +111,25 @@ class PendingUploadService {
   }
 
   Future<void> addPendingUpload(PendingUpload upload) async {
-    final prefs = await SharedPreferences.getInstance();
     final uploads = await getPendingUploads();
     uploads.add(upload);
-    await prefs.setString(
-      _prefsKey,
-      json.encode(uploads.map((u) => u.toJson()).toList()),
-    );
+    await _writeQueue(uploads);
     if (kDebugMode) {
-      print('💾 [PENDING] Queued ${upload.filePaths.length} files for later upload');
+      print('💾 [PENDING] Queued ${upload.filePaths.length} files for message ${upload.messageId}');
+      print('   PendingUpload id: ${upload.id}');
     }
   }
 
   Future<List<PendingUpload>> getPendingUploads() async {
-    final prefs = await SharedPreferences.getInstance();
-    final jsonString = prefs.getString(_prefsKey);
-    if (jsonString == null) return [];
     try {
+      final file = await _getQueueFile();
+      if (!await file.exists()) return [];
+      final jsonString = await file.readAsString();
+      if (jsonString.isEmpty) return [];
       final List<dynamic> list = json.decode(jsonString);
       return list.map((item) => PendingUpload.fromJson(item)).toList();
     } catch (e) {
-      if (kDebugMode) print('❌ [PENDING] Error parsing: $e');
+      if (kDebugMode) print('❌ [PENDING] Error reading queue file: $e');
       return [];
     }
   }
@@ -125,13 +140,9 @@ class PendingUploadService {
   }
 
   Future<void> removePendingUpload(String id) async {
-    final prefs = await SharedPreferences.getInstance();
     final uploads = await getPendingUploads();
     uploads.removeWhere((u) => u.id == id);
-    await prefs.setString(
-      _prefsKey,
-      json.encode(uploads.map((u) => u.toJson()).toList()),
-    );
+    await _writeQueue(uploads);
   }
 
   Future<void> _cleanupFiles(PendingUpload upload) async {
@@ -160,12 +171,17 @@ class PendingUploadService {
 
     for (final upload in pendingUploads) {
       try {
+        if (kDebugMode) {
+          print('🔄 [PENDING] Processing upload ${upload.id} for message ${upload.messageId}');
+        }
+
         final files = upload.filePaths.map((fp) => File(fp)).toList();
 
         // Controlla che i file esistano ancora
         bool allExist = true;
         for (final file in files) {
           if (!await file.exists()) {
+            if (kDebugMode) print('⚠️ [PENDING] File missing: ${file.path}');
             allExist = false;
             break;
           }
@@ -179,6 +195,8 @@ class PendingUploadService {
         }
 
         // Upload su Firebase Storage
+        if (kDebugMode) print('📤 [PENDING] Uploading ${files.length} files...');
+
         final uploadedAttachments = await attachmentService.uploadMultipleAttachments(
           files,
           upload.familyChatId,
@@ -187,8 +205,12 @@ class PendingUploadService {
           upload.recipientPublicKey,
         );
 
+        if (kDebugMode) print('📤 [PENDING] Upload returned ${uploadedAttachments.length} attachments');
+
         if (uploadedAttachments.isNotEmpty) {
           // Upload riuscito! Aggiorna lo STESSO messaggio con gli allegati
+          if (kDebugMode) print('📤 [PENDING] Calling updateMessageAttachments for ${upload.messageId}...');
+
           final updated = await chatService.updateMessageAttachments(
             upload.messageId,
             upload.familyChatId,
@@ -199,8 +221,12 @@ class PendingUploadService {
             await _cleanupFiles(upload);
             await removePendingUpload(upload.id);
             successCount++;
-            if (kDebugMode) print('✅ [PENDING] Updated message ${upload.messageId} with attachments');
+            if (kDebugMode) print('✅ [PENDING] Updated message ${upload.messageId} with ${uploadedAttachments.length} attachments');
+          } else {
+            if (kDebugMode) print('⚠️ [PENDING] updateMessageAttachments returned false for ${upload.messageId}');
           }
+        } else {
+          if (kDebugMode) print('⚠️ [PENDING] Upload returned empty list for ${upload.id}');
         }
       } catch (e) {
         if (kDebugMode) print('❌ [PENDING] Upload ${upload.id} still failing: $e');

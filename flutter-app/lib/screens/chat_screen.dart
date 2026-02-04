@@ -802,16 +802,40 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
 
   /// Prova a uploadare i file in coda (foto che non erano riuscite a caricarsi offline).
   Future<void> _processPendingUploads() async {
+    if (kDebugMode) {
+      print('🔄 [PENDING] _processPendingUploads called');
+      print('   _familyChatId: ${_familyChatId == null ? "NULL" : "OK"}');
+      print('   _myDeviceId: ${_myDeviceId == null ? "NULL" : "OK"}');
+      print('   _attachmentService: ${_attachmentService == null ? "NULL" : "OK"}');
+      print('   mounted: $mounted');
+    }
+
     if (_familyChatId == null || _myDeviceId == null || _attachmentService == null) return;
     if (!mounted) return;
 
     try {
       final chatService = Provider.of<ChatService>(context, listen: false);
 
+      // Log ALL pending uploads (not just for this family) to diagnose persistence
+      final allPending = await _pendingUploadService.getPendingUploads();
+      if (kDebugMode) print('🔄 [PENDING] Total pending uploads in SharedPreferences: ${allPending.length}');
+
       final pending = await _pendingUploadService.getPendingUploadsForFamily(_familyChatId!);
+      if (kDebugMode) print('🔄 [PENDING] Pending for this family: ${pending.length}');
+
       if (pending.isEmpty) return; // Niente da fare
 
-      if (kDebugMode) print('🔄 [PENDING] Found ${pending.length} pending uploads, processing...');
+      for (final p in pending) {
+        if (kDebugMode) {
+          print('🔄 [PENDING]   - id: ${p.id}');
+          print('     messageId: ${p.messageId}');
+          print('     files: ${p.filePaths.length}');
+          for (final fp in p.filePaths) {
+            final exists = await File(fp).exists();
+            print('     file: $fp (exists: $exists)');
+          }
+        }
+      }
 
       final successCount = await _pendingUploadService.processPendingUploads(
         familyChatId: _familyChatId!,
@@ -822,8 +846,11 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       if (mounted && kDebugMode) {
         print('🔄 [PENDING] Result: $successCount/${pending.length} processed successfully');
       }
-    } catch (e) {
-      if (kDebugMode) print('❌ [PENDING] Error processing pending uploads: $e');
+    } catch (e, stackTrace) {
+      if (kDebugMode) {
+        print('❌ [PENDING] Error processing pending uploads: $e');
+        print('   Stack: ${stackTrace.toString().split('\n').take(3).join('\n')}');
+      }
     }
   }
 
