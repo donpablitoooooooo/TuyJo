@@ -853,6 +853,24 @@ class ChatService extends ChangeNotifier {
   /// Invia un messaggio cifrato con RSA hybrid encryption e dual encryption
   /// Ogni messaggio ha una chiave AES univoca, cifrata con ENTRAMBE le public key
   /// Restituisce il messageId se il messaggio è stato inviato con successo, null altrimenti
+  /// Genera un message ID client-side per un dato family chat.
+  /// Usato per salvare il PendingUpload PRIMA di chiamare sendMessage,
+  /// così il PendingUpload sopravvive a un kill dell'app.
+  String generateMessageId(String familyChatId) {
+    return _firestore
+        .collection('families')
+        .doc(familyChatId)
+        .collection('messages')
+        .doc()
+        .id;
+  }
+
+  /// Invia un messaggio cifrato con RSA hybrid encryption e dual encryption
+  /// Ogni messaggio ha una chiave AES univoca, cifrata con ENTRAMBE le public key
+  /// Restituisce il messageId se il messaggio è stato inviato con successo, null altrimenti
+  ///
+  /// Se [messageId] è fornito, usa quell'ID per il documento Firestore
+  /// (pre-generato con [generateMessageId] per garantire PendingUpload persistence).
   Future<String?> sendMessage(
     String content,
     String familyChatId,
@@ -860,6 +878,7 @@ class ChatService extends ChangeNotifier {
     String senderPublicKey, // Nuova! Per cifrare anche per noi stessi
     String recipientPublicKey, {
     List<Attachment>? attachments, // Allegati opzionali
+    String? messageId, // ID pre-generato (opzionale)
   }) async {
     try {
       final timestamp = DateTime.now();
@@ -879,12 +898,14 @@ class ChatService extends ChangeNotifier {
         recipientPublicKey, // Per il destinatario
       );
 
-      // Scrivi nella chat condivisa
-      final messageRef = _firestore
+      // Scrivi nella chat condivisa (usa messageId pre-generato se disponibile)
+      final messagesCollection = _firestore
           .collection('families')
           .doc(familyChatId)
-          .collection('messages')
-          .doc();
+          .collection('messages');
+      final messageRef = messageId != null
+          ? messagesCollection.doc(messageId)
+          : messagesCollection.doc();
 
       await messageRef.set({
         'sender_id': senderId,

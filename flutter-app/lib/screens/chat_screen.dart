@@ -2310,6 +2310,11 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   }
 
   void _sendMessage() async {
+    // Log diagnostico incondizionato all'entrata del metodo
+    final _smAttachCount = _selectedAttachments.length;
+    final _smHasText = _messageController.text.trim().isNotEmpty;
+    await _pendingUploadService.logDiag('_sendMessage ENTER: attachments=$_smAttachCount, hasText=$_smHasText, editing=${_editingMessageId != null}, todoDate=${_selectedTodoDate}');
+
     // Se stiamo modificando un messaggio esistente, chiama updateMessage
     if (_editingMessageId != null) {
       await _updateExistingMessage();
@@ -2535,6 +2540,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       }
 
       // FLUSSO NORMALE: messaggi senza URL o con URL multipli o con allegati
+      await _pendingUploadService.logDiag('_sendMessage NORMAL_FLOW: text=${messageText.length}, attachments=${attachments.length}');
       if (kDebugMode) {
         print('📤 Sending message...');
         print('   Content: $messageText');
@@ -2543,7 +2549,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
 
       // 1) Crea placeholder per ogni allegato con path locale
       //    Il mittente vede subito la foto dal disco con uno spinner
-      //    Il ricevente vede un loader (il file non esiste sul suo dispositivo)
+      //    Il ricevente vede un placeholder statico (il file non esiste sul suo dispositivo)
       //    Dopo l'upload, updateMessageAttachments sostituisce con URL Firebase
       List<Attachment>? placeholderAttachments;
       if (attachments.isNotEmpty) {
@@ -2569,33 +2575,28 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
         }).toList();
       }
 
-      // 2) Manda SUBITO il messaggio su Firestore CON placeholder allegati
+      // ═══════════════════════════════════════════════════════════════
+      // ORDINE CRITICO per sopravvivere a kill app:
+      //   1. Pre-genera message ID (client-side, istantaneo)
+      //   2. Copia file in storage permanente (flush su disco)
+      //   3. Salva PendingUpload su file (flush su disco) ← SAFE POINT
+      //   4. Manda messaggio a Firestore (cache locale, istantaneo offline)
+      //   5. Prova upload su Firebase Storage
+      //
+      // Se l'app viene killata dopo il punto 3, al riavvio il
+      // PendingUpload esiste e processPendingUploads riproverà.
+      // ═══════════════════════════════════════════════════════════════
+
+      // 2a) Pre-genera message ID prima di tutto
+      String? preGeneratedMessageId;
+      String pendingId = 'upload_${DateTime.now().millisecondsSinceEpoch}';
+      List<String> permanentPaths = [];
+
       if (attachments.isNotEmpty) {
-        await _pendingUploadService.logDiag('SEND_MSG START: text="${messageText.length > 20 ? messageText.substring(0, 20) : messageText}", attachments=${attachments.length}');
-      }
+        preGeneratedMessageId = chatService.generateMessageId(_familyChatId!);
+        await _pendingUploadService.logDiag('PRE_GEN_ID: $preGeneratedMessageId');
 
-      final sentMessageId = await chatService.sendMessage(
-        messageText,
-        _familyChatId!,
-        _myDeviceId!,
-        myPublicKey,
-        _partnerPublicKey!,
-        attachments: placeholderAttachments,
-      );
-
-      success = sentMessageId != null;
-
-      if (attachments.isNotEmpty) {
-        await _pendingUploadService.logDiag('SEND_MSG DONE: sentMessageId=$sentMessageId');
-      }
-
-      // 3) Se ci sono allegati, salva copie permanenti, prova upload, aggiorna messaggio
-      if (attachments.isNotEmpty && sentMessageId != null) {
-        // Salva PRIMA i file in copia permanente (così sopravvivono a restart app)
-        // WRAPPED in try/catch: se copyFilesToPending o addPendingUpload falliscono,
-        // logghiamo l'errore su file (sopravvive a kill) e non crashiamo silenziosamente.
-        String pendingId = 'upload_${DateTime.now().millisecondsSinceEpoch}';
-        List<String> permanentPaths = [];
+        // 2b) Copia file + salva PendingUpload PRIMA di sendMessage
         try {
           await _pendingUploadService.logDiag('COPY_FILES START: ${attachments.length} files');
           final filePaths = attachments.map((f) => f.path).toList();
@@ -2608,7 +2609,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
 
           await _pendingUploadService.addPendingUpload(PendingUpload(
             id: pendingId,
-            messageId: sentMessageId,
+            messageId: preGeneratedMessageId!,
             familyChatId: _familyChatId!,
             senderId: _myDeviceId!,
             filePaths: permanentPaths,
@@ -2616,15 +2617,32 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
             recipientPublicKey: _partnerPublicKey!,
             createdAt: DateTime.now(),
           ));
-          // addPendingUpload has its own logDiag inside
+          // ← SAFE POINT: se l'app viene killata da qui in poi,
+          //   il PendingUpload è su disco e verrà processato al riavvio.
         } catch (e, stack) {
           await _pendingUploadService.logDiag('PENDING_SAVE EXCEPTION: $e\n$stack');
           if (kDebugMode) print('❌ [PENDING] Failed to save pending upload: $e');
-          // Non rilanciare: il messaggio è già su Firestore, l'upload verrà perso
-          // ma almeno non crashiamo silenziosamente.
         }
+      }
 
-        // Prova upload subito
+      // 3) Manda messaggio su Firestore CON placeholder allegati
+      //    Usa il messageId pre-generato (se c'è) così coincide col PendingUpload
+      await _pendingUploadService.logDiag('SEND_MSG START: preGenId=$preGeneratedMessageId');
+      final sentMessageId = await chatService.sendMessage(
+        messageText,
+        _familyChatId!,
+        _myDeviceId!,
+        myPublicKey,
+        _partnerPublicKey!,
+        attachments: placeholderAttachments,
+        messageId: preGeneratedMessageId,
+      );
+      await _pendingUploadService.logDiag('SEND_MSG DONE: sentMessageId=$sentMessageId');
+
+      success = sentMessageId != null;
+
+      // 4) Se ci sono allegati e il messaggio è stato inviato, prova upload subito
+      if (attachments.isNotEmpty && sentMessageId != null) {
         await _pendingUploadService.logDiag('UPLOAD START: msg=$sentMessageId, files=${attachments.length}');
         try {
           if (kDebugMode) print('📤 [UPLOAD] Starting upload of ${attachments.length} files for message $sentMessageId...');
