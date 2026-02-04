@@ -108,19 +108,67 @@ class PendingUploadService {
     try {
       final appDir = await getApplicationDocumentsDirectory();
       final file = File(p.join(appDir.path, _diagFileName));
-      if (!await file.exists()) return;
+      final exists = await file.exists();
 
-      final content = await file.readAsString();
-      if (content.isNotEmpty && kDebugMode) {
+      if (kDebugMode) {
         print('═══════════════════════════════════════════');
         print('📜 PREVIOUS SESSION DIAGNOSTIC LOG:');
-        print(content);
+        if (!exists) {
+          print('   (diag file does not exist - no log from previous session)');
+        } else {
+          final content = await file.readAsString();
+          if (content.isEmpty) {
+            print('   (diag file exists but is EMPTY - previous session wrote nothing)');
+          } else {
+            print(content);
+          }
+          // Cancella per la prossima sessione
+          await file.writeAsString('', flush: true);
+        }
         print('═══════════════════════════════════════════');
       }
+    } catch (e) {
+      if (kDebugMode) print('❌ Error reading previous diag log: $e');
+    }
+  }
 
-      // Cancella per la prossima sessione
-      await file.writeAsString('', flush: true);
-    } catch (_) {}
+  /// Stampa lo stato del file della coda all'avvio (per debug).
+  /// Mostra se il file esiste, la sua dimensione, e il contenuto grezzo.
+  Future<void> printQueueFileStatus() async {
+    try {
+      final file = await _getQueueFile();
+      final exists = await file.exists();
+      if (kDebugMode) {
+        if (!exists) {
+          print('📋 [QUEUE] Queue file does NOT exist (no pending uploads)');
+        } else {
+          final content = await file.readAsString();
+          final size = await file.length();
+          print('📋 [QUEUE] Queue file: ${file.path}');
+          print('📋 [QUEUE] Size: $size bytes, content empty: ${content.isEmpty}');
+          if (content.isNotEmpty) {
+            // Tronca se troppo lungo
+            final preview = content.length > 500 ? '${content.substring(0, 500)}...' : content;
+            print('📋 [QUEUE] Content: $preview');
+          }
+        }
+      }
+
+      // Controlla anche la directory dei file copiati
+      final pendingDir = await _getPendingDir();
+      final files = await pendingDir.list().toList();
+      if (kDebugMode) {
+        print('📋 [QUEUE] Pending files dir: ${pendingDir.path} (${files.length} files)');
+        for (final f in files) {
+          if (f is File) {
+            final stat = await f.stat();
+            print('   ${p.basename(f.path)} (${stat.size} bytes)');
+          }
+        }
+      }
+    } catch (e) {
+      if (kDebugMode) print('❌ [QUEUE] Error reading queue status: $e');
+    }
   }
 
   Future<String> _copyFileToPending(String sourcePath) async {
