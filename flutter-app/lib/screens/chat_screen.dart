@@ -2503,9 +2503,10 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
         print('   Attachments: ${attachments.length}');
       }
 
-      // 1) Crea placeholder per ogni allegato (URL vuoto = upload in corso)
-      //    AttachmentImage/AttachmentDocument gestiscono url.isEmpty con un loader
-      //    Dopo l'upload, updateMessageAttachments sostituisce con URL reale
+      // 1) Crea placeholder per ogni allegato con path locale
+      //    Il mittente vede subito la foto dal disco con uno spinner
+      //    Il ricevente vede un loader (il file non esiste sul suo dispositivo)
+      //    Dopo l'upload, updateMessageAttachments sostituisce con URL Firebase
       List<Attachment>? placeholderAttachments;
       if (attachments.isNotEmpty) {
         placeholderAttachments = attachments.map((file) {
@@ -2520,7 +2521,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
           return Attachment(
             id: 'ph_${DateTime.now().millisecondsSinceEpoch}_${fileName.hashCode}',
             type: type,
-            url: '', // vuoto: i widget mostrano loader finché l'upload non completa
+            url: file.path, // path locale per preview mittente
             fileName: fileName,
             fileSize: 0,
             encryptedKeyRecipient: '',
@@ -3634,6 +3635,72 @@ class _MessageBubble extends StatelessWidget {
 
     return [
       ...attachments!.map((attachment) {
+        // Placeholder: URL è un path locale (upload in corso) o vuoto
+        // NON passare a AttachmentImage/Doc che chiamerebbero Firebase Storage
+        final isPlaceholder = attachment.url.isEmpty ||
+            (attachment.url.startsWith('/') && attachment.encryptedKeyRecipient.isEmpty);
+
+        if (isPlaceholder) {
+          // Foto: se il file esiste (mittente), mostra anteprima + spinner
+          if (attachment.type == 'photo' && attachment.url.isNotEmpty) {
+            final localFile = File(attachment.url);
+            if (localFile.existsSync()) {
+              return ClipRRect(
+                borderRadius: BorderRadius.circular(12),
+                child: Stack(
+                  children: [
+                    Image.file(localFile, width: 200, height: 200, fit: BoxFit.cover),
+                    Positioned.fill(
+                      child: Container(
+                        color: Colors.black26,
+                        child: const Center(
+                          child: SizedBox(
+                            width: 28, height: 28,
+                            child: CircularProgressIndicator(strokeWidth: 2.5, color: Colors.white70),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            }
+          }
+          // Fallback: file non esiste (ricevente) o tipo doc → loader
+          return ClipRRect(
+            borderRadius: BorderRadius.circular(12),
+            child: Container(
+              width: 200,
+              height: attachment.type == 'photo' ? 150 : 56,
+              color: isMe ? Colors.white24 : Colors.grey.shade200,
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  SizedBox(
+                    width: 20, height: 20,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: isMe ? Colors.white70 : Colors.grey.shade500,
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Flexible(
+                    child: Text(
+                      attachment.fileName,
+                      style: TextStyle(
+                        color: isMe ? Colors.white70 : Colors.grey.shade600,
+                        fontSize: 12,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          );
+        }
+
         if (attachment.type == 'photo') {
           // Se ci sono link metadata, mostra immagine + title/description
           if (hasLinkMetadata) {

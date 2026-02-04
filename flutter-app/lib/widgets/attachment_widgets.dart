@@ -61,8 +61,8 @@ class _AttachmentImageState extends State<AttachmentImage> {
   }
 
   Future<Uint8List?> _loadImage() {
-    // Se URL è vuoto, l'attachment è ancora in upload - ritorna null
-    if (widget.attachment.url.isEmpty) {
+    // Se URL è vuoto o è un path locale (placeholder in upload), non scaricare
+    if (widget.attachment.url.isEmpty || !widget.attachment.url.startsWith('http')) {
       return Future.value(null);
     }
 
@@ -77,8 +77,8 @@ class _AttachmentImageState extends State<AttachmentImage> {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
-    // Se URL è vuoto, l'allegato è in upload - mostra placeholder
-    if (widget.attachment.url.isEmpty) {
+    // Se URL è vuoto o path locale (placeholder), mostra loader
+    if (widget.attachment.url.isEmpty || !widget.attachment.url.startsWith('http')) {
       return ClipRRect(
         borderRadius: BorderRadius.circular(12),
         child: Container(
@@ -275,8 +275,8 @@ class _AttachmentDocumentState extends State<AttachmentDocument> {
   Future<void> _openDocument() async {
     if (_isDownloading) return;
 
-    // Se URL è vuoto, il documento è ancora in upload - non fare nulla
-    if (widget.attachment.url.isEmpty) return;
+    // Se URL è vuoto o path locale (placeholder), non fare nulla
+    if (widget.attachment.url.isEmpty || !widget.attachment.url.startsWith('http')) return;
 
     // Check if it's a PDF - open with integrated viewer
     final isPdf = widget.attachment.fileName.toLowerCase().endsWith('.pdf');
@@ -371,7 +371,7 @@ class _AttachmentDocumentState extends State<AttachmentDocument> {
                 color: widget.isMe ? Colors.white.withOpacity(0.2) : Colors.grey[300],
                 borderRadius: BorderRadius.circular(8),
               ),
-              child: (_isDownloading || widget.attachment.url.isEmpty)
+              child: (_isDownloading || widget.attachment.url.isEmpty || !widget.attachment.url.startsWith('http'))
                   ? Padding(
                       padding: const EdgeInsets.all(10),
                       child: CircularProgressIndicator(
@@ -401,7 +401,7 @@ class _AttachmentDocumentState extends State<AttachmentDocument> {
                     overflow: TextOverflow.ellipsis,
                   ),
                   Text(
-                    widget.attachment.url.isEmpty
+                    (widget.attachment.url.isEmpty || !widget.attachment.url.startsWith('http'))
                         ? l10n.chatLoadingAttachment
                         : widget.attachmentService.formatFileSize(widget.attachment.fileSize),
                     style: TextStyle(
