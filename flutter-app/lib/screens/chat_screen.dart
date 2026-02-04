@@ -15,6 +15,7 @@ import 'package:flutter_linkify/flutter_linkify.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:table_calendar/table_calendar.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:uuid/uuid.dart';
 import 'package:private_messaging/generated/l10n/app_localizations.dart';
 import '../services/pairing_service.dart';
 import '../services/chat_service.dart';
@@ -628,7 +629,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
         if (kDebugMode) print('📱 App resumed - marking messages as read');
 
         // OFFLINE QUEUE: Riprova pending uploads quando l'app torna in foreground
-        _loadAndProcessPendingUploads();
+        _processPendingUploads();
       }
     }
   }
@@ -782,7 +783,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       }
 
       // OFFLINE QUEUE: Carica e processa pending uploads (in background)
-      _loadAndProcessPendingUploads();
+      _processPendingUploads();
     } else {
       print('❌ Cannot start listener - missing chat ID or partner public key');
       setState(() => _isLoading = false);
@@ -792,55 +793,24 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     }
   }
 
-  /// Carica i pending uploads dal disco e prova a processarli.
-  /// Crea pending messages per quelli non ancora in memoria.
-  Future<void> _loadAndProcessPendingUploads() async {
+  /// Prova a uploadare i file in coda (foto che non erano riuscite a caricarsi offline).
+  Future<void> _processPendingUploads() async {
     if (_familyChatId == null || _myDeviceId == null || _attachmentService == null) return;
 
     try {
       final chatService = Provider.of<ChatService>(context, listen: false);
-      final locationService = Provider.of<LocationService>(context, listen: false);
 
-      // Carica pending uploads per questa famiglia
-      final pendingUploads = await _pendingUploadService.getPendingUploadsForFamily(_familyChatId!);
-      if (pendingUploads.isEmpty) return;
-
-      if (kDebugMode) {
-        print('📦 [PENDING] Found ${pendingUploads.length} pending uploads to restore');
-      }
-
-      // Ricrea i pending messages se non sono già in memoria
-      for (final upload in pendingUploads) {
-        final exists = chatService.messages.any((m) => m.id == upload.id);
-        if (!exists) {
-          // Ricrea il pending message per mostrarlo nella UI
-          final message = Message(
-            id: upload.id,
-            senderId: upload.senderId,
-            timestamp: upload.createdAt,
-            decryptedContent: upload.messageText,
-            messageType: 'text',
-            isPending: true,
-          );
-          chatService.restorePendingMessage(message);
-        }
-      }
-
-      // Prova a processare i pending uploads (in background)
       final successCount = await _pendingUploadService.processPendingUploads(
         familyChatId: _familyChatId!,
         attachmentService: _attachmentService!,
         chatService: chatService,
-        locationService: locationService,
       );
 
-      if (successCount > 0 && mounted) {
-        if (kDebugMode) {
-          print('✅ [PENDING] Processed $successCount pending uploads on startup');
-        }
+      if (successCount > 0 && mounted && kDebugMode) {
+        print('✅ [PENDING] Uploaded $successCount queued files');
       }
     } catch (e) {
-      if (kDebugMode) print('❌ [PENDING] Error loading/processing pending uploads: $e');
+      if (kDebugMode) print('❌ [PENDING] Error processing pending uploads: $e');
     }
   }
 
@@ -1441,103 +1411,52 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     );
 
     if (result != null && mounted) {
-      // Avvia condivisione posizione
       final locationService = Provider.of<LocationService>(context, listen: false);
-      final success = await locationService.startSharingLocation(result);
+      final chatService = Provider.of<ChatService>(context, listen: false);
+      final pairingService = Provider.of<PairingService>(context, listen: false);
+      final encryptionService = Provider.of<EncryptionService>(context, listen: false);
 
-      if (success) {
-        // Calcola expiresAt
-        final expiresAt = DateTime.now().add(result);
+      final familyChatId = await pairingService.getFamilyChatId();
+      final myDeviceId = await pairingService.getMyUserId();
+      final myPublicKey = await encryptionService.getPublicKey();
+      final partnerPublicKey = pairingService.partnerPublicKey;
 
-        // Invia messaggio di condivisione posizione
-        final chatService = Provider.of<ChatService>(context, listen: false);
-        final pairingService = Provider.of<PairingService>(context, listen: false);
-        final encryptionService = Provider.of<EncryptionService>(context, listen: false);
-
-        final familyChatId = await pairingService.getFamilyChatId();
-        final myDeviceId = await pairingService.getMyUserId();
-        final myPublicKey = await encryptionService.getPublicKey();
-        final partnerPublicKey = pairingService.partnerPublicKey;
-
-        if (familyChatId != null &&
-            myDeviceId != null &&
-            myPublicKey != null &&
-            partnerPublicKey != null &&
-            locationService.currentSessionId != null) {
-          final messageId = await chatService.sendLocationShare(
-            expiresAt,
-            locationService.currentSessionId!, // Session ID univoco
-            familyChatId,
-            myDeviceId,
-            myPublicKey,
-            partnerPublicKey,
-          );
-
-          if (messageId != null) {
-            // Salva il messageId nel LocationService per poterlo usare quando si ferma la condivisione
-            locationService.setLocationShareMessageId(messageId);
-          }
-        }
-      } else {
-        // Errore - controlla se è un problema di pairing o permessi
-        // OFFLINE QUEUE: se è un problema di rete, salva per invio successivo
+      if (familyChatId == null || myDeviceId == null ||
+          myPublicKey == null || partnerPublicKey == null) {
         if (mounted) {
-          final chatService = Provider.of<ChatService>(context, listen: false);
-          final pairingService = Provider.of<PairingService>(context, listen: false);
-          final encryptionService = Provider.of<EncryptionService>(context, listen: false);
-
-          final familyChatId = await pairingService.getFamilyChatId();
-          final myDeviceId = await pairingService.getMyUserId();
-          final myPublicKey = await encryptionService.getPublicKey();
-          final partnerPublicKey = pairingService.partnerPublicKey;
-
-          // Se abbiamo tutti i dati del pairing, è un problema di rete → queue offline
-          if (familyChatId != null &&
-              myDeviceId != null &&
-              myPublicKey != null &&
-              partnerPublicKey != null) {
-            try {
-              final pendingId = chatService.addPendingMessage(
-                '',
-                myDeviceId,
-                null,
-              );
-              await _pendingUploadService.addPendingUpload(PendingUpload(
-                id: pendingId,
-                familyChatId: familyChatId,
-                senderId: myDeviceId,
-                messageText: '',
-                filePaths: [],
-                senderPublicKey: myPublicKey,
-                recipientPublicKey: partnerPublicKey,
-                createdAt: DateTime.now(),
-                type: 'location_share',
-                durationSeconds: result.inSeconds,
-              ));
-              if (kDebugMode) print('💾 [OFFLINE] Queued location share for later: $pendingId');
-            } catch (e) {
-              if (kDebugMode) print('❌ [OFFLINE] Failed to queue location share: $e');
-            }
-          } else {
-            // Se mancano dati pairing, mostra errore normale
-            final l10n = AppLocalizations.of(context)!;
-            String errorMessage = l10n.locationShareErrorGeneric;
-
-            if (_partnerPublicKey == null) {
-              errorMessage = l10n.locationShareErrorPairing;
-            } else {
-              errorMessage = l10n.locationShareErrorPermissions;
-            }
-
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text(errorMessage),
-                duration: const Duration(seconds: 5),
-                backgroundColor: Colors.red[700],
-              ),
-            );
-          }
+          final l10n = AppLocalizations.of(context)!;
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(l10n.locationShareErrorPairing),
+              duration: const Duration(seconds: 5),
+              backgroundColor: Colors.red[700],
+            ),
+          );
         }
+        return;
+      }
+
+      // 1) Genera session ID e manda il messaggio PRIMA (Firestore gestisce offline)
+      final sessionId = const Uuid().v4();
+      final expiresAt = DateTime.now().add(result);
+
+      final messageId = await chatService.sendLocationShare(
+        expiresAt,
+        sessionId,
+        familyChatId,
+        myDeviceId,
+        myPublicKey,
+        partnerPublicKey,
+      );
+
+      if (messageId != null) {
+        locationService.setLocationShareMessageId(messageId);
+      }
+
+      // 2) Poi avvia GPS sharing (best-effort, se fallisce il messaggio esiste già)
+      final success = await locationService.startSharingLocation(result, sessionId: sessionId);
+      if (!success && mounted) {
+        if (kDebugMode) print('⚠️ [LOCATION] GPS sharing failed, but message was sent to Firestore');
       }
     }
   }
@@ -2642,14 +2561,15 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
 
       // Upload allegati se presenti (con cifratura E2E dual)
       List<Attachment>? uploadedAttachments;
+      bool attachmentUploadFailed = false;
       if (attachments.isNotEmpty) {
         try {
           uploadedAttachments = await _attachmentService!.uploadMultipleAttachments(
             attachments,
             _familyChatId!,
             _myDeviceId!,
-            myPublicKey, // Chiave pubblica mittente
-            _partnerPublicKey!, // Chiave pubblica destinatario
+            myPublicKey,
+            _partnerPublicKey!,
           );
 
           if (uploadedAttachments.isEmpty) {
@@ -2661,41 +2581,36 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
           }
         } catch (e) {
           if (kDebugMode) print('❌ Error uploading attachments: $e');
-          // OFFLINE QUEUE: salva i file localmente e tieni il messaggio pending
-          if (pendingMessageId != null) {
-            try {
-              final filePaths = attachments.map((f) => f.path).toList();
-              final permanentPaths = await _pendingUploadService.copyFilesToPending(filePaths);
-              await _pendingUploadService.addPendingUpload(PendingUpload(
-                id: pendingMessageId,
-                familyChatId: _familyChatId!,
-                senderId: _myDeviceId!,
-                messageText: messageText,
-                filePaths: permanentPaths,
-                senderPublicKey: myPublicKey,
-                recipientPublicKey: _partnerPublicKey!,
-                createdAt: DateTime.now(),
-                type: 'attachment',
-              ));
-              if (kDebugMode) print('💾 [OFFLINE] Queued attachment upload for later: $pendingMessageId');
-            } catch (saveError) {
-              if (kDebugMode) print('❌ [OFFLINE] Failed to queue upload: $saveError');
-              // If we can't save, remove the pending message
-              chatService.removePendingMessage(pendingMessageId);
-            }
+          attachmentUploadFailed = true;
+          // Salva file localmente per upload successivo
+          try {
+            final filePaths = attachments.map((f) => f.path).toList();
+            final permanentPaths = await _pendingUploadService.copyFilesToPending(filePaths);
+            await _pendingUploadService.addPendingUpload(PendingUpload(
+              id: 'upload_${DateTime.now().millisecondsSinceEpoch}',
+              familyChatId: _familyChatId!,
+              senderId: _myDeviceId!,
+              filePaths: permanentPaths,
+              senderPublicKey: myPublicKey,
+              recipientPublicKey: _partnerPublicKey!,
+              createdAt: DateTime.now(),
+            ));
+            if (kDebugMode) print('💾 [OFFLINE] Files queued for later upload');
+          } catch (saveError) {
+            if (kDebugMode) print('❌ [OFFLINE] Failed to queue files: $saveError');
           }
-          setState(() => _isUploadingAttachments = false);
-          return;
         }
       }
 
+      // Manda SEMPRE il messaggio su Firestore (gestisce offline da solo)
+      // Se l'upload è riuscito, manda con allegati. Se no, manda solo testo.
       final sentMessageId = await chatService.sendMessage(
         messageText,
         _familyChatId!,
         _myDeviceId!,
         myPublicKey,
         _partnerPublicKey!,
-        attachments: uploadedAttachments,
+        attachments: attachmentUploadFailed ? null : uploadedAttachments,
       );
 
       success = sentMessageId != null;
@@ -2707,8 +2622,11 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
 
       if (success) {
         print('✅ Message sent successfully with dual encryption, ID: $sentMessageId');
-        if (uploadedAttachments != null) {
+        if (uploadedAttachments != null && !attachmentUploadFailed) {
           print('   With ${uploadedAttachments.length} attachments');
+        }
+        if (attachmentUploadFailed) {
+          print('   ⚠️ Attachments queued for later upload');
         }
       }
     }
@@ -2937,7 +2855,6 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                                 reaction: message.reaction,
                                 onReact: (reactionType) => _addReaction(message.id, reactionType),
                                 messageObject: message,
-                                isPending: message.isPending,
                               );
                             }
 
@@ -3591,7 +3508,6 @@ class _MessageBubble extends StatelessWidget {
   final Reaction? reaction; // Reaction al messaggio
   final Function(String reactionType)? onReact; // Callback per aggiungere reaction
   final Message? messageObject; // Oggetto Message completo per il ReactionPicker
-  final bool isPending; // true se il messaggio è in coda offline
 
   const _MessageBubble({
     super.key,
@@ -3607,7 +3523,6 @@ class _MessageBubble extends StatelessWidget {
     this.reaction,
     this.onReact,
     this.messageObject,
-    this.isPending = false,
   });
 
   /// Costruisce widget di testo con URL abbreviati ma cliccabili
@@ -3987,7 +3902,7 @@ class _MessageBubble extends StatelessWidget {
                                   ),
                                 ),
                                 // Mostra le spunte solo per i messaggi inviati da me
-                                if (isMe && !isPending) ...[
+                                if (isMe) ...[
                                   const SizedBox(width: 4),
                                   Icon(
                                     read ? Icons.done_all : Icons.done,
@@ -3997,45 +3912,8 @@ class _MessageBubble extends StatelessWidget {
                                         : Colors.white.withOpacity(0.8),
                                   ),
                                 ],
-                                if (isPending) ...[
-                                  const SizedBox(width: 4),
-                                  Icon(
-                                    Icons.schedule,
-                                    size: 14,
-                                    color: isMe
-                                        ? Colors.white.withOpacity(0.6)
-                                        : Colors.black38,
-                                  ),
-                                ],
                               ],
                             ),
-                            // Offline indicator
-                            if (isPending) ...[
-                              const SizedBox(height: 4),
-                              Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Icon(
-                                    Icons.cloud_off,
-                                    size: 12,
-                                    color: isMe
-                                        ? Colors.white.withOpacity(0.6)
-                                        : Colors.black38,
-                                  ),
-                                  const SizedBox(width: 4),
-                                  Text(
-                                    'OFFLINE - Riapri l\'app per inviare',
-                                    style: TextStyle(
-                                      fontSize: 10,
-                                      color: isMe
-                                          ? Colors.white.withOpacity(0.6)
-                                          : Colors.black38,
-                                      fontStyle: FontStyle.italic,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ],
                           ],
                         ),
                       ),

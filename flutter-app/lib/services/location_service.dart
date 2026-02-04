@@ -120,7 +120,7 @@ class LocationService extends ChangeNotifier {
 
   /// Inizia a condividere la posizione per una durata specificata
   /// duration: Duration.hours(1) o Duration.hours(8)
-  Future<bool> startSharingLocation(Duration duration) async {
+  Future<bool> startSharingLocation(Duration duration, {String? sessionId}) async {
     try {
       if (kDebugMode) print('🌍 [LOCATION] Attempting to start location sharing...');
 
@@ -150,8 +150,8 @@ class LocationService extends ChangeNotifier {
         return false;
       }
 
-      // Genera nuovo session ID univoco per questa condivisione
-      _currentSessionId = const Uuid().v4();
+      // Usa session ID esterno se fornito, altrimenti genera nuovo
+      _currentSessionId = sessionId ?? const Uuid().v4();
 
       if (kDebugMode) {
         print('🌍 [LOCATION] Starting location sharing for ${duration.inHours}h');

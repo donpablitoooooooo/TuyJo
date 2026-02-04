@@ -6,67 +6,56 @@ import 'package:path_provider/path_provider.dart';
 import 'package:path/path.dart' as p;
 import 'attachment_service.dart';
 import 'chat_service.dart';
-import 'location_service.dart';
 
-/// Represents a pending upload that failed due to offline/network issues
+/// Pending file upload queued because Firebase Storage was offline.
+/// The text message was already sent to Firestore; these are just the files
+/// that need uploading + sending as a follow-up attachment message.
 class PendingUpload {
-  final String id; // Same as the pending message tempId
+  final String id;
   final String familyChatId;
   final String senderId;
-  final String messageText;
-  final List<String> filePaths; // Permanent copies of files to upload
+  final List<String> filePaths;
   final String senderPublicKey;
   final String recipientPublicKey;
   final DateTime createdAt;
-  final String type; // 'attachment' or 'location_share'
-  final int? durationSeconds; // For location_share: duration in seconds
 
   PendingUpload({
     required this.id,
     required this.familyChatId,
     required this.senderId,
-    required this.messageText,
     required this.filePaths,
     required this.senderPublicKey,
     required this.recipientPublicKey,
     required this.createdAt,
-    required this.type,
-    this.durationSeconds,
   });
 
   Map<String, dynamic> toJson() => {
     'id': id,
     'familyChatId': familyChatId,
     'senderId': senderId,
-    'messageText': messageText,
     'filePaths': filePaths,
     'senderPublicKey': senderPublicKey,
     'recipientPublicKey': recipientPublicKey,
     'createdAt': createdAt.toIso8601String(),
-    'type': type,
-    if (durationSeconds != null) 'durationSeconds': durationSeconds,
   };
 
   factory PendingUpload.fromJson(Map<String, dynamic> json) => PendingUpload(
     id: json['id'] ?? '',
     familyChatId: json['familyChatId'] ?? '',
     senderId: json['senderId'] ?? '',
-    messageText: json['messageText'] ?? '',
     filePaths: List<String>.from(json['filePaths'] ?? []),
     senderPublicKey: json['senderPublicKey'] ?? '',
     recipientPublicKey: json['recipientPublicKey'] ?? '',
     createdAt: DateTime.parse(json['createdAt'] ?? DateTime.now().toIso8601String()),
-    type: json['type'] ?? 'attachment',
-    durationSeconds: json['durationSeconds'],
   );
 }
 
-/// Service to manage pending uploads that failed due to offline/network issues.
-/// Uses SharedPreferences for persistence and copies files to a permanent directory.
+/// Coda per file che non sono riusciti a caricarsi su Firebase Storage (offline).
+/// Il messaggio di testo è già su Firestore; qui ci sono solo i file da uploadare
+/// e mandare come messaggio di follow-up quando si torna online.
 class PendingUploadService {
   static const String _prefsKey = 'pending_uploads';
 
-  /// Get the permanent directory for pending files
   Future<Directory> _getPendingDir() async {
     final appDir = await getApplicationDocumentsDirectory();
     final pendingDir = Directory(p.join(appDir.path, 'pending_uploads'));
@@ -76,7 +65,6 @@ class PendingUploadService {
     return pendingDir;
   }
 
-  /// Copy a file to the permanent pending directory
   Future<String> _copyFileToPending(String sourcePath) async {
     final pendingDir = await _getPendingDir();
     final fileName = p.basename(sourcePath);
@@ -91,17 +79,16 @@ class PendingUploadService {
     return sourcePath;
   }
 
-  /// Copy files to permanent directory and return new paths
+  /// Copia i file in una cartella permanente (quelli temporanei possono sparire)
   Future<List<String>> copyFilesToPending(List<String> sourcePaths) async {
     final permanentPaths = <String>[];
-    for (final path in sourcePaths) {
-      final permanentPath = await _copyFileToPending(path);
+    for (final srcPath in sourcePaths) {
+      final permanentPath = await _copyFileToPending(srcPath);
       permanentPaths.add(permanentPath);
     }
     return permanentPaths;
   }
 
-  /// Add a pending upload to the queue
   Future<void> addPendingUpload(PendingUpload upload) async {
     final prefs = await SharedPreferences.getInstance();
     final uploads = await getPendingUploads();
@@ -110,35 +97,29 @@ class PendingUploadService {
       _prefsKey,
       json.encode(uploads.map((u) => u.toJson()).toList()),
     );
-
     if (kDebugMode) {
-      print('💾 [PENDING] Added pending upload: ${upload.id} (${upload.type})');
-      print('   Files: ${upload.filePaths.length}');
+      print('💾 [PENDING] Queued ${upload.filePaths.length} files for later upload');
     }
   }
 
-  /// Get all pending uploads
   Future<List<PendingUpload>> getPendingUploads() async {
     final prefs = await SharedPreferences.getInstance();
     final jsonString = prefs.getString(_prefsKey);
     if (jsonString == null) return [];
-
     try {
       final List<dynamic> list = json.decode(jsonString);
       return list.map((item) => PendingUpload.fromJson(item)).toList();
     } catch (e) {
-      if (kDebugMode) print('❌ [PENDING] Error parsing pending uploads: $e');
+      if (kDebugMode) print('❌ [PENDING] Error parsing: $e');
       return [];
     }
   }
 
-  /// Get pending uploads for a specific family
   Future<List<PendingUpload>> getPendingUploadsForFamily(String familyChatId) async {
     final uploads = await getPendingUploads();
     return uploads.where((u) => u.familyChatId == familyChatId).toList();
   }
 
-  /// Remove a pending upload from the queue
   Future<void> removePendingUpload(String id) async {
     final prefs = await SharedPreferences.getInstance();
     final uploads = await getPendingUploads();
@@ -147,33 +128,22 @@ class PendingUploadService {
       _prefsKey,
       json.encode(uploads.map((u) => u.toJson()).toList()),
     );
-
-    if (kDebugMode) {
-      print('🗑️ [PENDING] Removed pending upload: $id');
-    }
   }
 
-  /// Clean up the files of a pending upload
-  Future<void> cleanupFiles(PendingUpload upload) async {
+  Future<void> _cleanupFiles(PendingUpload upload) async {
     for (final filePath in upload.filePaths) {
       try {
         final file = File(filePath);
-        if (await file.exists()) {
-          await file.delete();
-        }
-      } catch (e) {
-        if (kDebugMode) print('⚠️ [PENDING] Error cleaning up file $filePath: $e');
-      }
+        if (await file.exists()) await file.delete();
+      } catch (_) {}
     }
   }
 
-  /// Process all pending uploads for a family.
-  /// Returns the number of successfully processed uploads.
+  /// Prova a uploadare i file in coda e mandarli come nuovi messaggi.
   Future<int> processPendingUploads({
     required String familyChatId,
     required AttachmentService attachmentService,
     required ChatService chatService,
-    required LocationService locationService,
   }) async {
     final pendingUploads = await getPendingUploadsForFamily(familyChatId);
     if (pendingUploads.isEmpty) return 0;
@@ -186,97 +156,59 @@ class PendingUploadService {
 
     for (final upload in pendingUploads) {
       try {
-        if (upload.type == 'attachment') {
-          // Retry attachment upload
-          final files = upload.filePaths.map((filePath) => File(filePath)).toList();
+        final files = upload.filePaths.map((fp) => File(fp)).toList();
 
-          // Check all files still exist
-          bool allExist = true;
-          for (final file in files) {
-            if (!await file.exists()) {
-              allExist = false;
-              break;
-            }
+        // Controlla che i file esistano ancora
+        bool allExist = true;
+        for (final file in files) {
+          if (!await file.exists()) {
+            allExist = false;
+            break;
           }
+        }
 
-          if (!allExist) {
-            if (kDebugMode) print('⚠️ [PENDING] Files missing for upload ${upload.id}, removing');
-            await cleanupFiles(upload);
-            await removePendingUpload(upload.id);
-            chatService.removePendingMessage(upload.id);
-            continue;
-          }
+        if (!allExist) {
+          if (kDebugMode) print('⚠️ [PENDING] Files missing for ${upload.id}, removing');
+          await _cleanupFiles(upload);
+          await removePendingUpload(upload.id);
+          continue;
+        }
 
-          // Try uploading
-          final uploadedAttachments = await attachmentService.uploadMultipleAttachments(
-            files,
+        // Upload su Firebase Storage
+        final uploadedAttachments = await attachmentService.uploadMultipleAttachments(
+          files,
+          upload.familyChatId,
+          upload.senderId,
+          upload.senderPublicKey,
+          upload.recipientPublicKey,
+        );
+
+        if (uploadedAttachments.isNotEmpty) {
+          // Upload riuscito! Manda come nuovo messaggio con gli allegati
+          final messageId = await chatService.sendMessage(
+            '',
             upload.familyChatId,
             upload.senderId,
             upload.senderPublicKey,
             upload.recipientPublicKey,
+            attachments: uploadedAttachments,
           );
 
-          if (uploadedAttachments.isNotEmpty) {
-            // Upload succeeded! Now send the message
-            final messageId = await chatService.sendMessage(
-              upload.messageText,
-              upload.familyChatId,
-              upload.senderId,
-              upload.senderPublicKey,
-              upload.recipientPublicKey,
-              attachments: uploadedAttachments,
-            );
-
-            if (messageId != null) {
-              // Remove pending message and cleanup
-              chatService.removePendingMessage(upload.id);
-              await cleanupFiles(upload);
-              await removePendingUpload(upload.id);
-              successCount++;
-
-              if (kDebugMode) {
-                print('✅ [PENDING] Successfully processed upload ${upload.id}');
-              }
-            }
-          }
-        } else if (upload.type == 'location_share') {
-          // Retry location share
-          final duration = Duration(seconds: upload.durationSeconds ?? 3600);
-          final success = await locationService.startSharingLocation(duration);
-
-          if (success) {
-            final expiresAt = DateTime.now().add(duration);
-            final messageId = await chatService.sendLocationShare(
-              expiresAt,
-              locationService.currentSessionId!,
-              upload.familyChatId,
-              upload.senderId,
-              upload.senderPublicKey,
-              upload.recipientPublicKey,
-            );
-
-            if (messageId != null) {
-              locationService.setLocationShareMessageId(messageId);
-              chatService.removePendingMessage(upload.id);
-              await removePendingUpload(upload.id);
-              successCount++;
-
-              if (kDebugMode) {
-                print('✅ [PENDING] Successfully processed location share ${upload.id}');
-              }
-            }
+          if (messageId != null) {
+            await _cleanupFiles(upload);
+            await removePendingUpload(upload.id);
+            successCount++;
+            if (kDebugMode) print('✅ [PENDING] Upload ${upload.id} sent successfully');
           }
         }
       } catch (e) {
-        if (kDebugMode) {
-          print('❌ [PENDING] Failed to process upload ${upload.id}: $e');
-        }
-        // Leave it in the queue for next retry
+        if (kDebugMode) print('❌ [PENDING] Upload ${upload.id} still failing: $e');
+        // Rimane in coda per il prossimo tentativo
       }
     }
 
-    if (kDebugMode) {
-      print('🔄 [PENDING] Processed $successCount/${pendingUploads.length} pending uploads');
+    if (kDebugMode && pendingUploads.isNotEmpty) {
+      print('🔄 [PENDING] Processed $successCount/${pendingUploads.length}');
     }
 
     return successCount;

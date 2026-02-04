@@ -913,17 +913,6 @@ class ChatService extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// Ripristina un messaggio pending dalla coda offline (preserva l'ID originale)
-  void restorePendingMessage(Message message) {
-    if (!_messages.any((m) => m.id == message.id)) {
-      _messages.insert(0, message);
-      notifyListeners();
-      if (kDebugMode) {
-        print('🔄 [OFFLINE] Restored pending message: ${message.id}');
-      }
-    }
-  }
-
   /// Invia un messaggio cifrato con RSA hybrid encryption e dual encryption
   /// Ogni messaggio ha una chiave AES univoca, cifrata con ENTRAMBE le public key
   /// Restituisce il messageId se il messaggio è stato inviato con successo, null altrimenti
