@@ -2542,8 +2542,24 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
 
       success = sentMessageId != null;
 
-      // 3) Se ci sono allegati, uploada e aggiorna LO STESSO messaggio
+      // 3) Se ci sono allegati, salva copie permanenti, prova upload, aggiorna messaggio
       if (attachments.isNotEmpty && sentMessageId != null) {
+        // Salva PRIMA i file in copia permanente (così sopravvivono a restart app)
+        final filePaths = attachments.map((f) => f.path).toList();
+        final permanentPaths = await _pendingUploadService.copyFilesToPending(filePaths);
+        final pendingId = 'upload_${DateTime.now().millisecondsSinceEpoch}';
+        await _pendingUploadService.addPendingUpload(PendingUpload(
+          id: pendingId,
+          messageId: sentMessageId,
+          familyChatId: _familyChatId!,
+          senderId: _myDeviceId!,
+          filePaths: permanentPaths,
+          senderPublicKey: myPublicKey,
+          recipientPublicKey: _partnerPublicKey!,
+          createdAt: DateTime.now(),
+        ));
+
+        // Prova upload subito
         try {
           final uploadedAttachments = await _attachmentService!.uploadMultipleAttachments(
             attachments,
@@ -2554,33 +2570,21 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
           );
 
           if (uploadedAttachments.isNotEmpty) {
-            // Upload OK → aggiorna lo stesso messaggio con gli allegati veri
             await chatService.updateMessageAttachments(
               sentMessageId,
               _familyChatId!,
               uploadedAttachments,
             );
             if (kDebugMode) print('✅ ${uploadedAttachments.length} attachments added to message');
+            // Upload OK → rimuovi pending e file temporanei
+            await _pendingUploadService.removePendingUpload(pendingId);
+            for (final p in permanentPaths) {
+              try { await File(p).delete(); } catch (_) {}
+            }
           }
         } catch (e) {
-          if (kDebugMode) print('❌ Upload failed, queuing files: $e');
-          // Upload fallito → salva file per aggiornare il messaggio dopo
-          try {
-            final filePaths = attachments.map((f) => f.path).toList();
-            final permanentPaths = await _pendingUploadService.copyFilesToPending(filePaths);
-            await _pendingUploadService.addPendingUpload(PendingUpload(
-              id: 'upload_${DateTime.now().millisecondsSinceEpoch}',
-              messageId: sentMessageId,
-              familyChatId: _familyChatId!,
-              senderId: _myDeviceId!,
-              filePaths: permanentPaths,
-              senderPublicKey: myPublicKey,
-              recipientPublicKey: _partnerPublicKey!,
-              createdAt: DateTime.now(),
-            ));
-          } catch (saveError) {
-            if (kDebugMode) print('❌ Failed to queue files: $saveError');
-          }
+          // Upload fallito → PendingUpload già salvato, riproverà al prossimo resume
+          if (kDebugMode) print('❌ Upload failed, will retry later: $e');
         }
       }
     }

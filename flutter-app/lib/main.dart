@@ -40,6 +40,7 @@ void main() async {
   );
   final attachmentService = AttachmentService(encryptionService: encryptionService);
   final locationService = LocationService();
+  locationService.restoreSessionIfNeeded(); // Ripristina condivisione posizione se era attiva
 
   // Configura callback per pulizia cache quando il partner richiede la cancellazione
   pairingService.onPartnerDeletedAll = (String familyChatId) async {
