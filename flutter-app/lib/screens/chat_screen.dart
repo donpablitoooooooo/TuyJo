@@ -1436,10 +1436,12 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
         return;
       }
 
-      // 1) Genera session ID e manda il messaggio PRIMA (Firestore gestisce offline)
+      // 1) Prepara sessione così la UI mostra subito "attiva"
       final sessionId = const Uuid().v4();
       final expiresAt = DateTime.now().add(result);
+      locationService.prepareSession(sessionId, result);
 
+      // 2) Manda il messaggio su Firestore (funziona anche offline)
       final messageId = await chatService.sendLocationShare(
         expiresAt,
         sessionId,
@@ -1453,7 +1455,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
         locationService.setLocationShareMessageId(messageId);
       }
 
-      // 2) Poi avvia GPS sharing (best-effort, se fallisce il messaggio esiste già)
+      // 3) Avvia GPS sharing (best-effort, se fallisce il messaggio esiste già)
       final success = await locationService.startSharingLocation(result, sessionId: sessionId);
       if (!success && mounted) {
         if (kDebugMode) print('⚠️ [LOCATION] GPS sharing failed, but message was sent to Firestore');
@@ -2549,22 +2551,22 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       print('   Content: $messageText');
       print('   Attachments: ${attachments.length}');
 
-      // Aggiungi messaggio pending subito (invio ottimistico)
-      String? pendingMessageId;
-      if (messageText.isNotEmpty || placeholderAttachments != null) {
-        pendingMessageId = chatService.addPendingMessage(
-          messageText,
-          _myDeviceId!,
-          placeholderAttachments,
-        );
-      }
+      // 1) Manda SUBITO il messaggio su Firestore (testo, senza aspettare upload)
+      //    Firestore gestisce offline da solo → il messaggio appare istantaneamente
+      final sentMessageId = await chatService.sendMessage(
+        messageText,
+        _familyChatId!,
+        _myDeviceId!,
+        myPublicKey,
+        _partnerPublicKey!,
+      );
 
-      // Upload allegati se presenti (con cifratura E2E dual)
-      List<Attachment>? uploadedAttachments;
-      bool attachmentUploadFailed = false;
+      success = sentMessageId != null;
+
+      // 2) Se ci sono allegati, prova a uploadarli e mandarli come messaggio separato
       if (attachments.isNotEmpty) {
         try {
-          uploadedAttachments = await _attachmentService!.uploadMultipleAttachments(
+          final uploadedAttachments = await _attachmentService!.uploadMultipleAttachments(
             attachments,
             _familyChatId!,
             _myDeviceId!,
@@ -2572,17 +2574,21 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
             _partnerPublicKey!,
           );
 
-          if (uploadedAttachments.isEmpty) {
-            throw Exception('No attachments uploaded');
-          }
-
-          if (kDebugMode) {
-            print('✅ ${uploadedAttachments.length} attachments uploaded successfully');
+          if (uploadedAttachments.isNotEmpty) {
+            // Upload OK → manda messaggio con allegati
+            await chatService.sendMessage(
+              '',
+              _familyChatId!,
+              _myDeviceId!,
+              myPublicKey,
+              _partnerPublicKey!,
+              attachments: uploadedAttachments,
+            );
+            if (kDebugMode) print('✅ ${uploadedAttachments.length} attachments sent');
           }
         } catch (e) {
-          if (kDebugMode) print('❌ Error uploading attachments: $e');
-          attachmentUploadFailed = true;
-          // Salva file localmente per upload successivo
+          if (kDebugMode) print('❌ Upload failed, queuing files: $e');
+          // Upload fallito → salva file per upload successivo
           try {
             final filePaths = attachments.map((f) => f.path).toList();
             final permanentPaths = await _pendingUploadService.copyFilesToPending(filePaths);
@@ -2595,38 +2601,9 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
               recipientPublicKey: _partnerPublicKey!,
               createdAt: DateTime.now(),
             ));
-            if (kDebugMode) print('💾 [OFFLINE] Files queued for later upload');
           } catch (saveError) {
-            if (kDebugMode) print('❌ [OFFLINE] Failed to queue files: $saveError');
+            if (kDebugMode) print('❌ Failed to queue files: $saveError');
           }
-        }
-      }
-
-      // Manda SEMPRE il messaggio su Firestore (gestisce offline da solo)
-      // Se l'upload è riuscito, manda con allegati. Se no, manda solo testo.
-      final sentMessageId = await chatService.sendMessage(
-        messageText,
-        _familyChatId!,
-        _myDeviceId!,
-        myPublicKey,
-        _partnerPublicKey!,
-        attachments: attachmentUploadFailed ? null : uploadedAttachments,
-      );
-
-      success = sentMessageId != null;
-
-      // Rimuovi messaggio pending dopo invio (successo o fallimento)
-      if (pendingMessageId != null) {
-        chatService.removePendingMessage(pendingMessageId);
-      }
-
-      if (success) {
-        print('✅ Message sent successfully with dual encryption, ID: $sentMessageId');
-        if (uploadedAttachments != null && !attachmentUploadFailed) {
-          print('   With ${uploadedAttachments.length} attachments');
-        }
-        if (attachmentUploadFailed) {
-          print('   ⚠️ Attachments queued for later upload');
         }
       }
     }

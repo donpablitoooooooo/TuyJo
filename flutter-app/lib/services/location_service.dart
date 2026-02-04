@@ -37,6 +37,15 @@ class LocationService extends ChangeNotifier {
   bool get isTrackingPartner => _isTrackingPartner;
   DateTime? get sharingExpiresAt => _sharingExpiresAt;
 
+  /// Pre-imposta sessione e stato attivo prima di mandare il messaggio Firestore,
+  /// così la UI mostra subito la condivisione come attiva.
+  void prepareSession(String sessionId, Duration duration) {
+    _currentSessionId = sessionId;
+    _isSharingLocation = true;
+    _sharingExpiresAt = DateTime.now().add(duration);
+    notifyListeners();
+  }
+
   /// Verifica se la condivisione è scaduta
   bool get isSharingExpired {
     if (_sharingExpiresAt == null) return true;
