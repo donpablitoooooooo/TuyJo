@@ -62,6 +62,7 @@ class PendingUpload {
 /// killata prima che il commit su disco sia completato.
 class PendingUploadService {
   static const String _fileName = 'pending_uploads.json';
+  static const String _diagFileName = 'pending_uploads_diag.log';
 
   Future<Directory> _getPendingDir() async {
     final appDir = await getApplicationDocumentsDirectory();
@@ -84,6 +85,42 @@ class PendingUploadService {
     final file = await _getQueueFile();
     final jsonString = json.encode(uploads.map((u) => u.toJson()).toList());
     await file.writeAsString(jsonString, flush: true);
+  }
+
+  /// Log diagnostico su file (sopravvive a kill app).
+  /// Al prossimo avvio, printPreviousSessionDiag() lo stampa e lo cancella.
+  Future<void> logDiag(String message) async {
+    try {
+      final appDir = await getApplicationDocumentsDirectory();
+      final file = File(p.join(appDir.path, _diagFileName));
+      final timestamp = DateTime.now().toIso8601String();
+      await file.writeAsString(
+        '[$timestamp] $message\n',
+        mode: FileMode.append,
+        flush: true,
+      );
+    } catch (_) {}
+  }
+
+  /// Stampa e cancella il log diagnostico della sessione precedente.
+  /// Chiamare all'avvio dell'app.
+  Future<void> printPreviousSessionDiag() async {
+    try {
+      final appDir = await getApplicationDocumentsDirectory();
+      final file = File(p.join(appDir.path, _diagFileName));
+      if (!await file.exists()) return;
+
+      final content = await file.readAsString();
+      if (content.isNotEmpty && kDebugMode) {
+        print('═══════════════════════════════════════════');
+        print('📜 PREVIOUS SESSION DIAGNOSTIC LOG:');
+        print(content);
+        print('═══════════════════════════════════════════');
+      }
+
+      // Cancella per la prossima sessione
+      await file.writeAsString('', flush: true);
+    } catch (_) {}
   }
 
   Future<String> _copyFileToPending(String sourcePath) async {
@@ -111,6 +148,8 @@ class PendingUploadService {
   }
 
   Future<void> addPendingUpload(PendingUpload upload) async {
+    await logDiag('addPendingUpload START: id=${upload.id}, msgId=${upload.messageId}, files=${upload.filePaths.length}');
+
     final uploads = await getPendingUploads();
     uploads.add(upload);
     await _writeQueue(uploads);
@@ -120,11 +159,17 @@ class PendingUploadService {
     final verifyExists = await verifyFile.exists();
     final verifySize = verifyExists ? await verifyFile.length() : 0;
 
+    // Verifica anche che i file copiati esistano
+    for (final fp in upload.filePaths) {
+      final exists = await File(fp).exists();
+      await logDiag('  file: $fp (exists: $exists)');
+    }
+
+    await logDiag('addPendingUpload DONE: queueFile exists=$verifyExists, size=$verifySize bytes');
+
     if (kDebugMode) {
       print('💾 [PENDING] Queued ${upload.filePaths.length} files for message ${upload.messageId}');
-      print('   PendingUpload id: ${upload.id}');
-      print('   File path: ${verifyFile.path}');
-      print('   File exists: $verifyExists, size: $verifySize bytes');
+      print('   File: ${verifyFile.path}, exists: $verifyExists, size: $verifySize');
     }
   }
 

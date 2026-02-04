@@ -784,15 +784,8 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
         pairingService.startBackgroundUnpairListener();
       }
 
-      // OFFLINE QUEUE: Diagnostica + processa pending uploads
-      // Log diagnostico all'avvio per capire se i dati sono persistiti
-      if (kDebugMode) {
-        final allPending = await _pendingUploadService.getPendingUploads();
-        print('📋 [STARTUP] Pending uploads on disk: ${allPending.length}');
-        for (final p in allPending) {
-          print('   - ${p.id} → msg ${p.messageId}, files: ${p.filePaths.length}');
-        }
-      }
+      // OFFLINE QUEUE: Stampa log sessione precedente + processa pending uploads
+      await _pendingUploadService.printPreviousSessionDiag();
       _processPendingUploads();
       // Timer periodico: riprova pending uploads ogni 15 secondi
       // (copre il caso in cui si torna online senza passare per background/foreground)
@@ -2604,6 +2597,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
         ));
 
         // Prova upload subito
+        await _pendingUploadService.logDiag('UPLOAD START: msg=$sentMessageId, files=${attachments.length}');
         try {
           if (kDebugMode) print('📤 [UPLOAD] Starting upload of ${attachments.length} files for message $sentMessageId...');
 
@@ -2615,6 +2609,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
             _partnerPublicKey!,
           );
 
+          await _pendingUploadService.logDiag('UPLOAD RESULT: ${uploadedAttachments.length} attachments returned');
           if (kDebugMode) print('📤 [UPLOAD] uploadMultipleAttachments returned ${uploadedAttachments.length} attachments');
 
           if (uploadedAttachments.isNotEmpty) {
@@ -2626,6 +2621,8 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
               uploadedAttachments,
             );
 
+            await _pendingUploadService.logDiag('UPDATE RESULT: $updated');
+
             if (updated) {
               if (kDebugMode) print('✅ [UPLOAD] ${uploadedAttachments.length} attachments added to message $sentMessageId');
               // Upload + update OK → rimuovi pending e file temporanei
@@ -2633,6 +2630,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
               for (final p in permanentPaths) {
                 try { await File(p).delete(); } catch (_) {}
               }
+              await _pendingUploadService.logDiag('CLEANUP DONE: pending removed, temp files deleted');
             } else {
               if (kDebugMode) print('⚠️ [UPLOAD] updateMessageAttachments returned false for $sentMessageId - will retry via pending');
             }
@@ -2641,6 +2639,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
           }
         } catch (e) {
           // Upload fallito → PendingUpload già salvato, riproverà al prossimo resume
+          await _pendingUploadService.logDiag('UPLOAD EXCEPTION: $e');
           if (kDebugMode) print('❌ [UPLOAD] Upload/update failed for message $sentMessageId: $e');
         }
       }
