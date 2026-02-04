@@ -75,6 +75,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   String? _editingMessageSenderId; // SenderId del messaggio in modifica (per decriptare allegati)
   final PendingUploadService _pendingUploadService = PendingUploadService();
   Timer? _pendingUploadRetryTimer; // Riprova pending uploads ogni 15s
+  bool _isProcessingPending = false; // Guard contro esecuzioni concorrenti
 
   // Method Channel per condivisione file da altre app (iOS)
   static const platform = MethodChannel('com.privatemessaging.tuyjo/shared_media');
@@ -783,7 +784,15 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
         pairingService.startBackgroundUnpairListener();
       }
 
-      // OFFLINE QUEUE: Carica e processa pending uploads (in background)
+      // OFFLINE QUEUE: Diagnostica + processa pending uploads
+      // Log diagnostico all'avvio per capire se i dati sono persistiti
+      if (kDebugMode) {
+        final allPending = await _pendingUploadService.getPendingUploads();
+        print('📋 [STARTUP] Pending uploads on disk: ${allPending.length}');
+        for (final p in allPending) {
+          print('   - ${p.id} → msg ${p.messageId}, files: ${p.filePaths.length}');
+        }
+      }
       _processPendingUploads();
       // Timer periodico: riprova pending uploads ogni 15 secondi
       // (copre il caso in cui si torna online senza passare per background/foreground)
@@ -802,37 +811,31 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
 
   /// Prova a uploadare i file in coda (foto che non erano riuscite a caricarsi offline).
   Future<void> _processPendingUploads() async {
-    if (kDebugMode) {
-      print('🔄 [PENDING] _processPendingUploads called');
-      print('   _familyChatId: ${_familyChatId == null ? "NULL" : "OK"}');
-      print('   _myDeviceId: ${_myDeviceId == null ? "NULL" : "OK"}');
-      print('   _attachmentService: ${_attachmentService == null ? "NULL" : "OK"}');
-      print('   mounted: $mounted');
-    }
-
-    if (_familyChatId == null || _myDeviceId == null || _attachmentService == null) return;
-    if (!mounted) return;
+    // Guard: evita esecuzioni concorrenti (timer + init + resume)
+    if (_isProcessingPending) return;
+    _isProcessingPending = true;
 
     try {
+      if (_familyChatId == null || _myDeviceId == null || _attachmentService == null) return;
+      if (!mounted) return;
+
       final chatService = Provider.of<ChatService>(context, listen: false);
 
-      // Log ALL pending uploads (not just for this family) to diagnose persistence
       final allPending = await _pendingUploadService.getPendingUploads();
-      if (kDebugMode) print('🔄 [PENDING] Total pending uploads in SharedPreferences: ${allPending.length}');
+      final pending = allPending.where((u) => u.familyChatId == _familyChatId).toList();
 
-      final pending = await _pendingUploadService.getPendingUploadsForFamily(_familyChatId!);
-      if (kDebugMode) print('🔄 [PENDING] Pending for this family: ${pending.length}');
+      if (kDebugMode && allPending.isNotEmpty) {
+        print('🔄 [PENDING] Total on disk: ${allPending.length}, for this family: ${pending.length}');
+      }
 
-      if (pending.isEmpty) return; // Niente da fare
+      if (pending.isEmpty) return;
 
       for (final p in pending) {
         if (kDebugMode) {
-          print('🔄 [PENDING]   - id: ${p.id}');
-          print('     messageId: ${p.messageId}');
-          print('     files: ${p.filePaths.length}');
+          print('🔄 [PENDING] Queued: ${p.id} → msg ${p.messageId}');
           for (final fp in p.filePaths) {
             final exists = await File(fp).exists();
-            print('     file: $fp (exists: $exists)');
+            print('   file: $fp (exists: $exists)');
           }
         }
       }
@@ -844,13 +847,12 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       );
 
       if (mounted && kDebugMode) {
-        print('🔄 [PENDING] Result: $successCount/${pending.length} processed successfully');
+        print('🔄 [PENDING] Result: $successCount/${pending.length} processed');
       }
-    } catch (e, stackTrace) {
-      if (kDebugMode) {
-        print('❌ [PENDING] Error processing pending uploads: $e');
-        print('   Stack: ${stackTrace.toString().split('\n').take(3).join('\n')}');
-      }
+    } catch (e) {
+      if (kDebugMode) print('❌ [PENDING] Error: $e');
+    } finally {
+      _isProcessingPending = false;
     }
   }
 
@@ -3721,11 +3723,29 @@ class _MessageBubble extends StatelessWidget {
             }
           }
           // Fallback: file non esiste (ricevente) o tipo doc → loader
+          if (attachment.type == 'photo') {
+            // Foto: placeholder grande con spinner centrato (come AttachmentImage loading)
+            return ClipRRect(
+              borderRadius: BorderRadius.circular(12),
+              child: Container(
+                width: 200,
+                height: 200,
+                color: isMe ? Colors.white.withOpacity(0.1) : Colors.grey[200],
+                child: const Center(
+                  child: SizedBox(
+                    width: 28, height: 28,
+                    child: CircularProgressIndicator(strokeWidth: 2.5),
+                  ),
+                ),
+              ),
+            );
+          }
+          // Documenti: loader compatto con nome file
           return ClipRRect(
             borderRadius: BorderRadius.circular(12),
             child: Container(
               width: 200,
-              height: attachment.type == 'photo' ? 150 : 56,
+              height: 56,
               color: isMe ? Colors.white24 : Colors.grey.shade200,
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.center,

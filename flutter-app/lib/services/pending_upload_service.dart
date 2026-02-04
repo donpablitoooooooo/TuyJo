@@ -114,9 +114,17 @@ class PendingUploadService {
     final uploads = await getPendingUploads();
     uploads.add(upload);
     await _writeQueue(uploads);
+
+    // Verifica read-back: rileggi immediatamente per confermare persistenza
+    final verifyFile = await _getQueueFile();
+    final verifyExists = await verifyFile.exists();
+    final verifySize = verifyExists ? await verifyFile.length() : 0;
+
     if (kDebugMode) {
       print('💾 [PENDING] Queued ${upload.filePaths.length} files for message ${upload.messageId}');
       print('   PendingUpload id: ${upload.id}');
+      print('   File path: ${verifyFile.path}');
+      print('   File exists: $verifyExists, size: $verifySize bytes');
     }
   }
 
