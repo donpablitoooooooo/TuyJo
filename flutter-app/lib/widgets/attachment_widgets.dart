@@ -4,14 +4,12 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:open_filex/open_filex.dart';
-import 'package:provider/provider.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:private_messaging/generated/l10n/app_localizations.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../models/message.dart';
 import '../services/attachment_service.dart';
-import '../services/location_service.dart';
 import '../screens/pdf_viewer_screen.dart';
 
 /// Widget per visualizzare allegati immagine (decifrato)
@@ -753,42 +751,27 @@ class AttachmentLocationShare extends StatelessWidget {
     return false;
   }
 
+  /// Estrae la modalità (live/static) dal messaggio
+  String _getMode() {
+    if (message.decryptedContent != null && message.decryptedContent!.contains('|')) {
+      final parts = message.decryptedContent!.split('|');
+      // Formato: location_share|expiresAt|sessionId|mode
+      if (parts.length >= 4 && (parts[3] == 'live' || parts[3] == 'static')) {
+        return parts[3];
+      }
+    }
+    return 'live'; // Default per retrocompatibilità
+  }
+
   @override
   Widget build(BuildContext context) {
-    final locationService = Provider.of<LocationService>(context);
-    final messageSessionId = _getSessionId();
     final isExpired = _isExpired();
-
-    // Verifica se questa è una sessione vecchia (non più attiva)
-    final isOldSession = locationService.currentSessionId != null &&
-        messageSessionId.isNotEmpty &&
-        messageSessionId != locationService.currentSessionId;
-
-    // Verifica se il mittente (isMe) ha fermato la condivisione
-    // IMPORTANTE: controlla solo per i MIEI messaggi, non quelli ricevuti!
-    final isSharingStoppedByOwner = isMe &&
-        messageSessionId.isNotEmpty &&
-        locationService.currentSessionId == null &&
-        !locationService.isSharingLocation;
-
-    // Verifica se il PARTNER ha fermato (per destinatario che vede messaggio mittente)
-    // Se non sto condividendo E il partner location è null o inattiva, consideralo terminato
-    final isPartnerStopped = !isMe &&
-        messageSessionId.isNotEmpty &&
-        (locationService.partnerLocation == null ||
-         !locationService.partnerLocation!.isActive ||
-         locationService.partnerLocation!.sessionId != messageSessionId);
 
     // Verifica se la condivisione è stata interrotta tramite action "stop_sharing"
     final hasStopAction = message.action?.type == 'stop_sharing';
 
-    // Condivisione terminata se:
-    // - Scaduta
-    // - Sessione vecchia (ne è stata aperta una nuova)
-    // - Action "stop_sharing" presente
-    // - IO (mittente) ho fermato manualmente (solo se isMe)
-    // - PARTNER ha fermato (solo se !isMe)
-    final isTerminated = isExpired || isOldSession || hasStopAction || isSharingStoppedByOwner || isPartnerStopped;
+    // Semplificato: attiva fino a stop manuale o scadenza temporale
+    final isTerminated = isExpired || hasStopAction;
 
     // Testo della bubble
     final l10n = AppLocalizations.of(context)!;

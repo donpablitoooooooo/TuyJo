@@ -229,6 +229,20 @@
     "locationShareTimeAgoHours": "{hours}h fa",
     "locationShareStatusEnded": "Condivisione terminata",
     "locationShareStatusActive": "Condivisione attiva",
+    "locationShareAcquiringGps": "Acquisizione segnale GPS...",
+    "locationShareYourPosition": "Questa è la tua posizione",
+    "locationShareAccuracy": "Precisione: {meters} m",
+    "@locationShareAccuracy": {
+        "placeholders": {
+            "meters": {"type": "int"}
+        }
+    },
+    "locationShareDurationLabel": "Durata",
+    "locationShareModeLabel": "Modalità",
+    "locationShareModeLive": "Live",
+    "locationShareModeStatic": "Questa posizione",
+    "locationShareModeLiveDesc": "Entrambi navigherete uno verso l'altro",
+    "locationShareModeStaticDesc": "Il tuo partner navigherà verso la tua posizione attuale",
     "todoSelectDay": "Seleziona un giorno",
     "todoConfirm": "Conferma",
     "todoAddAlertAndConfirm": "Aggiungi alert e conferma",

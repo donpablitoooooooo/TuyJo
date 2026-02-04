@@ -15,7 +15,6 @@ import 'package:flutter_linkify/flutter_linkify.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:table_calendar/table_calendar.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:uuid/uuid.dart';
 import 'package:private_messaging/generated/l10n/app_localizations.dart';
 import '../services/pairing_service.dart';
 import '../services/chat_service.dart';
@@ -26,6 +25,7 @@ import '../services/location_service.dart';
 import '../services/link_metadata_service.dart';
 import '../services/pending_upload_service.dart';
 import '../models/message.dart';
+import 'location_share_setup_page.dart';
 import '../widgets/todo_bubble.dart';
 import '../widgets/attachment_widgets.dart';
 import '../widgets/reaction_picker.dart';
@@ -1465,109 +1465,12 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
 
   /// Mostra dialog per scegliere durata condivisione posizione
   void _showLocationSharingDialog() async {
-    final l10n = AppLocalizations.of(context)!;
-    final result = await showDialog<Duration>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: Text(l10n.locationShareDialogTitle),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(l10n.locationShareDialogQuestion),
-            const SizedBox(height: 8),
-            Text(
-              l10n.locationShareDialogDescription,
-              style: const TextStyle(fontSize: 12, color: Colors.grey),
-            ),
-          ],
-        ),
-        actions: [
-          Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              ElevatedButton(
-                onPressed: () => Navigator.pop(context, const Duration(hours: 1)),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF3BA8B0),
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(vertical: 12),
-                ),
-                child: Text(l10n.locationShareDuration1Hour, style: const TextStyle(fontSize: 16)),
-              ),
-              const SizedBox(height: 8),
-              ElevatedButton(
-                onPressed: () => Navigator.pop(context, const Duration(hours: 8)),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF3BA8B0),
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(vertical: 12),
-                ),
-                child: Text(l10n.locationShareDuration8Hours, style: const TextStyle(fontSize: 16)),
-              ),
-              const SizedBox(height: 8),
-              TextButton(
-                onPressed: () => Navigator.pop(context),
-                child: Text(l10n.locationShareCancel),
-              ),
-            ],
-          ),
-        ],
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => const LocationShareSetupPage(),
       ),
     );
-
-    if (result != null && mounted) {
-      final locationService = Provider.of<LocationService>(context, listen: false);
-      final chatService = Provider.of<ChatService>(context, listen: false);
-      final pairingService = Provider.of<PairingService>(context, listen: false);
-      final encryptionService = Provider.of<EncryptionService>(context, listen: false);
-
-      final familyChatId = await pairingService.getFamilyChatId();
-      final myDeviceId = await pairingService.getMyUserId();
-      final myPublicKey = await encryptionService.getPublicKey();
-      final partnerPublicKey = pairingService.partnerPublicKey;
-
-      if (familyChatId == null || myDeviceId == null ||
-          myPublicKey == null || partnerPublicKey == null) {
-        if (mounted) {
-          final l10n = AppLocalizations.of(context)!;
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(l10n.locationShareErrorPairing),
-              duration: const Duration(seconds: 5),
-              backgroundColor: Colors.red[700],
-            ),
-          );
-        }
-        return;
-      }
-
-      // 1) Prepara sessione così la UI mostra subito "attiva"
-      final sessionId = const Uuid().v4();
-      final expiresAt = DateTime.now().add(result);
-      locationService.prepareSession(sessionId, result);
-
-      // 2) Manda il messaggio su Firestore (funziona anche offline)
-      final messageId = await chatService.sendLocationShare(
-        expiresAt,
-        sessionId,
-        familyChatId,
-        myDeviceId,
-        myPublicKey,
-        partnerPublicKey,
-      );
-
-      if (messageId != null) {
-        locationService.setLocationShareMessageId(messageId);
-      }
-
-      // 3) Avvia GPS sharing (best-effort, se fallisce il messaggio esiste già)
-      final success = await locationService.startSharingLocation(result, sessionId: sessionId);
-      if (!success && mounted) {
-        if (kDebugMode) print('⚠️ [LOCATION] GPS sharing failed, but message was sent to Firestore');
-      }
-    }
   }
 
   /// Costruisce un'opzione per il menu di selezione alert
@@ -3795,23 +3698,28 @@ class _MessageBubble extends StatelessWidget {
           message: messageObject!,
           isMe: isMe,
           onTap: () {
-            // Estrai sessionId dal body del messaggio
-            // Formato: "location_share|expiresAt|sessionId"
+            // Estrai sessionId e mode dal body del messaggio
+            // Formato: "location_share|expiresAt|sessionId|mode"
             String sessionId = '';
+            String mode = 'live';
             if (messageObject?.decryptedContent != null) {
               final parts = messageObject?.decryptedContent?.split('|') ?? [];
               if (parts.length >= 3) {
-                sessionId = parts[2]; // sessionId è il terzo elemento
+                sessionId = parts[2];
+              }
+              if (parts.length >= 4 && (parts[3] == 'live' || parts[3] == 'static')) {
+                mode = parts[3];
               }
             }
 
-            // Apri schermata di navigazione con sessionId
+            // Apri schermata di navigazione con sessionId e mode
             Navigator.push(
               context,
               MaterialPageRoute(
                 builder: (context) => LocationSharingScreen(
                   expectedSessionId: sessionId,
-                  isSender: isMe, // Passa se l'utente è il mittente
+                  isSender: isMe,
+                  mode: mode,
                 ),
               ),
             );
