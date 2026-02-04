@@ -3749,57 +3749,101 @@ class _MessageBubble extends StatelessWidget {
               );
             }
           }
-          // Fallback: file non esiste (ricevente) o tipo doc → loader
+          // Fallback: file non esiste (ricevente) o tipo doc
           if (attachment.type == 'photo') {
-            // Foto: placeholder grande con spinner centrato (come AttachmentImage loading)
+            if (isMe) {
+              // Mittente: il file locale è sparito (app restart) → spinner per retry
+              return ClipRRect(
+                borderRadius: BorderRadius.circular(12),
+                child: Container(
+                  width: 200,
+                  height: 200,
+                  color: Colors.white.withOpacity(0.1),
+                  child: const Center(
+                    child: SizedBox(
+                      width: 28, height: 28,
+                      child: CircularProgressIndicator(strokeWidth: 2.5),
+                    ),
+                  ),
+                ),
+              );
+            } else {
+              // Ricevente: il mittente sta caricando la foto.
+              // Mostra placeholder statico (no spinner) perché il ricevente
+              // non può fare nulla — deve aspettare che il mittente carichi.
+              return ClipRRect(
+                borderRadius: BorderRadius.circular(12),
+                child: Container(
+                  width: 200,
+                  height: 200,
+                  color: Colors.grey[200],
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(Icons.photo_outlined, size: 40, color: Colors.grey[400]),
+                      const SizedBox(height: 8),
+                      Icon(Icons.cloud_upload_outlined, size: 20, color: Colors.grey[400]),
+                    ],
+                  ),
+                ),
+              );
+            }
+          }
+          // Documenti: placeholder con nome file
+          if (isMe) {
+            // Mittente: spinner di upload
             return ClipRRect(
               borderRadius: BorderRadius.circular(12),
               child: Container(
                 width: 200,
-                height: 200,
-                color: isMe ? Colors.white.withOpacity(0.1) : Colors.grey[200],
-                child: const Center(
-                  child: SizedBox(
-                    width: 28, height: 28,
-                    child: CircularProgressIndicator(strokeWidth: 2.5),
-                  ),
+                height: 56,
+                color: Colors.white24,
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const SizedBox(
+                      width: 20, height: 20,
+                      child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white70),
+                    ),
+                    const SizedBox(width: 10),
+                    Flexible(
+                      child: Text(
+                        attachment.fileName,
+                        style: const TextStyle(color: Colors.white70, fontSize: 12),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          } else {
+            // Ricevente: placeholder statico
+            return ClipRRect(
+              borderRadius: BorderRadius.circular(12),
+              child: Container(
+                width: 200,
+                height: 56,
+                color: Colors.grey.shade200,
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(Icons.description_outlined, size: 20, color: Colors.grey.shade400),
+                    const SizedBox(width: 10),
+                    Flexible(
+                      child: Text(
+                        attachment.fileName,
+                        style: TextStyle(color: Colors.grey.shade600, fontSize: 12),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ],
                 ),
               ),
             );
           }
-          // Documenti: loader compatto con nome file
-          return ClipRRect(
-            borderRadius: BorderRadius.circular(12),
-            child: Container(
-              width: 200,
-              height: 56,
-              color: isMe ? Colors.white24 : Colors.grey.shade200,
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  SizedBox(
-                    width: 20, height: 20,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2,
-                      color: isMe ? Colors.white70 : Colors.grey.shade500,
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  Flexible(
-                    child: Text(
-                      attachment.fileName,
-                      style: TextStyle(
-                        color: isMe ? Colors.white70 : Colors.grey.shade600,
-                        fontSize: 12,
-                      ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          );
         }
 
         if (attachment.type == 'photo') {
