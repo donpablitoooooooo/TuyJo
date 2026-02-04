@@ -2503,9 +2503,9 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
         print('   Attachments: ${attachments.length}');
       }
 
-      // 1) Crea placeholder con path locale per ogni allegato
-      //    Il messaggio mostra subito la foto/doc dal file locale
-      //    Dopo l'upload, updateMessageAttachments lo sostituisce con l'URL reale
+      // 1) Crea placeholder per ogni allegato (URL vuoto = upload in corso)
+      //    AttachmentImage/AttachmentDocument gestiscono url.isEmpty con un loader
+      //    Dopo l'upload, updateMessageAttachments sostituisce con URL reale
       List<Attachment>? placeholderAttachments;
       if (attachments.isNotEmpty) {
         placeholderAttachments = attachments.map((file) {
@@ -2520,7 +2520,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
           return Attachment(
             id: 'ph_${DateTime.now().millisecondsSinceEpoch}_${fileName.hashCode}',
             type: type,
-            url: file.path, // path locale: verrà mostrato subito con Image.file
+            url: '', // vuoto: i widget mostrano loader finché l'upload non completa
             fileName: fileName,
             fileSize: 0,
             encryptedKeyRecipient: '',
@@ -3634,85 +3634,6 @@ class _MessageBubble extends StatelessWidget {
 
     return [
       ...attachments!.map((attachment) {
-        // Allegato in upload: URL è un path locale o vuoto (non ancora caricato su Storage)
-        final isLocalPath = attachment.url.startsWith('/');
-        final isUploading = attachment.url.isEmpty || (isLocalPath && attachment.encryptedKeyRecipient.isEmpty);
-
-        if (isUploading) {
-          // Se è un path locale e il file esiste, mostralo direttamente
-          if (isLocalPath && attachment.type == 'photo') {
-            final localFile = File(attachment.url);
-            if (localFile.existsSync()) {
-              return ClipRRect(
-                borderRadius: BorderRadius.circular(12),
-                child: Stack(
-                  children: [
-                    Image.file(
-                      localFile,
-                      width: 200,
-                      height: 200,
-                      fit: BoxFit.cover,
-                    ),
-                    // Overlay semi-trasparente con spinner
-                    Positioned.fill(
-                      child: Container(
-                        decoration: BoxDecoration(
-                          color: Colors.black26,
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: const Center(
-                          child: SizedBox(
-                            width: 28,
-                            height: 28,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2.5,
-                              color: Colors.white70,
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              );
-            }
-          }
-          // Fallback: file non trovato o tipo documento → loader generico
-          return ClipRRect(
-            borderRadius: BorderRadius.circular(12),
-            child: Container(
-              width: 200,
-              height: attachment.type == 'photo' ? 150 : 60,
-              color: isMe ? Colors.white24 : Colors.grey.shade200,
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  SizedBox(
-                    width: 20,
-                    height: 20,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2,
-                      color: isMe ? Colors.white70 : Colors.grey.shade500,
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  Flexible(
-                    child: Text(
-                      attachment.fileName,
-                      style: TextStyle(
-                        color: isMe ? Colors.white70 : Colors.grey.shade600,
-                        fontSize: 12,
-                      ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          );
-        }
-
         if (attachment.type == 'photo') {
           // Se ci sono link metadata, mostra immagine + title/description
           if (hasLinkMetadata) {
