@@ -597,73 +597,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
           const SizedBox(height: 24),
         ],
 
-        // Pairing Section
-        _SettingsSection(
-          title: AppLocalizations.of(context)!.settingsSectionPairing,
-          icon: Icons.favorite,
-          iconColor: const Color(0xFF3BA8B0),
-          children: [
-            if (isPaired) ...[
-              // Paired: mostra status e backup
-              Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: Colors.green[50],
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: Colors.green[200]!),
-                ),
-                child: Row(
-                  children: [
-                    Icon(Icons.check_circle, color: Colors.green[600]),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Text(
-                        AppLocalizations.of(context)!.settingsPairedStatus,
-                        style: const TextStyle(
-                          fontWeight: FontWeight.bold,
-                          color: Colors.green,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 16),
-              Text(
-                AppLocalizations.of(context)!.settingsSavePrivateKeyReminder,
-                style: const TextStyle(color: Colors.grey, fontSize: 14),
-              ),
-              const SizedBox(height: 12),
-              _OutlineButton(
-                onPressed: _copyPrivateKey,
-                icon: Icons.backup,
-                label: AppLocalizations.of(context)!.settingsBackupKeyButton,
-              ),
-            ] else ...[
-              // Unpaired: scelta Nuovo vs Ripristino
-              Text(
-                AppLocalizations.of(context)!.settingsChooseAction,
-                style: const TextStyle(color: Colors.grey, fontSize: 14),
-              ),
-              const SizedBox(height: 16),
-              _PurpleButton(
-                onPressed: _showNewPairingDialog,
-                icon: Icons.favorite,
-                label: AppLocalizations.of(context)!.settingsNewPairingButton,
-              ),
-              const SizedBox(height: 12),
-              _OutlineButton(
-                onPressed: _showRestoreDialog,
-                icon: Icons.restore,
-                label: AppLocalizations.of(context)!.settingsRestoreFromBackupButton,
-              ),
-            ],
-          ],
-        ),
-
-        // Profile Photo Section (only if paired)
+        // Profile Photo Section (only if paired) — first when paired
         if (isPaired) ...[
-          const SizedBox(height: 24),
           _SettingsSection(
             title: AppLocalizations.of(context)!.settingsSectionProfilePhoto,
             icon: Icons.camera_alt,
@@ -737,7 +672,72 @@ class _SettingsScreenState extends State<SettingsScreen> {
               ),
             ],
           ),
+          const SizedBox(height: 24),
         ],
+
+        // Pairing Section
+        _SettingsSection(
+          title: AppLocalizations.of(context)!.settingsSectionPairing,
+          icon: Icons.favorite,
+          iconColor: const Color(0xFF3BA8B0),
+          children: [
+            if (isPaired) ...[
+              // Paired: mostra status e backup
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Colors.green[50],
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: Colors.green[200]!),
+                ),
+                child: Row(
+                  children: [
+                    Icon(Icons.check_circle, color: Colors.green[600]),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Text(
+                        AppLocalizations.of(context)!.settingsPairedStatus,
+                        style: const TextStyle(
+                          fontWeight: FontWeight.bold,
+                          color: Colors.green,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 16),
+              Text(
+                AppLocalizations.of(context)!.settingsSavePrivateKeyReminder,
+                style: const TextStyle(color: Colors.grey, fontSize: 14),
+              ),
+              const SizedBox(height: 12),
+              _OutlineButton(
+                onPressed: _copyPrivateKey,
+                icon: Icons.backup,
+                label: AppLocalizations.of(context)!.settingsBackupKeyButton,
+              ),
+            ] else ...[
+              // Unpaired: scelta Nuovo vs Ripristino
+              Text(
+                AppLocalizations.of(context)!.settingsChooseAction,
+                style: const TextStyle(color: Colors.grey, fontSize: 14),
+              ),
+              const SizedBox(height: 16),
+              _PurpleButton(
+                onPressed: _showNewPairingDialog,
+                icon: Icons.favorite,
+                label: AppLocalizations.of(context)!.settingsNewPairingButton,
+              ),
+              const SizedBox(height: 12),
+              _OutlineButton(
+                onPressed: _showRestoreDialog,
+                icon: Icons.restore,
+                label: AppLocalizations.of(context)!.settingsRestoreFromBackupButton,
+              ),
+            ],
+          ],
+        ),
 
         // Delete Section (only if paired)
         if (isPaired) ...[

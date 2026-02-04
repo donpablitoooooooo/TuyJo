@@ -6,6 +6,7 @@ import 'package:intl/intl.dart';
 import 'package:open_filex/open_filex.dart';
 import 'package:provider/provider.dart';
 import 'package:path_provider/path_provider.dart';
+import 'package:share_plus/share_plus.dart';
 import 'package:private_messaging/generated/l10n/app_localizations.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../models/message.dart';
@@ -425,6 +426,9 @@ class _AttachmentDocumentState extends State<AttachmentDocument> {
 }
 
 /// Widget per visualizzare immagine a schermo intero con zoom
+/// Icona share platform-specific
+IconData get _platformShareIcon => Platform.isIOS ? Icons.ios_share : Icons.share;
+
 class FullscreenImageViewer extends StatefulWidget {
   final Attachment attachment;
   final AttachmentService attachmentService;
@@ -445,6 +449,27 @@ class FullscreenImageViewer extends StatefulWidget {
 
 class _FullscreenImageViewerState extends State<FullscreenImageViewer> {
   bool _showOverlay = true;
+  final TransformationController _transformController = TransformationController();
+
+  @override
+  void initState() {
+    super.initState();
+    _transformController.addListener(_onTransformChanged);
+  }
+
+  @override
+  void dispose() {
+    _transformController.removeListener(_onTransformChanged);
+    _transformController.dispose();
+    super.dispose();
+  }
+
+  void _onTransformChanged() {
+    final scale = _transformController.value.getMaxScaleOnAxis();
+    if (scale > 1.1 && _showOverlay) {
+      setState(() { _showOverlay = false; });
+    }
+  }
 
   void _toggleOverlay() {
     setState(() {
@@ -456,142 +481,186 @@ class _FullscreenImageViewerState extends State<FullscreenImageViewer> {
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
     return Scaffold(
-      backgroundColor: Colors.black,
-      body: GestureDetector(
-        onTap: _toggleOverlay,
-        child: Stack(
-          children: [
-            // Immagine full screen con zoom
-            Center(
-              child: FutureBuilder<Uint8List?>(
-                future: widget.attachmentService.downloadAndDecryptAttachment(
-                  widget.attachment,
-                  widget.currentUserId ?? '',
-                  widget.senderId ?? '',
-                  useThumbnail: false, // Carica immagine FULL RESOLUTION
-                ),
-                builder: (context, snapshot) {
-                  if (snapshot.connectionState == ConnectionState.waiting) {
-                    // Loading
-                    return Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        const CircularProgressIndicator(color: Colors.white),
-                        const SizedBox(height: 16),
-                        Text(
-                          l10n.chatLoadingImage,
-                          style: const TextStyle(color: Colors.white70),
-                        ),
-                      ],
-                    );
-                  }
-
-                  if (snapshot.hasError || !snapshot.hasData || snapshot.data == null) {
-                    // Errore
-                    return Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        const Icon(Icons.error, color: Colors.red, size: 64),
-                        const SizedBox(height: 16),
-                        Text(
-                          l10n.chatImageLoadError,
-                          style: const TextStyle(color: Colors.white70),
-                        ),
-                      ],
-                    );
-                  }
-
-                  // Immagine decifrata con zoom
-                  return InteractiveViewer(
-                    minScale: 0.5,
-                    maxScale: 4.0,
-                    child: Image.memory(
-                      snapshot.data!,
-                      fit: BoxFit.contain,
-                    ),
-                  );
-                },
-              ),
-            ),
-
-            // Overlay con animazione fade (pulsante chiudi in alto a destra)
-            AnimatedOpacity(
-              opacity: _showOverlay ? 1.0 : 0.0,
-              duration: const Duration(milliseconds: 200),
-              child: SafeArea(
-                child: Align(
-                  alignment: Alignment.topRight,
-                  child: Padding(
-                    padding: const EdgeInsets.all(16),
-                    child: IconButton(
-                      icon: const Icon(Icons.close, color: Colors.white, size: 32),
-                      onPressed: () => Navigator.of(context).pop(),
-                      style: IconButton.styleFrom(
-                        backgroundColor: Colors.black.withOpacity(0.5),
-                      ),
-                    ),
+      backgroundColor: const Color(0xFF145A60),
+      body: Container(
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [Color(0xFF3BA8B0), Color(0xFF145A60)],
+          ),
+        ),
+        child: GestureDetector(
+          onTap: _toggleOverlay,
+          child: Stack(
+            children: [
+              // Immagine full screen con zoom
+              Center(
+                child: FutureBuilder<Uint8List?>(
+                  future: widget.attachmentService.downloadAndDecryptAttachment(
+                    widget.attachment,
+                    widget.currentUserId ?? '',
+                    widget.senderId ?? '',
+                    useThumbnail: false,
                   ),
+                  builder: (context, snapshot) {
+                    if (snapshot.connectionState == ConnectionState.waiting) {
+                      return Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          const CircularProgressIndicator(color: Colors.white),
+                          const SizedBox(height: 16),
+                          Text(l10n.chatLoadingImage, style: const TextStyle(color: Colors.white70)),
+                        ],
+                      );
+                    }
+
+                    if (snapshot.hasError || !snapshot.hasData || snapshot.data == null) {
+                      return Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          const Icon(Icons.error, color: Colors.red, size: 64),
+                          const SizedBox(height: 16),
+                          Text(l10n.chatImageLoadError, style: const TextStyle(color: Colors.white70)),
+                        ],
+                      );
+                    }
+
+                    return InteractiveViewer(
+                      transformationController: _transformController,
+                      minScale: 0.5,
+                      maxScale: 4.0,
+                      child: Image.memory(snapshot.data!, fit: BoxFit.contain),
+                    );
+                  },
                 ),
               ),
-            ),
 
-            // Overlay con animazione fade (info file in basso)
-            AnimatedOpacity(
-              opacity: _showOverlay ? 1.0 : 0.0,
-              duration: const Duration(milliseconds: 200),
-              child: SafeArea(
-                child: Align(
-                  alignment: Alignment.bottomCenter,
-                  child: Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        begin: Alignment.bottomCenter,
-                        end: Alignment.topCenter,
-                        colors: [
-                          Colors.black.withOpacity(0.7),
-                          Colors.transparent,
+              // Top bar: X a sinistra, share a destra
+              AnimatedOpacity(
+                opacity: _showOverlay ? 1.0 : 0.0,
+                duration: const Duration(milliseconds: 200),
+                child: IgnorePointer(
+                  ignoring: !_showOverlay,
+                  child: SafeArea(
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          IconButton(
+                            icon: const Icon(Icons.close, color: Colors.white, size: 28),
+                            onPressed: () => Navigator.of(context).pop(),
+                          ),
+                          IconButton(
+                            icon: Icon(_platformShareIcon, color: Colors.white, size: 28),
+                            onPressed: () => _shareImage(context),
+                          ),
                         ],
                       ),
                     ),
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text(
-                          widget.attachment.fileName,
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 14,
-                            fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ),
+
+              // Bottom info
+              AnimatedOpacity(
+                opacity: _showOverlay ? 1.0 : 0.0,
+                duration: const Duration(milliseconds: 200),
+                child: IgnorePointer(
+                  ignoring: !_showOverlay,
+                  child: SafeArea(
+                    child: Align(
+                      alignment: Alignment.bottomCenter,
+                      child: Container(
+                        margin: const EdgeInsets.symmetric(horizontal: 32, vertical: 24),
+                        padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 24),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withOpacity(0.15),
+                          borderRadius: BorderRadius.circular(16),
+                          border: Border.all(
+                            color: Colors.white.withOpacity(0.2),
+                            width: 1,
                           ),
-                          textAlign: TextAlign.center,
                         ),
-                        const SizedBox(height: 4),
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
                           children: [
-                            const Icon(Icons.lock, color: Colors.white70, size: 14),
-                            const SizedBox(width: 4),
                             Text(
-                              'Cifrato E2E • ${widget.attachmentService.formatFileSize(widget.attachment.fileSize)}',
-                              style: const TextStyle(
-                                color: Colors.white70,
-                                fontSize: 12,
-                              ),
+                              widget.attachment.fileName,
+                              style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w500),
+                              textAlign: TextAlign.center,
+                            ),
+                            const SizedBox(height: 4),
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                const Icon(Icons.lock, color: Colors.white70, size: 14),
+                                const SizedBox(width: 4),
+                                Text(
+                                  'Cifrato E2E • ${_formatFileSize(widget.attachment.fileSize)}',
+                                  style: const TextStyle(color: Colors.white70, fontSize: 12),
+                                ),
+                              ],
                             ),
                           ],
                         ),
-                      ],
+                      ),
                     ),
                   ),
                 ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
+  }
+
+  Future<void> _shareImage(BuildContext context) async {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Row(
+          children: [
+            SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white)),
+            SizedBox(width: 12),
+            Text('Preparazione...'),
+          ],
+        ),
+        backgroundColor: Color(0xFF3BA8B0),
+        duration: Duration(seconds: 10),
+      ),
+    );
+
+    try {
+      final bytes = await widget.attachmentService.downloadAndDecryptAttachment(
+        widget.attachment,
+        widget.currentUserId ?? '',
+        widget.senderId ?? '',
+        useThumbnail: false,
+      );
+
+      if (bytes == null) {
+        if (mounted) ScaffoldMessenger.of(context).hideCurrentSnackBar();
+        return;
+      }
+
+      final tempDir = await getTemporaryDirectory();
+      final tempFile = File('${tempDir.path}/${widget.attachment.fileName}');
+      await tempFile.writeAsBytes(bytes);
+
+      if (mounted) ScaffoldMessenger.of(context).hideCurrentSnackBar();
+
+      await SharePlus.instance.share(ShareParams(files: [XFile(tempFile.path)]));
+    } catch (e) {
+      if (mounted) ScaffoldMessenger.of(context).hideCurrentSnackBar();
+    }
+  }
+
+  String _formatFileSize(int bytes) {
+    if (bytes < 1024) return '$bytes B';
+    if (bytes < 1024 * 1024) return '${(bytes / 1024).toStringAsFixed(1)} KB';
+    return '${(bytes / 1024 / 1024).toStringAsFixed(1)} MB';
   }
 }
 
