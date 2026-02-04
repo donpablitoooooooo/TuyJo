@@ -983,13 +983,9 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       // Modifica: popola i campi (per tutti i messaggi tranne location_share)
       if (kDebugMode) print('✏️ Editing message: $messageId');
 
-      final isPending = messageId.startsWith('pending_');
-
       setState(() {
-        // Per i pending, non settiamo _editingMessageId perché non esiste in Firestore
-        // Il messaggio pending verrà rimosso e l'utente invierà un nuovo messaggio
-        _editingMessageId = isPending ? null : messageId;
-        _editingMessageSenderId = isPending ? null : message.senderId;
+        _editingMessageId = messageId;
+        _editingMessageSenderId = message.senderId;
         _messageController.text = message.decryptedContent ?? '';
 
         // Popola gli allegati esistenti (solo quelli caricati con successo)
@@ -1012,12 +1008,6 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
         }
       });
 
-      // Se è pending, rimuovilo dalla lista (verrà ricreato al nuovo invio)
-      if (isPending) {
-        if (kDebugMode) print('🗑️ Removing pending message to allow re-send');
-        chatService.removePendingMessage(messageId);
-      }
-
       // Se è un todo, apri anche il calendario
       if (message.messageType == 'todo') {
         _showDateTimePicker();
@@ -1026,18 +1016,10 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       // Elimina: marca come deleted
       if (kDebugMode) print('🗑️ Deleting message: $messageId');
 
-      // Check if this is a pending message (still uploading)
-      final isPending = messageId.startsWith('pending_');
-
       // Elimina prima gli allegati se presenti
       if (message.attachments != null && message.attachments!.isNotEmpty && _attachmentService != null) {
         for (final attachment in message.attachments!) {
-          // Skip attachment deletion if URL is empty (still uploading)
-          if (attachment.url.isEmpty) {
-            if (kDebugMode) print('⏭️ Skipping empty attachment URL (still uploading)');
-            continue;
-          }
-
+          if (attachment.url.isEmpty) continue;
           try {
             await _attachmentService!.deleteAttachment(attachment.url);
             if (kDebugMode) print('🗑️ Deleted attachment: ${attachment.url}');
@@ -1047,15 +1029,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
         }
       }
 
-      // Handle pending vs normal messages differently
-      if (isPending) {
-        // Pending message - just remove from local list, don't try to update Firestore
-        if (kDebugMode) print('🗑️ Removing pending message locally');
-        chatService.removePendingMessage(messageId);
-      } else {
-        // Normal message - mark as deleted in Firestore
-        await chatService.deleteMessage(messageId, _familyChatId!);
-      }
+      await chatService.deleteMessage(messageId, _familyChatId!);
     } else {
       // Azione generica
       await chatService.addAction(
@@ -2319,28 +2293,6 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     final messageText = _messageController.text.trim();
     _messageController.clear(); // Clear subito per UX migliore
 
-    // Crea allegati placeholder per invio ottimistico
-    List<Attachment>? placeholderAttachments;
-    if (attachments.isNotEmpty) {
-      final timestamp = DateTime.now().millisecondsSinceEpoch;
-      placeholderAttachments = attachments.asMap().entries.map((entry) {
-        final index = entry.key;
-        final file = entry.value;
-        final fileName = file.path.split('/').last;
-        return Attachment(
-          id: 'uploading_${timestamp}_$index', // Aggiunge index per evitare duplicate keys
-          type: file.path.endsWith('.pdf') ? 'document' :
-                file.path.contains('video') ? 'video' : 'photo',
-          url: '', // URL vuoto indica che è in upload
-          fileName: fileName,
-          fileSize: 0,
-          encryptedKeyRecipient: '',
-          encryptedKeySender: '',
-          iv: '',
-        );
-      }).toList();
-    }
-
     // Salva reminderHours prima di resettare
     final reminderHours = _selectedReminderHours;
 
@@ -2551,8 +2503,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       print('   Content: $messageText');
       print('   Attachments: ${attachments.length}');
 
-      // 1) Manda SUBITO il messaggio su Firestore (testo, senza aspettare upload)
-      //    Firestore gestisce offline da solo → il messaggio appare istantaneamente
+      // 1) Manda SUBITO il messaggio su Firestore (Firestore gestisce offline)
       final sentMessageId = await chatService.sendMessage(
         messageText,
         _familyChatId!,
@@ -2563,8 +2514,8 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
 
       success = sentMessageId != null;
 
-      // 2) Se ci sono allegati, prova a uploadarli e mandarli come messaggio separato
-      if (attachments.isNotEmpty) {
+      // 2) Se ci sono allegati, uploada e aggiorna LO STESSO messaggio
+      if (attachments.isNotEmpty && sentMessageId != null) {
         try {
           final uploadedAttachments = await _attachmentService!.uploadMultipleAttachments(
             attachments,
@@ -2575,25 +2526,23 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
           );
 
           if (uploadedAttachments.isNotEmpty) {
-            // Upload OK → manda messaggio con allegati
-            await chatService.sendMessage(
-              '',
+            // Upload OK → aggiorna lo stesso messaggio con gli allegati
+            await chatService.updateMessageAttachments(
+              sentMessageId,
               _familyChatId!,
-              _myDeviceId!,
-              myPublicKey,
-              _partnerPublicKey!,
-              attachments: uploadedAttachments,
+              uploadedAttachments,
             );
-            if (kDebugMode) print('✅ ${uploadedAttachments.length} attachments sent');
+            if (kDebugMode) print('✅ ${uploadedAttachments.length} attachments added to message');
           }
         } catch (e) {
           if (kDebugMode) print('❌ Upload failed, queuing files: $e');
-          // Upload fallito → salva file per upload successivo
+          // Upload fallito → salva file per aggiornare il messaggio dopo
           try {
             final filePaths = attachments.map((f) => f.path).toList();
             final permanentPaths = await _pendingUploadService.copyFilesToPending(filePaths);
             await _pendingUploadService.addPendingUpload(PendingUpload(
               id: 'upload_${DateTime.now().millisecondsSinceEpoch}',
+              messageId: sentMessageId,
               familyChatId: _familyChatId!,
               senderId: _myDeviceId!,
               filePaths: permanentPaths,
@@ -2732,10 +2681,6 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                           itemBuilder: (context, index) {
                             final message = chatService.messages[index];
                             final isMe = message.senderId == _myDeviceId;
-
-                            if (kDebugMode && message.isPending == true) {
-                              print('🎨 [RENDER] Building pending message at index $index, id: ${message.id}');
-                            }
 
                             // Verifica se è un messaggio di completamento todo
                             if (message.messageType == 'todo_completed') {

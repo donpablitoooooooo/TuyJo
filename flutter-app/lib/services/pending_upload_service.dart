@@ -7,11 +7,12 @@ import 'package:path/path.dart' as p;
 import 'attachment_service.dart';
 import 'chat_service.dart';
 
-/// Pending file upload queued because Firebase Storage was offline.
-/// The text message was already sent to Firestore; these are just the files
-/// that need uploading + sending as a follow-up attachment message.
+/// File in coda perché Firebase Storage era offline.
+/// Il messaggio è già su Firestore; qui ci sono i file da uploadare
+/// e aggiungere allo STESSO messaggio quando si torna online.
 class PendingUpload {
   final String id;
+  final String messageId; // ID del messaggio Firestore da aggiornare
   final String familyChatId;
   final String senderId;
   final List<String> filePaths;
@@ -21,6 +22,7 @@ class PendingUpload {
 
   PendingUpload({
     required this.id,
+    required this.messageId,
     required this.familyChatId,
     required this.senderId,
     required this.filePaths,
@@ -31,6 +33,7 @@ class PendingUpload {
 
   Map<String, dynamic> toJson() => {
     'id': id,
+    'messageId': messageId,
     'familyChatId': familyChatId,
     'senderId': senderId,
     'filePaths': filePaths,
@@ -41,6 +44,7 @@ class PendingUpload {
 
   factory PendingUpload.fromJson(Map<String, dynamic> json) => PendingUpload(
     id: json['id'] ?? '',
+    messageId: json['messageId'] ?? '',
     familyChatId: json['familyChatId'] ?? '',
     senderId: json['senderId'] ?? '',
     filePaths: List<String>.from(json['filePaths'] ?? []),
@@ -51,8 +55,8 @@ class PendingUpload {
 }
 
 /// Coda per file che non sono riusciti a caricarsi su Firebase Storage (offline).
-/// Il messaggio di testo è già su Firestore; qui ci sono solo i file da uploadare
-/// e mandare come messaggio di follow-up quando si torna online.
+/// Il messaggio è già su Firestore; qui ci sono i file da uploadare e aggiungere
+/// allo stesso messaggio (update) quando si torna online.
 class PendingUploadService {
   static const String _prefsKey = 'pending_uploads';
 
@@ -139,7 +143,7 @@ class PendingUploadService {
     }
   }
 
-  /// Prova a uploadare i file in coda e mandarli come nuovi messaggi.
+  /// Prova a uploadare i file in coda e aggiornare il messaggio Firestore esistente.
   Future<int> processPendingUploads({
     required String familyChatId,
     required AttachmentService attachmentService,
@@ -184,26 +188,22 @@ class PendingUploadService {
         );
 
         if (uploadedAttachments.isNotEmpty) {
-          // Upload riuscito! Manda come nuovo messaggio con gli allegati
-          final messageId = await chatService.sendMessage(
-            '',
+          // Upload riuscito! Aggiorna lo STESSO messaggio con gli allegati
+          final updated = await chatService.updateMessageAttachments(
+            upload.messageId,
             upload.familyChatId,
-            upload.senderId,
-            upload.senderPublicKey,
-            upload.recipientPublicKey,
-            attachments: uploadedAttachments,
+            uploadedAttachments,
           );
 
-          if (messageId != null) {
+          if (updated) {
             await _cleanupFiles(upload);
             await removePendingUpload(upload.id);
             successCount++;
-            if (kDebugMode) print('✅ [PENDING] Upload ${upload.id} sent successfully');
+            if (kDebugMode) print('✅ [PENDING] Updated message ${upload.messageId} with attachments');
           }
         }
       } catch (e) {
         if (kDebugMode) print('❌ [PENDING] Upload ${upload.id} still failing: $e');
-        // Rimane in coda per il prossimo tentativo
       }
     }
 
