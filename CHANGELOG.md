@@ -1,6 +1,149 @@
 # Changelog
 
-All notable changes to YouAndMe app will be documented in this file.
+All notable changes to TuyJo app will be documented in this file.
+
+## [1.24.0] - 2026-02-05
+
+### 🔐 Encrypted Location Sharing & Voice Calls
+
+#### ✨ New Features
+
+- **Coordinate Encryption (AES-256)**
+  - GPS coordinates (latitude, longitude, accuracy, speed, heading) encrypted with per-session AES-256 key
+  - Location encryption key distributed via E2E encrypted chat message (RSA+AES dual-encrypted)
+  - Zero plaintext GPS data on Firestore - all coordinate fields replaced with `encrypted_location` + `location_iv`
+  - Backward compatible: falls back to unencrypted reads for old sessions
+
+- **Initial Coordinates in Message**
+  - Sender's GPS coordinates embedded in E2E encrypted location_share message body
+  - Receiver can navigate immediately without waiting for sender's Firestore data
+  - Body format: `location_share|expiresAt|sessionId|locationKey|mode|lat,lng`
+
+- **Full-Screen Location Setup Page**
+  - Dedicated `LocationShareSetupPage` with live GPS acquisition and pulse animation
+  - Mode selection: Live (continuous updates) or Static (single position)
+  - Duration picker: 1 hour or 8 hours
+  - GPS accuracy display and coordinates preview
+
+- **WebRTC Voice Calls**
+  - Peer-to-peer audio calls via WebRTC with Firestore signaling
+  - Native CallKit (iOS) and ConnectionService (Android) for incoming calls
+  - Call screen with mute, speaker, accept/decline controls
+  - Live duration timer (MM:SS) during connected calls
+  - Dark-themed UI with animated partner avatar
+  - STUN NAT traversal via Google servers
+  - Automatic cleanup of call data and ICE candidates
+
+#### 🔧 Technical Changes
+
+- `EncryptionService`: Added `generateLocationKey()`, `encryptLocationData()`, `decryptLocationData()`
+- `ChatService.sendLocationShare()`: Returns `Map<String, String>` with `messageId` + `locationKey`
+- `LocationService`: Now requires `EncryptionService` dependency, encrypts/decrypts coordinates
+- `LocationShare.fromEncryptedFirestore()`: New factory for decrypting Firestore documents
+- `LocationSharingScreen`: Added `initialLatitude`/`initialLongitude` parameters
+- Location key persisted in `FlutterSecureStorage` for app restart recovery
+- `.set()` without merge prevents plaintext coordinate leakage in Firestore
+- New `WebRTCService` for call management with Firestore signaling
+- New `VoiceCallScreen` with call state management and animated UI
+- `NotificationService` extended with CallKit/ConnectionService callbacks
+
+#### 🐛 Bug Fixes
+
+- ✅ Fixed plaintext coordinates remaining in Firestore alongside encrypted data (merge: true → set without merge)
+- ✅ Fixed body format parser indices after adding locationKey and mode fields
+
+### 📝 Files Modified
+
+- `flutter-app/lib/services/encryption_service.dart` (+ 3 location crypto methods)
+- `flutter-app/lib/services/chat_service.dart` (sendLocationShare return type + params)
+- `flutter-app/lib/services/location_service.dart` (encryption/decryption + EncryptionService dep)
+- `flutter-app/lib/services/webrtc_service.dart` (new - WebRTC call management)
+- `flutter-app/lib/models/location_share.dart` (+ fromEncryptedFirestore factory)
+- `flutter-app/lib/screens/location_sharing_screen.dart` (+ initial coords, recipient encryption)
+- `flutter-app/lib/screens/location_share_setup_page.dart` (+ coordinates + Map return handling)
+- `flutter-app/lib/screens/voice_call_screen.dart` (new - call UI)
+- `flutter-app/lib/screens/chat_screen.dart` (6-part body parsing + Map handling)
+- `flutter-app/lib/widgets/attachment_widgets.dart` (updated format indices)
+- `flutter-app/lib/main.dart` (LocationService(encryptionService) + call callbacks)
+- `flutter-app/pubspec.yaml` (1.23.0+26 → 1.24.0+27)
+
+---
+
+## [1.23.0] - 2026-02-03
+
+### 🔧 Offline Attachments & Fixes
+
+- **Offline Attachment Handling**: Improved retry logic for attachments sent while offline
+- **Pending Messages**: Reuse `_MessageBubble` for identical look and feel with sent messages
+
+---
+
+## [1.22.0] - 2026-01-31
+
+### 📞 Voice Call Integration
+
+- **WebRTC Service**: Peer connection management with STUN servers
+- **Voice Call Screen**: Animated UI with ringing/connected/ended states
+- **CallKit Integration**: Native incoming call UI on iOS and Android
+- **Call Button**: Floating call button in chat header (visible when paired)
+- **Audio Controls**: Mute and speaker toggle during calls
+
+---
+
+## [1.21.0] - 2026-01-29
+
+### 🔗 Link Preview & TODO Enhancements
+
+- Smart URL detection for www.example.com and bare domain URLs
+- Link preview extraction with Open Graph/Twitter meta tags
+- TODO alert indicator (🔔 1h, 🔔 2d) visible on bubbles
+- TODO editing indicator between calendar and list
+- Edit button restricted to own messages (cryptographic security)
+- Complete attachment deletion (Firebase Storage + cache)
+- Deleted flag persisted in SQLite cache across restarts
+
+---
+
+## [1.20.0] - 2026-01-28
+
+### 🖼️ Media Redesign
+
+- Pinterest-style link gallery with masonry grid layout
+- Redesigned media viewers with teal gradient
+- Platform-specific share icons (iOS/Android)
+- Version display in Settings screen
+
+---
+
+## [1.14.0] - 2026-01-21
+
+### 📍 Location Sharing & Production Ready
+
+- Real-time location sharing with live navigation and compass
+- Complete localization - all UI elements in 4 languages (IT, ES, EN, CA)
+- Edit and delete pending messages
+- Streamlined 3-tab navigation (Chat, Media, Settings)
+
+---
+
+## [1.13.0] - 2026-01-15
+
+### 📱 iOS Photo Sharing
+
+- Native iOS photo sharing from Photos app via Share Extension
+- File cleanup timing, build dependencies, localizations fixes
+- Caches directory usage, project structure cleanup
+
+---
+
+## [1.12.0] - 2026-01-10
+
+### 🚀 Store Releases
+
+- iOS TestFlight release (Build 14)
+- Android Firebase release (Build 13)
+
+---
 
 ## [1.11.0] - 2026-01-09
 
