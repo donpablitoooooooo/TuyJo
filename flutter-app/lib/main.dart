@@ -39,7 +39,7 @@ void main() async {
     pairingService: pairingService,
   );
   final attachmentService = AttachmentService(encryptionService: encryptionService);
-  final locationService = LocationService();
+  final locationService = LocationService(encryptionService);
   locationService.restoreSessionIfNeeded(); // Ripristina condivisione posizione se era attiva
 
   // Configura callback per pulizia cache quando il partner richiede la cancellazione

@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import '../services/encryption_service.dart';
 
 /// Modello per la condivisione della posizione in tempo reale
 class LocationShare {
@@ -57,6 +58,52 @@ class LocationShare {
       expiresAt: parseExpiresAt(data['expires_at']),
       speed: data['speed'] != null ? (data['speed'] as num).toDouble() : null,
       heading: data['heading'] != null ? (data['heading'] as num).toDouble() : null,
+      isActive: data['is_active'] ?? true,
+    );
+  }
+
+  /// Factory per creare da Firestore con coordinate cifrate (AES-256)
+  /// Decifra encrypted_location usando la chiave di sessione
+  factory LocationShare.fromEncryptedFirestore(
+    String docId,
+    Map<String, dynamic> data,
+    String locationKeyBase64,
+    EncryptionService encryptionService,
+  ) {
+    // Timestamp può essere Timestamp Firestore o int (secondi)
+    DateTime parseTimestamp(dynamic value) {
+      if (value == null) return DateTime.now();
+      if (value is Timestamp) return value.toDate();
+      if (value is int) return DateTime.fromMillisecondsSinceEpoch(value * 1000);
+      return DateTime.now();
+    }
+
+    // ExpiresAt può essere Timestamp o String ISO8601
+    DateTime parseExpiresAt(dynamic value) {
+      if (value == null) return DateTime.now();
+      if (value is Timestamp) return value.toDate();
+      if (value is String) return DateTime.parse(value);
+      return DateTime.now();
+    }
+
+    // Decifra le coordinate
+    final decrypted = encryptionService.decryptLocationData(
+      data['encrypted_location'] as String,
+      data['location_iv'] as String,
+      locationKeyBase64,
+    );
+
+    return LocationShare(
+      id: docId,
+      userId: data['user_id'] ?? '',
+      sessionId: data['session_id'] ?? '',
+      latitude: (decrypted['lat'] ?? 0.0).toDouble(),
+      longitude: (decrypted['lng'] ?? 0.0).toDouble(),
+      accuracy: (decrypted['acc'] ?? 0.0).toDouble(),
+      timestamp: parseTimestamp(data['timestamp']),
+      expiresAt: parseExpiresAt(data['expires_at']),
+      speed: decrypted['spd'] != null ? (decrypted['spd'] as num).toDouble() : null,
+      heading: decrypted['hdg'] != null ? (decrypted['hdg'] as num).toDouble() : null,
       isActive: data['is_active'] ?? true,
     );
   }

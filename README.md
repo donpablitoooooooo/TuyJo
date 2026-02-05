@@ -1,6 +1,6 @@
 # Tuijo - Private Messaging & Family Organization App
 
-**Version:** 1.21.0 (Build 23) | **Status:** 🚀 Production Ready
+**Version:** 1.24.0 (Build 27) | **Status:** 🚀 Production Ready
 
 [![Flutter](https://img.shields.io/badge/Flutter-3.x-blue)](https://flutter.dev)
 [![Firebase](https://img.shields.io/badge/Firebase-Firestore-orange)](https://firebase.google.com)
@@ -19,13 +19,24 @@ A secure, end-to-end encrypted messaging and family organization app built with 
 - **Typing Indicator**: See when your partner is typing
 - **Rich Attachments**: Share photos, videos, and documents with E2E encryption
 
-### 📍 Real-Time Location Sharing (NEW!)
+### 📍 Real-Time Location Sharing
 - **Live Position Tracking**: Share your real-time GPS location with your partner for 1 or 8 hours
+- **Encrypted Coordinates**: GPS data (lat, lng, accuracy, speed, heading) encrypted with per-session AES-256 key
+- **Full-Screen Setup Page**: Dedicated page with GPS acquisition, duration and mode (live/static) selection
+- **Initial Coordinates in Message**: Receiver can navigate immediately using coordinates embedded in E2E encrypted message
 - **Interactive Navigation**: Visual radar interface with directional arrow pointing to partner's position
 - **Distance Display**: See exact distance (meters/km) and time since last update
 - **Compass Integration**: Arrow rotates based on your device orientation and partner's direction
-- **Privacy First**: Location data encrypted and automatically deleted after session expires
+- **Privacy First**: Location data encrypted end-to-end, no plaintext coordinates on server
 - **Session Management**: Stop sharing anytime, partner notified immediately
+
+### 📞 Voice Calls (NEW!)
+- **Peer-to-Peer Audio**: Direct WebRTC audio calls between paired devices
+- **Native Call UI**: iOS CallKit and Android ConnectionService for native incoming call experience
+- **Call Controls**: Mute, speaker, accept/decline with intuitive dark-themed UI
+- **Call Duration**: Live timer display during connected calls
+- **Firestore Signaling**: Uses existing Firebase infrastructure for call signaling (no external servers)
+- **STUN NAT Traversal**: Automatic NAT traversal via Google STUN servers
 
 ### 📱 iOS Photo Sharing
 - **Native iOS Integration**: Share photos directly from iOS Photos app to Tuijo
@@ -56,45 +67,28 @@ A secure, end-to-end encrypted messaging and family organization app built with 
 
 ---
 
-## 🚀 What's New in 1.21.0 - Link Preview & TODO Enhancements
+## 🚀 What's New in 1.24.0 - Encrypted Location & Voice Calls
 
-### 🔗 Smart Link Detection (NEW!)
-- **Automatic URL Recognition**: Detects URLs without protocol (www.example.com, example.com)
-- **Link Preview Extraction**: Automatically fetches title, description, and preview image from Open Graph/Twitter meta tags
-- **TLD Whitelist**: Supports 25+ common TLDs (.com, .org, .it, .co, .io, etc.)
-- **Protocol Normalization**: Adds https:// automatically to detected URLs
+### 🔐 Encrypted Location Coordinates (NEW!)
+- **Per-Session AES-256**: Each location sharing session generates a unique encryption key
+- **Zero Plaintext on Server**: GPS coordinates (lat, lng, accuracy, speed, heading) are AES-256 encrypted before writing to Firestore
+- **Key Distribution via E2E Message**: Location encryption key is embedded in the already RSA+AES dual-encrypted chat message
+- **Initial Coordinates in Message**: Sender's GPS position included in encrypted message so receiver can navigate immediately
+- **Full-Screen Setup Page**: Dedicated location sharing setup with live GPS acquisition, mode selection (live/static), and duration picker
+- **Key Persistence**: Location key stored in FlutterSecureStorage for app restart recovery
 
-### 🔔 TODO Alert Indicator (NEW!)
-- **Visual Alert Badge**: TODO bubbles now display reminder time (🔔 1h, 🔔 2d)
-- **Localized Format**: Days shown in local language (IT: "g", others: "d")
-- **Alert Hours Storage**: alertHours field persisted in message model
-
-### 📅 TODO Calendar Improvements (NEW!)
-- **Editing Indicator**: Chat-style bubble shows what TODO is being created/edited
-- **Teal Gradient Design**: Editing indicator matches app theme
-- **Modal Fix**: Calendar modal now closes properly when editing from TODO list
+### 📞 WebRTC Voice Calls (NEW!)
+- **Peer-to-Peer Audio**: Direct audio calls via WebRTC with Firestore signaling
+- **Native CallKit (iOS)**: Incoming calls show native iOS call UI with lockscreen support
+- **Android ConnectionService**: Native incoming call notifications on Android
+- **Call Controls**: Mute, speaker toggle, accept/decline buttons
+- **Live Duration Timer**: MM:SS format timer during connected calls
+- **Dark-Themed UI**: Elegant call screen with animated partner avatar
+- **Automatic Cleanup**: Call data and ICE candidates cleaned from Firestore after call ends
 
 ### 🔒 Security Enhancements
-- **Edit Own Messages Only**: Edit button now restricted to own messages (cryptographic security)
-- **Reminder Filtering**: TODO reminders no longer appear in media section (prevents duplicates)
-- **Deleted Flag Persistence**: SQLite cache now persists deleted status across app restarts
-
-### 🗑️ Complete Attachment Deletion
-- **Firebase Storage Cleanup**: Deleting TODO/message removes attachments from Storage
-- **Cache Cleanup**: Local cache also cleared when attachments deleted
-- **Notification Cancellation**: Deleting TODO cancels any scheduled reminders
-
-### 🐛 Bug Fixes
-- ✅ Fixed URL not detected when typed (vs pasted from iOS share)
-- ✅ Fixed deleted attachments still appearing in media section
-- ✅ Fixed modal stacking when editing TODO from calendar list
-- ✅ Fixed reminders showing duplicate attachments in media section
-
-### Technical Improvements
-- Added `alertHours` field to Message model
-- New URL detection regex patterns for www. and bare domain URLs
-- SQLite cache migration v6 for deleted flag
-- Localization strings for alertShortHours/alertShortDays in all 4 languages
+- **No Plaintext Coordinates**: `.set()` without merge prevents any plaintext coordinate leakage in Firestore
+- **Backward Compatible**: Falls back to unencrypted reads for old location sharing sessions
 
 ---
 
@@ -199,6 +193,13 @@ flutter build appbundle --release
 - Files encrypted with AES-256 before upload
 - Encryption key encrypted with RSA for both sender and recipient
 - Firebase Storage contains only encrypted binaries
+
+**Location Sharing Encryption**:
+1. Sender generates a random AES-256 key for the location session
+2. Key is embedded in the E2E encrypted location_share message (RSA+AES dual-encrypted)
+3. GPS coordinates are AES-256 encrypted before writing to Firestore
+4. Receiver extracts location key from decrypted message to decrypt coordinates
+5. No plaintext GPS data ever stored on server
 
 ### iOS Security Features
 - **Security Scoped Resources**: Proper file access permissions
@@ -305,15 +306,20 @@ platform.setMethodCallHandler((call) async {
 - `pointycastle: 3.9.1` - RSA & AES encryption
 - `encrypt: 5.0.3` - Encryption utilities
 
+### Voice Calls
+- `flutter_webrtc: 0.12.4` - WebRTC peer-to-peer audio
+- `flutter_callkit_incoming: 3.0.0` - Native CallKit (iOS) + ConnectionService (Android)
+
 ### UI & Utilities
 - `provider: 6.1.5` - State management
 - `intl: 0.20.2` - Internationalization
-- `image_picker: 1.1.2` - Camera & gallery
-- `file_picker: 8.1.6` - Document picker
+- `image_picker: 1.2.1` - Camera & gallery
+- `file_picker: 10.3.10` - Document picker
 - `qr_flutter: 4.1.0` - QR code generation
 - `mobile_scanner: 7.1.4` - QR code scanning
-- `image_cropper: 8.0.2` - Circular crop for couple selfie
-- `sqflite: 2.3.0` - Local message cache
+- `image_cropper: 11.0.0` - Circular crop for couple selfie
+- `sqflite: 2.4.2` - Local message cache
+- `geolocator: 13.0.2` - GPS location services
 
 ---
 
@@ -354,7 +360,9 @@ platform.setMethodCallHandler((call) async {
 - [x] TestFlight beta testing completed
 - [x] Pending message edit/delete functionality
 - [x] Calendar screen removed, integrated into chat
-- [x] Version bumped to 1.21.0 (Build 23)
+- [x] Voice calls with WebRTC + native CallKit
+- [x] Encrypted location coordinates (AES-256)
+- [x] Version bumped to 1.24.0 (Build 27)
 
 ### App Store Connect
 **Bundle ID**: `com.privatemessaging.tuyjo`
@@ -386,7 +394,8 @@ Tuijo (Tu y yo - You and I) is a private messaging app designed for couples who 
 
 ✨ FEATURES
 • End-to-end encrypted messages (RSA-2048 + AES-256)
-• Real-time location sharing with live navigation
+• Voice calls with peer-to-peer WebRTC audio
+• Real-time location sharing with encrypted GPS coordinates
 • Share photos directly from iOS Photos app
 • Smart todo system with reminders
 • Calendar view for family organization
@@ -399,10 +408,18 @@ Tuijo (Tu y yo - You and I) is a private messaging app designed for couples who 
 • Military-grade encryption
 • Keys never leave your device
 • No third-party access to your messages
+• GPS coordinates encrypted with per-session AES-256
 • Secure QR code pairing
+
+📞 VOICE CALLS
+• Direct peer-to-peer audio via WebRTC
+• Native iOS CallKit for incoming calls
+• Mute, speaker, and call duration display
+• No audio relay through external servers
 
 📍 LOCATION SHARING
 • Share your live GPS position for 1 or 8 hours
+• All coordinates AES-256 encrypted on server
 • See partner's location with interactive compass
 • Real-time distance and direction updates
 • Automatic session expiry & cleanup
@@ -418,7 +435,7 @@ Tuijo (Tu y yo - You and I) is a private messaging app designed for couples who 
 Download Tuijo and start your private conversation today.
 ```
 
-**Keywords**: `private,encrypted,couple,messaging,secure,chat,e2e,privacy,family,todo,reminder,calendar,photos,location,gps,navigation`
+**Keywords**: `private,encrypted,couple,messaging,secure,chat,e2e,privacy,family,todo,reminder,calendar,photos,location,gps,voice,call`
 
 ---
 
@@ -438,6 +455,27 @@ Proprietary - All rights reserved
 ---
 
 ## 🎉 Version History
+
+### 1.24.0 (Build 27) - February 2026 - Encrypted Location & Voice Calls
+**NEW**: GPS coordinates encrypted with per-session AES-256 during location sharing
+**NEW**: Location encryption key distributed via E2E encrypted chat message
+**NEW**: Initial sender coordinates embedded in encrypted message for instant navigation
+**NEW**: Full-screen location sharing setup page with live/static mode selection
+**NEW**: WebRTC peer-to-peer voice calls with Firestore signaling
+**NEW**: Native CallKit (iOS) and ConnectionService (Android) for incoming calls
+**NEW**: Call screen with mute, speaker, accept/decline controls and duration timer
+**SECURITY**: No plaintext GPS coordinates ever stored on server
+**SECURITY**: `.set()` without merge prevents plaintext coordinate leakage
+
+### 1.23.0 (Build 26) - February 2026 - Offline Attachments & Fixes
+**IMPROVED**: Offline attachment handling and retry logic
+**FIXED**: Pending messages reuse MessageBubble for consistent look
+
+### 1.22.0 (Build 25) - January 2026 - Voice Call Integration
+**NEW**: WebRTC voice call service with peer connection management
+**NEW**: Voice call screen with animated UI and call state management
+**NEW**: Incoming call support via flutter_callkit_incoming
+**NEW**: Call button in chat screen header (visible when paired)
 
 ### 1.21.0 (Build 23) - January 29, 2026 - Link Preview & TODO Enhancements
 **NEW**: Smart URL detection for www.example.com and bare domain URLs
@@ -487,5 +525,5 @@ Android Firebase release
 ---
 
 **Status**: ✅ Production Ready - App Store & Play Store
-**Last Updated**: January 29, 2026
-**Build**: 1.21.0+23
+**Last Updated**: February 2026
+**Build**: 1.24.0+27

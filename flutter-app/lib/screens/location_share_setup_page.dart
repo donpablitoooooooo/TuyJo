@@ -116,7 +116,8 @@ class _LocationShareSetupPageState extends State<LocationShareSetupPage>
     locationService.prepareSession(sessionId, _selectedDuration);
 
     // 2) Manda il messaggio su Firestore con la modalità
-    final messageId = await chatService.sendLocationShare(
+    //    sendLocationShare genera anche la chiave AES per cifrare le coordinate
+    final sendResult = await chatService.sendLocationShare(
       expiresAt,
       sessionId,
       familyChatId,
@@ -124,10 +125,14 @@ class _LocationShareSetupPageState extends State<LocationShareSetupPage>
       myPublicKey,
       partnerPublicKey,
       mode: _selectedMode,
+      latitude: _position!.latitude,
+      longitude: _position!.longitude,
     );
 
-    if (messageId != null) {
-      locationService.setLocationShareMessageId(messageId);
+    if (sendResult != null) {
+      locationService.setLocationShareMessageId(sendResult['messageId']!);
+      // Imposta la chiave AES per cifrare le coordinate GPS in real-time
+      locationService.setLocationKey(sendResult['locationKey']!);
     }
 
     // 3) Avvia GPS sharing

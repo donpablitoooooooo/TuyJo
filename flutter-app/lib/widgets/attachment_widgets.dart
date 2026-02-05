@@ -682,17 +682,11 @@ class AttachmentLocationShare extends StatelessWidget {
     required this.onTap,
   }) : super(key: key);
 
-  /// Estrae il testo personalizzato dal messaggio (se presente)
+  /// Restituisce il testo di default per la condivisione posizione.
+  /// Formato body: location_share|expiresAt|sessionId|locationKey|mode|lat,lng
   String _getCustomText(BuildContext context) {
-    if (message.decryptedContent != null && message.decryptedContent!.contains('|')) {
-      final parts = message.decryptedContent!.split('|');
-      // Formato: location_share|expiresAt|sessionId|customText
-      if (parts.length >= 4 && parts[3].isNotEmpty) {
-        return parts[3];
-      }
-    }
     final l10n = AppLocalizations.of(context)!;
-    return l10n.locationShareDefault; // Default
+    return l10n.locationShareDefault;
   }
 
   /// Calcola il tempo rimanente prima della scadenza
@@ -755,9 +749,10 @@ class AttachmentLocationShare extends StatelessWidget {
   String _getMode() {
     if (message.decryptedContent != null && message.decryptedContent!.contains('|')) {
       final parts = message.decryptedContent!.split('|');
-      // Formato: location_share|expiresAt|sessionId|mode
-      if (parts.length >= 4 && (parts[3] == 'live' || parts[3] == 'static')) {
-        return parts[3];
+      // Formato: location_share|expiresAt|sessionId|locationKey|mode
+      // parts[3] = locationKey (chiave AES), parts[4] = mode
+      if (parts.length >= 5 && (parts[4] == 'live' || parts[4] == 'static')) {
+        return parts[4];
       }
     }
     return 'live'; // Default per retrocompatibilità

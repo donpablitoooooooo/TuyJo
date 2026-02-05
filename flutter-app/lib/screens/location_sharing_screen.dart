@@ -22,12 +22,16 @@ class LocationSharingScreen extends StatefulWidget {
   final String expectedSessionId; // Session ID dal messaggio
   final bool isSender; // true se l'utente corrente è il mittente del messaggio
   final String mode; // 'live' o 'static'
+  final double? initialLatitude; // Coordinate iniziali del sender (dal messaggio E2E)
+  final double? initialLongitude;
 
   const LocationSharingScreen({
     Key? key,
     required this.expectedSessionId,
     this.isSender = false,
     this.mode = 'live',
+    this.initialLatitude,
+    this.initialLongitude,
   }) : super(key: key);
 
   @override
@@ -50,6 +54,17 @@ class _LocationSharingScreenState extends State<LocationSharingScreen> {
     // Avvia tracking del partner e ottieni la mia posizione
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       final locationService = Provider.of<LocationService>(context, listen: false);
+
+      // Se abbiamo coordinate iniziali dal messaggio E2E, usale subito
+      // così B può navigare senza aspettare che A sia online
+      if (widget.initialLatitude != null && widget.initialLongitude != null) {
+        locationService.setInitialPartnerLocation(
+          widget.initialLatitude!,
+          widget.initialLongitude!,
+          widget.expectedSessionId,
+        );
+      }
+
       locationService.startTrackingPartner();
 
       // Ottieni la mia posizione corrente subito
@@ -96,10 +111,12 @@ class _LocationSharingScreenState extends State<LocationSharingScreen> {
   }
 
   /// Condivide la posizione del destinatario con il mittente (solo per destinatario)
+  /// Le coordinate vengono cifrate con la stessa chiave AES della sessione
   Future<void> _shareMyPositionWithPartner(Position position) async {
     try {
       final pairingService = Provider.of<PairingService>(context, listen: false);
       final encryptionService = Provider.of<EncryptionService>(context, listen: false);
+      final locationService = Provider.of<LocationService>(context, listen: false);
 
       final familyChatId = await pairingService.getFamilyChatId();
       final myPublicKey = await encryptionService.getPublicKey();
@@ -113,7 +130,6 @@ class _LocationSharingScreenState extends State<LocationSharingScreen> {
       final myUserId = sha256.convert(utf8.encode(myPublicKey)).toString();
 
       final now = DateTime.now();
-      final nowMillis = now.millisecondsSinceEpoch ~/ 1000; // Timestamp in secondi (compatibile con LocationShare)
 
       if (kDebugMode) {
         print('📍 [RECIPIENT] Sharing my position with partner:');
@@ -123,24 +139,57 @@ class _LocationSharingScreenState extends State<LocationSharingScreen> {
         print('   SessionId: ${widget.expectedSessionId}');
       }
 
-      // Aggiorna Firestore con la mia posizione (per tracking del partner)
+      // Cifra le coordinate sensibili se la chiave è disponibile
+      final locationKey = locationService.locationKey;
+      final Map<String, dynamic> firestoreData;
+
+      if (locationKey != null) {
+        final sensitiveFields = {
+          'lat': position.latitude,
+          'lng': position.longitude,
+          'acc': position.accuracy,
+          if (position.speed >= 0) 'spd': position.speed,
+          if (position.heading >= 0) 'hdg': position.heading,
+        };
+
+        final encrypted = encryptionService.encryptLocationData(sensitiveFields, locationKey);
+
+        firestoreData = {
+          'encrypted_location': encrypted['data'],
+          'location_iv': encrypted['iv'],
+          'timestamp': Timestamp.fromDate(now),
+          'expires_at': now.add(Duration(minutes: 5)).toIso8601String(),
+          'session_id': widget.expectedSessionId,
+          'is_active': true,
+          'user_id': myUserId,
+        };
+
+        if (kDebugMode) print('🔐 [RECIPIENT] Coordinates encrypted before Firestore write');
+      } else {
+        // Fallback senza cifratura (compatibilità)
+        firestoreData = {
+          'latitude': position.latitude,
+          'longitude': position.longitude,
+          'accuracy': position.accuracy,
+          'timestamp': Timestamp.fromDate(now),
+          'expires_at': now.add(Duration(minutes: 5)).toIso8601String(),
+          'session_id': widget.expectedSessionId,
+          'is_active': true,
+          'speed': position.speed,
+          'heading': position.heading,
+          'user_id': myUserId,
+        };
+        if (kDebugMode) print('⚠️ [RECIPIENT] No location key - writing unencrypted (fallback)');
+      }
+
+      // set() SENZA merge: sovrascrive il documento intero,
+      // così non restano campi in chiaro da sessioni precedenti
       await FirebaseFirestore.instance
           .collection('families')
           .doc(familyChatId)
           .collection('locations')
           .doc(myUserId)
-          .set({
-        'latitude': position.latitude,
-        'longitude': position.longitude,
-        'accuracy': position.accuracy,
-        'timestamp': nowMillis, // Usa timestamp in secondi (come location_service.dart)
-        'expires_at': now.add(Duration(minutes: 5)).toIso8601String(),
-        'session_id': widget.expectedSessionId,
-        'is_active': true,
-        'speed': position.speed,
-        'heading': position.heading,
-        'user_id': myUserId,
-      }, SetOptions(merge: true));
+          .set(firestoreData);
 
       if (kDebugMode) print('✅ [RECIPIENT] Position shared successfully');
     } catch (e) {

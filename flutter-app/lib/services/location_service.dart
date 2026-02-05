@@ -10,11 +10,13 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:crypto/crypto.dart';
 import 'package:uuid/uuid.dart';
 import '../models/location_share.dart';
+import 'encryption_service.dart';
 
 /// Servizio per gestire la condivisione della posizione in tempo reale
 class LocationService extends ChangeNotifier {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final _storage = const FlutterSecureStorage();
+  final EncryptionService _encryptionService;
 
   // Stream subscriptions
   StreamSubscription<Position>? _positionStreamSubscription;
@@ -29,19 +31,24 @@ class LocationService extends ChangeNotifier {
   DateTime? _sharingExpiresAt;
   String? _currentSessionId; // Session ID univoco per ogni condivisione
   String? _locationShareMessageId; // ID del messaggio di location share
+  String? _locationKey; // Chiave AES-256 per cifrare/decifrare coordinate GPS
 
   // Getters
   LocationShare? get myLocation => _myLocation;
   LocationShare? get partnerLocation => _partnerLocation;
   String? get currentSessionId => _currentSessionId;
+  String? get locationKey => _locationKey; // Espone la chiave per il recipient
   bool get isSharingLocation => _isSharingLocation;
   bool get isTrackingPartner => _isTrackingPartner;
   DateTime? get sharingExpiresAt => _sharingExpiresAt;
+
+  LocationService(this._encryptionService);
 
   // Chiavi SharedPreferences per persistenza stato condivisione
   static const String _prefSessionId = 'location_sharing_session_id';
   static const String _prefExpiresAt = 'location_sharing_expires_at';
   static const String _prefActive = 'location_sharing_active';
+  static const String _prefLocationKey = 'location_sharing_key';
 
   /// Pre-imposta sessione e stato attivo prima di mandare il messaggio Firestore,
   /// così la UI mostra subito la condivisione come attiva.
@@ -53,6 +60,34 @@ class LocationService extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Imposta la chiave AES per cifrare/decifrare le coordinate GPS.
+  /// Chiamato dal sender dopo sendLocationShare() e dal receiver dopo aver decodificato il messaggio.
+  void setLocationKey(String key) {
+    _locationKey = key;
+    _persistSharingState();
+    if (kDebugMode) print('🔐 [LOCATION] Location encryption key set');
+  }
+
+  /// Imposta la posizione iniziale del partner dalle coordinate nel messaggio E2E.
+  /// Usato quando B apre la schermata: ha subito le coordinate di A senza aspettare Firestore.
+  /// Verrà sovrascritto dagli aggiornamenti real-time di Firestore quando arrivano.
+  void setInitialPartnerLocation(double latitude, double longitude, String sessionId) {
+    if (_partnerLocation != null) return; // Firestore ha già dati, non sovrascrivere
+    _partnerLocation = LocationShare(
+      id: 'initial',
+      userId: '',
+      sessionId: sessionId,
+      latitude: latitude,
+      longitude: longitude,
+      accuracy: 0,
+      timestamp: DateTime.now(),
+      expiresAt: DateTime.now().add(Duration(hours: 8)),
+      isActive: true,
+    );
+    notifyListeners();
+    if (kDebugMode) print('📍 [LOCATION] Initial partner location set from E2E message: $latitude, $longitude');
+  }
+
   /// Salva stato condivisione su SharedPreferences (sopravvive a restart app)
   Future<void> _persistSharingState() async {
     try {
@@ -61,6 +96,10 @@ class LocationService extends ChangeNotifier {
         await prefs.setString(_prefSessionId, _currentSessionId!);
         await prefs.setString(_prefExpiresAt, _sharingExpiresAt!.toIso8601String());
         await prefs.setBool(_prefActive, true);
+        // Salva location key in Secure Storage (non SharedPreferences!)
+        if (_locationKey != null) {
+          await _storage.write(key: _prefLocationKey, value: _locationKey!);
+        }
       } else {
         await _clearPersistedSharingState();
       }
@@ -76,6 +115,7 @@ class LocationService extends ChangeNotifier {
       await prefs.remove(_prefSessionId);
       await prefs.remove(_prefExpiresAt);
       await prefs.remove(_prefActive);
+      await _storage.delete(key: _prefLocationKey);
     } catch (e) {
       if (kDebugMode) print('❌ [LOCATION] Error clearing persisted state: $e');
     }
@@ -105,9 +145,14 @@ class LocationService extends ChangeNotifier {
       _currentSessionId = sessionId;
       _isSharingLocation = true;
       _sharingExpiresAt = expiresAt;
+
+      // Ripristina location key da Secure Storage
+      _locationKey = await _storage.read(key: _prefLocationKey);
+
       if (kDebugMode) {
         print('🔄 [LOCATION] Restored sharing session: $sessionId');
         print('   Expires at: $expiresAt');
+        print('   Location key restored: ${_locationKey != null}');
       }
 
       notifyListeners();
@@ -344,6 +389,7 @@ class LocationService extends ChangeNotifier {
       _myLocation = null;
       _currentSessionId = null;
       _locationShareMessageId = null;
+      _locationKey = null;
       await _clearPersistedSharingState();
 
       notifyListeners();
@@ -420,7 +466,24 @@ class LocationService extends ChangeNotifier {
           return;
         }
 
-        final locationShare = LocationShare.fromFirestore(partnerDoc.id, partnerDoc.data());
+        // Decifra le coordinate se i dati sono cifrati
+        final partnerData = partnerDoc.data();
+        final LocationShare locationShare;
+        if (partnerData.containsKey('encrypted_location') && _locationKey != null) {
+          locationShare = LocationShare.fromEncryptedFirestore(
+            partnerDoc.id,
+            partnerData,
+            _locationKey!,
+            _encryptionService,
+          );
+          if (kDebugMode) print('🔐 [LOCATION] Decrypted partner coordinates');
+        } else {
+          // Fallback: dati non cifrati (compatibilità con vecchie sessioni)
+          locationShare = LocationShare.fromFirestore(partnerDoc.id, partnerData);
+          if (kDebugMode && partnerData.containsKey('encrypted_location')) {
+            print('⚠️ [LOCATION] Encrypted data found but no location key available');
+          }
+        }
 
         // Verifica se è scaduta o inattiva
         if (locationShare.isExpired || !locationShare.isActive) {
@@ -460,6 +523,7 @@ class LocationService extends ChangeNotifier {
             _myLocation = null;
             _currentSessionId = null;
             _locationShareMessageId = null;
+            _locationKey = null;
             _clearPersistedSharingState();
           }
 
@@ -506,7 +570,7 @@ class LocationService extends ChangeNotifier {
     }
   }
 
-  /// Aggiorna la mia posizione su Firestore
+  /// Aggiorna la mia posizione su Firestore (coordinate cifrate con AES-256)
   Future<void> _updateMyLocationToFirestore(
     Position position,
     String myUserId,
@@ -546,12 +610,44 @@ class LocationService extends ChangeNotifier {
         print('   Position: ${position.latitude}, ${position.longitude}');
       }
 
+      // Cifra le coordinate sensibili se la chiave è disponibile
+      final Map<String, dynamic> firestoreData;
+      if (_locationKey != null) {
+        final sensitiveFields = {
+          'lat': position.latitude,
+          'lng': position.longitude,
+          'acc': position.accuracy,
+          if (position.speed >= 0) 'spd': position.speed,
+          if (position.heading >= 0) 'hdg': position.heading,
+        };
+
+        final encrypted = _encryptionService.encryptLocationData(sensitiveFields, _locationKey!);
+
+        firestoreData = {
+          'user_id': myUserId,
+          'session_id': _currentSessionId!,
+          'encrypted_location': encrypted['data'],
+          'location_iv': encrypted['iv'],
+          'timestamp': Timestamp.fromDate(DateTime.now()),
+          'expires_at': Timestamp.fromDate(_sharingExpiresAt!),
+          'is_active': true,
+        };
+
+        if (kDebugMode) print('🔐 [LOCATION] Coordinates encrypted before Firestore write');
+      } else {
+        // Fallback senza cifratura (non dovrebbe succedere, ma safe)
+        firestoreData = locationShare.toJson();
+        if (kDebugMode) print('⚠️ [LOCATION] No location key - writing unencrypted (fallback)');
+      }
+
+      // set() SENZA merge: sovrascrive il documento intero,
+      // così non restano campi in chiaro (lat/lng/accuracy) da sessioni precedenti
       await _firestore
           .collection('families')
           .doc(familyChatId)
           .collection('locations')
           .doc(myUserId)
-          .set(locationShare.toJson(), SetOptions(merge: true));
+          .set(firestoreData);
 
       _myLocation = locationShare;
 
