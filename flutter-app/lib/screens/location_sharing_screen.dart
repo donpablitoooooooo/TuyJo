@@ -182,13 +182,14 @@ class _LocationSharingScreenState extends State<LocationSharingScreen> {
         if (kDebugMode) print('⚠️ [RECIPIENT] No location key - writing unencrypted (fallback)');
       }
 
-      // Aggiorna Firestore con la mia posizione (cifrata)
+      // set() SENZA merge: sovrascrive il documento intero,
+      // così non restano campi in chiaro da sessioni precedenti
       await FirebaseFirestore.instance
           .collection('families')
           .doc(familyChatId)
           .collection('locations')
           .doc(myUserId)
-          .set(firestoreData, SetOptions(merge: true));
+          .set(firestoreData);
 
       if (kDebugMode) print('✅ [RECIPIENT] Position shared successfully');
     } catch (e) {

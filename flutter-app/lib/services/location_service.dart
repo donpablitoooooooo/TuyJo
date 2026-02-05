@@ -640,12 +640,14 @@ class LocationService extends ChangeNotifier {
         if (kDebugMode) print('⚠️ [LOCATION] No location key - writing unencrypted (fallback)');
       }
 
+      // set() SENZA merge: sovrascrive il documento intero,
+      // così non restano campi in chiaro (lat/lng/accuracy) da sessioni precedenti
       await _firestore
           .collection('families')
           .doc(familyChatId)
           .collection('locations')
           .doc(myUserId)
-          .set(firestoreData, SetOptions(merge: true));
+          .set(firestoreData);
 
       _myLocation = locationShare;
 
