@@ -125,6 +125,8 @@ class _LocationShareSetupPageState extends State<LocationShareSetupPage>
       myPublicKey,
       partnerPublicKey,
       mode: _selectedMode,
+      latitude: _position!.latitude,
+      longitude: _position!.longitude,
     );
 
     if (sendResult != null) {

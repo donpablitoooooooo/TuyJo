@@ -3698,32 +3698,39 @@ class _MessageBubble extends StatelessWidget {
           message: messageObject!,
           isMe: isMe,
           onTap: () {
-            // Estrai sessionId, locationKey e mode dal body del messaggio
-            // Formato: "location_share|expiresAt|sessionId|locationKey|mode"
+            // Formato body: "location_share|expiresAt|sessionId|locationKey|mode|lat,lng"
             String sessionId = '';
             String? locationKey;
             String mode = 'live';
+            double? initialLat;
+            double? initialLng;
             if (messageObject?.decryptedContent != null) {
               final parts = messageObject?.decryptedContent?.split('|') ?? [];
               if (parts.length >= 3) {
                 sessionId = parts[2];
               }
               if (parts.length >= 4 && parts[3].isNotEmpty) {
-                locationKey = parts[3]; // chiave AES per cifrare/decifrare coordinate
+                locationKey = parts[3];
               }
               if (parts.length >= 5 && (parts[4] == 'live' || parts[4] == 'static')) {
                 mode = parts[4];
               }
+              // Coordinate iniziali del sender (cifrate nel messaggio E2E)
+              if (parts.length >= 6 && parts[5].contains(',')) {
+                final coords = parts[5].split(',');
+                if (coords.length == 2) {
+                  initialLat = double.tryParse(coords[0]);
+                  initialLng = double.tryParse(coords[1]);
+                }
+              }
             }
 
             // Imposta la chiave di cifratura nel LocationService
-            // Così sia sender che receiver possono decifrare le coordinate del partner
             if (locationKey != null) {
               final locationService = Provider.of<LocationService>(context, listen: false);
               locationService.setLocationKey(locationKey);
             }
 
-            // Apri schermata di navigazione con sessionId e mode
             Navigator.push(
               context,
               MaterialPageRoute(
@@ -3731,6 +3738,8 @@ class _MessageBubble extends StatelessWidget {
                   expectedSessionId: sessionId,
                   isSender: isMe,
                   mode: mode,
+                  initialLatitude: initialLat,
+                  initialLongitude: initialLng,
                 ),
               ),
             );

@@ -22,12 +22,16 @@ class LocationSharingScreen extends StatefulWidget {
   final String expectedSessionId; // Session ID dal messaggio
   final bool isSender; // true se l'utente corrente è il mittente del messaggio
   final String mode; // 'live' o 'static'
+  final double? initialLatitude; // Coordinate iniziali del sender (dal messaggio E2E)
+  final double? initialLongitude;
 
   const LocationSharingScreen({
     Key? key,
     required this.expectedSessionId,
     this.isSender = false,
     this.mode = 'live',
+    this.initialLatitude,
+    this.initialLongitude,
   }) : super(key: key);
 
   @override
@@ -50,6 +54,17 @@ class _LocationSharingScreenState extends State<LocationSharingScreen> {
     // Avvia tracking del partner e ottieni la mia posizione
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       final locationService = Provider.of<LocationService>(context, listen: false);
+
+      // Se abbiamo coordinate iniziali dal messaggio E2E, usale subito
+      // così B può navigare senza aspettare che A sia online
+      if (widget.initialLatitude != null && widget.initialLongitude != null) {
+        locationService.setInitialPartnerLocation(
+          widget.initialLatitude!,
+          widget.initialLongitude!,
+          widget.expectedSessionId,
+        );
+      }
+
       locationService.startTrackingPartner();
 
       // Ottieni la mia posizione corrente subito

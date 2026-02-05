@@ -682,20 +682,11 @@ class AttachmentLocationShare extends StatelessWidget {
     required this.onTap,
   }) : super(key: key);
 
-  /// Estrae il testo personalizzato dal messaggio (se presente)
+  /// Restituisce il testo di default per la condivisione posizione.
+  /// Formato body: location_share|expiresAt|sessionId|locationKey|mode|lat,lng
   String _getCustomText(BuildContext context) {
-    if (message.decryptedContent != null && message.decryptedContent!.contains('|')) {
-      final parts = message.decryptedContent!.split('|');
-      // Formato: location_share|expiresAt|sessionId|locationKey|mode|customText
-      // parts[3] = locationKey (chiave AES, non mostrare!)
-      // parts[4] = mode ('live' o 'static')
-      // parts[5] = customText (opzionale)
-      if (parts.length >= 6 && parts[5].isNotEmpty) {
-        return parts[5];
-      }
-    }
     final l10n = AppLocalizations.of(context)!;
-    return l10n.locationShareDefault; // Default
+    return l10n.locationShareDefault;
   }
 
   /// Calcola il tempo rimanente prima della scadenza

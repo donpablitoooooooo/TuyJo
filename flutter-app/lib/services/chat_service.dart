@@ -797,7 +797,9 @@ class ChatService extends ChangeNotifier {
     String senderId,
     String senderPublicKey,
     String recipientPublicKey, {
-    String mode = 'live', // 'live' o 'static'
+    String mode = 'live',
+    double? latitude,
+    double? longitude,
   }) async {
     try {
       final timestamp = DateTime.now();
@@ -805,13 +807,17 @@ class ChatService extends ChangeNotifier {
       // Genera chiave AES-256 per cifrare le coordinate GPS in real-time
       final locationKey = _encryptionService.generateLocationKey();
 
-      // Costruisci il plaintext con type='location_share', expires_at, session_id, locationKey e mode
-      // Formato body: location_share|expiresAt|sessionId|locationKey|mode
+      // Coordinate iniziali di chi condivide (cifrate nel messaggio E2E)
+      final coords = (latitude != null && longitude != null)
+          ? '$latitude,$longitude'
+          : '';
+
+      // Formato body: location_share|expiresAt|sessionId|locationKey|mode|lat,lng
       final locationData = {
         'sender': senderId,
         'timestamp': timestamp.millisecondsSinceEpoch ~/ 1000,
         'type': 'location_share',
-        'body': 'location_share|${expiresAt.toIso8601String()}|$sessionId|$locationKey|$mode',
+        'body': 'location_share|${expiresAt.toIso8601String()}|$sessionId|$locationKey|$mode|$coords',
         'expires_at': expiresAt.toIso8601String(),
         'session_id': sessionId,
       };

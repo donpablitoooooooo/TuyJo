@@ -68,6 +68,26 @@ class LocationService extends ChangeNotifier {
     if (kDebugMode) print('🔐 [LOCATION] Location encryption key set');
   }
 
+  /// Imposta la posizione iniziale del partner dalle coordinate nel messaggio E2E.
+  /// Usato quando B apre la schermata: ha subito le coordinate di A senza aspettare Firestore.
+  /// Verrà sovrascritto dagli aggiornamenti real-time di Firestore quando arrivano.
+  void setInitialPartnerLocation(double latitude, double longitude, String sessionId) {
+    if (_partnerLocation != null) return; // Firestore ha già dati, non sovrascrivere
+    _partnerLocation = LocationShare(
+      id: 'initial',
+      userId: '',
+      sessionId: sessionId,
+      latitude: latitude,
+      longitude: longitude,
+      accuracy: 0,
+      timestamp: DateTime.now(),
+      expiresAt: DateTime.now().add(Duration(hours: 8)),
+      isActive: true,
+    );
+    notifyListeners();
+    if (kDebugMode) print('📍 [LOCATION] Initial partner location set from E2E message: $latitude, $longitude');
+  }
+
   /// Salva stato condivisione su SharedPreferences (sopravvive a restart app)
   Future<void> _persistSharingState() async {
     try {
