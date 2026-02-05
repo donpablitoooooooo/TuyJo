@@ -686,9 +686,12 @@ class AttachmentLocationShare extends StatelessWidget {
   String _getCustomText(BuildContext context) {
     if (message.decryptedContent != null && message.decryptedContent!.contains('|')) {
       final parts = message.decryptedContent!.split('|');
-      // Formato: location_share|expiresAt|sessionId|customText
-      if (parts.length >= 4 && parts[3].isNotEmpty) {
-        return parts[3];
+      // Formato: location_share|expiresAt|sessionId|locationKey|mode|customText
+      // parts[3] = locationKey (chiave AES, non mostrare!)
+      // parts[4] = mode ('live' o 'static')
+      // parts[5] = customText (opzionale)
+      if (parts.length >= 6 && parts[5].isNotEmpty) {
+        return parts[5];
       }
     }
     final l10n = AppLocalizations.of(context)!;
@@ -755,9 +758,10 @@ class AttachmentLocationShare extends StatelessWidget {
   String _getMode() {
     if (message.decryptedContent != null && message.decryptedContent!.contains('|')) {
       final parts = message.decryptedContent!.split('|');
-      // Formato: location_share|expiresAt|sessionId|mode
-      if (parts.length >= 4 && (parts[3] == 'live' || parts[3] == 'static')) {
-        return parts[3];
+      // Formato: location_share|expiresAt|sessionId|locationKey|mode
+      // parts[3] = locationKey (chiave AES), parts[4] = mode
+      if (parts.length >= 5 && (parts[4] == 'live' || parts[4] == 'static')) {
+        return parts[4];
       }
     }
     return 'live'; // Default per retrocompatibilità

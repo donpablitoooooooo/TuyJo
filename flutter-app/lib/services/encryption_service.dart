@@ -434,6 +434,63 @@ class EncryptionService {
     }
   }
 
+  // ========== Location Data Encryption Methods (AES-256-CBC) ==========
+
+  /// Genera una chiave AES-256 random per cifrare le coordinate GPS di una sessione.
+  /// Restituisce la chiave in base64.
+  String generateLocationKey() {
+    final aesKey = _generateRandomKey(32);
+    return base64Encode(aesKey);
+  }
+
+  /// Cifra i dati di localizzazione (lat, lng, accuracy, speed, heading) con AES-256-CBC.
+  /// [locationFields]: mappa con i campi sensibili da cifrare
+  /// [aesKeyBase64]: chiave AES della sessione (da generateLocationKey)
+  /// Restituisce mappa con 'data' (ciphertext base64) e 'iv' (base64)
+  Map<String, String> encryptLocationData(
+    Map<String, dynamic> locationFields,
+    String aesKeyBase64,
+  ) {
+    try {
+      final aesKey = base64Decode(aesKeyBase64);
+      final key = encrypt_lib.Key(Uint8List.fromList(aesKey));
+      final iv = encrypt_lib.IV.fromSecureRandom(16);
+      final encrypter = encrypt_lib.Encrypter(encrypt_lib.AES(key));
+
+      final plaintext = json.encode(locationFields);
+      final encrypted = encrypter.encrypt(plaintext, iv: iv);
+
+      return {
+        'data': encrypted.base64,
+        'iv': iv.base64,
+      };
+    } catch (e) {
+      throw Exception('Location data encryption failed: $e');
+    }
+  }
+
+  /// Decifra i dati di localizzazione cifrati con encryptLocationData.
+  /// Restituisce la mappa originale con lat, lng, accuracy, speed, heading.
+  Map<String, dynamic> decryptLocationData(
+    String encryptedDataBase64,
+    String ivBase64,
+    String aesKeyBase64,
+  ) {
+    try {
+      final aesKey = base64Decode(aesKeyBase64);
+      final key = encrypt_lib.Key(Uint8List.fromList(aesKey));
+      final iv = encrypt_lib.IV.fromBase64(ivBase64);
+      final encrypter = encrypt_lib.Encrypter(encrypt_lib.AES(key));
+
+      final encrypted = encrypt_lib.Encrypted.fromBase64(encryptedDataBase64);
+      final plaintext = encrypter.decrypt(encrypted, iv: iv);
+
+      return json.decode(plaintext) as Map<String, dynamic>;
+    } catch (e) {
+      throw Exception('Location data decryption failed: $e');
+    }
+  }
+
   // ========== K_family Encryption Methods (AES-GCM) ==========
 
   /// Cifra un messaggio con K_family usando AES-256-GCM

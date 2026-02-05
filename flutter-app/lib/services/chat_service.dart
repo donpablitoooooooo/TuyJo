@@ -789,7 +789,8 @@ class ChatService extends ChangeNotifier {
   }
 
   /// Invia messaggio di condivisione posizione
-  Future<String?> sendLocationShare(
+  /// Restituisce una mappa con 'messageId' e 'locationKey' (chiave AES per cifrare le coordinate)
+  Future<Map<String, String>?> sendLocationShare(
     DateTime expiresAt,
     String sessionId,
     String familyChatId,
@@ -801,12 +802,16 @@ class ChatService extends ChangeNotifier {
     try {
       final timestamp = DateTime.now();
 
-      // Costruisci il plaintext con type='location_share', expires_at, session_id e mode
+      // Genera chiave AES-256 per cifrare le coordinate GPS in real-time
+      final locationKey = _encryptionService.generateLocationKey();
+
+      // Costruisci il plaintext con type='location_share', expires_at, session_id, locationKey e mode
+      // Formato body: location_share|expiresAt|sessionId|locationKey|mode
       final locationData = {
         'sender': senderId,
         'timestamp': timestamp.millisecondsSinceEpoch ~/ 1000,
         'type': 'location_share',
-        'body': 'location_share|${expiresAt.toIso8601String()}|$sessionId|$mode',
+        'body': 'location_share|${expiresAt.toIso8601String()}|$sessionId|$locationKey|$mode',
         'expires_at': expiresAt.toIso8601String(),
         'session_id': sessionId,
       };
@@ -843,8 +848,12 @@ class ChatService extends ChangeNotifier {
         print('✅ Location share message sent');
         print('   Expires at: $expiresAt');
         print('   Message ID: ${messageRef.id}');
+        print('   Location key generated for E2E coordinate encryption');
       }
-      return messageRef.id; // Ritorna l'ID del messaggio
+      return {
+        'messageId': messageRef.id,
+        'locationKey': locationKey,
+      };
     } catch (e) {
       if (kDebugMode) print('❌ Send location share error: $e');
       return null;
