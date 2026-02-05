@@ -230,6 +230,20 @@
     "locationShareTimeAgoHours": "{hours}h ago",
     "locationShareStatusEnded": "Sharing ended",
     "locationShareStatusActive": "Sharing active",
+    "locationShareAcquiringGps": "Acquiring GPS signal...",
+    "locationShareYourPosition": "This is your position",
+    "locationShareAccuracy": "Accuracy: {meters} m",
+    "@locationShareAccuracy": {
+        "placeholders": {
+            "meters": {"type": "int"}
+        }
+    },
+    "locationShareDurationLabel": "Duration",
+    "locationShareModeLabel": "Mode",
+    "locationShareModeLive": "Live",
+    "locationShareModeStatic": "This position",
+    "locationShareModeLiveDesc": "Both of you will navigate toward each other",
+    "locationShareModeStaticDesc": "Your partner will navigate to your current position",
     "todoSelectDay": "Select a day",
     "todoConfirm": "Confirm",
     "todoAddAlertAndConfirm": "Add alert and confirm",

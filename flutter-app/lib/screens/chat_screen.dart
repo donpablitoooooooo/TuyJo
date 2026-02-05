@@ -15,7 +15,6 @@ import 'package:flutter_linkify/flutter_linkify.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:table_calendar/table_calendar.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:uuid/uuid.dart';
 import 'package:private_messaging/generated/l10n/app_localizations.dart';
 import '../services/pairing_service.dart';
 import '../services/chat_service.dart';
@@ -26,6 +25,7 @@ import '../services/location_service.dart';
 import '../services/link_metadata_service.dart';
 import '../services/pending_upload_service.dart';
 import '../models/message.dart';
+import 'location_share_setup_page.dart';
 import '../widgets/todo_bubble.dart';
 import '../widgets/attachment_widgets.dart';
 import '../widgets/reaction_picker.dart';
@@ -874,111 +874,61 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     });
   }
 
-  /// Costruisce un bubble per un messaggio in attesa di upload.
-  /// Mostra l'anteprima locale della foto con uno spinner sovrapposto.
-  Widget _buildPendingMessageBubble(String pendingId, String text, List<File> files) {
-    return Align(
-      alignment: Alignment.centerRight,
-      child: Container(
-        margin: const EdgeInsets.only(left: 64, right: 0, bottom: 4),
-        padding: const EdgeInsets.all(4),
-        decoration: BoxDecoration(
-          color: Theme.of(context).colorScheme.primary.withOpacity(0.85),
-          borderRadius: BorderRadius.circular(16),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.end,
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            // Anteprima foto con spinner
-            ...files.map((file) {
-              final ext = path.extension(file.path).toLowerCase();
-              final isPhoto = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.heic'].contains(ext);
-              if (isPhoto && file.existsSync()) {
-                return ClipRRect(
-                  borderRadius: BorderRadius.circular(12),
-                  child: Stack(
-                    children: [
-                      Image.file(file, width: 200, height: 200, fit: BoxFit.cover),
-                      Positioned.fill(
-                        child: Container(
-                          color: Colors.black26,
-                          child: const Center(
-                            child: SizedBox(
-                              width: 28, height: 28,
-                              child: CircularProgressIndicator(strokeWidth: 2.5, color: Colors.white70),
-                            ),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                );
-              }
-              // Document/video placeholder
-              return Container(
-                width: 200, height: 56,
-                decoration: BoxDecoration(
-                  color: Colors.white24,
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    const SizedBox(
-                      width: 20, height: 20,
-                      child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white70),
-                    ),
-                    const SizedBox(width: 10),
-                    Flexible(
-                      child: Text(
-                        path.basename(file.path),
-                        style: const TextStyle(color: Colors.white70, fontSize: 12),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                  ],
-                ),
-              );
-            }),
-            // Testo del messaggio (se c'è)
-            if (text.isNotEmpty)
-              Padding(
-                padding: const EdgeInsets.fromLTRB(10, 4, 10, 2),
-                child: Text(
-                  text,
-                  style: const TextStyle(color: Colors.white, fontSize: 15),
-                ),
-              ),
-            // Indicatore "invio in corso"
-            Padding(
-              padding: const EdgeInsets.fromLTRB(10, 0, 10, 4),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  SizedBox(
-                    width: 10, height: 10,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 1.5,
-                      color: Colors.white.withOpacity(0.5),
-                    ),
-                  ),
-                  const SizedBox(width: 4),
-                  Text(
-                    'Sending...',
-                    style: TextStyle(
-                      color: Colors.white.withOpacity(0.5),
-                      fontSize: 11,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
+  /// Crea un Message sintetico dai dati di un pending upload.
+  /// Usato per passare direttamente a _MessageBubble senza duplicare la UI.
+  Message _buildSyntheticPendingMessage(String pendingId, String text, List<File> files) {
+    final createdAt = _pendingLocalMessages[pendingId]?['createdAt'] as DateTime? ?? DateTime.now();
+    return Message(
+      id: pendingId,
+      senderId: _myDeviceId ?? '',
+      timestamp: createdAt,
+      decryptedContent: text,
+      isPending: true,
+      attachments: files.map((file) {
+        final ext = path.extension(file.path).toLowerCase();
+        final isPhoto = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.heic'].contains(ext);
+        return Attachment(
+          id: file.path,
+          type: isPhoto ? 'photo' : 'document',
+          url: file.path,
+          fileName: path.basename(file.path),
+          fileSize: 0,
+          encryptedKeyRecipient: '',
+          encryptedKeySender: '',
+          iv: '',
+        );
+      }).toList(),
     );
+  }
+
+  /// Modifica un messaggio pending: rimette il testo nell'input e cancella il pending.
+  void _editPendingMessage(String pendingId, String text, List<File> files) {
+    setState(() {
+      _messageController.text = text;
+      // Rimuovi il pending dalla lista locale
+      _pendingLocalMessages.remove(pendingId);
+    });
+    // Rimuovi anche dalla coda di upload su disco
+    _pendingUploadService.removePendingUpload(pendingId);
+    // Pulisci i file permanenti copiati
+    for (final file in files) {
+      try { file.delete(); } catch (_) {}
+    }
+    if (kDebugMode) print('✏️ Pending message $pendingId moved back to input for editing');
+  }
+
+  /// Elimina un messaggio pending: rimuove dalla UI e dalla coda di upload.
+  void _deletePendingMessage(String pendingId, List<File> files) {
+    setState(() {
+      _pendingLocalMessages.remove(pendingId);
+    });
+    // Rimuovi dalla coda di upload su disco
+    _pendingUploadService.removePendingUpload(pendingId);
+    // Pulisci i file permanenti copiati
+    for (final file in files) {
+      try { file.delete(); } catch (_) {}
+    }
+    if (kDebugMode) print('🗑️ Pending message $pendingId deleted');
   }
 
   @override
@@ -1107,6 +1057,8 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     if (_familyChatId == null || _myDeviceId == null) {
       return;
     }
+    // Ignora reaction su messaggi pending (non ancora su Firestore)
+    if (_pendingLocalMessages.containsKey(messageId)) return;
 
     final chatService = Provider.of<ChatService>(context, listen: false);
 
@@ -1123,6 +1075,19 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   /// Aggiunge un'azione a un messaggio (con effetti logici)
   void _addAction(String messageId, String actionType, Message message) async {
     if (_familyChatId == null || _myDeviceId == null) {
+      return;
+    }
+
+    // Gestisci messaggi pending (non ancora su Firestore)
+    if (message.isPending) {
+      final data = _pendingLocalMessages[messageId];
+      if (data == null) return;
+      final files = data['files'] as List<File>;
+      if (actionType == 'edit') {
+        _editPendingMessage(messageId, data['text'] as String, files);
+      } else if (actionType == 'delete') {
+        _deletePendingMessage(messageId, files);
+      }
       return;
     }
 
@@ -1500,109 +1465,12 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
 
   /// Mostra dialog per scegliere durata condivisione posizione
   void _showLocationSharingDialog() async {
-    final l10n = AppLocalizations.of(context)!;
-    final result = await showDialog<Duration>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: Text(l10n.locationShareDialogTitle),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(l10n.locationShareDialogQuestion),
-            const SizedBox(height: 8),
-            Text(
-              l10n.locationShareDialogDescription,
-              style: const TextStyle(fontSize: 12, color: Colors.grey),
-            ),
-          ],
-        ),
-        actions: [
-          Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              ElevatedButton(
-                onPressed: () => Navigator.pop(context, const Duration(hours: 1)),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF3BA8B0),
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(vertical: 12),
-                ),
-                child: Text(l10n.locationShareDuration1Hour, style: const TextStyle(fontSize: 16)),
-              ),
-              const SizedBox(height: 8),
-              ElevatedButton(
-                onPressed: () => Navigator.pop(context, const Duration(hours: 8)),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF3BA8B0),
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(vertical: 12),
-                ),
-                child: Text(l10n.locationShareDuration8Hours, style: const TextStyle(fontSize: 16)),
-              ),
-              const SizedBox(height: 8),
-              TextButton(
-                onPressed: () => Navigator.pop(context),
-                child: Text(l10n.locationShareCancel),
-              ),
-            ],
-          ),
-        ],
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => const LocationShareSetupPage(),
       ),
     );
-
-    if (result != null && mounted) {
-      final locationService = Provider.of<LocationService>(context, listen: false);
-      final chatService = Provider.of<ChatService>(context, listen: false);
-      final pairingService = Provider.of<PairingService>(context, listen: false);
-      final encryptionService = Provider.of<EncryptionService>(context, listen: false);
-
-      final familyChatId = await pairingService.getFamilyChatId();
-      final myDeviceId = await pairingService.getMyUserId();
-      final myPublicKey = await encryptionService.getPublicKey();
-      final partnerPublicKey = pairingService.partnerPublicKey;
-
-      if (familyChatId == null || myDeviceId == null ||
-          myPublicKey == null || partnerPublicKey == null) {
-        if (mounted) {
-          final l10n = AppLocalizations.of(context)!;
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(l10n.locationShareErrorPairing),
-              duration: const Duration(seconds: 5),
-              backgroundColor: Colors.red[700],
-            ),
-          );
-        }
-        return;
-      }
-
-      // 1) Prepara sessione così la UI mostra subito "attiva"
-      final sessionId = const Uuid().v4();
-      final expiresAt = DateTime.now().add(result);
-      locationService.prepareSession(sessionId, result);
-
-      // 2) Manda il messaggio su Firestore (funziona anche offline)
-      final messageId = await chatService.sendLocationShare(
-        expiresAt,
-        sessionId,
-        familyChatId,
-        myDeviceId,
-        myPublicKey,
-        partnerPublicKey,
-      );
-
-      if (messageId != null) {
-        locationService.setLocationShareMessageId(messageId);
-      }
-
-      // 3) Avvia GPS sharing (best-effort, se fallisce il messaggio esiste già)
-      final success = await locationService.startSharingLocation(result, sessionId: sessionId);
-      if (!success && mounted) {
-        if (kDebugMode) print('⚠️ [LOCATION] GPS sharing failed, but message was sent to Firestore');
-      }
-    }
   }
 
   /// Costruisce un'opzione per il menu di selezione alert
@@ -2926,10 +2794,24 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                             if (index < pendingCount) {
                               final pendingId = _pendingLocalMessages.keys.elementAt(pendingCount - 1 - index);
                               final data = _pendingLocalMessages[pendingId]!;
-                              return _buildPendingMessageBubble(
+                              final pendingMessage = _buildSyntheticPendingMessage(
                                 pendingId,
                                 data['text'] as String,
                                 data['files'] as List<File>,
+                              );
+                              return _MessageBubble(
+                                key: ValueKey('pending_$pendingId'),
+                                message: pendingMessage.decryptedContent ?? '',
+                                timestamp: pendingMessage.timestamp,
+                                isMe: true,
+                                delivered: false,
+                                read: false,
+                                attachments: pendingMessage.attachments,
+                                senderId: pendingMessage.senderId,
+                                currentUserId: _myDeviceId,
+                                attachmentService: _attachmentService,
+                                onReact: (reactionType) => _addReaction(pendingMessage.id, reactionType),
+                                messageObject: pendingMessage,
                               );
                             }
 
@@ -3816,23 +3698,28 @@ class _MessageBubble extends StatelessWidget {
           message: messageObject!,
           isMe: isMe,
           onTap: () {
-            // Estrai sessionId dal body del messaggio
-            // Formato: "location_share|expiresAt|sessionId"
+            // Estrai sessionId e mode dal body del messaggio
+            // Formato: "location_share|expiresAt|sessionId|mode"
             String sessionId = '';
+            String mode = 'live';
             if (messageObject?.decryptedContent != null) {
               final parts = messageObject?.decryptedContent?.split('|') ?? [];
               if (parts.length >= 3) {
-                sessionId = parts[2]; // sessionId è il terzo elemento
+                sessionId = parts[2];
+              }
+              if (parts.length >= 4 && (parts[3] == 'live' || parts[3] == 'static')) {
+                mode = parts[3];
               }
             }
 
-            // Apri schermata di navigazione con sessionId
+            // Apri schermata di navigazione con sessionId e mode
             Navigator.push(
               context,
               MaterialPageRoute(
                 builder: (context) => LocationSharingScreen(
                   expectedSessionId: sessionId,
-                  isSender: isMe, // Passa se l'utente è il mittente
+                  isSender: isMe,
+                  mode: mode,
                 ),
               ),
             );

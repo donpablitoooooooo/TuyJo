@@ -21,11 +21,13 @@ import '../services/pairing_service.dart';
 class LocationSharingScreen extends StatefulWidget {
   final String expectedSessionId; // Session ID dal messaggio
   final bool isSender; // true se l'utente corrente è il mittente del messaggio
+  final String mode; // 'live' o 'static'
 
   const LocationSharingScreen({
     Key? key,
     required this.expectedSessionId,
     this.isSender = false,
+    this.mode = 'live',
   }) : super(key: key);
 
   @override
@@ -249,19 +251,14 @@ class _LocationSharingScreenState extends State<LocationSharingScreen> {
     final partnerLocation = locationService.partnerLocation;
     final myLocation = locationService.myLocation;
 
-    // VERIFICA SESSION ID: se partner ha sessionId diverso, sessione terminata
-    // NOTA: Se l'utente è il mittente (sta aprendo la propria condivisione),
-    // non verifichiamo il sessionId perché potrebbe aver riavviato la condivisione
-    final bool isSessionValid = widget.isSender || (partnerLocation != null &&
-        partnerLocation.sessionId == widget.expectedSessionId);
+    // Condivisione attiva fino a: stop manuale o scadenza temporale
+    final bool hasStopAction = false; // Lo stop è gestito dalla chat (action message)
+    final bool isExpired = locationService.sharingExpiresAt != null &&
+        DateTime.now().isAfter(locationService.sharingExpiresAt!);
 
-    // Verifica se la condivisione è terminata
-    // - Mittente: controlla se isSharingLocation è false
-    // - Destinatario: controlla sessionId o se partnerLocation è null
     final bool isTerminated = widget.isSender
-        ? !locationService.isSharingLocation // Mittente: controlla se ha fermato
-        : (!isSessionValid || // Destinatario: sessione non valida
-            (partnerLocation == null && locationService.isTrackingPartner)); // O partner ha fermato
+        ? (!locationService.isSharingLocation || isExpired)
+        : (partnerLocation != null && !partnerLocation.isActive) || isExpired;
 
     // Colore sfondo: grigio se terminata, teal se attiva
     final backgroundColor = isTerminated
@@ -293,7 +290,7 @@ class _LocationSharingScreenState extends State<LocationSharingScreen> {
           onPressed: () => Navigator.pop(context),
         ),
         actions: [
-          if (partnerLocation != null && isSessionValid && !widget.isSender)
+          if (partnerLocation != null && !isTerminated)
             IconButton(
               icon: Icon(Icons.map_outlined, color: Colors.white),
               onPressed: () => _openMaps(
@@ -306,16 +303,28 @@ class _LocationSharingScreenState extends State<LocationSharingScreen> {
       body: Container(
         decoration: BoxDecoration(gradient: backgroundColor),
         child: isTerminated
-            ? _buildTerminatedView() // Condivisione terminata
-            : widget.isSender
-                ? (partnerLocation == null
-                    ? _buildWaitingView() // Mittente in attesa che destinatario condivida
-                    : _buildNavigationView(context, partnerLocation, myLocation))
-                : partnerLocation == null
-                    ? _buildWaitingView() // Destinatario in attesa della posizione del partner
-                    : _buildNavigationView(context, partnerLocation, myLocation),
+            ? _buildTerminatedView()
+            : _buildActiveView(partnerLocation, myLocation),
       ),
     );
+  }
+
+  /// Decide quale vista mostrare in base a mode (live/static) e ruolo (sender/receiver).
+  /// Live: il sender ha la frecciona per navigare verso il partner.
+  /// Static: il receiver ha la frecciona per raggiungere il sender.
+  Widget _buildActiveView(partnerLocation, myLocation) {
+    if (partnerLocation == null) {
+      return _buildWaitingView();
+    }
+
+    // Chi vede la frecciona (navigazione)?
+    // Live: il sender naviga verso il partner → sender ha freccia
+    // Static: il receiver naviga verso il sender → receiver ha freccia
+    final bool showBigArrow = (widget.mode == 'live' && widget.isSender) ||
+        (widget.mode == 'static' && !widget.isSender);
+
+    return _buildNavigationView(context, partnerLocation, myLocation,
+        showBigArrow: showBigArrow);
   }
 
   /// Vista di attesa
@@ -433,7 +442,8 @@ class _LocationSharingScreenState extends State<LocationSharingScreen> {
   }
 
   /// Vista principale di navigazione
-  Widget _buildNavigationView(BuildContext context, partnerLocation, myLocation) {
+  Widget _buildNavigationView(BuildContext context, partnerLocation, myLocation,
+      {bool showBigArrow = false}) {
     final locationService = Provider.of<LocationService>(context, listen: false);
 
     // Calcola distanza e direzione verso il partner usando _myPosition locale
@@ -462,19 +472,16 @@ class _LocationSharingScreenState extends State<LocationSharingScreen> {
         children: [
           SizedBox(height: 60),
 
-          // Se è destinatario, mostra target in alto
-          if (!widget.isSender) _buildDestinationPoint(),
+          // Chi ha la freccia grande vede il target in alto
+          if (showBigArrow) _buildDestinationPoint(),
 
-          SizedBox(height: widget.isSender ? 0 : 80),
+          SizedBox(height: showBigArrow ? 80 : 0),
 
-          // Se è il mittente, mostra radar
-          // Se è il destinatario, mostra cerchi concentrici + freccia
-          if (widget.isSender) ...[
-            // MITTENTE: radar con partner che si avvicina
-            _buildRadarView(distance, targetBearing, partnerLocation?.heading),
-          ] else ...[
-            // DESTINATARIO: freccia navigazione
+          // Frecciona grande per chi naviga, radar per chi aspetta
+          if (showBigArrow) ...[
             _buildReceiverView(targetBearing),
+          ] else ...[
+            _buildRadarView(distance, targetBearing, partnerLocation?.heading),
           ],
 
           SizedBox(height: 40),

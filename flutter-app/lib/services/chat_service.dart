@@ -795,17 +795,18 @@ class ChatService extends ChangeNotifier {
     String familyChatId,
     String senderId,
     String senderPublicKey,
-    String recipientPublicKey,
-  ) async {
+    String recipientPublicKey, {
+    String mode = 'live', // 'live' o 'static'
+  }) async {
     try {
       final timestamp = DateTime.now();
 
-      // Costruisci il plaintext con type='location_share', expires_at e session_id
+      // Costruisci il plaintext con type='location_share', expires_at, session_id e mode
       final locationData = {
         'sender': senderId,
         'timestamp': timestamp.millisecondsSinceEpoch ~/ 1000,
         'type': 'location_share',
-        'body': 'location_share|${expiresAt.toIso8601String()}|$sessionId',
+        'body': 'location_share|${expiresAt.toIso8601String()}|$sessionId|$mode',
         'expires_at': expiresAt.toIso8601String(),
         'session_id': sessionId,
       };
