@@ -7,15 +7,14 @@ App Store images with iPhone frame, gradient background, and localized
 marketing text.
 
 Usage:
-    python3 frame_screenshots.py                    # all locales
-    python3 frame_screenshots.py --locale en        # single locale
-    python3 frame_screenshots.py --locale en,it     # multiple locales
-    python3 frame_screenshots.py --size 6.7         # iPhone 6.7" (default)
-    python3 frame_screenshots.py --size 6.5         # iPhone 6.5"
-    python3 frame_screenshots.py --size 5.5         # iPhone 5.5"
+    python3 frame_screenshots.py                    # all sizes + all locales
+    python3 frame_screenshots.py --locale en        # single locale, all sizes
+    python3 frame_screenshots.py --locale en,it     # multiple locales, all sizes
+    python3 frame_screenshots.py --size 6.7         # single size only
+    python3 frame_screenshots.py --size 6.5,5.5     # specific sizes
 
 Input:  screenshots/raw/01_chat.png, 02_voice_call.png, ...
-Output: screenshots/output/{locale}/01_chat.png, ...
+Output: screenshots/output/iPhone-6.7/{locale}/01_chat.png, ...
 """
 
 import json
@@ -54,13 +53,16 @@ SHADOW     = (0, 0, 0, 50)
 # ---------------------------------------------------------------------------
 # Phone frame proportions (relative to canvas width)
 # ---------------------------------------------------------------------------
-PHONE_WIDTH_RATIO   = 0.82     # phone width = 82% of canvas
-PHONE_BEZEL         = 14       # px — thin bezel around screen
-PHONE_CORNER_RADIUS = 56       # px — outer corners
-SCREEN_CORNER_RADIUS = 44      # px — inner screen corners
-ISLAND_W            = 140      # Dynamic Island width
-ISLAND_H            = 34       # Dynamic Island height
-ISLAND_Y_OFFSET     = 14       # from top of screen
+PHONE_WIDTH_RATIO    = 0.82     # phone width = 82% of canvas
+PHONE_BEZEL          = 12       # px — very thin bezel (like real iPhone 15 Pro)
+PHONE_CORNER_RADIUS  = 62       # px — outer body corners
+SCREEN_CORNER_RADIUS = 55       # px — screen corners (close to outer = modern iPhone)
+ISLAND_W             = 240      # Dynamic Island width  (wider, realistic)
+ISLAND_H             = 70       # Dynamic Island height (taller, realistic)
+ISLAND_Y_OFFSET      = 20       # from top of screen
+FRAME_COLOR          = (52, 53, 55)     # titanium dark
+FRAME_EDGE           = (110, 112, 115)  # titanium highlight
+SIDE_BTN_COLOR       = (65, 67, 70)     # side buttons
 
 
 # ===== HELPERS ==============================================================
@@ -127,7 +129,8 @@ def draw_centered_text(draw, text, y, font, fill, canvas_width):
 
 def create_phone_frame(screenshot_path, phone_width):
     """
-    Build an iPhone-style device frame around the raw screenshot.
+    Build an iPhone 15 Pro-style device frame around the raw screenshot.
+    Includes titanium frame, Dynamic Island, side buttons, and drop shadow.
     Returns an RGBA image of the phone (with transparent background).
     """
     screenshot = Image.open(screenshot_path).convert("RGBA")
@@ -138,47 +141,80 @@ def create_phone_frame(screenshot_path, phone_width):
 
     screenshot = screenshot.resize((screen_w, screen_h), Image.LANCZOS)
 
-    # --- canvas (with room for shadow) ---
-    pad = 30  # shadow spread
-    frame = Image.new("RGBA", (phone_width + pad * 2, phone_h + pad * 2), (0, 0, 0, 0))
+    # --- canvas (extra room for shadow + side buttons) ---
+    pad_x = 44   # horizontal padding (room for buttons + shadow)
+    pad_y = 36   # vertical padding (shadow)
+    fw = phone_width + pad_x * 2
+    fh = phone_h + pad_y * 2
+    frame = Image.new("RGBA", (fw, fh), (0, 0, 0, 0))
     draw = ImageDraw.Draw(frame)
 
-    ox, oy = pad, pad  # origin offset for body
+    ox, oy = pad_x, pad_y  # body origin
 
-    # --- shadow (slightly offset, blurred) ---
-    shadow_layer = Image.new("RGBA", frame.size, (0, 0, 0, 0))
+    # --- drop shadow ---
+    shadow_layer = Image.new("RGBA", (fw, fh), (0, 0, 0, 0))
     sd = ImageDraw.Draw(shadow_layer)
     sd.rounded_rectangle(
-        (ox + 4, oy + 8, ox + phone_width - 1 + 4, oy + phone_h - 1 + 8),
+        (ox + 6, oy + 10, ox + phone_width - 1 + 6, oy + phone_h - 1 + 10),
         radius=PHONE_CORNER_RADIUS,
-        fill=(0, 0, 0, 70),
+        fill=(0, 0, 0, 80),
     )
-    shadow_layer = shadow_layer.filter(ImageFilter.GaussianBlur(radius=18))
+    shadow_layer = shadow_layer.filter(ImageFilter.GaussianBlur(radius=22))
     frame = Image.alpha_composite(frame, shadow_layer)
     draw = ImageDraw.Draw(frame)
 
-    # --- phone body (dark bezel) ---
+    # --- titanium body ---
+    fc = FRAME_COLOR
     draw.rounded_rectangle(
         (ox, oy, ox + phone_width - 1, oy + phone_h - 1),
         radius=PHONE_CORNER_RADIUS,
-        fill=(30, 30, 30, 255),
+        fill=(fc[0], fc[1], fc[2], 255),
     )
 
-    # --- subtle metallic edge highlight ---
+    # --- titanium edge highlights (outer ring + inner ring) ---
+    ec = FRAME_EDGE
+    for offset, alpha in [(0, 90), (1, 50)]:
+        draw.rounded_rectangle(
+            (ox + offset, oy + offset,
+             ox + phone_width - 1 - offset, oy + phone_h - 1 - offset),
+            radius=PHONE_CORNER_RADIUS - offset,
+            outline=(ec[0], ec[1], ec[2], alpha),
+            width=1,
+        )
+
+    # --- side buttons (left: mute + volume up + volume down) ---
+    bc = SIDE_BTN_COLOR
+    btn_x = ox - 3
+    # mute switch
     draw.rounded_rectangle(
-        (ox + 1, oy + 1, ox + phone_width - 2, oy + phone_h - 2),
-        radius=PHONE_CORNER_RADIUS - 1,
-        outline=(80, 80, 80, 100),
-        width=1,
+        (btn_x, oy + 220, btn_x + 6, oy + 280),
+        radius=3, fill=(bc[0], bc[1], bc[2], 200),
+    )
+    # volume up
+    draw.rounded_rectangle(
+        (btn_x, oy + 340, btn_x + 6, oy + 440),
+        radius=3, fill=(bc[0], bc[1], bc[2], 200),
+    )
+    # volume down
+    draw.rounded_rectangle(
+        (btn_x, oy + 470, btn_x + 6, oy + 570),
+        radius=3, fill=(bc[0], bc[1], bc[2], 200),
     )
 
-    # --- paste screenshot with rounded corners ---
+    # --- side button (right: power) ---
+    btn_x_r = ox + phone_width - 3
+    draw.rounded_rectangle(
+        (btn_x_r, oy + 380, btn_x_r + 6, oy + 520),
+        radius=3, fill=(bc[0], bc[1], bc[2], 200),
+    )
+
+    # --- paste screenshot with rounded screen corners ---
     scr_x = ox + PHONE_BEZEL
     scr_y = oy + PHONE_BEZEL
     scr_mask = rounded_rect_mask(screen_w, screen_h, SCREEN_CORNER_RADIUS)
     frame.paste(screenshot, (scr_x, scr_y), scr_mask)
 
-    # --- Dynamic Island ---
+    # --- Dynamic Island (pill shape, centered) ---
     island_x = ox + (phone_width - ISLAND_W) // 2
     island_y = scr_y + ISLAND_Y_OFFSET
     draw.rounded_rectangle(
@@ -250,54 +286,60 @@ def main():
         idx = sys.argv.index("--locale") + 1
         requested_locales = sys.argv[idx].split(",")
 
-    # parse --size
-    size_key = "6.7"
+    # parse --size  (default: all sizes)
+    requested_sizes = list(CANVAS_SIZES.keys())
     if "--size" in sys.argv:
         idx = sys.argv.index("--size") + 1
-        size_key = sys.argv[idx]
-    canvas_w, canvas_h = CANVAS_SIZES.get(size_key, CANVAS_SIZES["6.7"])
+        requested_sizes = sys.argv[idx].split(",")
 
-    print(f"Canvas: {canvas_w}x{canvas_h} (iPhone {size_key}\")")
+    size_str = ", ".join(s + '"' for s in requested_sizes)
+    print(f"Sizes:   {size_str}")
     print(f"Locales: {', '.join(requested_locales)}")
     print(f"Raw dir: {RAW_DIR}")
     print()
 
     generated = 0
-    missing = 0
+    missing_once = set()
 
-    for locale in requested_locales:
-        if locale not in config["locales"]:
-            print(f"[SKIP] Unknown locale: {locale}")
-            continue
+    for size_key in requested_sizes:
+        canvas_w, canvas_h = CANVAS_SIZES.get(size_key, CANVAS_SIZES["6.7"])
+        size_label = f"iPhone-{size_key}"
+        print(f"--- {size_label}  ({canvas_w}x{canvas_h}) ---")
 
-        locale_texts = config["locales"][locale]
-        locale_out = os.path.join(OUTPUT_DIR, locale)
-        os.makedirs(locale_out, exist_ok=True)
-
-        for ss in config["screenshots"]:
-            raw_file = os.path.join(RAW_DIR, ss["file"])
-            if not os.path.exists(raw_file):
-                print(f"  [MISS] {ss['file']} — put raw screenshot in screenshots/raw/")
-                missing += 1
+        for locale in requested_locales:
+            if locale not in config["locales"]:
+                print(f"  [SKIP] Unknown locale: {locale}")
                 continue
 
-            texts = locale_texts[ss["id"]]
-            out_file = os.path.join(locale_out, f"{ss['id']}.png")
+            locale_texts = config["locales"][locale]
+            locale_out = os.path.join(OUTPUT_DIR, size_label, locale)
+            os.makedirs(locale_out, exist_ok=True)
 
-            generate_screenshot(
-                raw_file,
-                texts["headline"],
-                texts["subtitle"],
-                out_file,
-                canvas_w,
-                canvas_h,
-            )
-            generated += 1
-            print(f"  [OK]   {locale}/{ss['id']}.png")
+            for ss in config["screenshots"]:
+                raw_file = os.path.join(RAW_DIR, ss["file"])
+                if not os.path.exists(raw_file):
+                    missing_once.add(ss["file"])
+                    continue
 
-    print()
-    print(f"Done: {generated} generated, {missing} missing raw files.")
-    if missing:
+                texts = locale_texts[ss["id"]]
+                out_file = os.path.join(locale_out, f"{ss['id']}.png")
+
+                generate_screenshot(
+                    raw_file,
+                    texts["headline"],
+                    texts["subtitle"],
+                    out_file,
+                    canvas_w,
+                    canvas_h,
+                )
+                generated += 1
+                print(f"  [OK]   {size_label}/{locale}/{ss['id']}.png")
+
+        print()
+
+    print(f"Done: {generated} generated.")
+    if missing_once:
+        print(f"Missing raw files: {', '.join(sorted(missing_once))}")
         print("Tip: add raw screenshots to screenshots/raw/ and re-run.")
 
 
