@@ -1,0 +1,8 @@
+# Raw screenshots (user-provided, not committed)
+raw/*.png
+
+# Generated output (re-generate with frame_screenshots.py)
+output/
+
+# Font cache
+fonts/*.zip

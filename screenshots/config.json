@@ -1,0 +1,126 @@
+{
+  "app_name": "Tuijo",
+  "brand_colors": {
+    "teal": [59, 168, 176],
+    "dark_teal": [20, 90, 96],
+    "white": [255, 255, 255]
+  },
+  "canvas": {
+    "width": 1290,
+    "height": 2796
+  },
+  "screenshots": [
+    { "id": "01_chat", "file": "01_chat.png" },
+    { "id": "02_voice_call", "file": "02_voice_call.png" },
+    { "id": "03_location", "file": "03_location.png" },
+    { "id": "04_todo_calendar", "file": "04_todo_calendar.png" },
+    { "id": "05_pairing", "file": "05_pairing.png" },
+    { "id": "06_media_gallery", "file": "06_media_gallery.png" }
+  ],
+  "locales": {
+    "en": {
+      "01_chat": {
+        "headline": "Just the Two of You",
+        "subtitle": "End-to-end encrypted messaging"
+      },
+      "02_voice_call": {
+        "headline": "Call Without Middlemen",
+        "subtitle": "Peer-to-peer voice calls via WebRTC"
+      },
+      "03_location": {
+        "headline": "Find Each Other Safely",
+        "subtitle": "GPS coordinates encrypted per session"
+      },
+      "04_todo_calendar": {
+        "headline": "Plan Life Together",
+        "subtitle": "Smart todos with automatic reminders"
+      },
+      "05_pairing": {
+        "headline": "Pair in Seconds",
+        "subtitle": "Secure QR setup — no email needed"
+      },
+      "06_media_gallery": {
+        "headline": "Your Memories, Protected",
+        "subtitle": "Photos, videos, docs — all encrypted"
+      }
+    },
+    "it": {
+      "01_chat": {
+        "headline": "Solo Voi Due",
+        "subtitle": "Messaggi con crittografia end-to-end"
+      },
+      "02_voice_call": {
+        "headline": "Chiamate Senza Intermediari",
+        "subtitle": "Audio peer-to-peer via WebRTC"
+      },
+      "03_location": {
+        "headline": "Trovatevi in Sicurezza",
+        "subtitle": "Coordinate GPS crittografate per sessione"
+      },
+      "04_todo_calendar": {
+        "headline": "Organizzate la Vita Insieme",
+        "subtitle": "Todo intelligenti con promemoria automatici"
+      },
+      "05_pairing": {
+        "headline": "Accoppiati in Pochi Secondi",
+        "subtitle": "Configurazione sicura via QR — senza email"
+      },
+      "06_media_gallery": {
+        "headline": "I Vostri Ricordi, Protetti",
+        "subtitle": "Foto, video, documenti — tutto crittografato"
+      }
+    },
+    "es": {
+      "01_chat": {
+        "headline": "Solo Vosotros Dos",
+        "subtitle": "Mensajes con cifrado de extremo a extremo"
+      },
+      "02_voice_call": {
+        "headline": "Llamadas Sin Intermediarios",
+        "subtitle": "Audio peer-to-peer via WebRTC"
+      },
+      "03_location": {
+        "headline": "Encontraos con Seguridad",
+        "subtitle": "Coordenadas GPS cifradas por sesion"
+      },
+      "04_todo_calendar": {
+        "headline": "Organizad la Vida Juntos",
+        "subtitle": "Todos inteligentes con recordatorios"
+      },
+      "05_pairing": {
+        "headline": "Vinculaos en Segundos",
+        "subtitle": "Configuracion segura por QR — sin email"
+      },
+      "06_media_gallery": {
+        "headline": "Vuestros Recuerdos, Protegidos",
+        "subtitle": "Fotos, videos, docs — todo cifrado"
+      }
+    },
+    "ca": {
+      "01_chat": {
+        "headline": "Nomes Vosaltres Dos",
+        "subtitle": "Missatges amb xifratge d'extrem a extrem"
+      },
+      "02_voice_call": {
+        "headline": "Trucades Sense Intermediaris",
+        "subtitle": "Audio peer-to-peer via WebRTC"
+      },
+      "03_location": {
+        "headline": "Trobeu-vos amb Seguretat",
+        "subtitle": "Coordenades GPS xifrades per sessio"
+      },
+      "04_todo_calendar": {
+        "headline": "Organitzeu la Vida Junts",
+        "subtitle": "Todos intel-ligents amb recordatoris"
+      },
+      "05_pairing": {
+        "headline": "Vinculeu-vos en Segons",
+        "subtitle": "Configuracio segura per QR — sense email"
+      },
+      "06_media_gallery": {
+        "headline": "Els Vostres Records, Protegits",
+        "subtitle": "Fotos, videos, docs — tot xifrat"
+      }
+    }
+  }
+}
