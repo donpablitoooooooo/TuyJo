@@ -371,10 +371,10 @@ class _PhotoGridView extends StatelessWidget {
   });
 
   /// Raggruppa gli items per mese/anno (più recenti prima)
-  Map<String, List<_MediaItem>> _groupByMonth(List<_MediaItem> items) {
+  Map<String, List<_MediaItem>> _groupByMonth(List<_MediaItem> items, String locale) {
     final Map<String, List<_MediaItem>> grouped = {};
     for (var item in items) {
-      final key = DateFormat('MMMM yyyy', 'it').format(item.message.timestamp);
+      final key = DateFormat('MMMM yyyy', locale).format(item.message.timestamp);
       grouped.putIfAbsent(key, () => []);
       grouped[key]!.add(item);
     }
@@ -384,12 +384,13 @@ class _PhotoGridView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
+    final locale = Localizations.localeOf(context).languageCode;
 
     if (items.isEmpty) {
       return _buildEmptyState(l10n.mediaNoPhotos, l10n.mediaNoPhotosDescription, Icons.photo_library_outlined);
     }
 
-    final groupedItems = _groupByMonth(items);
+    final groupedItems = _groupByMonth(items, locale);
     final months = groupedItems.keys.toList();
 
     return ListView.builder(
@@ -601,10 +602,10 @@ class _LinkGridView extends StatelessWidget {
     this.attachmentService,
   });
 
-  Map<String, List<_LinkItem>> _groupByMonth(List<_LinkItem> items) {
+  Map<String, List<_LinkItem>> _groupByMonth(List<_LinkItem> items, String locale) {
     final Map<String, List<_LinkItem>> grouped = {};
     for (var item in items) {
-      final key = DateFormat('MMMM yyyy', 'it').format(item.message.timestamp);
+      final key = DateFormat('MMMM yyyy', locale).format(item.message.timestamp);
       grouped.putIfAbsent(key, () => []);
       grouped[key]!.add(item);
     }
@@ -614,12 +615,13 @@ class _LinkGridView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
+    final locale = Localizations.localeOf(context).languageCode;
 
     if (items.isEmpty) {
       return _buildEmptyState(l10n.mediaNoLinks, l10n.mediaNoLinksDescription, Icons.link_off_rounded);
     }
 
-    final groupedItems = _groupByMonth(items);
+    final groupedItems = _groupByMonth(items, locale);
     final months = groupedItems.keys.toList();
 
     return ListView.builder(
@@ -890,10 +892,10 @@ class _DocumentListView extends StatelessWidget {
     this.attachmentService,
   });
 
-  Map<String, List<_MediaItem>> _groupByMonth(List<_MediaItem> items) {
+  Map<String, List<_MediaItem>> _groupByMonth(List<_MediaItem> items, String locale) {
     final Map<String, List<_MediaItem>> grouped = {};
     for (var item in items) {
-      final key = DateFormat('MMMM yyyy', 'it').format(item.message.timestamp);
+      final key = DateFormat('MMMM yyyy', locale).format(item.message.timestamp);
       grouped.putIfAbsent(key, () => []);
       grouped[key]!.add(item);
     }
@@ -903,12 +905,13 @@ class _DocumentListView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
+    final locale = Localizations.localeOf(context).languageCode;
 
     if (items.isEmpty) {
       return _buildEmptyState(l10n.mediaNoDocuments, l10n.mediaNoDocumentsDescription, Icons.description_outlined);
     }
 
-    final groupedItems = _groupByMonth(items);
+    final groupedItems = _groupByMonth(items, locale);
     final months = groupedItems.keys.toList();
 
     return ListView.builder(
