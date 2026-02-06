@@ -1620,11 +1620,16 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     // Sentinella per segnalare cancellazione
     final clearResult = {'clear': true};
 
-    DateTime selectedDate = DateTime.now().add(const Duration(days: 1));
-    DateTime? rangeStart;
-    DateTime? rangeEnd;
+    // Se stiamo modificando un todo, inizializza con le date esistenti
+    final isEditing = _editingMessageId != null;
+    final now = DateTime.now();
+    // Assicura che focusedDay non sia prima di firstDay (DateTime.now())
+    final initialDate = _selectedTodoDate ?? now.add(const Duration(days: 1));
+    DateTime selectedDate = initialDate.isBefore(now) ? now : initialDate;
+    DateTime? rangeStart = isEditing ? _selectedRangeStart : null;
+    DateTime? rangeEnd = isEditing ? _selectedRangeEnd : null;
     int? selectedReminderHours = _selectedReminderHours; // Mantieni l'alert precedente
-    DateTime? dayToShowTodos; // Giorno selezionato per mostrare i todo
+    DateTime? dayToShowTodos = isEditing ? _selectedTodoDate : null; // Giorno selezionato per mostrare i todo
     final chatService = Provider.of<ChatService>(context, listen: false);
 
     final result = await showModalBottomSheet<Map<String, dynamic>>(
@@ -1763,45 +1768,6 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
 
                     const SizedBox(height: 12),
 
-                    // Indicatore TODO in modifica/creazione (bubble stile chat, centrata)
-                    if (_messageController.text.isNotEmpty)
-                      Center(
-                        child: Container(
-                          constraints: BoxConstraints(
-                            maxWidth: MediaQuery.of(context).size.width * 0.75,
-                          ),
-                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                          decoration: BoxDecoration(
-                            gradient: const LinearGradient(
-                              colors: [Color(0xFF3BA8B0), Color(0xFF145A60)],
-                              begin: Alignment.topLeft,
-                              end: Alignment.bottomRight,
-                            ),
-                            borderRadius: BorderRadius.circular(20),
-                            boxShadow: [
-                              BoxShadow(
-                                color: const Color(0xFF3BA8B0).withOpacity(0.3),
-                                blurRadius: 8,
-                                offset: const Offset(0, 2),
-                              ),
-                            ],
-                          ),
-                          child: Text(
-                            _messageController.text,
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 14,
-                              fontWeight: FontWeight.w500,
-                            ),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-                      ),
-
-                    if (_messageController.text.isNotEmpty)
-                      const SizedBox(height: 12),
-
                   // Lista TODO in container bianco Expanded
                   Expanded(
                     child: Container(
@@ -1844,246 +1810,16 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                                     ),
                                   ),
                                 ),
-                                if (rangeStart != null)
-                                  IconButton(
-                                    onPressed: () async {
-                                      // Mostra menu per selezionare alert e orario inline
-                                      int? alertHours = selectedReminderHours ?? 1; // Default 1h
-                                      int selectedHour = 10;
-                                      int selectedMinute = 0;
-
-                                      final result = await showModalBottomSheet<Map<String, dynamic>?>(
-                                        context: context,
-                                        isScrollControlled: true,
-                                        backgroundColor: Colors.transparent,
-                                        builder: (context) => StatefulBuilder(
-                                          builder: (context, setAlertState) => Container(
-                                            height: MediaQuery.of(context).size.height * 0.7,
-                                            decoration: const BoxDecoration(
-                                              gradient: LinearGradient(
-                                                begin: Alignment.topCenter,
-                                                end: Alignment.bottomCenter,
-                                                colors: [Color(0xFF3BA8B0), Color(0xFF145A60)],
-                                              ),
-                                              borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-                                            ),
-                                            child: SafeArea(
-                                              child: Column(
-                                                children: [
-                                                  // Data bella grossa
-                                                  Padding(
-                                                    padding: const EdgeInsets.only(top: 20, bottom: 12),
-                                                    child: Text(
-                                                      (rangeStart != null && rangeEnd != null)
-                                                          ? _formatDateRange(rangeStart!, rangeEnd!)
-                                                          : (dayToShowTodos != null
-                                                              ? _formatTodoDate(dayToShowTodos!, includeTime: false)
-                                                              : ''),
-                                                      style: const TextStyle(
-                                                        color: Colors.white,
-                                                        fontSize: 28,
-                                                        fontWeight: FontWeight.bold,
-                                                      ),
-                                                      textAlign: TextAlign.center,
-                                                    ),
-                                                  ),
-
-                                                  // Orario e Alert affiancati
-                                                  Expanded(
-                                                    child: Padding(
-                                                      padding: const EdgeInsets.symmetric(horizontal: 16),
-                                                      child: Row(
-                                                        crossAxisAlignment: CrossAxisAlignment.center,
-                                                        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                                                        children: [
-                                                          // Sezione Orario (sinistra)
-                                                          Column(
-                                                            mainAxisAlignment: MainAxisAlignment.center,
-                                                            children: [
-                                                              Text(
-                                                                l10n.timePickerLabel,
-                                                                style: const TextStyle(
-                                                                  color: Colors.white,
-                                                                  fontSize: 18,
-                                                                  fontWeight: FontWeight.bold,
-                                                                ),
-                                                              ),
-                                                              const SizedBox(height: 12),
-                                                              Row(
-                                                                mainAxisAlignment: MainAxisAlignment.center,
-                                                                children: [
-                                                                  SizedBox(
-                                                                    width: 70,
-                                                                    height: 240,
-                                                                    child: CupertinoPicker(
-                                                                      scrollController: FixedExtentScrollController(initialItem: selectedHour),
-                                                                      itemExtent: 50,
-                                                                      onSelectedItemChanged: (index) {
-                                                                        selectedHour = index;
-                                                                      },
-                                                                      children: List.generate(24, (index) => Center(
-                                                                        child: Text(
-                                                                          index.toString().padLeft(2, '0'),
-                                                                          style: const TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.w500),
-                                                                        ),
-                                                                      )),
-                                                                    ),
-                                                                  ),
-                                                                  const Padding(
-                                                                    padding: EdgeInsets.symmetric(horizontal: 4),
-                                                                    child: Text(':', style: TextStyle(color: Colors.white, fontSize: 28, fontWeight: FontWeight.bold)),
-                                                                  ),
-                                                                  SizedBox(
-                                                                    width: 70,
-                                                                    height: 240,
-                                                                    child: CupertinoPicker(
-                                                                      scrollController: FixedExtentScrollController(initialItem: selectedMinute),
-                                                                      itemExtent: 50,
-                                                                      onSelectedItemChanged: (index) {
-                                                                        selectedMinute = index;
-                                                                      },
-                                                                      children: List.generate(60, (index) => Center(
-                                                                        child: Text(
-                                                                          index.toString().padLeft(2, '0'),
-                                                                          style: const TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.w500),
-                                                                        ),
-                                                                      )),
-                                                                    ),
-                                                                  ),
-                                                                ],
-                                                              ),
-                                                            ],
-                                                          ),
-
-                                                          const SizedBox(width: 20),
-
-                                                          // Sezione Alert (destra) - Picker rotellina
-                                                          Column(
-                                                            mainAxisAlignment: MainAxisAlignment.center,
-                                                            children: [
-                                                              Text(
-                                                                l10n.alertPickerLabel,
-                                                                style: const TextStyle(
-                                                                  color: Colors.white,
-                                                                  fontSize: 18,
-                                                                  fontWeight: FontWeight.bold,
-                                                                ),
-                                                              ),
-                                                              const SizedBox(height: 12),
-                                                              SizedBox(
-                                                                width: 160,
-                                                                height: 240,
-                                                                child: CupertinoPicker(
-                                                                  scrollController: FixedExtentScrollController(
-                                                                    initialItem: () {
-                                                                      // Mappa alertHours all'indice corretto
-                                                                      // Nuovo ordine: null, 1, 2, 8, 24, 48
-                                                                      final alertOptions = [null, 1, 2, 8, 24, 48];
-                                                                      final index = alertOptions.indexOf(alertHours);
-                                                                      return index == -1 ? 1 : index; // Default "1 ora prima"
-                                                                    }(),
-                                                                  ),
-                                                                  itemExtent: 50,
-                                                                  onSelectedItemChanged: (index) {
-                                                                    // Mappa indice a ore
-                                                                    const alertOptions = [null, 1, 2, 8, 24, 48];
-                                                                    setAlertState(() => alertHours = alertOptions[index]);
-                                                                  },
-                                                                  children: [
-                                                                    Center(child: Text(l10n.alertNone, style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.w500))),
-                                                                    Center(child: Text(l10n.alert1HourBefore, style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.w500))),
-                                                                    Center(child: Text(l10n.alert2HoursBefore, style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.w500))),
-                                                                    Center(child: Text(l10n.alert8HoursBefore, style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.w500))),
-                                                                    Center(child: Text(l10n.alert1DayBefore, style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.w500))),
-                                                                    Center(child: Text(l10n.alert2DaysBefore, style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.w500))),
-                                                                  ],
-                                                                ),
-                                                              ),
-                                                            ],
-                                                          ),
-                                                        ],
-                                                      ),
-                                                    ),
-                                                  ),
-                                                  // Bottone conferma
-                                                  Padding(
-                                                    padding: const EdgeInsets.fromLTRB(24, 8, 24, 16),
-                                                    child: Material(
-                                                      color: Colors.white.withOpacity(0.15),
-                                                      borderRadius: BorderRadius.circular(12),
-                                                      child: InkWell(
-                                                        onTap: () {
-                                                          Navigator.pop(context, {
-                                                            'alertHours': alertHours,
-                                                            'hour': selectedHour,
-                                                            'minute': selectedMinute,
-                                                          });
-                                                        },
-                                                        borderRadius: BorderRadius.circular(12),
-                                                        splashColor: Colors.white.withOpacity(0.2),
-                                                        child: Padding(
-                                                          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-                                                          child: Center(
-                                                            child: Text(
-                                                              l10n.todoConfirm,
-                                                              style: const TextStyle(
-                                                                color: Colors.white,
-                                                                fontSize: 16,
-                                                                fontWeight: FontWeight.w500,
-                                                                letterSpacing: 0.3,
-                                                              ),
-                                                            ),
-                                                          ),
-                                                        ),
-                                                      ),
-                                                    ),
-                                                  ),
-                                                ],
-                                              ),
-                                            ),
-                                          ),
-                                        ),
-                                      );
-
-                                      if (result != null) {
-                                        // Conferma e chiudi con i dati selezionati
-                                        if (rangeStart != null && rangeEnd != null) {
-                                          // Range selezionato: ritorna range senza ora
-                                          Navigator.pop(context, {
-                                            'isRange': true,
-                                            'rangeStart': rangeStart,
-                                            'rangeEnd': rangeEnd,
-                                            'reminderHours': result['alertHours'],
-                                          });
-                                        } else if (rangeStart != null) {
-                                          // Data singola: ritorna con ora selezionata
-                                          final dueDate = DateTime(
-                                            selectedDate.year,
-                                            selectedDate.month,
-                                            selectedDate.day,
-                                            result['hour'] ?? 10,
-                                            result['minute'] ?? 0,
-                                          );
-                                          Navigator.pop(context, {
-                                            'isRange': false,
-                                            'date': dueDate,
-                                            'reminderHours': result['alertHours'],
-                                          });
-                                        }
-                                      }
-                                    },
-                                    icon: const Icon(Icons.add_circle, color: Color(0xFF3BA8B0), size: 32),
-                                    tooltip: l10n.todoAddAlertAndConfirm,
-                                  ),
                               ],
                             ),
                           ),
 
                           const Divider(height: 1),
 
-                          // Lista TODO
+                          // Lista TODO con bubble nuovo/modifica
                           Expanded(
-                            child: todosForDay.isEmpty
+                            child: (rangeStart == null && dayToShowTodos == null)
+                                // Nessun giorno selezionato: mostra istruzione
                                 ? Center(
                                     child: Column(
                                       mainAxisAlignment: MainAxisAlignment.center,
@@ -2095,11 +1831,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                                         ),
                                         const SizedBox(height: 16),
                                         Text(
-                                          (rangeStart == null && dayToShowTodos == null)
-                                              ? l10n.todoSelectDayToView
-                                              : ((rangeStart != null && rangeEnd != null)
-                                                  ? l10n.todoNoTodosInRange
-                                                  : l10n.todoNoTodosForDay),
+                                          l10n.todoSelectDayToView,
                                           style: TextStyle(
                                             fontSize: 16,
                                             fontWeight: FontWeight.w500,
@@ -2109,53 +1841,372 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                                       ],
                                     ),
                                   )
-                                : ListView.separated(
+                                // Giorno/range selezionato: mostra bubble nuovo + todo esistenti
+                                : ListView(
                                     padding: const EdgeInsets.all(16),
-                                    itemCount: todosForDay.length,
-                                    separatorBuilder: (context, index) => const SizedBox(height: 12),
-                                    itemBuilder: (context, index) {
-                                      final todo = todosForDay[index];
+                                    children: [
+                                      // === Bubble nuovo/modifica To-Do (identica alle altre) ===
+                                      Padding(
+                                        padding: const EdgeInsets.only(bottom: 12, left: 8, right: 8),
+                                        child: Row(
+                                          mainAxisAlignment: MainAxisAlignment.end,
+                                          children: [
+                                            Container(
+                                              constraints: BoxConstraints(
+                                                maxWidth: MediaQuery.of(context).size.width * 0.75,
+                                              ),
+                                              decoration: BoxDecoration(
+                                                gradient: const LinearGradient(
+                                                  colors: [
+                                                    Color(0xFF3BA8B0),
+                                                    Color(0xFF145A60),
+                                                  ],
+                                                  begin: Alignment.topLeft,
+                                                  end: Alignment.bottomRight,
+                                                ),
+                                                borderRadius: const BorderRadius.only(
+                                                  topLeft: Radius.circular(20),
+                                                  topRight: Radius.circular(20),
+                                                  bottomLeft: Radius.circular(20),
+                                                  bottomRight: Radius.circular(4),
+                                                ),
+                                                boxShadow: [
+                                                  BoxShadow(
+                                                    color: const Color(0xFF3BA8B0).withOpacity(0.3),
+                                                    blurRadius: 8,
+                                                    offset: const Offset(0, 2),
+                                                  ),
+                                                ],
+                                              ),
+                                              child: Padding(
+                                                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                                                child: Text(
+                                                  _messageController.text.trim().isNotEmpty
+                                                      ? _messageController.text.trim()
+                                                      : l10n.todoNewTodo,
+                                                  style: TextStyle(
+                                                    color: Colors.white,
+                                                    fontSize: 15,
+                                                    height: 1.4,
+                                                    fontStyle: _messageController.text.trim().isEmpty
+                                                        ? FontStyle.italic
+                                                        : FontStyle.normal,
+                                                  ),
+                                                ),
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
 
-                                      // Verifica se è completato
-                                      final isCompleted = todo.action?.type == 'complete' ||
-                                          chatService.messages.any((m) =>
-                                              m.messageType == 'todo_completed' &&
-                                              m.originalTodoId == todo.id);
+                                      // === Bottone Conferma sotto la bubble ===
+                                      Padding(
+                                        padding: const EdgeInsets.only(bottom: 16),
+                                        child: Center(
+                                          child: Material(
+                                            color: const Color(0xFF3BA8B0),
+                                            borderRadius: BorderRadius.circular(12),
+                                            child: InkWell(
+                                              onTap: () async {
+                                                // Testo della bubble per il modale
+                                                final bubbleText = _messageController.text.trim().isNotEmpty
+                                                    ? _messageController.text.trim()
+                                                    : l10n.todoNewTodo;
 
-                                      // Determina se è stato creato da me
-                                      final isMe = todo.senderId == _myDeviceId;
+                                                // Mostra menu per selezionare alert e orario
+                                                int? alertHours = selectedReminderHours ?? 1;
+                                                int selectedHour = 10;
+                                                int selectedMinute = 0;
 
-                                      // Formatta la data come in chat
-                                      String? formattedDate;
-                                      if (todo.dueDate != null) {
-                                        if (todo.rangeEnd != null) {
-                                          // È un range: formatta in modo intelligente
-                                          formattedDate = _formatDateRange(todo.dueDate!, todo.rangeEnd!);
-                                        } else {
-                                          // Data singola con ora in formato colloquiale
-                                          formattedDate = _formatTodoDate(todo.dueDate!, includeTime: true);
-                                        }
-                                      }
+                                                final result = await showModalBottomSheet<Map<String, dynamic>?>(
+                                                  context: context,
+                                                  isScrollControlled: true,
+                                                  backgroundColor: Colors.transparent,
+                                                  builder: (context) => StatefulBuilder(
+                                                    builder: (context, setAlertState) => Container(
+                                                      height: MediaQuery.of(context).size.height * 0.7,
+                                                      decoration: const BoxDecoration(
+                                                        gradient: LinearGradient(
+                                                          begin: Alignment.topCenter,
+                                                          end: Alignment.bottomCenter,
+                                                          colors: [Color(0xFF3BA8B0), Color(0xFF145A60)],
+                                                        ),
+                                                        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+                                                      ),
+                                                      child: SafeArea(
+                                                        child: Column(
+                                                          children: [
+                                                            // Testo della bubble in testa al modale
+                                                            Padding(
+                                                              padding: const EdgeInsets.only(top: 20, left: 24, right: 24, bottom: 8),
+                                                              child: Text(
+                                                                bubbleText,
+                                                                style: const TextStyle(
+                                                                  color: Colors.white,
+                                                                  fontSize: 18,
+                                                                  fontWeight: FontWeight.w600,
+                                                                ),
+                                                                textAlign: TextAlign.center,
+                                                                maxLines: 2,
+                                                                overflow: TextOverflow.ellipsis,
+                                                              ),
+                                                            ),
 
-                                      return TodoMessageBubble(
-                                        message: todo,
-                                        isMe: isMe,
-                                        isCompleted: isCompleted,
-                                        onReact: (reactionType) => _addReaction(todo.id, reactionType),
-                                        onAction: (actionType) {
-                                          // Se è Edit, chiudi prima la modale calendario
-                                          // per evitare sovrapposizione di modali
-                                          if (actionType == 'edit') {
-                                            Navigator.pop(context);
+                                                            // Data
+                                                            Padding(
+                                                              padding: const EdgeInsets.only(bottom: 12),
+                                                              child: Text(
+                                                                (rangeStart != null && rangeEnd != null)
+                                                                    ? _formatDateRange(rangeStart!, rangeEnd!)
+                                                                    : (dayToShowTodos != null
+                                                                        ? _formatTodoDate(dayToShowTodos!, includeTime: false)
+                                                                        : ''),
+                                                                style: const TextStyle(
+                                                                  color: Colors.white,
+                                                                  fontSize: 28,
+                                                                  fontWeight: FontWeight.bold,
+                                                                ),
+                                                                textAlign: TextAlign.center,
+                                                              ),
+                                                            ),
+
+                                                            // Orario e Alert affiancati
+                                                            Expanded(
+                                                              child: Padding(
+                                                                padding: const EdgeInsets.symmetric(horizontal: 16),
+                                                                child: Row(
+                                                                  crossAxisAlignment: CrossAxisAlignment.center,
+                                                                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                                                                  children: [
+                                                                    // Sezione Orario (sinistra)
+                                                                    Column(
+                                                                      mainAxisAlignment: MainAxisAlignment.center,
+                                                                      children: [
+                                                                        Text(
+                                                                          l10n.timePickerLabel,
+                                                                          style: const TextStyle(
+                                                                            color: Colors.white,
+                                                                            fontSize: 18,
+                                                                            fontWeight: FontWeight.bold,
+                                                                          ),
+                                                                        ),
+                                                                        const SizedBox(height: 12),
+                                                                        Row(
+                                                                          mainAxisAlignment: MainAxisAlignment.center,
+                                                                          children: [
+                                                                            SizedBox(
+                                                                              width: 70,
+                                                                              height: 240,
+                                                                              child: CupertinoPicker(
+                                                                                scrollController: FixedExtentScrollController(initialItem: selectedHour),
+                                                                                itemExtent: 50,
+                                                                                onSelectedItemChanged: (index) {
+                                                                                  selectedHour = index;
+                                                                                },
+                                                                                children: List.generate(24, (index) => Center(
+                                                                                  child: Text(
+                                                                                    index.toString().padLeft(2, '0'),
+                                                                                    style: const TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.w500),
+                                                                                  ),
+                                                                                )),
+                                                                              ),
+                                                                            ),
+                                                                            const Padding(
+                                                                              padding: EdgeInsets.symmetric(horizontal: 4),
+                                                                              child: Text(':', style: TextStyle(color: Colors.white, fontSize: 28, fontWeight: FontWeight.bold)),
+                                                                            ),
+                                                                            SizedBox(
+                                                                              width: 70,
+                                                                              height: 240,
+                                                                              child: CupertinoPicker(
+                                                                                scrollController: FixedExtentScrollController(initialItem: selectedMinute),
+                                                                                itemExtent: 50,
+                                                                                onSelectedItemChanged: (index) {
+                                                                                  selectedMinute = index;
+                                                                                },
+                                                                                children: List.generate(60, (index) => Center(
+                                                                                  child: Text(
+                                                                                    index.toString().padLeft(2, '0'),
+                                                                                    style: const TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.w500),
+                                                                                  ),
+                                                                                )),
+                                                                              ),
+                                                                            ),
+                                                                          ],
+                                                                        ),
+                                                                      ],
+                                                                    ),
+
+                                                                    const SizedBox(width: 20),
+
+                                                                    // Sezione Alert (destra) - Picker rotellina
+                                                                    Column(
+                                                                      mainAxisAlignment: MainAxisAlignment.center,
+                                                                      children: [
+                                                                        Text(
+                                                                          l10n.alertPickerLabel,
+                                                                          style: const TextStyle(
+                                                                            color: Colors.white,
+                                                                            fontSize: 18,
+                                                                            fontWeight: FontWeight.bold,
+                                                                          ),
+                                                                        ),
+                                                                        const SizedBox(height: 12),
+                                                                        SizedBox(
+                                                                          width: 160,
+                                                                          height: 240,
+                                                                          child: CupertinoPicker(
+                                                                            scrollController: FixedExtentScrollController(
+                                                                              initialItem: () {
+                                                                                final alertOptions = [null, 1, 2, 8, 24, 48];
+                                                                                final index = alertOptions.indexOf(alertHours);
+                                                                                return index == -1 ? 1 : index;
+                                                                              }(),
+                                                                            ),
+                                                                            itemExtent: 50,
+                                                                            onSelectedItemChanged: (index) {
+                                                                              const alertOptions = [null, 1, 2, 8, 24, 48];
+                                                                              setAlertState(() => alertHours = alertOptions[index]);
+                                                                            },
+                                                                            children: [
+                                                                              Center(child: Text(l10n.alertNone, style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.w500))),
+                                                                              Center(child: Text(l10n.alert1HourBefore, style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.w500))),
+                                                                              Center(child: Text(l10n.alert2HoursBefore, style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.w500))),
+                                                                              Center(child: Text(l10n.alert8HoursBefore, style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.w500))),
+                                                                              Center(child: Text(l10n.alert1DayBefore, style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.w500))),
+                                                                              Center(child: Text(l10n.alert2DaysBefore, style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.w500))),
+                                                                            ],
+                                                                          ),
+                                                                        ),
+                                                                      ],
+                                                                    ),
+                                                                  ],
+                                                                ),
+                                                              ),
+                                                            ),
+                                                            // Bottone conferma nel modale orario/alert
+                                                            Padding(
+                                                              padding: const EdgeInsets.fromLTRB(24, 8, 24, 16),
+                                                              child: Material(
+                                                                color: Colors.white.withOpacity(0.15),
+                                                                borderRadius: BorderRadius.circular(12),
+                                                                child: InkWell(
+                                                                  onTap: () {
+                                                                    Navigator.pop(context, {
+                                                                      'alertHours': alertHours,
+                                                                      'hour': selectedHour,
+                                                                      'minute': selectedMinute,
+                                                                    });
+                                                                  },
+                                                                  borderRadius: BorderRadius.circular(12),
+                                                                  splashColor: Colors.white.withOpacity(0.2),
+                                                                  child: Padding(
+                                                                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+                                                                    child: Center(
+                                                                      child: Text(
+                                                                        l10n.todoConfirm,
+                                                                        style: const TextStyle(
+                                                                          color: Colors.white,
+                                                                          fontSize: 16,
+                                                                          fontWeight: FontWeight.w500,
+                                                                          letterSpacing: 0.3,
+                                                                        ),
+                                                                      ),
+                                                                    ),
+                                                                  ),
+                                                                ),
+                                                              ),
+                                                            ),
+                                                          ],
+                                                        ),
+                                                      ),
+                                                    ),
+                                                  ),
+                                                );
+
+                                                if (result != null) {
+                                                  // Conferma e chiudi con i dati selezionati
+                                                  if (rangeStart != null && rangeEnd != null) {
+                                                    Navigator.pop(context, {
+                                                      'isRange': true,
+                                                      'rangeStart': rangeStart,
+                                                      'rangeEnd': rangeEnd,
+                                                      'reminderHours': result['alertHours'],
+                                                    });
+                                                  } else if (rangeStart != null) {
+                                                    final dueDate = DateTime(
+                                                      selectedDate.year,
+                                                      selectedDate.month,
+                                                      selectedDate.day,
+                                                      result['hour'] ?? 10,
+                                                      result['minute'] ?? 0,
+                                                    );
+                                                    Navigator.pop(context, {
+                                                      'isRange': false,
+                                                      'date': dueDate,
+                                                      'reminderHours': result['alertHours'],
+                                                    });
+                                                  }
+                                                }
+                                              },
+                                              borderRadius: BorderRadius.circular(12),
+                                              splashColor: Colors.white.withOpacity(0.2),
+                                              child: Padding(
+                                                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                                                child: Text(
+                                                  l10n.todoConfirm,
+                                                  style: const TextStyle(
+                                                    color: Colors.white,
+                                                    fontSize: 16,
+                                                    fontWeight: FontWeight.w500,
+                                                    letterSpacing: 0.3,
+                                                  ),
+                                                ),
+                                              ),
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+
+                                      // === Todo esistenti ===
+                                      ...todosForDay.map((todo) {
+                                        final isCompleted = todo.action?.type == 'complete' ||
+                                            chatService.messages.any((m) =>
+                                                m.messageType == 'todo_completed' &&
+                                                m.originalTodoId == todo.id);
+
+                                        final isMe = todo.senderId == _myDeviceId;
+
+                                        String? formattedDate;
+                                        if (todo.dueDate != null) {
+                                          if (todo.rangeEnd != null) {
+                                            formattedDate = _formatDateRange(todo.dueDate!, todo.rangeEnd!);
+                                          } else {
+                                            formattedDate = _formatTodoDate(todo.dueDate!, includeTime: true);
                                           }
-                                          _addAction(todo.id, actionType, todo);
-                                        },
-                                        formattedDate: formattedDate,
-                                        attachmentService: _attachmentService,
-                                        senderId: todo.senderId,
-                                        currentUserId: _myDeviceId,
-                                      );
-                                    },
+                                        }
+
+                                        return Padding(
+                                          padding: const EdgeInsets.only(bottom: 12),
+                                          child: TodoMessageBubble(
+                                            message: todo,
+                                            isMe: isMe,
+                                            isCompleted: isCompleted,
+                                            onReact: (reactionType) => _addReaction(todo.id, reactionType),
+                                            onAction: (actionType) {
+                                              if (actionType == 'edit') {
+                                                Navigator.pop(context);
+                                              }
+                                              _addAction(todo.id, actionType, todo);
+                                            },
+                                            formattedDate: formattedDate,
+                                            attachmentService: _attachmentService,
+                                            senderId: todo.senderId,
+                                            currentUserId: _myDeviceId,
+                                          ),
+                                        );
+                                      }),
+                                    ],
                                   ),
                           ),
                         ],

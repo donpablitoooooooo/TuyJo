@@ -131,6 +131,7 @@
     "chatSetDateTimeTooltip": "Establecer fecha\/hora",
     "chatLoadingAttachment": "Cargando...",
     "chatTodoDefault": "Todo",
+    "todoNewTodo": "Nuevo To-Do",
     "chatLongPressToComplete": "Mantenga pulsado para completar",
     "chatLongPressToReact": "Mantenga pulsado para reaccionar",
     "chatConfirm": "Confirmar",
