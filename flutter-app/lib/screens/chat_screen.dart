@@ -44,6 +44,7 @@ class ChatScreen extends StatefulWidget {
 class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   final _messageController = TextEditingController();
   final _scrollController = ScrollController();
+  final _messageFocusNode = FocusNode();
   AttachmentService? _attachmentService;
   bool _isLoading = true;
   bool _hasText = false;
@@ -936,6 +937,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     WidgetsBinding.instance.removeObserver(this);
     _messageController.dispose();
     _scrollController.dispose();
+    _messageFocusNode.dispose();
     _typingTimer?.cancel();
     _pendingUploadRetryTimer?.cancel();
     // Pulisci eventuali file temporanei iOS rimasti
@@ -2216,6 +2218,8 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
 
       // Auto-invio: se c'è testo scritto, invia direttamente senza bisogno di premere invio
       if (_messageController.text.trim().isNotEmpty) {
+        // Chiudi la tastiera prima di inviare
+        _messageFocusNode.unfocus();
         _sendMessage();
       }
     }
@@ -2227,6 +2231,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     final messageId = _editingMessageId!;
     final todoDate = _selectedTodoDate;
     final rangeEnd = _selectedRangeEnd;
+    final reminderHours = _selectedReminderHours;
 
     // Salva gli allegati rimasti prima di resettare
     final remainingAttachments = List<Attachment>.from(_editingAttachments);
@@ -2309,6 +2314,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       dueDate: todoDate,
       rangeEnd: rangeEnd,
       attachments: remainingAttachments,
+      alertHours: reminderHours,
     );
 
     if (success) {
@@ -2767,7 +2773,10 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     final l10n = AppLocalizations.of(context)!;
 
     return Scaffold(
-      body: Column(
+      body: GestureDetector(
+        onTap: () => FocusScope.of(context).unfocus(),
+        behavior: HitTestBehavior.translucent,
+        child: Column(
         children: [
           Expanded(
             child: chatService.messages.isEmpty
@@ -3112,6 +3121,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                       ),
                       child: TextField(
                         controller: _messageController,
+                        focusNode: _messageFocusNode,
                         decoration: InputDecoration(
                           hintText: _selectedTodoDate != null
                               ? l10n.chatTodoPlaceholder
@@ -3188,6 +3198,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
           ),
         ],
       ),
+      ), // Fine GestureDetector
     );
   }
 }
