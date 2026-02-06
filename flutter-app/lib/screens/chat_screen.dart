@@ -2223,12 +2223,21 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       // Auto-invio: se c'è testo scritto, invia direttamente senza bisogno di premere invio
       if (_messageController.text.trim().isNotEmpty) {
         _sendMessage();
+        // Caso 1: testo presente → auto-send, tastiera resta giù
+        Future.delayed(const Duration(milliseconds: 300), () {
+          if (mounted) _messageFocusNode.canRequestFocus = true;
+        });
+      } else {
+        // Caso 2: nessun testo → l'utente deve scrivere, apri tastiera
+        _messageFocusNode.canRequestFocus = true;
+        _messageFocusNode.requestFocus();
       }
+    } else {
+      // Modale chiuso senza conferma o cancellato → riabilita focus senza aprire tastiera
+      Future.delayed(const Duration(milliseconds: 300), () {
+        if (mounted) _messageFocusNode.canRequestFocus = true;
+      });
     }
-    // Riabilita il focus con delay per evitare che Flutter ripristini il focus automaticamente
-    Future.delayed(const Duration(milliseconds: 300), () {
-      if (mounted) _messageFocusNode.canRequestFocus = true;
-    });
   }
 
   Future<void> _updateExistingMessage() async {
