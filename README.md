@@ -1,6 +1,6 @@
 # Tuijo - Private Messaging & Family Organization App
 
-**Version:** 1.24.0 (Build 27) | **Status:** 🚀 Production Ready
+**Version:** 1.25.0 (Build 28) | **Status:** 🚀 Production Ready
 
 [![Flutter](https://img.shields.io/badge/Flutter-3.x-blue)](https://flutter.dev)
 [![Firebase](https://img.shields.io/badge/Firebase-Firestore-orange)](https://firebase.google.com)
@@ -67,28 +67,19 @@ A secure, end-to-end encrypted messaging and family organization app built with 
 
 ---
 
-## 🚀 What's New in 1.24.0 - Encrypted Location & Voice Calls
+## 🚀 What's New in 1.25.0 - Todo UX & Localization Polish
 
-### 🔐 Encrypted Location Coordinates (NEW!)
-- **Per-Session AES-256**: Each location sharing session generates a unique encryption key
-- **Zero Plaintext on Server**: GPS coordinates (lat, lng, accuracy, speed, heading) are AES-256 encrypted before writing to Firestore
-- **Key Distribution via E2E Message**: Location encryption key is embedded in the already RSA+AES dual-encrypted chat message
-- **Initial Coordinates in Message**: Sender's GPS position included in encrypted message so receiver can navigate immediately
-- **Full-Screen Setup Page**: Dedicated location sharing setup with live GPS acquisition, mode selection (live/static), and duration picker
-- **Key Persistence**: Location key stored in FlutterSecureStorage for app restart recovery
+### ✅ Todo Keyboard Fix
+- **Smart Keyboard Behavior**: Keyboard no longer flickers when confirming a todo with text already written (auto-sends directly)
+- **Focus on Empty**: When confirming a todo without text, keyboard opens automatically so user can type immediately
+- **Modal Focus Isolation**: TextField focus disabled during calendar/time picker modals to prevent unwanted keyboard appearance
 
-### 📞 WebRTC Voice Calls (NEW!)
-- **Peer-to-Peer Audio**: Direct audio calls via WebRTC with Firestore signaling
-- **Native CallKit (iOS)**: Incoming calls show native iOS call UI with lockscreen support
-- **Android ConnectionService**: Native incoming call notifications on Android
-- **Call Controls**: Mute, speaker toggle, accept/decline buttons
-- **Live Duration Timer**: MM:SS format timer during connected calls
-- **Dark-Themed UI**: Elegant call screen with animated partner avatar
-- **Automatic Cleanup**: Call data and ICE candidates cleaned from Firestore after call ends
+### 🌍 Localization Fix
+- **Localized Month Separators**: Media screen month dividers (photos, links, documents) now display in the user's language instead of always Italian
+- **Dynamic Locale**: Uses `Localizations.localeOf(context)` instead of hardcoded `'it'` locale
 
-### 🔒 Security Enhancements
-- **No Plaintext Coordinates**: `.set()` without merge prevents any plaintext coordinate leakage in Firestore
-- **Backward Compatible**: Falls back to unencrypted reads for old location sharing sessions
+### 📦 Dependency Upgrade
+- **flutter_webrtc 1.3.0**: Upgraded from 0.12.4 to 1.3.0 for latest WebRTC improvements and bug fixes
 
 ---
 
@@ -307,7 +298,7 @@ platform.setMethodCallHandler((call) async {
 - `encrypt: 5.0.3` - Encryption utilities
 
 ### Voice Calls
-- `flutter_webrtc: 0.12.4` - WebRTC peer-to-peer audio
+- `flutter_webrtc: 1.3.0` - WebRTC peer-to-peer audio
 - `flutter_callkit_incoming: 3.0.0` - Native CallKit (iOS) + ConnectionService (Android)
 
 ### UI & Utilities
@@ -362,7 +353,7 @@ platform.setMethodCallHandler((call) async {
 - [x] Calendar screen removed, integrated into chat
 - [x] Voice calls with WebRTC + native CallKit
 - [x] Encrypted location coordinates (AES-256)
-- [x] Version bumped to 1.24.0 (Build 27)
+- [x] Version bumped to 1.25.0 (Build 28)
 
 ### App Store Connect
 **Bundle ID**: `com.privatemessaging.tuyjo`
@@ -456,6 +447,12 @@ Proprietary - All rights reserved
 
 ## 🎉 Version History
 
+### 1.25.0 (Build 28) - February 2026 - Todo UX & Localization Polish
+**FIXED**: Keyboard no longer flickers up/down when confirming a todo with text (auto-sends directly)
+**FIXED**: Keyboard opens automatically when confirming a todo without text, ready for input
+**FIXED**: Media screen month separators now localized (was always Italian)
+**UPGRADED**: flutter_webrtc from 0.12.4 to 1.3.0
+
 ### 1.24.0 (Build 27) - February 2026 - Encrypted Location & Voice Calls
 **NEW**: GPS coordinates encrypted with per-session AES-256 during location sharing
 **NEW**: Location encryption key distributed via E2E encrypted chat message
@@ -526,4 +523,4 @@ Android Firebase release
 
 **Status**: ✅ Production Ready - App Store & Play Store
 **Last Updated**: February 2026
-**Build**: 1.24.0+27
+**Build**: 1.25.0+28
