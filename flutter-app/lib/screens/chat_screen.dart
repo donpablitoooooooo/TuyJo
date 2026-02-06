@@ -2225,8 +2225,8 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
         _sendMessage();
       }
     }
-    // Riabilita il focus dopo che il frame corrente è completato
-    WidgetsBinding.instance.addPostFrameCallback((_) {
+    // Riabilita il focus con delay per evitare che Flutter ripristini il focus automaticamente
+    Future.delayed(const Duration(milliseconds: 300), () {
       if (mounted) _messageFocusNode.canRequestFocus = true;
     });
   }
