@@ -2218,9 +2218,14 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
 
       // Auto-invio: se c'è testo scritto, invia direttamente senza bisogno di premere invio
       if (_messageController.text.trim().isNotEmpty) {
-        // Chiudi la tastiera prima di inviare
+        // Impedisci al TextField di riacquisire il focus durante l'invio
+        _messageFocusNode.canRequestFocus = false;
         _messageFocusNode.unfocus();
         _sendMessage();
+        // Riabilita il focus dopo che il frame corrente è completato
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          _messageFocusNode.canRequestFocus = true;
+        });
       }
     }
     // Se result è null, l'utente ha chiuso senza azione (non cambiare niente)
