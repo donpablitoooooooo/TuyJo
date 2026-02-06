@@ -50,9 +50,9 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   String? _familyChatId;
 
   // Computed property per determinare se il pulsante send è abilitato
+  // Il bottone è grigio finché non c'è testo (o allegati)
   bool get _canSend =>
       _hasText ||
-      _selectedTodoDate != null ||
       _selectedAttachments.isNotEmpty;
 
   String? _myDeviceId;
@@ -1126,12 +1126,13 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
             ? message.attachments!.where((a) => a.url.isNotEmpty).toList()
             : [];
 
-        // Se è un todo, popola anche le date
+        // Se è un todo, popola anche le date e l'alert
         if (message.messageType == 'todo') {
           _selectedTodoDate = message.dueDate;
           _selectedRangeStart = message.dueDate;
           _selectedRangeEnd = message.rangeEnd;
           _isRangeSelection = message.rangeEnd != null;
+          _selectedReminderHours = message.alertHours;
         } else {
           // Resetta le date per messaggi normali
           _selectedTodoDate = null;
@@ -1808,8 +1809,9 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                                 : l10n.todoNewTodo;
 
                             int? alertHours = selectedReminderHours ?? 1;
-                            int pickerHour = 10;
-                            int pickerMinute = 0;
+                            // Se in modifica, usa l'orario originale del todo
+                            int pickerHour = (isEditing && _selectedTodoDate != null) ? _selectedTodoDate!.hour : 10;
+                            int pickerMinute = (isEditing && _selectedTodoDate != null) ? _selectedTodoDate!.minute : 0;
 
                             final pickerResult = await showModalBottomSheet<Map<String, dynamic>?>(
                               context: innerContext,
@@ -2072,13 +2074,43 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                                                       ),
                                                       child: Padding(
                                                         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                                                        child: Text(
-                                                          _messageController.text.trim(),
-                                                          style: const TextStyle(
-                                                            color: Colors.white,
-                                                            fontSize: 15,
-                                                            height: 1.4,
-                                                          ),
+                                                        child: Column(
+                                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                                          mainAxisSize: MainAxisSize.min,
+                                                          children: [
+                                                            Text(
+                                                              _messageController.text.trim(),
+                                                              style: const TextStyle(
+                                                                color: Colors.white,
+                                                                fontSize: 15,
+                                                                height: 1.4,
+                                                              ),
+                                                            ),
+                                                            // Mostra indicazione alert se presente
+                                                            if (selectedReminderHours != null) ...[
+                                                              const SizedBox(height: 6),
+                                                              Row(
+                                                                mainAxisSize: MainAxisSize.min,
+                                                                children: [
+                                                                  Icon(
+                                                                    Icons.notifications_active_outlined,
+                                                                    size: 12,
+                                                                    color: Colors.white.withOpacity(0.9),
+                                                                  ),
+                                                                  const SizedBox(width: 4),
+                                                                  Text(
+                                                                    selectedReminderHours! >= 24
+                                                                        ? l10n.alertShortDays(selectedReminderHours! ~/ 24)
+                                                                        : l10n.alertShortHours(selectedReminderHours!),
+                                                                    style: TextStyle(
+                                                                      fontSize: 12,
+                                                                      color: Colors.white.withOpacity(0.9),
+                                                                    ),
+                                                                  ),
+                                                                ],
+                                                              ),
+                                                            ],
+                                                          ],
                                                         ),
                                                       ),
                                                     ),
@@ -2181,6 +2213,11 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
         }
         _selectedReminderHours = result['reminderHours'];
       });
+
+      // Auto-invio: se c'è testo scritto, invia direttamente senza bisogno di premere invio
+      if (_messageController.text.trim().isNotEmpty) {
+        _sendMessage();
+      }
     }
     // Se result è null, l'utente ha chiuso senza azione (non cambiare niente)
   }
