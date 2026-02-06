@@ -1292,6 +1292,7 @@ class ChatService extends ChangeNotifier {
     DateTime? dueDate,
     DateTime? rangeEnd,
     List<Attachment>? attachments,
+    int? alertHours,
   }) async {
     try {
       if (kDebugMode) {
@@ -1314,6 +1315,9 @@ class ChatService extends ChangeNotifier {
         };
         if (rangeEnd != null) {
           todoData['range_end'] = rangeEnd.toIso8601String();
+        }
+        if (alertHours != null) {
+          todoData['alert_hours'] = alertHours;
         }
         contentToEncrypt = json.encode(todoData);
       } else {
