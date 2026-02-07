@@ -1623,6 +1623,10 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     // Sentinella per segnalare cancellazione
     final clearResult = {'clear': true};
 
+    // Impedisci alla tastiera di apparire quando il modale si chiude
+    _messageFocusNode.unfocus();
+    _messageFocusNode.canRequestFocus = false;
+
     // Se stiamo modificando un todo, inizializza con le date esistenti
     final isEditing = _editingMessageId != null;
     final now = DateTime.now();
@@ -2218,17 +2222,22 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
 
       // Auto-invio: se c'è testo scritto, invia direttamente senza bisogno di premere invio
       if (_messageController.text.trim().isNotEmpty) {
-        // Impedisci al TextField di riacquisire il focus durante l'invio
-        _messageFocusNode.canRequestFocus = false;
-        _messageFocusNode.unfocus();
         _sendMessage();
-        // Riabilita il focus dopo che il frame corrente è completato
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          _messageFocusNode.canRequestFocus = true;
+        // Caso 1: testo presente → auto-send, tastiera resta giù
+        Future.delayed(const Duration(milliseconds: 300), () {
+          if (mounted) _messageFocusNode.canRequestFocus = true;
         });
+      } else {
+        // Caso 2: nessun testo → l'utente deve scrivere, apri tastiera
+        _messageFocusNode.canRequestFocus = true;
+        _messageFocusNode.requestFocus();
       }
+    } else {
+      // Modale chiuso senza conferma o cancellato → riabilita focus senza aprire tastiera
+      Future.delayed(const Duration(milliseconds: 300), () {
+        if (mounted) _messageFocusNode.canRequestFocus = true;
+      });
     }
-    // Se result è null, l'utente ha chiuso senza azione (non cambiare niente)
   }
 
   Future<void> _updateExistingMessage() async {
