@@ -187,13 +187,15 @@
         .download-buttons {
             display: flex;
             justify-content: center;
-            gap: 15px;
-            margin-top: 25px;
+            align-items: center;
+            gap: 5px;
+            margin-top: 20px;
             flex-wrap: wrap;
         }
 
         .download-buttons a {
-            display: inline-block;
+            display: inline-flex;
+            align-items: center;
             transition: transform 0.2s, opacity 0.2s;
         }
 
@@ -202,7 +204,11 @@
             opacity: 0.85;
         }
 
-        .download-buttons img {
+        .download-buttons .badge-google {
+            height: 74px;
+        }
+
+        .download-buttons .badge-apple {
             height: 50px;
         }
 
@@ -269,10 +275,10 @@
             <p>Tu i jo - La teva app de missatgeria privada i xifrada per parelles</p>
             <div class="download-buttons">
                 <a href="https://play.google.com/store/apps/details?id=com.privatemessaging.private_messaging" target="_blank" rel="noopener">
-                    <img src="https://play.google.com/intl/en_us/badges/static/images/badges/ca_badge_web_generic.png" alt="Disponible a Google Play">
+                    <img class="badge-google" src="https://play.google.com/intl/en_us/badges/static/images/badges/ca_badge_web_generic.png" alt="Disponible a Google Play">
                 </a>
                 <a href="https://apps.apple.com/es/app/tuijo/id6757800731" target="_blank" rel="noopener">
-                    <img src="https://developer.apple.com/app-store/marketing/guidelines/images/badge-download-on-the-app-store.svg" alt="Descarrega a l'App Store">
+                    <img class="badge-apple" src="https://developer.apple.com/app-store/marketing/guidelines/images/badge-download-on-the-app-store.svg" alt="Descarrega a l'App Store">
                 </a>
             </div>
         </header>
