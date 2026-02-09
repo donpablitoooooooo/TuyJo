@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://youandme-b3b4c.web.app/sitemap.xml

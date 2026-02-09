@@ -270,6 +270,20 @@
     </style>
 </head>
 <body>
+    <script>
+        (function() {
+            if (sessionStorage.getItem('tuijo_lang')) return;
+            var path = window.location.pathname;
+            if (path !== '/' && path !== '/index.html') return;
+            var lang = (navigator.language || navigator.userLanguage || 'it').toLowerCase();
+            var redirect = null;
+            if (lang.startsWith('en')) redirect = 'en.html';
+            else if (lang.startsWith('ca')) redirect = 'ca.html';
+            else if (lang.startsWith('es')) redirect = 'es.html';
+            sessionStorage.setItem('tuijo_lang', '1');
+            if (redirect) window.location.replace(redirect);
+        })();
+    </script>
     <div class="lang-selector">
         <a href="en.html">EN</a>
         <a href="es.html">ES</a>
