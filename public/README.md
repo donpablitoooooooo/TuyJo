@@ -37,10 +37,10 @@ Il sito sara' disponibile su:
 | `en.html` | Homepage inglese |
 | `es.html` | Homepage spagnola |
 | `ca.html` | Homepage catalana |
-| `privacy-it.html` | Privacy policy italiana |
-| `privacy-en.html` | Privacy policy inglese |
-| `privacy-es.html` | Privacy policy spagnola |
-| `privacy-ca.html` | Privacy policy catalana |
+| `privacy_it.html` | Privacy policy italiana |
+| `privacy_en.html` | Privacy policy inglese |
+| `privacy_es.html` | Privacy policy spagnola |
+| `privacy_ca.html` | Privacy policy catalana |
 | `logo.png` | Logo app |
 
 ## Checklist Prima del Deploy
