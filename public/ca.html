@@ -184,6 +184,45 @@
             font-weight: 500;
         }
 
+        .download-buttons {
+            display: flex;
+            justify-content: center;
+            gap: 15px;
+            margin-top: 25px;
+            flex-wrap: wrap;
+        }
+
+        .download-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 12px 24px;
+            border-radius: 12px;
+            text-decoration: none;
+            font-weight: 600;
+            font-size: 0.95em;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+
+        .download-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(0,0,0,0.3);
+        }
+
+        .download-btn.google-play {
+            background: white;
+            color: #145A60;
+        }
+
+        .download-btn.app-store {
+            background: white;
+            color: #145A60;
+        }
+
+        .download-btn .btn-icon {
+            font-size: 1.4em;
+        }
+
         footer {
             text-align: center;
             color: white;
@@ -245,6 +284,14 @@
                 <h1>Tuijo</h1>
             </div>
             <p>Tu i jo - La teva app de missatgeria privada i xifrada per parelles</p>
+            <div class="download-buttons">
+                <a href="https://play.google.com/store/apps/details?id=com.privatemessaging.private_messaging" class="download-btn google-play" target="_blank" rel="noopener">
+                    <span class="btn-icon">&#9654;</span> Google Play
+                </a>
+                <a href="https://apps.apple.com/es/app/tuijo/id6757800731" class="download-btn app-store" target="_blank" rel="noopener">
+                    <span class="btn-icon">&#63743;</span> App Store
+                </a>
+            </div>
         </header>
 
         <div class="content">
