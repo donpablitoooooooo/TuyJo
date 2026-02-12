@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 import 'package:provider/provider.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:flutter_callkit_incoming/flutter_callkit_incoming.dart';
 import 'package:private_messaging/generated/l10n/app_localizations.dart';
 import '../services/pairing_service.dart';
 import '../services/couple_selfie_service.dart';
@@ -26,9 +25,11 @@ class VoiceCallScreen extends StatefulWidget {
 }
 
 enum CallState {
-  ringing,
-  connected,
-  ended,
+  ringing,     // Caller: attende risposta. Callee: sta squillando.
+  connecting,  // Partner ha risposto, WebRTC sta negoziando.
+  connected,   // Audio verificato, si parla.
+  failed,      // Connessione P2P fallita.
+  ended,       // Chiamata terminata normalmente.
 }
 
 class _VoiceCallScreenState extends State<VoiceCallScreen>
@@ -37,6 +38,8 @@ class _VoiceCallScreenState extends State<VoiceCallScreen>
   bool _isMuted = false;
   bool _isSpeakerOn = false;
   Timer? _callTimer;
+  Timer? _ringTimeout;
+  Timer? _connectTimeout;
   int _callDurationSeconds = 0;
   String? _familyChatId;
   String? _myUserId;
@@ -74,9 +77,11 @@ class _VoiceCallScreenState extends State<VoiceCallScreen>
   @override
   void dispose() {
     _callTimer?.cancel();
+    _ringTimeout?.cancel();
+    _connectTimeout?.cancel();
     _callSubscription?.cancel();
     _pulseController.dispose();
-    // Chiudi WebRTC (stream audio + peer connection)
+    // Chiudi WebRTC (stream audio + peer connection + ringback)
     _webrtcService.dispose();
     // Pulisci lo stato della chiamata su Firestore
     _cleanupCallState();
@@ -90,9 +95,29 @@ class _VoiceCallScreenState extends State<VoiceCallScreen>
 
     if (_familyChatId == null || _myUserId == null) return;
 
-    // Inizializza WebRTC (cattura microfono, crea peer connection)
+    // ─── Setup callbacks WebRTC ───
+    // onConnected: WebRTC ha stabilito la connessione (ICE ok).
+    // A questo punto NON mostriamo ancora "connected" — aspettiamo la verifica audio.
     _webrtcService.onConnected = () {
-      if (mounted && _callState != CallState.connected) {
+      if (mounted && _callState != CallState.connected && _callState != CallState.ended) {
+        if (kDebugMode) print('📞 [CALL] WebRTC connected, waiting for audio verification...');
+        // Passa a "connecting" se eravamo ancora in ringing
+        if (_callState == CallState.ringing) {
+          setState(() => _callState = CallState.connecting);
+        }
+        // Il timer di connessione parte da quando WebRTC è connesso
+        _connectTimeout?.cancel();
+      }
+    };
+
+    // onAudioVerified: i pacchetti audio fluiscono veramente!
+    // ORA possiamo dire "connected" e far partire la chiamata.
+    _webrtcService.onAudioVerified = () {
+      if (mounted && _callState != CallState.connected && _callState != CallState.ended) {
+        if (kDebugMode) print('✅ [CALL] Audio verified! Call is truly connected.');
+        _webrtcService.stopRingback();
+        _connectTimeout?.cancel();
+        _ringTimeout?.cancel();
         setState(() {
           _callState = CallState.connected;
         });
@@ -100,34 +125,81 @@ class _VoiceCallScreenState extends State<VoiceCallScreen>
         _startCallTimer();
       }
     };
+
+    // onConnectionFailed: ICE fallito o audio non fluisce.
+    _webrtcService.onConnectionFailed = () {
+      if (mounted && _callState != CallState.ended && _callState != CallState.failed) {
+        if (kDebugMode) print('❌ [CALL] P2P connection failed');
+        _webrtcService.stopRingback();
+        _connectTimeout?.cancel();
+        _ringTimeout?.cancel();
+        setState(() {
+          _callState = CallState.failed;
+        });
+        _pulseController.stop();
+        _showConnectionFailedDialog();
+      }
+    };
+
+    // onDisconnected: connessione persa durante la chiamata.
     _webrtcService.onDisconnected = () {
       if (mounted && _callState == CallState.connected) {
         _endCall();
       }
     };
+
     await _webrtcService.initialize();
 
     if (widget.isOutgoing) {
-      // Chiamata in uscita: scrivi lo stato + crea offer WebRTC
+      // ─── Chiamata in uscita ───
+      // 1. Scrivi "ringing" su Firestore → trigger FCM al partner
       await _writeCallSignal('ringing');
+      // 2. Crea offer WebRTC
       await _webrtcService.createOffer(_familyChatId!);
+      // 3. Avvia ringback tone (tu-tu... tu-tu...)
+      await _webrtcService.startRingback();
+      // 4. Ascolta risposta del partner
       _listenForCallResponse();
+      // 5. Timeout: se nessuna risposta entro 45s → fine
+      _ringTimeout = Timer(const Duration(seconds: 45), () {
+        if (mounted && _callState == CallState.ringing) {
+          if (kDebugMode) print('⏰ [CALL] Ring timeout - no answer');
+          _webrtcService.stopRingback();
+          setState(() => _callState = CallState.ended);
+          _pulseController.stop();
+          _showNoAnswerAndClose();
+        }
+      });
     } else {
-      // Chiamata in entrata (accettata via CallKit):
-      // Il callee ha già accettato dalla UI nativa CallKit, quindi
-      // creiamo subito l'answer WebRTC per stabilire la connessione audio.
-      // IMPORTANTE: leggere l'offer PRIMA di scrivere 'connected',
-      // altrimenti la cache locale Firestore non ha ancora l'offer.
+      // ─── Chiamata in entrata (accettata via CallKit) ───
+      // 1. Ascolta cambiamenti stato
       _listenForCallResponse();
-      await _webrtcService.createAnswer(_familyChatId!);
-      await _writeCallSignal('connected');
-      if (mounted) {
-        setState(() {
-          _callState = CallState.connected;
-        });
-        _pulseController.stop();
-        _startCallTimer();
+      // 2. Crea answer WebRTC (legge offer, scrive answer)
+      final success = await _webrtcService.createAnswer(_familyChatId!);
+      if (!success) {
+        // Offer non trovato — segnala errore
+        if (mounted) {
+          if (kDebugMode) print('❌ [CALL] Failed to create answer - offer not found');
+          setState(() => _callState = CallState.failed);
+          _pulseController.stop();
+          _showConnectionFailedDialog();
+        }
+        return;
       }
+      // 3. Scrivi "answered" su Firestore (NON "connected"!)
+      // Il caller vedrà che abbiamo risposto.
+      await _writeCallSignal('answered');
+      // 4. Passa a "connecting" — aspettiamo che WebRTC si connetta + audio verificato
+      if (mounted) {
+        setState(() => _callState = CallState.connecting);
+      }
+      // 5. Timeout connessione: se dopo 20s WebRTC non si connette → fallito
+      _connectTimeout = Timer(const Duration(seconds: 20), () {
+        if (mounted && _callState == CallState.connecting) {
+          if (kDebugMode) print('⏰ [CALL] Connection timeout - P2P failed');
+          _webrtcService.onConnectionFailed?.call();
+        }
+      });
     }
   }
 
@@ -143,7 +215,7 @@ class _VoiceCallScreenState extends State<VoiceCallScreen>
           .doc('current')
           .set({
         'caller_id': _myUserId,
-        'status': status, // ringing, connected, ended, declined
+        'status': status, // ringing, answered, ended, declined
         'started_at': FieldValue.serverTimestamp(),
         'updated_at': FieldValue.serverTimestamp(),
       }, SetOptions(merge: true));
@@ -168,14 +240,24 @@ class _VoiceCallScreenState extends State<VoiceCallScreen>
       final data = snapshot.data()!;
       final status = data['status'] as String?;
 
-      if (status == 'connected' && _callState != CallState.connected) {
-        setState(() {
-          _callState = CallState.connected;
+      if (status == 'answered' && widget.isOutgoing && _callState == CallState.ringing) {
+        // Il partner ha risposto! Passa a "connecting".
+        // NON fermiamo il ringback ancora — aspettiamo audio verificato.
+        if (kDebugMode) print('📞 [CALL] Partner answered, waiting for WebRTC...');
+        setState(() => _callState = CallState.connecting);
+        // Timeout: se dopo 20s ancora non connesso → fallito
+        _connectTimeout?.cancel();
+        _connectTimeout = Timer(const Duration(seconds: 20), () {
+          if (mounted && (_callState == CallState.connecting || _callState == CallState.ringing)) {
+            if (kDebugMode) print('⏰ [CALL] Connection timeout after answer');
+            _webrtcService.onConnectionFailed?.call();
+          }
         });
-        _pulseController.stop();
-        _startCallTimer();
       } else if ((status == 'ended' || status == 'declined') && _callState != CallState.ended) {
+        _webrtcService.stopRingback();
         _callTimer?.cancel();
+        _ringTimeout?.cancel();
+        _connectTimeout?.cancel();
         setState(() {
           _callState = CallState.ended;
         });
@@ -207,10 +289,12 @@ class _VoiceCallScreenState extends State<VoiceCallScreen>
   Future<void> _endCall() async {
     if (_callState == CallState.ended) return; // Evita doppia chiusura
     _callTimer?.cancel();
+    _ringTimeout?.cancel();
+    _connectTimeout?.cancel();
     setState(() {
       _callState = CallState.ended;
     });
-    // Prima chiudi WebRTC (così l'audio si ferma)
+    // Prima chiudi WebRTC (così l'audio si ferma + ringback si ferma)
     await _webrtcService.dispose();
     // Poi termina CallKit (ora è safe disattivare la sessione audio)
     final notificationService = Provider.of<NotificationService>(context, listen: false);
@@ -223,19 +307,32 @@ class _VoiceCallScreenState extends State<VoiceCallScreen>
   }
 
   Future<void> _acceptCall() async {
-    await _writeCallSignal('connected');
     // Crea answer WebRTC (legge offer, stabilisce connessione audio)
     if (_familyChatId != null) {
-      await _webrtcService.createAnswer(_familyChatId!);
+      final success = await _webrtcService.createAnswer(_familyChatId!);
+      if (!success) {
+        if (mounted) {
+          setState(() => _callState = CallState.failed);
+          _pulseController.stop();
+          _showConnectionFailedDialog();
+        }
+        return;
+      }
     }
+    await _writeCallSignal('answered');
     setState(() {
-      _callState = CallState.connected;
+      _callState = CallState.connecting;
     });
-    _pulseController.stop();
-    _startCallTimer();
+    // Timeout connessione
+    _connectTimeout = Timer(const Duration(seconds: 20), () {
+      if (mounted && _callState == CallState.connecting) {
+        _webrtcService.onConnectionFailed?.call();
+      }
+    });
   }
 
   Future<void> _declineCall() async {
+    _webrtcService.stopRingback();
     _writeCallSignal('declined');
     final notificationService = Provider.of<NotificationService>(context, listen: false);
     notificationService.endCallKit();
@@ -268,6 +365,70 @@ class _VoiceCallScreenState extends State<VoiceCallScreen>
     _webrtcService.setSpeakerOn(_isSpeakerOn);
   }
 
+  // ─── Dialogs ─────────────────────────────────────────────────────
+
+  void _showNoAnswerAndClose() {
+    if (!mounted) return;
+    final l10n = AppLocalizations.of(context)!;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(l10n.voiceCallPartnerNotAvailable),
+        duration: const Duration(seconds: 2),
+      ),
+    );
+    Future.delayed(const Duration(seconds: 2), () {
+      if (mounted) _endCall();
+    });
+  }
+
+  void _showConnectionFailedDialog() {
+    if (!mounted) return;
+    final l10n = AppLocalizations.of(context)!;
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => AlertDialog(
+        title: Text(l10n.voiceCallConnectionFailedTitle),
+        content: Text(l10n.voiceCallConnectionFailedMessage),
+        actions: [
+          TextButton(
+            onPressed: () {
+              Navigator.of(ctx).pop();
+              _endCall();
+            },
+            child: Text(l10n.close),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.of(ctx).pop();
+              _retryCall();
+            },
+            child: Text(l10n.retry),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _retryCall() async {
+    // Chiudi la connessione precedente
+    await _webrtcService.dispose();
+    _callSubscription?.cancel();
+    _callTimer?.cancel();
+
+    // Reset stato
+    setState(() {
+      _callState = CallState.ringing;
+      _callDurationSeconds = 0;
+    });
+    _pulseController.repeat(reverse: true);
+
+    // Ricrea tutto
+    _initCall();
+  }
+
+  // ─── UI ──────────────────────────────────────────────────────────
+
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
@@ -292,25 +453,20 @@ class _VoiceCallScreenState extends State<VoiceCallScreen>
 
               // Stato chiamata
               Text(
-                _callState == CallState.ringing
-                    ? (widget.isOutgoing
-                        ? l10n.voiceCallCalling
-                        : l10n.voiceCallIncoming)
-                    : _callState == CallState.connected
-                        ? _formatDuration(_callDurationSeconds)
-                        : l10n.voiceCallEnded,
+                _getStatusText(l10n),
                 style: TextStyle(
                   color: Colors.white.withOpacity(0.7),
                   fontSize: 16,
                   letterSpacing: 1.2,
                 ),
+                textAlign: TextAlign.center,
               ),
 
               const Spacer(flex: 1),
 
               // Avatar partner con animazione pulsazione
               ScaleTransition(
-                scale: _callState == CallState.ringing
+                scale: (_callState == CallState.ringing || _callState == CallState.connecting)
                     ? _pulseAnimation
                     : const AlwaysStoppedAnimation(1.0),
                 child: _buildPartnerAvatar(),
@@ -334,8 +490,11 @@ class _VoiceCallScreenState extends State<VoiceCallScreen>
               if (_callState == CallState.ringing && !widget.isOutgoing) ...[
                 // Chiamata in entrata: Accept / Decline
                 _buildIncomingCallButtons(l10n),
+              ] else if (_callState == CallState.failed) ...[
+                // Chiamata fallita: mostra solo End
+                _buildCallControls(l10n),
               ] else ...[
-                // Chiamata in uscita o connessa: Mute / Speaker / End
+                // Chiamata in uscita, connecting o connessa: Mute / Speaker / End
                 _buildCallControls(l10n),
               ],
 
@@ -347,11 +506,40 @@ class _VoiceCallScreenState extends State<VoiceCallScreen>
     );
   }
 
+  String _getStatusText(AppLocalizations l10n) {
+    switch (_callState) {
+      case CallState.ringing:
+        return widget.isOutgoing
+            ? l10n.voiceCallCalling
+            : l10n.voiceCallIncoming;
+      case CallState.connecting:
+        return l10n.voiceCallConnecting;
+      case CallState.connected:
+        return _formatDuration(_callDurationSeconds);
+      case CallState.failed:
+        return l10n.voiceCallConnectionFailed;
+      case CallState.ended:
+        return l10n.voiceCallEnded;
+    }
+  }
+
   Widget _buildPartnerAvatar() {
     return Consumer<CoupleSelfieService>(
       builder: (context, coupleSelfieService, _) {
         final hasSelfie = coupleSelfieService.hasSelfie;
         final cachedSelfieBytes = coupleSelfieService.cachedSelfieBytes;
+
+        // Colore bordo in base allo stato
+        Color borderColor;
+        if (_callState == CallState.connected) {
+          borderColor = const Color(0xFF3BA8B0);
+        } else if (_callState == CallState.failed) {
+          borderColor = Colors.red.withOpacity(0.6);
+        } else if (_callState == CallState.connecting) {
+          borderColor = Colors.amber.withOpacity(0.6);
+        } else {
+          borderColor = Colors.white.withOpacity(0.3);
+        }
 
         return Container(
           width: 160,
@@ -359,17 +547,12 @@ class _VoiceCallScreenState extends State<VoiceCallScreen>
           decoration: BoxDecoration(
             shape: BoxShape.circle,
             border: Border.all(
-              color: _callState == CallState.connected
-                  ? const Color(0xFF3BA8B0)
-                  : Colors.white.withOpacity(0.3),
+              color: borderColor,
               width: 4,
             ),
             boxShadow: [
               BoxShadow(
-                color: (_callState == CallState.connected
-                        ? const Color(0xFF3BA8B0)
-                        : Colors.white)
-                    .withOpacity(0.2),
+                color: borderColor.withOpacity(0.2),
                 blurRadius: 30,
                 spreadRadius: 5,
               ),

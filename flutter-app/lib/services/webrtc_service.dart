@@ -1,7 +1,10 @@
 import 'dart:async';
+import 'dart:math';
+import 'dart:typed_data';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_webrtc/flutter_webrtc.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:audioplayers/audioplayers.dart';
 
 /// Servizio WebRTC per chiamate vocali peer-to-peer.
 ///
@@ -10,6 +13,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 /// 2. Callee: createAnswer() → legge offer, scrive answer SDP + ICE candidates
 /// 3. Entrambi ascoltano ICE candidates del peer remoto
 /// 4. Connessione audio diretta P2P stabilita
+/// 5. Verifica audio: controlla che i pacchetti RTP fluiscano realmente
 class WebRTCService {
   RTCPeerConnection? _peerConnection;
   MediaStream? _localStream;
@@ -21,11 +25,27 @@ class WebRTCService {
 
   bool _remoteDescriptionSet = false;
 
-  /// Callback quando la connessione è stabilita
+  // Ringback tone
+  AudioPlayer? _ringbackPlayer;
+  bool _isPlayingRingback = false;
+
+  // Audio verification
+  Timer? _audioCheckTimer;
+  int _lastBytesReceived = 0;
+  int _audioCheckAttempts = 0;
+  static const int _maxAudioCheckAttempts = 10; // 10 x 1s = 10 secondi max
+
+  /// Callback quando la connessione WebRTC è stabilita (ICE connected)
   VoidCallback? onConnected;
 
   /// Callback quando la connessione si chiude
   VoidCallback? onDisconnected;
+
+  /// Callback quando ICE fallisce (P2P non possibile)
+  VoidCallback? onConnectionFailed;
+
+  /// Callback quando l'audio è verificato come funzionante
+  VoidCallback? onAudioVerified;
 
   // STUN servers gratuiti di Google per NAT traversal
   final Map<String, dynamic> _rtcConfig = {
@@ -64,17 +84,192 @@ class WebRTCService {
       if (kDebugMode) print('📞 [WEBRTC] Connection state: $state');
       if (state == RTCPeerConnectionState.RTCPeerConnectionStateConnected) {
         onConnected?.call();
-      } else if (state == RTCPeerConnectionState.RTCPeerConnectionStateFailed ||
-                 state == RTCPeerConnectionState.RTCPeerConnectionStateDisconnected ||
+        // Avvia verifica audio dopo la connessione
+        _startAudioVerification();
+      } else if (state == RTCPeerConnectionState.RTCPeerConnectionStateFailed) {
+        if (kDebugMode) print('❌ [WEBRTC] Connection FAILED - P2P non riuscito');
+        onConnectionFailed?.call();
+      } else if (state == RTCPeerConnectionState.RTCPeerConnectionStateDisconnected ||
                  state == RTCPeerConnectionState.RTCPeerConnectionStateClosed) {
         onDisconnected?.call();
       }
     };
 
+    // Monitora lo stato ICE separatamente per rilevare fallimenti prima
     _peerConnection!.onIceConnectionState = (RTCIceConnectionState state) {
       if (kDebugMode) print('📞 [WEBRTC] ICE state: $state');
+      if (state == RTCIceConnectionState.RTCIceConnectionStateFailed) {
+        if (kDebugMode) print('❌ [WEBRTC] ICE FAILED - nessun percorso P2P trovato');
+        onConnectionFailed?.call();
+      }
     };
   }
+
+  /// Avvia la verifica periodica che l'audio stia effettivamente fluendo
+  void _startAudioVerification() {
+    _audioCheckAttempts = 0;
+    _lastBytesReceived = 0;
+    _audioCheckTimer?.cancel();
+
+    _audioCheckTimer = Timer.periodic(const Duration(seconds: 1), (timer) async {
+      _audioCheckAttempts++;
+
+      final isFlowing = await _checkAudioFlowing();
+      if (isFlowing) {
+        if (kDebugMode) print('✅ [WEBRTC] Audio verificato - pacchetti in arrivo');
+        timer.cancel();
+        onAudioVerified?.call();
+        return;
+      }
+
+      if (_audioCheckAttempts >= _maxAudioCheckAttempts) {
+        if (kDebugMode) print('⚠️ [WEBRTC] Audio NON verificato dopo ${_maxAudioCheckAttempts}s');
+        timer.cancel();
+        // L'audio non fluisce nonostante la connessione — probabilmente symmetric NAT
+        onConnectionFailed?.call();
+      }
+    });
+  }
+
+  /// Controlla se l'audio remoto sta fluendo usando le statistiche WebRTC
+  Future<bool> _checkAudioFlowing() async {
+    if (_peerConnection == null) return false;
+
+    try {
+      final stats = await _peerConnection!.getStats();
+      for (var report in stats) {
+        // Cerca le statistiche inbound-rtp per la traccia audio
+        if (report.type == 'inbound-rtp') {
+          final values = report.values;
+          final kind = values['kind'] ?? values['mediaType'];
+          if (kind == 'audio') {
+            final bytesReceived = (values['bytesReceived'] as num?)?.toInt() ?? 0;
+            if (kDebugMode) {
+              print('📊 [WEBRTC] Audio inbound: bytesReceived=$bytesReceived (prev=$_lastBytesReceived)');
+            }
+            if (bytesReceived > _lastBytesReceived && _lastBytesReceived > 0) {
+              // I bytes crescono → l'audio sta fluendo
+              return true;
+            }
+            _lastBytesReceived = bytesReceived;
+          }
+        }
+      }
+    } catch (e) {
+      if (kDebugMode) print('⚠️ [WEBRTC] Error checking audio stats: $e');
+    }
+    return false;
+  }
+
+  // ─── Ringback Tone ───────────────────────────────────────────────
+
+  /// Avvia il tono di ringback (suono che sente il caller mentre aspetta)
+  Future<void> startRingback() async {
+    if (_isPlayingRingback) return;
+    _isPlayingRingback = true;
+
+    try {
+      _ringbackPlayer = AudioPlayer();
+      // Genera un tono di ringback standard (425Hz, 1s on, 4s off)
+      final wavBytes = _generateRingbackWav();
+      await _ringbackPlayer!.setReleaseMode(ReleaseMode.loop);
+      await _ringbackPlayer!.play(BytesSource(wavBytes));
+      await _ringbackPlayer!.setVolume(0.3); // Volume basso
+      if (kDebugMode) print('🔔 [WEBRTC] Ringback tone started');
+    } catch (e) {
+      if (kDebugMode) print('⚠️ [WEBRTC] Error starting ringback: $e');
+      _isPlayingRingback = false;
+    }
+  }
+
+  /// Ferma il tono di ringback
+  Future<void> stopRingback() async {
+    if (!_isPlayingRingback) return;
+    _isPlayingRingback = false;
+
+    try {
+      await _ringbackPlayer?.stop();
+      await _ringbackPlayer?.dispose();
+      _ringbackPlayer = null;
+      if (kDebugMode) print('🔕 [WEBRTC] Ringback tone stopped');
+    } catch (e) {
+      if (kDebugMode) print('⚠️ [WEBRTC] Error stopping ringback: $e');
+    }
+  }
+
+  /// Genera un file WAV con tono di ringback italiano (425Hz, 1s on, 4s off)
+  Uint8List _generateRingbackWav() {
+    const sampleRate = 16000;
+    const bitsPerSample = 16;
+    const numChannels = 1;
+    const frequency = 425.0; // Frequenza standard ringback italiano
+    const toneMs = 1000; // 1 secondo di tono
+    const silenceMs = 4000; // 4 secondi di silenzio
+    const totalMs = toneMs + silenceMs;
+    final numSamples = (sampleRate * totalMs / 1000).round();
+
+    // Genera campioni PCM
+    final samples = Int16List(numSamples);
+    final toneSamples = (sampleRate * toneMs / 1000).round();
+    for (int i = 0; i < toneSamples; i++) {
+      // Sine wave a 425Hz con fade in/out per evitare click
+      double envelope = 1.0;
+      const fadeMs = 20;
+      final fadeSamples = (sampleRate * fadeMs / 1000).round();
+      if (i < fadeSamples) {
+        envelope = i / fadeSamples; // Fade in
+      } else if (i > toneSamples - fadeSamples) {
+        envelope = (toneSamples - i) / fadeSamples; // Fade out
+      }
+      samples[i] = (sin(2 * pi * frequency * i / sampleRate) * 6000 * envelope).round().clamp(-32768, 32767);
+    }
+    // Il resto (silenzio) è già 0
+
+    // Costruisci header WAV
+    final dataSize = numSamples * (bitsPerSample ~/ 8) * numChannels;
+    final fileSize = 36 + dataSize;
+    final buffer = ByteData(44 + dataSize);
+
+    // RIFF header
+    buffer.setUint8(0, 0x52); // 'R'
+    buffer.setUint8(1, 0x49); // 'I'
+    buffer.setUint8(2, 0x46); // 'F'
+    buffer.setUint8(3, 0x46); // 'F'
+    buffer.setUint32(4, fileSize, Endian.little);
+    buffer.setUint8(8, 0x57);  // 'W'
+    buffer.setUint8(9, 0x41);  // 'A'
+    buffer.setUint8(10, 0x56); // 'V'
+    buffer.setUint8(11, 0x45); // 'E'
+
+    // fmt sub-chunk
+    buffer.setUint8(12, 0x66); // 'f'
+    buffer.setUint8(13, 0x6D); // 'm'
+    buffer.setUint8(14, 0x74); // 't'
+    buffer.setUint8(15, 0x20); // ' '
+    buffer.setUint32(16, 16, Endian.little); // Sub-chunk size
+    buffer.setUint16(20, 1, Endian.little); // PCM format
+    buffer.setUint16(22, numChannels, Endian.little);
+    buffer.setUint32(24, sampleRate, Endian.little);
+    buffer.setUint32(28, sampleRate * numChannels * (bitsPerSample ~/ 8), Endian.little);
+    buffer.setUint16(32, numChannels * (bitsPerSample ~/ 8), Endian.little);
+    buffer.setUint16(34, bitsPerSample, Endian.little);
+
+    // data sub-chunk
+    buffer.setUint8(36, 0x64); // 'd'
+    buffer.setUint8(37, 0x61); // 'a'
+    buffer.setUint8(38, 0x74); // 't'
+    buffer.setUint8(39, 0x61); // 'a'
+    buffer.setUint32(40, dataSize, Endian.little);
+
+    // Scrivi campioni PCM
+    for (int i = 0; i < numSamples; i++) {
+      buffer.setInt16(44 + i * 2, samples[i], Endian.little);
+    }
+
+    return buffer.buffer.asUint8List();
+  }
+
+  // ─── Signaling ───────────────────────────────────────────────────
 
   /// CALLER: Crea offer SDP e scrive su Firestore
   Future<void> createOffer(String familyChatId) async {
@@ -144,9 +339,10 @@ class WebRTCService {
     });
   }
 
-  /// CALLEE: Legge offer e crea answer SDP
-  Future<void> createAnswer(String familyChatId) async {
-    if (_peerConnection == null) return;
+  /// CALLEE: Legge offer e crea answer SDP.
+  /// Ritorna true se l'offer è stato trovato e l'answer creato con successo.
+  Future<bool> createAnswer(String familyChatId) async {
+    if (_peerConnection == null) return false;
 
     final callDoc = _firestore
         .collection('families')
@@ -169,7 +365,7 @@ class WebRTCService {
     }
     if (callData == null || !callData.exists || callData.data()?['offer'] == null) {
       if (kDebugMode) print('❌ [WEBRTC] No offer found in Firestore after 5 retries');
-      return;
+      return false;
     }
 
     final offerData = callData.data()!['offer'];
@@ -219,6 +415,8 @@ class WebRTCService {
         }
       }
     });
+
+    return true;
   }
 
   /// Mute/unmute il microfono
@@ -265,10 +463,14 @@ class WebRTCService {
     await callDoc.delete();
   }
 
-  /// Chiudi tutto: connessione, stream, listener
+  /// Chiudi tutto: connessione, stream, listener, ringback
   Future<void> dispose() async {
+    _audioCheckTimer?.cancel();
     _answerSubscription?.cancel();
     _remoteCandidatesSubscription?.cancel();
+
+    // Ferma ringback se attivo
+    await stopRingback();
 
     // Chiudi tracce audio locali
     if (_localStream != null) {
