@@ -178,7 +178,19 @@ class NotificationService {
 
     if (kDebugMode) print('✅ FCM permission granted');
 
-    String? token = await _firebaseMessaging.getToken();
+    // Prova a ottenere il token FCM con retry (Play Services potrebbe non essere subito disponibile)
+    String? token;
+    for (int attempt = 1; attempt <= 3; attempt++) {
+      try {
+        token = await _firebaseMessaging.getToken();
+        break;
+      } catch (e) {
+        if (kDebugMode) print('⚠️ FCM getToken attempt $attempt/3 failed: $e');
+        if (attempt < 3) {
+          await Future.delayed(Duration(seconds: attempt * 2));
+        }
+      }
+    }
     if (kDebugMode) print('🔑 FCM Token: $token');
 
     // Gestisci messaggi in foreground
