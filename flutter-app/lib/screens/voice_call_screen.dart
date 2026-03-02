@@ -307,30 +307,19 @@ class _VoiceCallScreenState extends State<VoiceCallScreen>
   Future<void> _startRingbackTone() async {
     try {
       if (kDebugMode) print('🔔 [VOICE_CALL] Starting ringback tone...');
+
+      // Forza speaker ON per uscire dall'auricolare (MODE_IN_COMMUNICATION)
+      await _webrtcService.setSpeakerOn(true);
+
       final wavBytes = _generateRingbackWav();
       final tempDir = await getTemporaryDirectory();
       final file = File('${tempDir.path}/ringback_tone.wav');
       await file.writeAsBytes(wavBytes);
 
-      // Usa stream media (speaker) senza rubare audio focus a WebRTC
-      await _ringbackPlayer.setAudioContext(AudioContext(
-        android: AudioContextAndroid(
-          contentType: AndroidContentType.music,
-          usageType: AndroidUsageType.media,
-          audioFocus: AndroidAudioFocus.none,
-        ),
-        iOS: AudioContextIOS(
-          category: AVAudioSessionCategory.ambient,
-          options: {
-            AVAudioSessionOptions.mixWithOthers,
-          },
-        ),
-      ));
-
       await _ringbackPlayer.setVolume(1.0);
       await _ringbackPlayer.setReleaseMode(ReleaseMode.loop);
       await _ringbackPlayer.play(DeviceFileSource(file.path));
-      if (kDebugMode) print('🔔 [VOICE_CALL] Ringback tone playing');
+      if (kDebugMode) print('🔔 [VOICE_CALL] Ringback tone playing (speaker forced on)');
     } catch (e) {
       if (kDebugMode) print('⚠️ [VOICE_CALL] Could not play ringback tone: $e');
     }
@@ -338,6 +327,8 @@ class _VoiceCallScreenState extends State<VoiceCallScreen>
 
   void _stopRingbackTone() {
     _ringbackPlayer.stop();
+    // Ripristina auricolare per la conversazione
+    _webrtcService.setSpeakerOn(false);
   }
 
   /// Genera un WAV con ringback tone europeo (425 Hz, 1s tono + 4s silenzio)
