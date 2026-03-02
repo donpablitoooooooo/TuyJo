@@ -1,9 +1,14 @@
 import 'dart:async';
+import 'dart:io';
+import 'dart:math';
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 import 'package:provider/provider.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter_callkit_incoming/flutter_callkit_incoming.dart';
+import 'package:audioplayers/audioplayers.dart';
+import 'package:path_provider/path_provider.dart';
 import 'package:private_messaging/generated/l10n/app_localizations.dart';
 import '../services/pairing_service.dart';
 import '../services/couple_selfie_service.dart';
@@ -44,6 +49,7 @@ class _VoiceCallScreenState extends State<VoiceCallScreen>
   String? _myUserId;
   StreamSubscription? _callSubscription;
   final WebRTCService _webrtcService = WebRTCService();
+  final AudioPlayer _ringbackPlayer = AudioPlayer();
 
   // Animazione pulsazione per stato "chiamata in corso"
   late AnimationController _pulseController;
@@ -78,6 +84,7 @@ class _VoiceCallScreenState extends State<VoiceCallScreen>
     _callTimer?.cancel();
     _ringingTimeoutTimer?.cancel();
     _callSubscription?.cancel();
+    _ringbackPlayer.dispose();
     _pulseController.dispose();
     // Chiudi WebRTC (stream audio + peer connection)
     _webrtcService.dispose();
@@ -96,6 +103,7 @@ class _VoiceCallScreenState extends State<VoiceCallScreen>
     // Inizializza WebRTC (cattura microfono, crea peer connection)
     _webrtcService.onConnected = () {
       if (mounted && _callState != CallState.connected) {
+        _stopRingbackTone();
         setState(() {
           _callState = CallState.connected;
         });
@@ -128,6 +136,7 @@ class _VoiceCallScreenState extends State<VoiceCallScreen>
     if (widget.isOutgoing) {
       // Chiamata in uscita: scrivi lo stato + crea offer WebRTC
       await _writeCallSignal('ringing');
+      _startRingbackTone();
       await _webrtcService.createOffer(_familyChatId!);
       _listenForCallResponse();
       // Timeout: se nessuna risposta entro 45 secondi, termina la chiamata
@@ -202,12 +211,14 @@ class _VoiceCallScreenState extends State<VoiceCallScreen>
       final status = data['status'] as String?;
 
       if (status == 'connected' && _callState != CallState.connected) {
+        _stopRingbackTone();
         setState(() {
           _callState = CallState.connected;
         });
         _pulseController.stop();
         _startCallTimer();
       } else if ((status == 'ended' || status == 'declined') && _callState != CallState.ended) {
+        _stopRingbackTone();
         _callTimer?.cancel();
         setState(() {
           _callState = CallState.ended;
@@ -240,6 +251,7 @@ class _VoiceCallScreenState extends State<VoiceCallScreen>
 
   Future<void> _endCall() async {
     if (_callState == CallState.ended) return; // Evita doppia chiusura
+    _stopRingbackTone();
     _callTimer?.cancel();
     setState(() {
       _callState = CallState.ended;
@@ -288,6 +300,69 @@ class _VoiceCallScreenState extends State<VoiceCallScreen>
       await _webrtcService.cleanupFirestore(_familyChatId!);
     } catch (e) {
       if (kDebugMode) print('⚠️ [VOICE_CALL] Error cleaning up call state: $e');
+    }
+  }
+
+  /// Avvia il ringback tone per chiamate in uscita (tuuu...tuuu...)
+  Future<void> _startRingbackTone() async {
+    try {
+      final wavBytes = _generateRingbackWav();
+      final tempDir = await getTemporaryDirectory();
+      final file = File('${tempDir.path}/ringback_tone.wav');
+      await file.writeAsBytes(wavBytes);
+      await _ringbackPlayer.setVolume(0.5);
+      await _ringbackPlayer.setReleaseMode(ReleaseMode.loop);
+      await _ringbackPlayer.play(DeviceFileSource(file.path));
+    } catch (e) {
+      if (kDebugMode) print('⚠️ [VOICE_CALL] Could not play ringback tone: $e');
+    }
+  }
+
+  void _stopRingbackTone() {
+    _ringbackPlayer.stop();
+  }
+
+  /// Genera un WAV con ringback tone europeo (425 Hz, 1s tono + 4s silenzio)
+  static Uint8List _generateRingbackWav() {
+    const sampleRate = 8000;
+    const frequency = 425.0;
+    const toneSamples = sampleRate * 1; // 1 secondo di tono
+    const totalSamples = sampleRate * 5; // 5 secondi (1s tono + 4s silenzio)
+
+    final pcm = Int16List(totalSamples);
+    for (int i = 0; i < toneSamples; i++) {
+      pcm[i] = (sin(2 * pi * frequency * i / sampleRate) * 12000).toInt();
+    }
+
+    final dataSize = totalSamples * 2;
+    final byteData = ByteData(44 + dataSize);
+
+    // RIFF header
+    _writeAscii(byteData, 0, 'RIFF');
+    byteData.setUint32(4, 36 + dataSize, Endian.little);
+    _writeAscii(byteData, 8, 'WAVE');
+    // fmt sub-chunk
+    _writeAscii(byteData, 12, 'fmt ');
+    byteData.setUint32(16, 16, Endian.little);
+    byteData.setUint16(20, 1, Endian.little); // PCM
+    byteData.setUint16(22, 1, Endian.little); // Mono
+    byteData.setUint32(24, sampleRate, Endian.little);
+    byteData.setUint32(28, sampleRate * 2, Endian.little); // byte rate
+    byteData.setUint16(32, 2, Endian.little); // block align
+    byteData.setUint16(34, 16, Endian.little); // bits per sample
+    // data sub-chunk
+    _writeAscii(byteData, 36, 'data');
+    byteData.setUint32(40, dataSize, Endian.little);
+    for (int i = 0; i < totalSamples; i++) {
+      byteData.setInt16(44 + i * 2, pcm[i], Endian.little);
+    }
+
+    return byteData.buffer.asUint8List();
+  }
+
+  static void _writeAscii(ByteData data, int offset, String text) {
+    for (int i = 0; i < text.length; i++) {
+      data.setUint8(offset + i, text.codeUnitAt(i));
     }
   }
 
