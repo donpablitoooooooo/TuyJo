@@ -306,13 +306,32 @@ class _VoiceCallScreenState extends State<VoiceCallScreen>
   /// Avvia il ringback tone per chiamate in uscita (tuuu...tuuu...)
   Future<void> _startRingbackTone() async {
     try {
+      if (kDebugMode) print('🔔 [VOICE_CALL] Starting ringback tone...');
       final wavBytes = _generateRingbackWav();
       final tempDir = await getTemporaryDirectory();
       final file = File('${tempDir.path}/ringback_tone.wav');
       await file.writeAsBytes(wavBytes);
-      await _ringbackPlayer.setVolume(0.5);
+
+      // Configura audio context compatibile con WebRTC
+      await _ringbackPlayer.setAudioContext(AudioContext(
+        android: AudioContextAndroid(
+          contentType: AndroidContentType.speech,
+          usageType: AndroidUsageType.voiceCommunication,
+          audioFocus: AndroidAudioFocus.gainTransientMayDuck,
+        ),
+        iOS: AudioContextIOS(
+          category: AVAudioSessionCategory.playAndRecord,
+          options: {
+            AVAudioSessionOptions.defaultToSpeaker,
+            AVAudioSessionOptions.mixWithOthers,
+          },
+        ),
+      ));
+
+      await _ringbackPlayer.setVolume(1.0);
       await _ringbackPlayer.setReleaseMode(ReleaseMode.loop);
       await _ringbackPlayer.play(DeviceFileSource(file.path));
+      if (kDebugMode) print('🔔 [VOICE_CALL] Ringback tone playing');
     } catch (e) {
       if (kDebugMode) print('⚠️ [VOICE_CALL] Could not play ringback tone: $e');
     }
