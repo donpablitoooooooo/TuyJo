@@ -647,7 +647,6 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     final chatService = Provider.of<ChatService>(context, listen: false);
     // Con reverse: true, i messaggi vecchi sono in ALTO (maxScrollExtent)
     // Carica quando scrolliamo vicino alla fine (verso l'alto = messaggi vecchi)
-    final chatService = Provider.of<ChatService>(context, listen: false);
     if (_scrollController.position.pixels >= _scrollController.position.maxScrollExtent - 100 &&
         !chatService.isLoadingOlderMessages &&
         chatService.hasMoreMessages) {
