@@ -22,6 +22,8 @@ class ChatService extends ChangeNotifier {
   String? _myDeviceId; // Per sapere se sono il sender
   String? _currentFamilyChatId; // Per gestire la cache
   bool _isLoadingFromCache = false;
+  bool _isLoadingOlderMessages = false; // Previene richieste parallele di messaggi vecchi
+  bool _hasMoreMessages = true; // Flag per sapere se ci sono altri messaggi da caricare
   bool _partnerIsTyping = false;
   Timer? _typingTimer;
 
@@ -35,13 +37,21 @@ class ChatService extends ChangeNotifier {
   List<Message> get messages => _messages;
   bool get isConnected => _subscription != null;
   bool get isLoadingFromCache => _isLoadingFromCache;
+  bool get isLoadingOlderMessages => _isLoadingOlderMessages;
+  bool get hasMoreMessages => _hasMoreMessages;
   bool get partnerIsTyping => _partnerIsTyping;
   EncryptionService get encryptionService => _encryptionService;
 
   /// Carica messaggi più vecchi (per infinite scroll)
+  /// Prima cerca nella cache locale, poi fa fallback su Firestore
   Future<void> loadOlderMessages({int limit = 50}) async {
     if (_currentFamilyChatId == null) return;
     if (_messages.isEmpty) return;
+    if (_isLoadingOlderMessages) return;
+    if (!_hasMoreMessages) return;
+
+    _isLoadingOlderMessages = true;
+    notifyListeners();
 
     try {
       // Con ordine DESC (nuovi->vecchi), il messaggio più vecchio è l'ULTIMO
@@ -49,7 +59,7 @@ class ChatService extends ChangeNotifier {
 
       if (kDebugMode) print('📜 Loading $limit older messages before ${oldestTimestamp.toIso8601String()}...');
 
-      // Carica messaggi più vecchi di quello più vecchio attuale
+      // 1. Prima prova dalla cache locale SQLite
       final olderMessages = await _cacheService.loadMessagesBeforeTimestamp(
         _currentFamilyChatId!,
         oldestTimestamp,
@@ -57,16 +67,89 @@ class ChatService extends ChangeNotifier {
       );
 
       if (olderMessages.isNotEmpty) {
-        // Inserisci alla FINE (perché ordine DESC)
-        // Ma prima invertiamo per mantenere ordine DESC
         _messages.addAll(olderMessages.reversed);
         notifyListeners();
-        if (kDebugMode) print('✅ Loaded ${olderMessages.length} older messages');
+        if (kDebugMode) print('✅ Loaded ${olderMessages.length} older messages from cache');
       } else {
-        if (kDebugMode) print('ℹ️ No more older messages to load');
+        // 2. Cache esaurita: carica da Firestore
+        if (kDebugMode) print('📡 Cache exhausted, fetching older messages from Firestore...');
+
+        final firestoreMessages = await _fetchOlderMessagesFromFirestore(
+          _currentFamilyChatId!,
+          oldestTimestamp,
+          limit: limit,
+        );
+
+        if (firestoreMessages.isNotEmpty) {
+          // Decifra i messaggi
+          for (final message in firestoreMessages) {
+            if (_myDeviceId != null) {
+              _decryptAndPopulateMessage(message, _myDeviceId!);
+            }
+          }
+
+          // Salva nella cache locale per le prossime volte
+          try {
+            await _cacheService.saveMessages(firestoreMessages, _currentFamilyChatId!);
+            if (kDebugMode) print('💾 Saved ${firestoreMessages.length} older messages to cache');
+          } catch (e) {
+            if (kDebugMode) print('❌ Error caching older messages: $e');
+          }
+
+          // Aggiungi alla lista in memoria (ordine DESC)
+          // firestoreMessages è già ordinato ASC, reversed per DESC
+          for (final message in firestoreMessages.reversed) {
+            if (!_messages.any((m) => m.id == message.id)) {
+              _messages.add(message);
+            }
+          }
+          _messages.sort((a, b) => b.timestamp.compareTo(a.timestamp));
+          notifyListeners();
+          if (kDebugMode) print('✅ Loaded ${firestoreMessages.length} older messages from Firestore');
+        } else {
+          // Nessun messaggio né in cache né su Firestore: abbiamo raggiunto l'inizio
+          _hasMoreMessages = false;
+          notifyListeners();
+          if (kDebugMode) print('ℹ️ No more older messages - reached beginning of chat');
+        }
       }
     } catch (e) {
       if (kDebugMode) print('❌ Error loading older messages: $e');
+    } finally {
+      _isLoadingOlderMessages = false;
+      notifyListeners();
+    }
+  }
+
+  /// Recupera messaggi più vecchi direttamente da Firestore
+  Future<List<Message>> _fetchOlderMessagesFromFirestore(
+    String familyChatId,
+    DateTime beforeTimestamp,
+    {int limit = 50}
+  ) async {
+    try {
+      final querySnapshot = await _firestore
+          .collection('families')
+          .doc(familyChatId)
+          .collection('messages')
+          .orderBy('created_at', descending: true)
+          .where('created_at', isLessThan: beforeTimestamp.toIso8601String())
+          .limit(limit)
+          .get();
+
+      if (kDebugMode) {
+        print('📡 Firestore returned ${querySnapshot.docs.length} older messages');
+      }
+
+      final messages = querySnapshot.docs.map((doc) {
+        return Message.fromFirestore(doc.id, doc.data());
+      }).toList();
+
+      // Inverti per ordine ASC (vecchio -> nuovo), coerente con loadMessagesBeforeTimestamp
+      return messages.reversed.toList();
+    } catch (e) {
+      if (kDebugMode) print('❌ Error fetching older messages from Firestore: $e');
+      return [];
     }
   }
 
@@ -163,6 +246,7 @@ class ChatService extends ChangeNotifier {
     // Se cambia la famiglia, chiudi la vecchia cache e carica la nuova
     if (_currentFamilyChatId != familyChatId) {
       _currentFamilyChatId = familyChatId;
+      _hasMoreMessages = true; // Reset per la nuova chat
 
       // 🐛 DEBUG: Ispeziona database prima di caricare
       if (kDebugMode) {
