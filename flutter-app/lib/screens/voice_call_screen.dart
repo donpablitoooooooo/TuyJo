@@ -1,14 +1,10 @@
 import 'dart:async';
-import 'dart:io';
-import 'dart:math';
-import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter_callkit_incoming/flutter_callkit_incoming.dart';
-import 'package:audioplayers/audioplayers.dart';
-import 'package:path_provider/path_provider.dart';
 import 'package:private_messaging/generated/l10n/app_localizations.dart';
 import '../services/pairing_service.dart';
 import '../services/couple_selfie_service.dart';
@@ -49,7 +45,6 @@ class _VoiceCallScreenState extends State<VoiceCallScreen>
   String? _myUserId;
   StreamSubscription? _callSubscription;
   final WebRTCService _webrtcService = WebRTCService();
-  final AudioPlayer _ringbackPlayer = AudioPlayer();
 
   // Animazione pulsazione per stato "chiamata in corso"
   late AnimationController _pulseController;
@@ -84,7 +79,7 @@ class _VoiceCallScreenState extends State<VoiceCallScreen>
     _callTimer?.cancel();
     _ringingTimeoutTimer?.cancel();
     _callSubscription?.cancel();
-    _ringbackPlayer.dispose();
+    _stopRingbackTone();
     _pulseController.dispose();
     // Chiudi WebRTC (stream audio + peer connection)
     _webrtcService.dispose();
@@ -303,75 +298,23 @@ class _VoiceCallScreenState extends State<VoiceCallScreen>
     }
   }
 
-  /// Avvia il ringback tone per chiamate in uscita (tuuu...tuuu...)
+  /// Avvia il ringback tone nativo (ToneGenerator su STREAM_VOICE_CALL)
+  static const _toneChannel = MethodChannel('com.privatemessaging.tuyjo/tone_generator');
+
   Future<void> _startRingbackTone() async {
     try {
-      if (kDebugMode) print('🔔 [VOICE_CALL] Starting ringback tone...');
-
-      // Forza speaker ON per uscire dall'auricolare (MODE_IN_COMMUNICATION)
-      await _webrtcService.setSpeakerOn(true);
-
-      final wavBytes = _generateRingbackWav();
-      final tempDir = await getTemporaryDirectory();
-      final file = File('${tempDir.path}/ringback_tone.wav');
-      await file.writeAsBytes(wavBytes);
-
-      await _ringbackPlayer.setVolume(1.0);
-      await _ringbackPlayer.setReleaseMode(ReleaseMode.loop);
-      await _ringbackPlayer.play(DeviceFileSource(file.path));
-      if (kDebugMode) print('🔔 [VOICE_CALL] Ringback tone playing (speaker forced on)');
+      await _toneChannel.invokeMethod('startRingback');
+      if (kDebugMode) print('🔔 [VOICE_CALL] Ringback tone started (native ToneGenerator)');
     } catch (e) {
-      if (kDebugMode) print('⚠️ [VOICE_CALL] Could not play ringback tone: $e');
+      if (kDebugMode) print('⚠️ [VOICE_CALL] Could not start ringback tone: $e');
     }
   }
 
-  void _stopRingbackTone() {
-    _ringbackPlayer.stop();
-    // Ripristina auricolare per la conversazione
-    _webrtcService.setSpeakerOn(false);
-  }
-
-  /// Genera un WAV con ringback tone europeo (425 Hz, 1s tono + 4s silenzio)
-  static Uint8List _generateRingbackWav() {
-    const sampleRate = 8000;
-    const frequency = 425.0;
-    const toneSamples = sampleRate * 1; // 1 secondo di tono
-    const totalSamples = sampleRate * 5; // 5 secondi (1s tono + 4s silenzio)
-
-    final pcm = Int16List(totalSamples);
-    for (int i = 0; i < toneSamples; i++) {
-      pcm[i] = (sin(2 * pi * frequency * i / sampleRate) * 24000).toInt();
-    }
-
-    final dataSize = totalSamples * 2;
-    final byteData = ByteData(44 + dataSize);
-
-    // RIFF header
-    _writeAscii(byteData, 0, 'RIFF');
-    byteData.setUint32(4, 36 + dataSize, Endian.little);
-    _writeAscii(byteData, 8, 'WAVE');
-    // fmt sub-chunk
-    _writeAscii(byteData, 12, 'fmt ');
-    byteData.setUint32(16, 16, Endian.little);
-    byteData.setUint16(20, 1, Endian.little); // PCM
-    byteData.setUint16(22, 1, Endian.little); // Mono
-    byteData.setUint32(24, sampleRate, Endian.little);
-    byteData.setUint32(28, sampleRate * 2, Endian.little); // byte rate
-    byteData.setUint16(32, 2, Endian.little); // block align
-    byteData.setUint16(34, 16, Endian.little); // bits per sample
-    // data sub-chunk
-    _writeAscii(byteData, 36, 'data');
-    byteData.setUint32(40, dataSize, Endian.little);
-    for (int i = 0; i < totalSamples; i++) {
-      byteData.setInt16(44 + i * 2, pcm[i], Endian.little);
-    }
-
-    return byteData.buffer.asUint8List();
-  }
-
-  static void _writeAscii(ByteData data, int offset, String text) {
-    for (int i = 0; i < text.length; i++) {
-      data.setUint8(offset + i, text.codeUnitAt(i));
+  Future<void> _stopRingbackTone() async {
+    try {
+      await _toneChannel.invokeMethod('stopRingback');
+    } catch (e) {
+      if (kDebugMode) print('⚠️ [VOICE_CALL] Could not stop ringback tone: $e');
     }
   }
 
