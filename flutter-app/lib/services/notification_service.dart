@@ -131,6 +131,10 @@ class NotificationService {
   /// UUID della chiamata CallKit attiva (per poterla terminare)
   String? _activeCallUuid;
 
+  /// Salvati per poter ri-salvare il token su onTokenRefresh
+  String? _savedFamilyChatId;
+  String? _savedUserId;
+
   /// True se il permesso notifiche FCM è stato negato dall'utente
   bool _notificationPermissionDenied = false;
   bool get isNotificationPermissionDenied => _notificationPermissionDenied;
@@ -215,6 +219,14 @@ class NotificationService {
       // Se l'utente ha tappato su una notifica di chiamata
       if (message.data['type'] == 'incoming_call') {
         _handleIncomingCallNotification(message);
+      }
+    });
+
+    // Ascolta refresh del token (succede quando Play Services lo rinnova)
+    _firebaseMessaging.onTokenRefresh.listen((newToken) {
+      if (kDebugMode) print('🔄 FCM token refreshed: $newToken');
+      if (_savedFamilyChatId != null && _savedUserId != null) {
+        saveTokenToFirestore(_savedFamilyChatId!, _savedUserId!);
       }
     });
 
@@ -389,13 +401,22 @@ class NotificationService {
   }
 
   Future<String?> getToken() async {
-    return await _firebaseMessaging.getToken();
+    try {
+      return await _firebaseMessaging.getToken();
+    } catch (e) {
+      if (kDebugMode) print('⚠️ FCM getToken failed: $e');
+      return null;
+    }
   }
 
   Future<void> saveTokenToFirestore(
     String familyChatId,
     String userId,
   ) async {
+    // Salva per onTokenRefresh
+    _savedFamilyChatId = familyChatId;
+    _savedUserId = userId;
+
     try {
       String? token = await getToken();
 
