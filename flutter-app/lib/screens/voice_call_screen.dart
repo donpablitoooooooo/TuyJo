@@ -312,17 +312,16 @@ class _VoiceCallScreenState extends State<VoiceCallScreen>
       final file = File('${tempDir.path}/ringback_tone.wav');
       await file.writeAsBytes(wavBytes);
 
-      // Configura audio context compatibile con WebRTC
+      // Usa stream media (speaker) senza rubare audio focus a WebRTC
       await _ringbackPlayer.setAudioContext(AudioContext(
         android: AudioContextAndroid(
-          contentType: AndroidContentType.speech,
-          usageType: AndroidUsageType.voiceCommunication,
-          audioFocus: AndroidAudioFocus.gainTransientMayDuck,
+          contentType: AndroidContentType.music,
+          usageType: AndroidUsageType.media,
+          audioFocus: AndroidAudioFocus.none,
         ),
         iOS: AudioContextIOS(
-          category: AVAudioSessionCategory.playAndRecord,
+          category: AVAudioSessionCategory.ambient,
           options: {
-            AVAudioSessionOptions.defaultToSpeaker,
             AVAudioSessionOptions.mixWithOthers,
           },
         ),
@@ -350,7 +349,7 @@ class _VoiceCallScreenState extends State<VoiceCallScreen>
 
     final pcm = Int16List(totalSamples);
     for (int i = 0; i < toneSamples; i++) {
-      pcm[i] = (sin(2 * pi * frequency * i / sampleRate) * 12000).toInt();
+      pcm[i] = (sin(2 * pi * frequency * i / sampleRate) * 24000).toInt();
     }
 
     final dataSize = totalSamples * 2;
