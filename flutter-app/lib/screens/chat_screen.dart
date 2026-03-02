@@ -62,7 +62,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   String? _lastFamilyChatId;
   Timer? _typingTimer;
   int _lastMessageCount = 0;
-  bool _isLoadingOlderMessages = false; // Track se stiamo caricando messaggi vecchi
+  // _isLoadingOlderMessages ora è gestito da ChatService
   DateTime? _selectedTodoDate; // Data/ora selezionata per todo (null = messaggio normale)
   bool _isRangeSelection = false; // True se è selezionato un range di date
   DateTime? _selectedRangeStart; // Data inizio range
@@ -643,6 +643,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   }
 
   void _onScroll() {
+    final chatService = Provider.of<ChatService>(context, listen: false);
     // Con reverse: true, i messaggi vecchi sono in ALTO (maxScrollExtent)
     // Carica quando scrolliamo vicino alla fine (verso l'alto = messaggi vecchi)
     final chatService = Provider.of<ChatService>(context, listen: false);
@@ -656,15 +657,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
 
   Future<void> _loadOlderMessages() async {
     final chatService = Provider.of<ChatService>(context, listen: false);
-    if (chatService.isLoadingOlderMessages) return;
-
-    setState(() => _isLoadingOlderMessages = true);
-
     await chatService.loadOlderMessages(limit: 50);
-
-    if (mounted) {
-      setState(() => _isLoadingOlderMessages = false);
-    }
   }
 
   void _onUserTyping() {
@@ -2806,7 +2799,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                 : Column(
                     children: [
                       // 📜 Indicatore caricamento messaggi vecchi
-                      if (_isLoadingOlderMessages)
+                      if (chatService.isLoadingOlderMessages)
                         Container(
                           padding: const EdgeInsets.all(8),
                           child: Row(
