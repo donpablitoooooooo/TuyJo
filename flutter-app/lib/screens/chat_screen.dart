@@ -28,6 +28,7 @@ import '../models/message.dart';
 import 'location_share_setup_page.dart';
 import '../widgets/todo_bubble.dart';
 import '../widgets/attachment_widgets.dart';
+import '../widgets/permission_denied_dialog.dart';
 import '../widgets/reaction_picker.dart';
 import '../widgets/reaction_overlay.dart';
 import 'chat_screen_dismissible.dart';
@@ -1407,11 +1408,21 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                 color: Colors.blue,
                 onTap: () async {
                   Navigator.pop(context);
-                  final files = await _attachmentService!.pickImageFromGallery();
-                  if (files.isNotEmpty) {
-                    setState(() {
-                      _selectedAttachments.addAll(files);
-                    });
+                  try {
+                    final files = await _attachmentService!.pickImageFromGallery();
+                    if (files.isNotEmpty) {
+                      setState(() {
+                        _selectedAttachments.addAll(files);
+                      });
+                    }
+                  } on AttachmentPermissionDeniedException {
+                    if (mounted) {
+                      showPermissionDeniedSnackBar(
+                        context: context,
+                        message: l10n.permissionCameraDeniedMessage,
+                        showSettingsAction: true,
+                      );
+                    }
                   }
                 },
               ),
@@ -1421,11 +1432,21 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                 color: Colors.purple,
                 onTap: () async {
                   Navigator.pop(context);
-                  final file = await _attachmentService!.pickImageFromCamera();
-                  if (file != null) {
-                    setState(() {
-                      _selectedAttachments.add(file);
-                    });
+                  try {
+                    final file = await _attachmentService!.pickImageFromCamera();
+                    if (file != null) {
+                      setState(() {
+                        _selectedAttachments.add(file);
+                      });
+                    }
+                  } on AttachmentPermissionDeniedException {
+                    if (mounted) {
+                      showPermissionDeniedSnackBar(
+                        context: context,
+                        message: l10n.permissionCameraDeniedMessage,
+                        showSettingsAction: true,
+                      );
+                    }
                   }
                 },
               ),

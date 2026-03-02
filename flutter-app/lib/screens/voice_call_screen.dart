@@ -9,6 +9,7 @@ import '../services/pairing_service.dart';
 import '../services/couple_selfie_service.dart';
 import '../services/notification_service.dart';
 import '../services/webrtc_service.dart';
+import '../widgets/permission_denied_dialog.dart';
 
 /// Schermo per la chiamata vocale con il partner
 class VoiceCallScreen extends StatefulWidget {
@@ -112,7 +113,14 @@ class _VoiceCallScreenState extends State<VoiceCallScreen>
     } catch (e) {
       if (kDebugMode) print('❌ [VOICE_CALL] Failed to initialize WebRTC (microphone permission?): $e');
       if (mounted) {
-        _endCall();
+        final l10n = AppLocalizations.of(context)!;
+        await showPermissionDeniedDialog(
+          context: context,
+          title: l10n.permissionMicDeniedTitle,
+          message: l10n.permissionMicDeniedMessage,
+          isPermanentlyDenied: true,
+        );
+        if (mounted) _endCall();
       }
       return;
     }

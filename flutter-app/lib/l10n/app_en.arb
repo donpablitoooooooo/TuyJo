@@ -290,5 +290,17 @@
     "notificationIncomingCallTitle": "Incoming call",
     "notificationIncomingCallBody": "Your partner is calling you",
     "notificationChannelCalls": "Calls",
-    "notificationChannelCallsDescription": "Notifications for incoming voice calls"
+    "notificationChannelCallsDescription": "Notifications for incoming voice calls",
+
+    "permissionOpenSettings": "Open Settings",
+    "permissionMicDeniedTitle": "Microphone not available",
+    "permissionMicDeniedMessage": "Microphone access is required to make voice calls. Please enable the microphone permission in your device settings.",
+    "permissionNotificationDeniedTitle": "Notifications disabled",
+    "permissionNotificationDeniedMessage": "Notifications are required to receive messages and incoming calls when the app is closed. Enable notifications in your device settings.",
+    "permissionLocationDeniedTitle": "Location not available",
+    "permissionLocationDeniedMessage": "Location access is required to share your position with your partner. Please enable location permission in your device settings.",
+    "permissionLocationGpsDisabledTitle": "GPS disabled",
+    "permissionLocationGpsDisabledMessage": "GPS is required to share your location. Please enable location services on your device.",
+    "permissionCameraDeniedTitle": "Camera not available",
+    "permissionCameraDeniedMessage": "Camera access is required to take photos. Please enable camera permission in your device settings."
 }

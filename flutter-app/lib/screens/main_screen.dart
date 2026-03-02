@@ -3,6 +3,8 @@ import 'package:private_messaging/generated/l10n/app_localizations.dart';
 import 'package:provider/provider.dart';
 import '../services/pairing_service.dart';
 import '../services/couple_selfie_service.dart';
+import '../services/notification_service.dart';
+import '../widgets/permission_denied_dialog.dart';
 import 'chat_screen.dart';
 import 'media_screen.dart';
 import 'settings_screen.dart';
@@ -109,6 +111,25 @@ class _MainScreenState extends State<MainScreen> {
     final totalDuration = DateTime.now().difference(startTime);
     print('⏱️ [MAIN_SCREEN] Tab initialization complete in ${totalDuration.inMilliseconds}ms');
     print('   Selected tab: ${_selectedIndex == 0 ? "Chat" : (_selectedIndex == 1 ? "Media" : "Settings")}');
+
+    // Controlla se il permesso notifiche è stato negato (dopo un breve delay per permettere l'init)
+    _checkNotificationPermission();
+  }
+
+  Future<void> _checkNotificationPermission() async {
+    // Aspetta che il notification service abbia completato l'init
+    await Future.delayed(const Duration(seconds: 3));
+    if (!mounted) return;
+
+    final notificationService = Provider.of<NotificationService>(context, listen: false);
+    if (notificationService.isNotificationPermissionDenied) {
+      final l10n = AppLocalizations.of(context)!;
+      showPermissionDeniedSnackBar(
+        context: context,
+        message: l10n.permissionNotificationDeniedMessage,
+        showSettingsAction: true,
+      );
+    }
   }
 
   void _onItemTapped(int index) {

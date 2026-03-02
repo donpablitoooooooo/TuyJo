@@ -131,6 +131,10 @@ class NotificationService {
   /// UUID della chiamata CallKit attiva (per poterla terminare)
   String? _activeCallUuid;
 
+  /// True se il permesso notifiche FCM è stato negato dall'utente
+  bool _notificationPermissionDenied = false;
+  bool get isNotificationPermissionDenied => _notificationPermissionDenied;
+
   // Inizializza le notifiche
   Future<void> initialize() async {
     // 0. Inizializza timezone
@@ -166,47 +170,51 @@ class NotificationService {
       sound: true,
     );
 
-    if (settings.authorizationStatus == AuthorizationStatus.authorized) {
-      if (kDebugMode) print('✅ FCM permission granted');
+    if (settings.authorizationStatus != AuthorizationStatus.authorized) {
+      _notificationPermissionDenied = true;
+      if (kDebugMode) print('❌ FCM permission denied: ${settings.authorizationStatus}');
+      return;
+    }
 
-      String? token = await _firebaseMessaging.getToken();
-      if (kDebugMode) print('🔑 FCM Token: $token');
+    if (kDebugMode) print('✅ FCM permission granted');
 
-      // Gestisci messaggi in foreground
-      FirebaseMessaging.onMessage.listen((RemoteMessage message) {
-        if (kDebugMode) {
-          print('📨 Foreground message: ${message.notification?.title}');
-          print('   Data: ${message.data}');
-        }
+    String? token = await _firebaseMessaging.getToken();
+    if (kDebugMode) print('🔑 FCM Token: $token');
 
-        // Controlla se è una notifica di chiamata
-        if (message.data['type'] == 'incoming_call') {
-          _handleIncomingCallNotification(message);
-        } else {
-          _showLocalNotification(message);
-        }
-      });
+    // Gestisci messaggi in foreground
+    FirebaseMessaging.onMessage.listen((RemoteMessage message) {
+      if (kDebugMode) {
+        print('📨 Foreground message: ${message.notification?.title}');
+        print('   Data: ${message.data}');
+      }
 
-      FirebaseMessaging.onMessageOpenedApp.listen((RemoteMessage message) {
-        if (kDebugMode) {
-          print('🔔 App opened from notification: ${message.data}');
-        }
-        // Se l'utente ha tappato su una notifica di chiamata
-        if (message.data['type'] == 'incoming_call') {
-          _handleIncomingCallNotification(message);
-        }
-      });
+      // Controlla se è una notifica di chiamata
+      if (message.data['type'] == 'incoming_call') {
+        _handleIncomingCallNotification(message);
+      } else {
+        _showLocalNotification(message);
+      }
+    });
 
-      RemoteMessage? initialMessage = await _firebaseMessaging.getInitialMessage();
-      if (initialMessage != null) {
-        if (kDebugMode) print('🚀 App opened from terminated state');
-        // Se l'app è stata aperta da una notifica di chiamata
-        if (initialMessage.data['type'] == 'incoming_call') {
-          // Ritarda per dare tempo al widget tree di costruirsi
-          Future.delayed(const Duration(seconds: 1), () {
-            _handleIncomingCallNotification(initialMessage);
-          });
-        }
+    FirebaseMessaging.onMessageOpenedApp.listen((RemoteMessage message) {
+      if (kDebugMode) {
+        print('🔔 App opened from notification: ${message.data}');
+      }
+      // Se l'utente ha tappato su una notifica di chiamata
+      if (message.data['type'] == 'incoming_call') {
+        _handleIncomingCallNotification(message);
+      }
+    });
+
+    RemoteMessage? initialMessage = await _firebaseMessaging.getInitialMessage();
+    if (initialMessage != null) {
+      if (kDebugMode) print('🚀 App opened from terminated state');
+      // Se l'app è stata aperta da una notifica di chiamata
+      if (initialMessage.data['type'] == 'incoming_call') {
+        // Ritarda per dare tempo al widget tree di costruirsi
+        Future.delayed(const Duration(seconds: 1), () {
+          _handleIncomingCallNotification(initialMessage);
+        });
       }
     }
   }

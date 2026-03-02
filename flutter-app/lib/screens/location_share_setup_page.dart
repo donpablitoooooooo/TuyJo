@@ -9,6 +9,7 @@ import '../services/location_service.dart';
 import '../services/chat_service.dart';
 import '../services/pairing_service.dart';
 import '../services/encryption_service.dart';
+import '../widgets/permission_denied_dialog.dart';
 import 'location_sharing_screen.dart';
 
 /// Pagina full-screen per configurare la condivisione della posizione.
@@ -56,6 +57,31 @@ class _LocationShareSetupPageState extends State<LocationShareSetupPage>
 
   Future<void> _acquireGps() async {
     final locationService = Provider.of<LocationService>(context, listen: false);
+
+    // Controlla permessi prima di provare a ottenere la posizione
+    final permResult = await locationService.requestLocationPermissionDetailed();
+    if (!mounted) return;
+
+    if (permResult != LocationPermissionResult.granted) {
+      final l10n = AppLocalizations.of(context)!;
+      if (permResult == LocationPermissionResult.gpsDisabled) {
+        await showPermissionDeniedDialog(
+          context: context,
+          title: l10n.permissionLocationGpsDisabledTitle,
+          message: l10n.permissionLocationGpsDisabledMessage,
+        );
+      } else {
+        await showPermissionDeniedDialog(
+          context: context,
+          title: l10n.permissionLocationDeniedTitle,
+          message: l10n.permissionLocationDeniedMessage,
+          isPermanentlyDenied: permResult == LocationPermissionResult.deniedForever,
+        );
+      }
+      if (mounted) Navigator.pop(context);
+      return;
+    }
+
     final position = await locationService.getCurrentPosition();
     if (!mounted) return;
 

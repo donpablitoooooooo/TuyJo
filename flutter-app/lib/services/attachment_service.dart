@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'dart:typed_data';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:file_picker/file_picker.dart';
@@ -11,6 +12,14 @@ import 'package:flutter_image_compress/flutter_image_compress.dart';
 import '../models/message.dart';
 import 'encryption_service.dart';
 import 'attachment_cache_service.dart';
+
+/// Eccezione lanciata quando un permesso necessario per un allegato è negato
+class AttachmentPermissionDeniedException implements Exception {
+  final String permissionType; // 'camera' o 'photo'
+  const AttachmentPermissionDeniedException(this.permissionType);
+  @override
+  String toString() => 'AttachmentPermissionDeniedException: $permissionType access denied';
+}
 
 class AttachmentService {
   final FirebaseStorage _storage = FirebaseStorage.instance;
@@ -23,7 +32,8 @@ class AttachmentService {
     _cacheService.initialize();
   }
 
-  /// Seleziona una o più foto dalla galleria (selezione multipla)
+  /// Seleziona una o più foto dalla galleria (selezione multipla).
+  /// Lancia [AttachmentPermissionDeniedException] se il permesso foto è negato.
   Future<List<File>> pickImageFromGallery() async {
     try {
       final List<XFile> images = await _imagePicker.pickMultiImage(
@@ -36,13 +46,20 @@ class AttachmentService {
         return images.map((xfile) => File(xfile.path)).toList();
       }
       return [];
+    } on PlatformException catch (e) {
+      if (e.code == 'photo_access_denied') {
+        throw const AttachmentPermissionDeniedException('photo');
+      }
+      if (kDebugMode) print('❌ Error picking images: $e');
+      return [];
     } catch (e) {
       if (kDebugMode) print('❌ Error picking images: $e');
       return [];
     }
   }
 
-  /// Seleziona una foto dalla fotocamera
+  /// Seleziona una foto dalla fotocamera.
+  /// Lancia [AttachmentPermissionDeniedException] se il permesso camera è negato.
   Future<File?> pickImageFromCamera() async {
     try {
       final XFile? image = await _imagePicker.pickImage(
@@ -56,13 +73,20 @@ class AttachmentService {
         return File(image.path);
       }
       return null;
+    } on PlatformException catch (e) {
+      if (e.code == 'camera_access_denied') {
+        throw const AttachmentPermissionDeniedException('camera');
+      }
+      if (kDebugMode) print('❌ Error taking photo: $e');
+      return null;
     } catch (e) {
       if (kDebugMode) print('❌ Error taking photo: $e');
       return null;
     }
   }
 
-  /// Seleziona un video dalla galleria
+  /// Seleziona un video dalla galleria.
+  /// Lancia [AttachmentPermissionDeniedException] se il permesso foto è negato.
   Future<File?> pickVideoFromGallery() async {
     try {
       final XFile? video = await _imagePicker.pickVideo(
@@ -74,13 +98,20 @@ class AttachmentService {
         return File(video.path);
       }
       return null;
+    } on PlatformException catch (e) {
+      if (e.code == 'photo_access_denied') {
+        throw const AttachmentPermissionDeniedException('photo');
+      }
+      if (kDebugMode) print('❌ Error picking video: $e');
+      return null;
     } catch (e) {
       if (kDebugMode) print('❌ Error picking video: $e');
       return null;
     }
   }
 
-  /// Seleziona un video dalla fotocamera
+  /// Seleziona un video dalla fotocamera.
+  /// Lancia [AttachmentPermissionDeniedException] se il permesso camera è negato.
   Future<File?> pickVideoFromCamera() async {
     try {
       final XFile? video = await _imagePicker.pickVideo(
@@ -91,6 +122,12 @@ class AttachmentService {
       if (video != null) {
         return File(video.path);
       }
+      return null;
+    } on PlatformException catch (e) {
+      if (e.code == 'camera_access_denied') {
+        throw const AttachmentPermissionDeniedException('camera');
+      }
+      if (kDebugMode) print('❌ Error recording video: $e');
       return null;
     } catch (e) {
       if (kDebugMode) print('❌ Error recording video: $e');
