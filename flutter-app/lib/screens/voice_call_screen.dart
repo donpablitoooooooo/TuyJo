@@ -37,6 +37,7 @@ class _VoiceCallScreenState extends State<VoiceCallScreen>
   bool _isMuted = false;
   bool _isSpeakerOn = false;
   Timer? _callTimer;
+  Timer? _ringingTimeoutTimer;
   int _callDurationSeconds = 0;
   String? _familyChatId;
   String? _myUserId;
@@ -74,6 +75,7 @@ class _VoiceCallScreenState extends State<VoiceCallScreen>
   @override
   void dispose() {
     _callTimer?.cancel();
+    _ringingTimeoutTimer?.cancel();
     _callSubscription?.cancel();
     _pulseController.dispose();
     // Chiudi WebRTC (stream audio + peer connection)
@@ -105,13 +107,28 @@ class _VoiceCallScreenState extends State<VoiceCallScreen>
         _endCall();
       }
     };
-    await _webrtcService.initialize();
+    try {
+      await _webrtcService.initialize();
+    } catch (e) {
+      if (kDebugMode) print('❌ [VOICE_CALL] Failed to initialize WebRTC (microphone permission?): $e');
+      if (mounted) {
+        _endCall();
+      }
+      return;
+    }
 
     if (widget.isOutgoing) {
       // Chiamata in uscita: scrivi lo stato + crea offer WebRTC
       await _writeCallSignal('ringing');
       await _webrtcService.createOffer(_familyChatId!);
       _listenForCallResponse();
+      // Timeout: se nessuna risposta entro 45 secondi, termina la chiamata
+      _ringingTimeoutTimer = Timer(const Duration(seconds: 45), () {
+        if (mounted && _callState == CallState.ringing) {
+          if (kDebugMode) print('⏰ [VOICE_CALL] Ringing timeout - ending call');
+          _endCall();
+        }
+      });
     } else {
       // Chiamata in entrata (accettata via CallKit):
       // Il callee ha già accettato dalla UI nativa CallKit, quindi
@@ -132,21 +149,29 @@ class _VoiceCallScreenState extends State<VoiceCallScreen>
   }
 
   /// Scrive il segnale della chiamata su Firestore
+  /// Solo il caller scrive caller_id e started_at (al primo segnale 'ringing')
+  /// Il callee aggiorna solo status e updated_at
   Future<void> _writeCallSignal(String status) async {
     if (_familyChatId == null || _myUserId == null) return;
 
     try {
+      final Map<String, dynamic> data = {
+        'status': status,
+        'updated_at': FieldValue.serverTimestamp(),
+      };
+
+      // Solo per la chiamata in uscita (ringing) impostiamo caller_id e started_at
+      if (status == 'ringing' && widget.isOutgoing) {
+        data['caller_id'] = _myUserId;
+        data['started_at'] = FieldValue.serverTimestamp();
+      }
+
       await FirebaseFirestore.instance
           .collection('families')
           .doc(_familyChatId)
           .collection('calls')
           .doc('current')
-          .set({
-        'caller_id': _myUserId,
-        'status': status, // ringing, connected, ended, declined
-        'started_at': FieldValue.serverTimestamp(),
-        'updated_at': FieldValue.serverTimestamp(),
-      }, SetOptions(merge: true));
+          .set(data, SetOptions(merge: true));
     } catch (e) {
       if (kDebugMode) print('❌ [VOICE_CALL] Error writing call signal: $e');
     }
@@ -189,6 +214,7 @@ class _VoiceCallScreenState extends State<VoiceCallScreen>
   }
 
   void _startCallTimer() {
+    _ringingTimeoutTimer?.cancel(); // Call connected, cancel ringing timeout
     _callTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
       if (mounted) {
         setState(() {
@@ -223,16 +249,19 @@ class _VoiceCallScreenState extends State<VoiceCallScreen>
   }
 
   Future<void> _acceptCall() async {
-    await _writeCallSignal('connected');
-    // Crea answer WebRTC (legge offer, stabilisce connessione audio)
+    // IMPORTANTE: creare l'answer PRIMA di scrivere 'connected',
+    // altrimenti la cache locale Firestore potrebbe non avere ancora l'offer
     if (_familyChatId != null) {
       await _webrtcService.createAnswer(_familyChatId!);
     }
-    setState(() {
-      _callState = CallState.connected;
-    });
-    _pulseController.stop();
-    _startCallTimer();
+    await _writeCallSignal('connected');
+    if (mounted) {
+      setState(() {
+        _callState = CallState.connected;
+      });
+      _pulseController.stop();
+      _startCallTimer();
+    }
   }
 
   Future<void> _declineCall() async {

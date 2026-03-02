@@ -20,6 +20,7 @@ class WebRTCService {
   StreamSubscription? _answerSubscription;
 
   bool _remoteDescriptionSet = false;
+  bool _disposed = false;
 
   /// Callback quando la connessione è stabilita
   VoidCallback? onConnected;
@@ -267,6 +268,9 @@ class WebRTCService {
 
   /// Chiudi tutto: connessione, stream, listener
   Future<void> dispose() async {
+    if (_disposed) return; // Previene doppio dispose
+    _disposed = true;
+
     _answerSubscription?.cancel();
     _remoteCandidatesSubscription?.cancel();
 
