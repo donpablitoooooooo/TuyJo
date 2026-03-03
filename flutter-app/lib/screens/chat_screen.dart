@@ -28,6 +28,7 @@ import '../models/message.dart';
 import 'location_share_setup_page.dart';
 import '../widgets/todo_bubble.dart';
 import '../widgets/attachment_widgets.dart';
+import '../widgets/permission_denied_dialog.dart';
 import '../widgets/reaction_picker.dart';
 import '../widgets/reaction_overlay.dart';
 import 'chat_screen_dismissible.dart';
@@ -62,7 +63,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   String? _lastFamilyChatId;
   Timer? _typingTimer;
   int _lastMessageCount = 0;
-  bool _isLoadingOlderMessages = false; // Track se stiamo caricando messaggi vecchi
+  // _isLoadingOlderMessages ora è gestito da ChatService
   DateTime? _selectedTodoDate; // Data/ora selezionata per todo (null = messaggio normale)
   bool _isRangeSelection = false; // True se è selezionato un range di date
   DateTime? _selectedRangeStart; // Data inizio range
@@ -109,9 +110,6 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       }
 
     });
-
-    // 📜 INFINITE SCROLL: Listen per scroll verso l'alto (messaggi vecchi)
-    _scrollController.addListener(_onScroll);
 
     // 📤 CONDIVISIONE: Listen per file condivisi da altre app
     _initSharedFiles();
@@ -639,29 +637,6 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
         // OFFLINE QUEUE: Riprova pending uploads quando l'app torna in foreground
         _processPendingUploads();
       }
-    }
-  }
-
-  void _onScroll() {
-    // Con reverse: true, i messaggi vecchi sono in ALTO (maxScrollExtent)
-    // Carica quando scrolliamo vicino alla fine (verso l'alto = messaggi vecchi)
-    if (_scrollController.position.pixels >= _scrollController.position.maxScrollExtent - 100 &&
-        !_isLoadingOlderMessages) {
-      if (kDebugMode) print('📜 User scrolled to top - loading older messages...');
-      _loadOlderMessages();
-    }
-  }
-
-  Future<void> _loadOlderMessages() async {
-    if (_isLoadingOlderMessages) return;
-
-    setState(() => _isLoadingOlderMessages = true);
-
-    final chatService = Provider.of<ChatService>(context, listen: false);
-    await chatService.loadOlderMessages(limit: 50);
-
-    if (mounted) {
-      setState(() => _isLoadingOlderMessages = false);
     }
   }
 
@@ -1412,11 +1387,21 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                 color: Colors.blue,
                 onTap: () async {
                   Navigator.pop(context);
-                  final files = await _attachmentService!.pickImageFromGallery();
-                  if (files.isNotEmpty) {
-                    setState(() {
-                      _selectedAttachments.addAll(files);
-                    });
+                  try {
+                    final files = await _attachmentService!.pickImageFromGallery();
+                    if (files.isNotEmpty) {
+                      setState(() {
+                        _selectedAttachments.addAll(files);
+                      });
+                    }
+                  } on AttachmentPermissionDeniedException {
+                    if (mounted) {
+                      showPermissionDeniedSnackBar(
+                        context: context,
+                        message: l10n.permissionCameraDeniedMessage,
+                        showSettingsAction: true,
+                      );
+                    }
                   }
                 },
               ),
@@ -1426,11 +1411,21 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                 color: Colors.purple,
                 onTap: () async {
                   Navigator.pop(context);
-                  final file = await _attachmentService!.pickImageFromCamera();
-                  if (file != null) {
-                    setState(() {
-                      _selectedAttachments.add(file);
-                    });
+                  try {
+                    final file = await _attachmentService!.pickImageFromCamera();
+                    if (file != null) {
+                      setState(() {
+                        _selectedAttachments.add(file);
+                      });
+                    }
+                  } on AttachmentPermissionDeniedException {
+                    if (mounted) {
+                      showPermissionDeniedSnackBar(
+                        context: context,
+                        message: l10n.permissionCameraDeniedMessage,
+                        showSettingsAction: true,
+                      );
+                    }
                   }
                 },
               ),
@@ -2786,6 +2781,14 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
 
     final l10n = AppLocalizations.of(context)!;
 
+    // Pre-filtra messaggi visibili (escludi todo_completed e TODO futuri)
+    // Questo garantisce che itemCount corrisponda ai messaggi realmente mostrati
+    final visibleMessages = chatService.messages.where((m) {
+      if (m.messageType == 'todo_completed') return false;
+      if (m.messageType == 'todo' && m.timestamp.isAfter(DateTime.now())) return false;
+      return true;
+    }).toList();
+
     return Scaffold(
       body: GestureDetector(
         onTap: () => FocusScope.of(context).unfocus(),
@@ -2793,7 +2796,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
         child: Column(
         children: [
           Expanded(
-            child: chatService.messages.isEmpty
+            child: visibleMessages.isEmpty && _pendingLocalMessages.isEmpty
                 ? Center(
                     child: Text(
                       l10n.chatEmptyMessage,
@@ -2801,34 +2804,11 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                       style: const TextStyle(color: Colors.grey),
                     ),
                   )
-                : Column(
-                    children: [
-                      // 📜 Indicatore caricamento messaggi vecchi
-                      if (_isLoadingOlderMessages)
-                        Container(
-                          padding: const EdgeInsets.all(8),
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              const SizedBox(
-                                width: 16,
-                                height: 16,
-                                child: CircularProgressIndicator(strokeWidth: 2),
-                              ),
-                              const SizedBox(width: 8),
-                              Text(
-                                l10n.chatLoadingMessages,
-                                style: const TextStyle(color: Colors.grey, fontSize: 12),
-                              ),
-                            ],
-                          ),
-                        ),
-                      Expanded(
-                        child: ListView.builder(
+                : ListView.builder(
                           controller: _scrollController,
                           padding: const EdgeInsets.fromLTRB(12, 60, 12, 2),
-                          itemCount: chatService.messages.length + _pendingLocalMessages.length,
-                          reverse: true, // 🔧 FIX: reverse per mostrare nuovi messaggi in basso
+                          itemCount: visibleMessages.length + _pendingLocalMessages.length,
+                          reverse: true,
                           itemBuilder: (context, index) {
                             // Pending messages appaiono in fondo (index 0..N-1 in lista reversed)
                             final pendingCount = _pendingLocalMessages.length;
@@ -2856,27 +2836,13 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                               );
                             }
 
-                            final message = chatService.messages[index - pendingCount];
+                            final msgIndex = index - pendingCount;
+                            final message = visibleMessages[msgIndex];
                             final isMe = message.senderId == _myDeviceId;
-
-                            // Verifica se è un messaggio di completamento todo
-                            if (message.messageType == 'todo_completed') {
-                              // Non mostrare i messaggi di completamento
-                              return const SizedBox.shrink();
-                            }
-
-                            // Nascondi TODO/reminder futuri (timestamp futuro)
-                            if (message.messageType == 'todo') {
-                              if (message.timestamp.isAfter(DateTime.now())) {
-                                // TODO futuro, nascondilo
-                                return const SizedBox.shrink();
-                              }
-                            }
 
                             // Verifica se il todo è stato completato
                             bool isTodoCompleted = false;
                             if (message.messageType == 'todo') {
-                              // TODO completato se ha action COMPLETE oppure messaggio todo_completed
                               isTodoCompleted = message.action?.type == 'complete' ||
                                   chatService.messages.any((m) =>
                                       m.messageType == 'todo_completed' &&
@@ -2884,26 +2850,10 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                             }
 
                             // Determina se mostrare il separatore di data
-                            // Trova il prossimo messaggio VISIBILE (salta todo_completed e TODO futuri)
-                            Message? nextVisibleMessage;
-                            for (int i = index + 1; i < chatService.messages.length; i++) {
-                              final candidateMessage = chatService.messages[i];
-
-                              // Salta todo_completed
-                              if (candidateMessage.messageType == 'todo_completed') {
-                                continue;
-                              }
-
-                              // Salta TODO futuri
-                              if (candidateMessage.messageType == 'todo' &&
-                                  candidateMessage.timestamp.isAfter(DateTime.now())) {
-                                continue;
-                              }
-
-                              // Trovato il prossimo messaggio visibile
-                              nextVisibleMessage = candidateMessage;
-                              break;
-                            }
+                            // Con la lista pre-filtrata, il prossimo visibile è semplicemente msgIndex + 1
+                            final nextVisibleMessage = msgIndex + 1 < visibleMessages.length
+                                ? visibleMessages[msgIndex + 1]
+                                : null;
 
                             final showDateSeparator = _shouldShowDateSeparator(message, nextVisibleMessage);
 
@@ -2972,36 +2922,33 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                             return messageWidget;
                           },
                         ),
-                      ),
-                      // 💬 Indicatore "Sta scrivendo..."
-                      if (chatService.partnerIsTyping)
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
-                          child: Row(
-                            children: [
-                              SizedBox(
-                                width: 16,
-                                height: 16,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
-                                  valueColor: AlwaysStoppedAnimation<Color>(Colors.grey[400]!),
-                                ),
-                              ),
-                              const SizedBox(width: 8),
-                              Text(
-                                l10n.chatTypingIndicator,
-                                style: TextStyle(
-                                  color: Colors.grey[600],
-                                  fontSize: 13,
-                                  fontStyle: FontStyle.italic,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                    ],
-                  ),
           ),
+          // 💬 Indicatore "Sta scrivendo..."
+          if (chatService.partnerIsTyping)
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
+              child: Row(
+                children: [
+                  SizedBox(
+                    width: 16,
+                    height: 16,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      valueColor: AlwaysStoppedAnimation<Color>(Colors.grey[400]!),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    l10n.chatTypingIndicator,
+                    style: TextStyle(
+                      color: Colors.grey[600],
+                      fontSize: 13,
+                      fontStyle: FontStyle.italic,
+                    ),
+                  ),
+                ],
+              ),
+            ),
           Container(
             padding: EdgeInsets.fromLTRB(
               8,

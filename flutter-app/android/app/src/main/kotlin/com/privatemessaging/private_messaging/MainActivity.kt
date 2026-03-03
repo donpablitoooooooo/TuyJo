@@ -1,6 +1,8 @@
 package com.privatemessaging.private_messaging
 
 import android.content.Intent
+import android.media.AudioManager
+import android.media.ToneGenerator
 import android.net.Uri
 import android.os.Bundle
 import android.util.Log
@@ -12,7 +14,10 @@ import java.io.FileOutputStream
 
 class MainActivity: FlutterActivity() {
     private val CHANNEL = "com.privatemessaging.tuyjo/shared_media"
+    private val TONE_CHANNEL = "com.privatemessaging.tuyjo/tone_generator"
     private var methodChannel: MethodChannel? = null
+    private var toneChannel: MethodChannel? = null
+    private var toneGenerator: ToneGenerator? = null
     private var initialMediaPaths: List<String>? = null
     private var initialSharedText: String? = null
 
@@ -44,6 +49,35 @@ class MainActivity: FlutterActivity() {
         }
 
         Log.d(TAG, "✅ Method Channel configured and ready")
+
+        // ToneGenerator channel per ringback tone
+        toneChannel = MethodChannel(flutterEngine.dartExecutor.binaryMessenger, TONE_CHANNEL)
+        toneChannel?.setMethodCallHandler { call, result ->
+            when (call.method) {
+                "startRingback" -> {
+                    try {
+                        toneGenerator?.release()
+                        toneGenerator = ToneGenerator(AudioManager.STREAM_VOICE_CALL, 100)
+                        // TONE_SUP_RINGTONE = ringback europeo standard (425 Hz, 1s on / 4s off)
+                        toneGenerator?.startTone(ToneGenerator.TONE_SUP_RINGTONE)
+                        Log.d(TAG, "🔔 ToneGenerator: ringback started")
+                        result.success(true)
+                    } catch (e: Exception) {
+                        Log.e(TAG, "🔔 ToneGenerator error: ${e.message}")
+                        result.error("TONE_ERROR", e.message, null)
+                    }
+                }
+                "stopRingback" -> {
+                    toneGenerator?.stopTone()
+                    toneGenerator?.release()
+                    toneGenerator = null
+                    Log.d(TAG, "🔔 ToneGenerator: ringback stopped")
+                    result.success(true)
+                }
+                else -> result.notImplemented()
+            }
+        }
+        Log.d(TAG, "✅ ToneGenerator Channel configured")
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {

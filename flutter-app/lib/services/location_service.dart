@@ -12,6 +12,14 @@ import 'package:uuid/uuid.dart';
 import '../models/location_share.dart';
 import 'encryption_service.dart';
 
+/// Risultato della richiesta permessi di localizzazione
+enum LocationPermissionResult {
+  granted,
+  gpsDisabled,
+  denied,
+  deniedForever,
+}
+
 /// Servizio per gestire la condivisione della posizione in tempo reale
 class LocationService extends ChangeNotifier {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
@@ -184,8 +192,9 @@ class LocationService extends ChangeNotifier {
     return Geolocator.bearingBetween(lat1, lon1, lat2, lon2);
   }
 
-  /// Verifica e richiede permessi di localizzazione
-  Future<bool> requestLocationPermission() async {
+  /// Verifica e richiede permessi di localizzazione.
+  /// Restituisce [LocationPermissionResult] con il motivo specifico del fallimento.
+  Future<LocationPermissionResult> requestLocationPermissionDetailed() async {
     try {
       if (kDebugMode) print('🔍 [LOCATION] Checking location permissions...');
 
@@ -195,7 +204,7 @@ class LocationService extends ChangeNotifier {
 
       if (!serviceEnabled) {
         if (kDebugMode) print('❌ [LOCATION] Location services are disabled - user needs to enable GPS');
-        return false;
+        return LocationPermissionResult.gpsDisabled;
       }
 
       // Verifica permessi
@@ -209,21 +218,27 @@ class LocationService extends ChangeNotifier {
 
         if (permission == LocationPermission.denied) {
           if (kDebugMode) print('❌ [LOCATION] Location permissions are denied');
-          return false;
+          return LocationPermissionResult.denied;
         }
       }
 
       if (permission == LocationPermission.deniedForever) {
         if (kDebugMode) print('❌ [LOCATION] Location permissions are permanently denied - user needs to enable in settings');
-        return false;
+        return LocationPermissionResult.deniedForever;
       }
 
       if (kDebugMode) print('✅ [LOCATION] Location permissions granted: $permission');
-      return true;
+      return LocationPermissionResult.granted;
     } catch (e) {
       if (kDebugMode) print('❌ [LOCATION] Error requesting permission: $e');
-      return false;
+      return LocationPermissionResult.denied;
     }
+  }
+
+  /// Verifica e richiede permessi di localizzazione (compatibilità)
+  Future<bool> requestLocationPermission() async {
+    final result = await requestLocationPermissionDetailed();
+    return result == LocationPermissionResult.granted;
   }
 
   /// Ottiene la posizione corrente

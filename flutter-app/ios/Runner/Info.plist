@@ -30,7 +30,6 @@
 	<array>
 		<string>fetch</string>
 		<string>remote-notification</string>
-		<string>location</string>
 		<string>voip</string>
 		<string>audio</string>
 	</array>
@@ -54,8 +53,6 @@
 	<string>Per effettuare chiamate vocali con il partner</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string>Per condividere la tua posizione con il partner</string>
-	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
-	<string>Per condividere la tua posizione in tempo reale anche quando l'app è in background</string>
 	<key>UISupportsDocumentBrowser</key>
 	<true/>
 	<key>LSSupportsOpeningDocumentsInPlace</key>

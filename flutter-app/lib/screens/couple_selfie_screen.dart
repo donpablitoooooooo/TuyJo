@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:image_cropper/image_cropper.dart';
 import 'package:image/image.dart' as img;
@@ -12,6 +13,7 @@ import '../services/pairing_service.dart';
 import '../services/chat_service.dart';
 import '../services/attachment_service.dart';
 import '../services/encryption_service.dart';
+import '../widgets/permission_denied_dialog.dart';
 
 /// Schermo per selezionare e croppare la foto di coppia
 class CoupleSelfieScreen extends StatefulWidget {
@@ -215,12 +217,30 @@ class _CoupleSelfieScreenState extends State<CoupleSelfieScreen> {
 
     try {
       // 1. Pick image
-      final XFile? pickedFile = await _picker.pickImage(
-        source: source,
-        maxWidth: 1920,
-        maxHeight: 1920,
-        imageQuality: 95,
-      );
+      XFile? pickedFile;
+      try {
+        pickedFile = await _picker.pickImage(
+          source: source,
+          maxWidth: 1920,
+          maxHeight: 1920,
+          imageQuality: 95,
+        );
+      } on PlatformException catch (e) {
+        if (e.code == 'camera_access_denied' || e.code == 'photo_access_denied') {
+          setState(() => _isProcessing = false);
+          if (mounted) {
+            final l10n = AppLocalizations.of(context)!;
+            showPermissionDeniedDialog(
+              context: context,
+              title: l10n.permissionCameraDeniedTitle,
+              message: l10n.permissionCameraDeniedMessage,
+              isPermanentlyDenied: true,
+            );
+          }
+          return;
+        }
+        rethrow;
+      }
 
       if (pickedFile == null) {
         setState(() => _isProcessing = false);

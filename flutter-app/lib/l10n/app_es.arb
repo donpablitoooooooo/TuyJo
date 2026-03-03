@@ -290,5 +290,17 @@
     "notificationIncomingCallTitle": "Llamada entrante",
     "notificationIncomingCallBody": "Tu pareja te está llamando",
     "notificationChannelCalls": "Llamadas",
-    "notificationChannelCallsDescription": "Notificaciones para llamadas de voz entrantes"
+    "notificationChannelCallsDescription": "Notificaciones para llamadas de voz entrantes",
+
+    "permissionOpenSettings": "Abrir Ajustes",
+    "permissionMicDeniedTitle": "Micrófono no disponible",
+    "permissionMicDeniedMessage": "El acceso al micrófono es necesario para realizar llamadas de voz. Habilita el permiso del micrófono en los ajustes del dispositivo.",
+    "permissionNotificationDeniedTitle": "Notificaciones desactivadas",
+    "permissionNotificationDeniedMessage": "Las notificaciones son necesarias para recibir mensajes y llamadas entrantes cuando la app está cerrada. Habilita las notificaciones en los ajustes del dispositivo.",
+    "permissionLocationDeniedTitle": "Ubicación no disponible",
+    "permissionLocationDeniedMessage": "El acceso a la ubicación es necesario para compartir tu posición con tu pareja. Habilita el permiso de ubicación en los ajustes del dispositivo.",
+    "permissionLocationGpsDisabledTitle": "GPS desactivado",
+    "permissionLocationGpsDisabledMessage": "El GPS es necesario para compartir tu ubicación. Habilita los servicios de ubicación en tu dispositivo.",
+    "permissionCameraDeniedTitle": "Cámara no disponible",
+    "permissionCameraDeniedMessage": "El acceso a la cámara es necesario para tomar fotos. Habilita el permiso de cámara en los ajustes del dispositivo."
 }

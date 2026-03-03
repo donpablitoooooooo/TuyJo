@@ -290,5 +290,17 @@
     "notificationIncomingCallTitle": "Trucada entrant",
     "notificationIncomingCallBody": "La teva parella et truca",
     "notificationChannelCalls": "Trucades",
-    "notificationChannelCallsDescription": "Notificacions per a trucades de veu entrants"
+    "notificationChannelCallsDescription": "Notificacions per a trucades de veu entrants",
+
+    "permissionOpenSettings": "Obre Configuració",
+    "permissionMicDeniedTitle": "Micròfon no disponible",
+    "permissionMicDeniedMessage": "L'accés al micròfon és necessari per fer trucades de veu. Habilita el permís del micròfon a la configuració del dispositiu.",
+    "permissionNotificationDeniedTitle": "Notificacions desactivades",
+    "permissionNotificationDeniedMessage": "Les notificacions són necessàries per rebre missatges i trucades entrants quan l'app està tancada. Habilita les notificacions a la configuració del dispositiu.",
+    "permissionLocationDeniedTitle": "Ubicació no disponible",
+    "permissionLocationDeniedMessage": "L'accés a la ubicació és necessari per compartir la teva posició amb la teva parella. Habilita el permís d'ubicació a la configuració del dispositiu.",
+    "permissionLocationGpsDisabledTitle": "GPS desactivat",
+    "permissionLocationGpsDisabledMessage": "El GPS és necessari per compartir la teva ubicació. Habilita els serveis d'ubicació al teu dispositiu.",
+    "permissionCameraDeniedTitle": "Càmera no disponible",
+    "permissionCameraDeniedMessage": "L'accés a la càmera és necessari per fer fotos. Habilita el permís de càmera a la configuració del dispositiu."
 }
