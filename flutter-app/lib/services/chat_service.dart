@@ -332,7 +332,6 @@ class ChatService extends ChangeNotifier {
         .doc(familyChatId)
         .collection('messages')
         .orderBy('created_at', descending: false)
-        .limitToLast(100) // Ripristinato per evitare sovraccarico
         .snapshots()
         .listen(
       (snapshot) async {
@@ -409,6 +408,11 @@ class ChatService extends ChangeNotifier {
             // Nessun nuovo messaggio - la cache era già aggiornata
             if (kDebugMode) print('✅ Initial sync: no new messages (cache was up-to-date)');
           }
+
+          // Senza limitToLast, il listener carica TUTTI i messaggi
+          // Non serve paginazione - segna che non ci sono altri messaggi da caricare
+          _hasMoreMessages = false;
+
         } else {
           // SNAPSHOTS SUCCESSIVI: Gestisci i nuovi messaggi normalmente
           for (var change in snapshot.docChanges) {

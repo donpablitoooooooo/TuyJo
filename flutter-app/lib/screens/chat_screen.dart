@@ -111,9 +111,6 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
 
     });
 
-    // 📜 INFINITE SCROLL: Listen per scroll verso l'alto (messaggi vecchi)
-    _scrollController.addListener(_onScroll);
-
     // 📤 CONDIVISIONE: Listen per file condivisi da altre app
     _initSharedFiles();
   }
@@ -641,25 +638,6 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
         _processPendingUploads();
       }
     }
-  }
-
-  void _onScroll() {
-    final chatService = Provider.of<ChatService>(context, listen: false);
-    final pixels = _scrollController.position.pixels;
-    final maxScroll = _scrollController.position.maxScrollExtent;
-    // Con reverse: true, i messaggi vecchi sono in ALTO (maxScrollExtent)
-    // Carica quando scrolliamo vicino alla fine (verso l'alto = messaggi vecchi)
-    if (pixels >= maxScroll - 300 &&
-        !chatService.isLoadingOlderMessages &&
-        chatService.hasMoreMessages) {
-      if (kDebugMode) print('📜 User scrolled to top - loading older messages... (pixels: ${pixels.toInt()}, max: ${maxScroll.toInt()})');
-      _loadOlderMessages();
-    }
-  }
-
-  Future<void> _loadOlderMessages() async {
-    final chatService = Provider.of<ChatService>(context, listen: false);
-    await chatService.loadOlderMessages(limit: 50);
   }
 
   void _onUserTyping() {
@@ -2829,40 +2807,9 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                 : ListView.builder(
                           controller: _scrollController,
                           padding: const EdgeInsets.fromLTRB(12, 60, 12, 2),
-                          // +1 per il loading indicator in cima (con reverse: true, è l'ultimo index)
-                          itemCount: visibleMessages.length + _pendingLocalMessages.length + 1,
+                          itemCount: visibleMessages.length + _pendingLocalMessages.length,
                           reverse: true,
                           itemBuilder: (context, index) {
-                            final totalMessages = visibleMessages.length + _pendingLocalMessages.length;
-
-                            // L'ultimo item (in cima con reverse: true) è il loading indicator
-                            if (index == totalMessages) {
-                              if (chatService.isLoadingOlderMessages) {
-                                return Container(
-                                  padding: const EdgeInsets.all(16),
-                                  child: Row(
-                                    mainAxisAlignment: MainAxisAlignment.center,
-                                    children: [
-                                      const SizedBox(
-                                        width: 16,
-                                        height: 16,
-                                        child: CircularProgressIndicator(strokeWidth: 2),
-                                      ),
-                                      const SizedBox(width: 8),
-                                      Text(
-                                        l10n.chatLoadingMessages,
-                                        style: const TextStyle(color: Colors.grey, fontSize: 12),
-                                      ),
-                                    ],
-                                  ),
-                                );
-                              }
-                              if (!chatService.hasMoreMessages) {
-                                return const SizedBox.shrink();
-                              }
-                              return const SizedBox(height: 20);
-                            }
-
                             // Pending messages appaiono in fondo (index 0..N-1 in lista reversed)
                             final pendingCount = _pendingLocalMessages.length;
                             if (index < pendingCount) {
