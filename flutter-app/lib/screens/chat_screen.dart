@@ -2803,6 +2803,14 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
 
     final l10n = AppLocalizations.of(context)!;
 
+    // Pre-filtra messaggi visibili (escludi todo_completed e TODO futuri)
+    // Questo garantisce che itemCount corrisponda ai messaggi realmente mostrati
+    final visibleMessages = chatService.messages.where((m) {
+      if (m.messageType == 'todo_completed') return false;
+      if (m.messageType == 'todo' && m.timestamp.isAfter(DateTime.now())) return false;
+      return true;
+    }).toList();
+
     return Scaffold(
       body: GestureDetector(
         onTap: () => FocusScope.of(context).unfocus(),
@@ -2810,7 +2818,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
         child: Column(
         children: [
           Expanded(
-            child: chatService.messages.isEmpty
+            child: visibleMessages.isEmpty && _pendingLocalMessages.isEmpty
                 ? Center(
                     child: Text(
                       l10n.chatEmptyMessage,
@@ -2822,10 +2830,10 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                           controller: _scrollController,
                           padding: const EdgeInsets.fromLTRB(12, 60, 12, 2),
                           // +1 per il loading indicator in cima (con reverse: true, è l'ultimo index)
-                          itemCount: chatService.messages.length + _pendingLocalMessages.length + 1,
-                          reverse: true, // 🔧 FIX: reverse per mostrare nuovi messaggi in basso
+                          itemCount: visibleMessages.length + _pendingLocalMessages.length + 1,
+                          reverse: true,
                           itemBuilder: (context, index) {
-                            final totalMessages = chatService.messages.length + _pendingLocalMessages.length;
+                            final totalMessages = visibleMessages.length + _pendingLocalMessages.length;
 
                             // L'ultimo item (in cima con reverse: true) è il loading indicator
                             if (index == totalMessages) {
@@ -2882,27 +2890,12 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                             }
 
                             final msgIndex = index - pendingCount;
-                            final message = chatService.messages[msgIndex];
+                            final message = visibleMessages[msgIndex];
                             final isMe = message.senderId == _myDeviceId;
-
-                            // Verifica se è un messaggio di completamento todo
-                            if (message.messageType == 'todo_completed') {
-                              // Non mostrare i messaggi di completamento
-                              return const SizedBox.shrink();
-                            }
-
-                            // Nascondi TODO/reminder futuri (timestamp futuro)
-                            if (message.messageType == 'todo') {
-                              if (message.timestamp.isAfter(DateTime.now())) {
-                                // TODO futuro, nascondilo
-                                return const SizedBox.shrink();
-                              }
-                            }
 
                             // Verifica se il todo è stato completato
                             bool isTodoCompleted = false;
                             if (message.messageType == 'todo') {
-                              // TODO completato se ha action COMPLETE oppure messaggio todo_completed
                               isTodoCompleted = message.action?.type == 'complete' ||
                                   chatService.messages.any((m) =>
                                       m.messageType == 'todo_completed' &&
@@ -2910,26 +2903,10 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                             }
 
                             // Determina se mostrare il separatore di data
-                            // Trova il prossimo messaggio VISIBILE (salta todo_completed e TODO futuri)
-                            Message? nextVisibleMessage;
-                            for (int i = msgIndex + 1; i < chatService.messages.length; i++) {
-                              final candidateMessage = chatService.messages[i];
-
-                              // Salta todo_completed
-                              if (candidateMessage.messageType == 'todo_completed') {
-                                continue;
-                              }
-
-                              // Salta TODO futuri
-                              if (candidateMessage.messageType == 'todo' &&
-                                  candidateMessage.timestamp.isAfter(DateTime.now())) {
-                                continue;
-                              }
-
-                              // Trovato il prossimo messaggio visibile
-                              nextVisibleMessage = candidateMessage;
-                              break;
-                            }
+                            // Con la lista pre-filtrata, il prossimo visibile è semplicemente msgIndex + 1
+                            final nextVisibleMessage = msgIndex + 1 < visibleMessages.length
+                                ? visibleMessages[msgIndex + 1]
+                                : null;
 
                             final showDateSeparator = _shouldShowDateSeparator(message, nextVisibleMessage);
 
