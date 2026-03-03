@@ -645,12 +645,14 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
 
   void _onScroll() {
     final chatService = Provider.of<ChatService>(context, listen: false);
+    final pixels = _scrollController.position.pixels;
+    final maxScroll = _scrollController.position.maxScrollExtent;
     // Con reverse: true, i messaggi vecchi sono in ALTO (maxScrollExtent)
     // Carica quando scrolliamo vicino alla fine (verso l'alto = messaggi vecchi)
-    if (_scrollController.position.pixels >= _scrollController.position.maxScrollExtent - 100 &&
+    if (pixels >= maxScroll - 300 &&
         !chatService.isLoadingOlderMessages &&
         chatService.hasMoreMessages) {
-      if (kDebugMode) print('📜 User scrolled to top - loading older messages...');
+      if (kDebugMode) print('📜 User scrolled to top - loading older messages... (pixels: ${pixels.toInt()}, max: ${maxScroll.toInt()})');
       _loadOlderMessages();
     }
   }
@@ -2816,35 +2818,43 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                       style: const TextStyle(color: Colors.grey),
                     ),
                   )
-                : Column(
-                    children: [
-                      // 📜 Indicatore caricamento messaggi vecchi
-                      if (chatService.isLoadingOlderMessages)
-                        Container(
-                          padding: const EdgeInsets.all(8),
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              const SizedBox(
-                                width: 16,
-                                height: 16,
-                                child: CircularProgressIndicator(strokeWidth: 2),
-                              ),
-                              const SizedBox(width: 8),
-                              Text(
-                                l10n.chatLoadingMessages,
-                                style: const TextStyle(color: Colors.grey, fontSize: 12),
-                              ),
-                            ],
-                          ),
-                        ),
-                      Expanded(
-                        child: ListView.builder(
+                : ListView.builder(
                           controller: _scrollController,
                           padding: const EdgeInsets.fromLTRB(12, 60, 12, 2),
-                          itemCount: chatService.messages.length + _pendingLocalMessages.length,
+                          // +1 per il loading indicator in cima (con reverse: true, è l'ultimo index)
+                          itemCount: chatService.messages.length + _pendingLocalMessages.length + 1,
                           reverse: true, // 🔧 FIX: reverse per mostrare nuovi messaggi in basso
                           itemBuilder: (context, index) {
+                            final totalMessages = chatService.messages.length + _pendingLocalMessages.length;
+
+                            // L'ultimo item (in cima con reverse: true) è il loading indicator
+                            if (index == totalMessages) {
+                              if (chatService.isLoadingOlderMessages) {
+                                return Container(
+                                  padding: const EdgeInsets.all(16),
+                                  child: Row(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    children: [
+                                      const SizedBox(
+                                        width: 16,
+                                        height: 16,
+                                        child: CircularProgressIndicator(strokeWidth: 2),
+                                      ),
+                                      const SizedBox(width: 8),
+                                      Text(
+                                        l10n.chatLoadingMessages,
+                                        style: const TextStyle(color: Colors.grey, fontSize: 12),
+                                      ),
+                                    ],
+                                  ),
+                                );
+                              }
+                              if (!chatService.hasMoreMessages) {
+                                return const SizedBox.shrink();
+                              }
+                              return const SizedBox(height: 20);
+                            }
+
                             // Pending messages appaiono in fondo (index 0..N-1 in lista reversed)
                             final pendingCount = _pendingLocalMessages.length;
                             if (index < pendingCount) {
@@ -2871,7 +2881,8 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                               );
                             }
 
-                            final message = chatService.messages[index - pendingCount];
+                            final msgIndex = index - pendingCount;
+                            final message = chatService.messages[msgIndex];
                             final isMe = message.senderId == _myDeviceId;
 
                             // Verifica se è un messaggio di completamento todo
@@ -2901,7 +2912,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                             // Determina se mostrare il separatore di data
                             // Trova il prossimo messaggio VISIBILE (salta todo_completed e TODO futuri)
                             Message? nextVisibleMessage;
-                            for (int i = index + 1; i < chatService.messages.length; i++) {
+                            for (int i = msgIndex + 1; i < chatService.messages.length; i++) {
                               final candidateMessage = chatService.messages[i];
 
                               // Salta todo_completed
@@ -2987,36 +2998,33 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                             return messageWidget;
                           },
                         ),
-                      ),
-                      // 💬 Indicatore "Sta scrivendo..."
-                      if (chatService.partnerIsTyping)
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
-                          child: Row(
-                            children: [
-                              SizedBox(
-                                width: 16,
-                                height: 16,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
-                                  valueColor: AlwaysStoppedAnimation<Color>(Colors.grey[400]!),
-                                ),
-                              ),
-                              const SizedBox(width: 8),
-                              Text(
-                                l10n.chatTypingIndicator,
-                                style: TextStyle(
-                                  color: Colors.grey[600],
-                                  fontSize: 13,
-                                  fontStyle: FontStyle.italic,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                    ],
-                  ),
           ),
+          // 💬 Indicatore "Sta scrivendo..."
+          if (chatService.partnerIsTyping)
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
+              child: Row(
+                children: [
+                  SizedBox(
+                    width: 16,
+                    height: 16,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      valueColor: AlwaysStoppedAnimation<Color>(Colors.grey[400]!),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    l10n.chatTypingIndicator,
+                    style: TextStyle(
+                      color: Colors.grey[600],
+                      fontSize: 13,
+                      fontStyle: FontStyle.italic,
+                    ),
+                  ),
+                ],
+              ),
+            ),
           Container(
             padding: EdgeInsets.fromLTRB(
               8,
