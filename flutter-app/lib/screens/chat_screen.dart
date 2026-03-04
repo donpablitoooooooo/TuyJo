@@ -1366,6 +1366,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
 
   /// Mostra il bottom sheet per selezionare il tipo di allegato
   void _showAttachmentPicker() async {
+    FocusScope.of(context).unfocus();
     final l10n = AppLocalizations.of(context)!;
     showModalBottomSheet(
       context: context,
