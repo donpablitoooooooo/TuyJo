@@ -3012,41 +3012,54 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                 children: [
                   // Preview reply (messaggio a cui si sta rispondendo)
                   if (_replyToMessage != null)
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                      decoration: BoxDecoration(
-                        color: _replyToMessage!.senderId == _myDeviceId
-                            ? const Color(0xFF3BA8B0).withOpacity(0.12)
-                            : Colors.grey[200],
-                        border: Border(
-                          bottom: BorderSide(color: Colors.grey[300]!),
-                        ),
-                      ),
-                      child: Row(
-                        children: [
-                          Expanded(
-                            child: Text(
-                              _replyToMessage!.decryptedContent ?? '',
-                              style: TextStyle(
-                                color: Colors.grey[600],
-                                fontSize: 13,
-                              ),
+                    Builder(
+                      builder: (context) {
+                        final bool replyToMyMessage = _replyToMessage!.senderId == _myDeviceId;
+                        return Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                          decoration: BoxDecoration(
+                            gradient: replyToMyMessage
+                                ? const LinearGradient(
+                                    colors: [Color(0xFF3BA8B0), Color(0xFF145A60)],
+                                    begin: Alignment.topLeft,
+                                    end: Alignment.bottomRight,
+                                  )
+                                : LinearGradient(
+                                    colors: [Colors.grey[200]!, Colors.grey[100]!],
+                                    begin: Alignment.topLeft,
+                                    end: Alignment.bottomRight,
+                                  ),
+                            border: Border(
+                              bottom: BorderSide(color: Colors.grey[300]!),
+                            ),
+                          ),
+                          child: Row(
+                            children: [
+                              Expanded(
+                                child: Text(
+                                  _replyToMessage!.decryptedContent ?? '',
+                                  style: TextStyle(
+                                    color: replyToMyMessage ? Colors.white.withOpacity(0.85) : Colors.grey[600],
+                                    fontSize: 13,
+                                  ),
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                             ),
                           ),
-                          IconButton(
-                            onPressed: () {
-                              setState(() {
-                                _replyToMessage = null;
-                              });
-                            },
-                            icon: Icon(Icons.close, size: 18, color: Colors.grey[500]),
-                            padding: EdgeInsets.zero,
-                            constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                              IconButton(
+                                onPressed: () {
+                                  setState(() {
+                                    _replyToMessage = null;
+                                  });
+                                },
+                                icon: Icon(Icons.close, size: 18, color: replyToMyMessage ? Colors.white70 : Colors.grey[500]),
+                                padding: EdgeInsets.zero,
+                                constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                              ),
+                            ],
                           ),
-                        ],
-                      ),
+                        );
+                      },
                     ),
                   // Mostra allegati selezionati
                   // Preview data/range/alert selezionata per todo
@@ -4151,9 +4164,17 @@ class _MessageBubble extends StatelessWidget {
                                 width: double.infinity,
                                 padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
                                 decoration: BoxDecoration(
-                                  color: replyToMyMessage
-                                      ? const Color(0xFF3BA8B0).withOpacity(isMe ? 0.3 : 0.12)
-                                      : Colors.black.withOpacity(isMe ? 0.15 : 0.05),
+                                  gradient: replyToMyMessage
+                                      ? const LinearGradient(
+                                          colors: [Color(0xFF3BA8B0), Color(0xFF145A60)],
+                                          begin: Alignment.topLeft,
+                                          end: Alignment.bottomRight,
+                                        )
+                                      : LinearGradient(
+                                          colors: [Colors.grey[200]!, Colors.grey[100]!],
+                                          begin: Alignment.topLeft,
+                                          end: Alignment.bottomRight,
+                                        ),
                                   borderRadius: const BorderRadius.only(
                                     topLeft: Radius.circular(20),
                                     topRight: Radius.circular(20),
@@ -4162,7 +4183,7 @@ class _MessageBubble extends StatelessWidget {
                                 child: Text(
                                   messageObject!.replyToText!,
                                   style: TextStyle(
-                                    color: isMe ? Colors.white.withOpacity(0.7) : Colors.black54,
+                                    color: replyToMyMessage ? Colors.white.withOpacity(0.85) : Colors.black54,
                                     fontSize: 12,
                                   ),
                                   maxLines: 1,
