@@ -2831,13 +2831,13 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     }).toList();
 
     return Scaffold(
-      body: Column(
+      body: GestureDetector(
+        onTap: () => FocusScope.of(context).unfocus(),
+        behavior: HitTestBehavior.translucent,
+        child: Column(
         children: [
           Expanded(
-            child: GestureDetector(
-              onTap: () => FocusScope.of(context).unfocus(),
-              behavior: HitTestBehavior.translucent,
-              child: visibleMessages.isEmpty && _pendingLocalMessages.isEmpty
+            child: visibleMessages.isEmpty && _pendingLocalMessages.isEmpty
                 ? Center(
                     child: Text(
                       l10n.chatEmptyMessage,
@@ -2966,7 +2966,6 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                             return messageWidget;
                           },
                         ),
-            ),
           ),
           // 💬 Indicatore "Sta scrivendo..."
           if (chatService.partnerIsTyping)
@@ -3275,6 +3274,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
           ),
         ],
       ),
+      ), // Fine GestureDetector
     );
   }
 }
