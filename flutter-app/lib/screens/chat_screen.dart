@@ -4170,11 +4170,17 @@ class _MessageBubble extends StatelessWidget {
                                           begin: Alignment.topLeft,
                                           end: Alignment.bottomRight,
                                         )
-                                      : LinearGradient(
-                                          colors: [Colors.grey[200]!, Colors.grey[100]!],
-                                          begin: Alignment.topLeft,
-                                          end: Alignment.bottomRight,
-                                        ),
+                                      : isMe
+                                          ? const LinearGradient(
+                                              colors: [Color(0xFF4DB8BF), Color(0xFF1D6B72)],
+                                              begin: Alignment.topLeft,
+                                              end: Alignment.bottomRight,
+                                            )
+                                          : LinearGradient(
+                                              colors: [Colors.grey[200]!, Colors.grey[100]!],
+                                              begin: Alignment.topLeft,
+                                              end: Alignment.bottomRight,
+                                            ),
                                   borderRadius: const BorderRadius.only(
                                     topLeft: Radius.circular(20),
                                     topRight: Radius.circular(20),
@@ -4183,7 +4189,7 @@ class _MessageBubble extends StatelessWidget {
                                 child: Text(
                                   messageObject!.replyToText!,
                                   style: TextStyle(
-                                    color: replyToMyMessage ? Colors.white.withOpacity(0.85) : Colors.black54,
+                                    color: isMe ? Colors.white.withOpacity(0.85) : Colors.black54,
                                     fontSize: 12,
                                   ),
                                   maxLines: 1,
