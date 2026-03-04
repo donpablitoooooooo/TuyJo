@@ -4177,7 +4177,7 @@ class _MessageBubble extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       // Reply banner (se è una risposta a un altro messaggio)
-                      if (messageObject?.replyToText != null && messageObject!.replyToText!.isNotEmpty)
+                      if ((messageObject?.replyToText != null && messageObject!.replyToText!.isNotEmpty) || messageObject?.replyToAttachment != null)
                         GestureDetector(
                           onTap: onReplyTap,
                           child: Container(
@@ -4219,15 +4219,16 @@ class _MessageBubble extends StatelessWidget {
                                       ),
                                     ),
                                   ),
-                                Expanded(
-                                  child: Text(
-                                    messageObject!.replyToText!,
-                                    style: TextStyle(
-                                      color: isMe ? Colors.white.withOpacity(0.85) : Colors.black54,
-                                      fontSize: 12,
-                                    ),
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
+                                if (messageObject!.replyToText != null && messageObject!.replyToText!.isNotEmpty)
+                                  Expanded(
+                                    child: Text(
+                                      messageObject!.replyToText!,
+                                      style: TextStyle(
+                                        color: isMe ? Colors.white.withOpacity(0.85) : Colors.black54,
+                                        fontSize: 12,
+                                      ),
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
                                   ),
                                 ),
                               ],
