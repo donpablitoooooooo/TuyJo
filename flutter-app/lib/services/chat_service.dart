@@ -1020,6 +1020,7 @@ class ChatService extends ChangeNotifier {
     String? replyToMessageId, // ID del messaggio a cui si risponde
     String? replyToText, // Prima riga del messaggio a cui si risponde
     String? replyToSenderId, // SenderId del messaggio a cui si risponde
+    Attachment? replyToAttachment, // Primo allegato foto del messaggio a cui si risponde
   }) async {
     try {
       final timestamp = DateTime.now();
@@ -1064,6 +1065,7 @@ class ChatService extends ChangeNotifier {
         if (replyToMessageId != null) 'reply_to_message_id': replyToMessageId,
         if (replyToText != null) 'reply_to_text': replyToText,
         if (replyToSenderId != null) 'reply_to_sender_id': replyToSenderId,
+        if (replyToAttachment != null) 'reply_to_attachment': replyToAttachment.toJson(),
       });
 
       if (kDebugMode) {

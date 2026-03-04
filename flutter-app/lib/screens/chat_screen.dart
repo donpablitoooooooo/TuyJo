@@ -437,6 +437,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
         replyToMessageId: replyToMessage?.id,
         replyToText: replyToMessage?.decryptedContent,
         replyToSenderId: replyToMessage?.senderId,
+        replyToAttachment: replyToMessage?.attachments?.cast<Attachment?>().firstWhere((a) => a?.type == 'photo', orElse: () => null),
       );
 
       if (kDebugMode) {
@@ -3035,6 +3036,26 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                           ),
                           child: Row(
                             children: [
+                              if (_replyToMessage!.attachments != null && _attachmentService != null)
+                                ...[
+                                  for (final att in _replyToMessage!.attachments!.where((a) => a.type == 'photo').take(1))
+                                    Padding(
+                                      padding: const EdgeInsets.only(right: 8),
+                                      child: ClipRRect(
+                                        borderRadius: BorderRadius.circular(6),
+                                        child: SizedBox(
+                                          width: 36,
+                                          height: 36,
+                                          child: _ReplyThumbnail(
+                                            attachment: att,
+                                            attachmentService: _attachmentService!,
+                                            currentUserId: _myDeviceId ?? '',
+                                            senderId: _replyToMessage!.senderId,
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                ],
                               Expanded(
                                 child: Text(
                                   _replyToMessage!.decryptedContent ?? '',
@@ -3042,10 +3063,10 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                                     color: replyToMyMessage ? Colors.white.withOpacity(0.85) : Colors.grey[600],
                                     fontSize: 13,
                                   ),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
                               IconButton(
                                 onPressed: () {
                                   setState(() {
@@ -4177,14 +4198,37 @@ class _MessageBubble extends StatelessWidget {
                                 topRight: Radius.circular(20),
                               ),
                             ),
-                            child: Text(
-                              messageObject!.replyToText!,
-                              style: TextStyle(
-                                color: isMe ? Colors.white.withOpacity(0.85) : Colors.black54,
-                                fontSize: 12,
-                              ),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
+                            child: Row(
+                              children: [
+                                if (messageObject!.replyToAttachment != null && attachmentService != null)
+                                  Padding(
+                                    padding: const EdgeInsets.only(right: 8),
+                                    child: ClipRRect(
+                                      borderRadius: BorderRadius.circular(6),
+                                      child: SizedBox(
+                                        width: 36,
+                                        height: 36,
+                                        child: _ReplyThumbnail(
+                                          attachment: messageObject!.replyToAttachment!,
+                                          attachmentService: attachmentService!,
+                                          currentUserId: currentUserId ?? '',
+                                          senderId: messageObject!.replyToSenderId ?? '',
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                Expanded(
+                                  child: Text(
+                                    messageObject!.replyToText!,
+                                    style: TextStyle(
+                                      color: isMe ? Colors.white.withOpacity(0.85) : Colors.black54,
+                                      fontSize: 12,
+                                    ),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                              ],
                             ),
                           ),
                         ),
@@ -4346,6 +4390,67 @@ class _DateSeparator extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+/// Thumbnail piccola per il reply banner (decifra e mostra la foto)
+class _ReplyThumbnail extends StatefulWidget {
+  final Attachment attachment;
+  final AttachmentService attachmentService;
+  final String currentUserId;
+  final String senderId;
+
+  const _ReplyThumbnail({
+    required this.attachment,
+    required this.attachmentService,
+    required this.currentUserId,
+    required this.senderId,
+  });
+
+  @override
+  State<_ReplyThumbnail> createState() => _ReplyThumbnailState();
+}
+
+class _ReplyThumbnailState extends State<_ReplyThumbnail> {
+  late Future<Uint8List?> _thumbFuture;
+
+  @override
+  void initState() {
+    super.initState();
+    _thumbFuture = _load();
+  }
+
+  @override
+  void didUpdateWidget(_ReplyThumbnail oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.attachment.url != widget.attachment.url) {
+      _thumbFuture = _load();
+    }
+  }
+
+  Future<Uint8List?> _load() {
+    if (widget.attachment.url.isEmpty || !widget.attachment.url.startsWith('http')) {
+      return Future.value(null);
+    }
+    return widget.attachmentService.downloadAndDecryptAttachment(
+      widget.attachment,
+      widget.currentUserId,
+      widget.senderId,
+      useThumbnail: true,
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return FutureBuilder<Uint8List?>(
+      future: _thumbFuture,
+      builder: (context, snapshot) {
+        if (snapshot.hasData && snapshot.data != null) {
+          return Image.memory(snapshot.data!, fit: BoxFit.cover);
+        }
+        return Container(color: Colors.grey[300]);
+      },
     );
   }
 }
