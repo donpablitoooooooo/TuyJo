@@ -198,8 +198,6 @@
     "actionEdit": "Editar",
     "actionDelete": "Eliminar",
     "actionReply": "Responder",
-    "replyToYou": "Tú",
-    "replyToPartner": "Pareja",
     "messageDeleted": "Mensaje eliminado",
     "timePickerLabel": "Hora",
     "alertPickerLabel": "Alerta",

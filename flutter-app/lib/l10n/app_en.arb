@@ -198,8 +198,6 @@
     "actionEdit": "Edit",
     "actionDelete": "Delete",
     "actionReply": "Reply",
-    "replyToYou": "You",
-    "replyToPartner": "Partner",
     "messageDeleted": "Message deleted",
     "timePickerLabel": "Time",
     "alertPickerLabel": "Alert",

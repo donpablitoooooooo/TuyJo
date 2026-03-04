@@ -197,8 +197,6 @@
     "actionEdit": "Modifica",
     "actionDelete": "Elimina",
     "actionReply": "Rispondi",
-    "replyToYou": "Tu",
-    "replyToPartner": "Partner",
     "messageDeleted": "Messaggio eliminato",
     "timePickerLabel": "Orario",
     "alertPickerLabel": "Alert",

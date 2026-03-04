@@ -3032,31 +3032,14 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                           ),
                           const SizedBox(width: 8),
                           Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Text(
-                                  _replyToMessage!.senderId == _myDeviceId
-                                      ? l10n.replyToYou
-                                      : l10n.replyToPartner,
-                                  style: const TextStyle(
-                                    color: Color(0xFF3BA8B0),
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                ),
-                                const SizedBox(height: 2),
-                                Text(
-                                  _replyToMessage!.decryptedContent ?? '',
-                                  style: TextStyle(
-                                    color: Colors.grey[600],
-                                    fontSize: 13,
-                                  ),
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                              ],
+                            child: Text(
+                              _replyToMessage!.decryptedContent ?? '',
+                              style: TextStyle(
+                                color: Colors.grey[600],
+                                fontSize: 13,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
                             ),
                           ),
                           IconButton(
@@ -4192,31 +4175,14 @@ class _MessageBubble extends StatelessWidget {
                                 ),
                                 const SizedBox(width: 8),
                                 Expanded(
-                                  child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      Text(
-                                        messageObject!.replyToSenderId == currentUserId
-                                            ? AppLocalizations.of(context)!.replyToYou
-                                            : AppLocalizations.of(context)!.replyToPartner,
-                                        style: TextStyle(
-                                          color: isMe ? Colors.white.withOpacity(0.8) : const Color(0xFF3BA8B0),
-                                          fontSize: 11,
-                                          fontWeight: FontWeight.w600,
-                                        ),
-                                      ),
-                                      const SizedBox(height: 2),
-                                      Text(
-                                        messageObject!.replyToText!,
-                                        style: TextStyle(
-                                          color: isMe ? Colors.white.withOpacity(0.6) : Colors.black45,
-                                          fontSize: 12,
-                                        ),
-                                        maxLines: 1,
-                                        overflow: TextOverflow.ellipsis,
-                                      ),
-                                    ],
+                                  child: Text(
+                                    messageObject!.replyToText!,
+                                    style: TextStyle(
+                                      color: isMe ? Colors.white.withOpacity(0.6) : Colors.black45,
+                                      fontSize: 12,
+                                    ),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
                                   ),
                                 ),
                               ],
