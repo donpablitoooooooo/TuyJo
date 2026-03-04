@@ -2693,6 +2693,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
               replyToMessageId: replyToMessage?.id,
               replyToText: replyToMessage?.decryptedContent,
               replyToSenderId: replyToMessage?.senderId,
+              replyToAttachment: replyToMessage?.attachments?.cast<Attachment?>().firstWhere((a) => a?.type == 'photo', orElse: () => null),
             );
 
             await _pendingUploadService.logDiag('SEND_MSG DONE: sentId=$sentId');
@@ -2734,6 +2735,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
           replyToMessageId: replyToMessage?.id,
           replyToText: replyToMessage?.decryptedContent,
           replyToSenderId: replyToMessage?.senderId,
+          replyToAttachment: replyToMessage?.attachments?.cast<Attachment?>().firstWhere((a) => a?.type == 'photo', orElse: () => null),
         );
         success = sentMessageId != null;
       }
