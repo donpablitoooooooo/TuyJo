@@ -264,7 +264,10 @@ class _MainScreenState extends State<MainScreen> {
                 ),
                 child: IconButton(
                   icon: const Icon(Icons.menu, color: Color(0xFF3BA8B0)),
-                  onPressed: () => Scaffold.of(context).openDrawer(),
+                  onPressed: () {
+                    FocusScope.of(context).unfocus();
+                    Scaffold.of(context).openDrawer();
+                  },
                 ),
               ),
             ),

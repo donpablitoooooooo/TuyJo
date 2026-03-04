@@ -100,6 +100,14 @@ class ReactionPicker extends StatelessWidget {
                     ),
                     const SizedBox(height: 8),
                   ],
+                  // Reply per tutti i messaggi
+                  _buildActionButton(
+                    'reply',
+                    AppLocalizations.of(context)!.actionReply,
+                    Icons.reply_outlined,
+                    context,
+                  ),
+                  const SizedBox(height: 8),
                   // Edit solo per i propri messaggi (evita problemi di cifratura)
                   if (message.senderId == currentUserId) ...[
                     _buildActionButton(

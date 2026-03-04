@@ -197,6 +197,7 @@
     "actionMarkCompleted": "Mark as completed",
     "actionEdit": "Edit",
     "actionDelete": "Delete",
+    "actionReply": "Reply",
     "messageDeleted": "Message deleted",
     "timePickerLabel": "Time",
     "alertPickerLabel": "Alert",

@@ -197,6 +197,7 @@
     "actionMarkCompleted": "Marca com a completat",
     "actionEdit": "Editar",
     "actionDelete": "Eliminar",
+    "actionReply": "Respondre",
     "messageDeleted": "Missatge eliminat",
     "timePickerLabel": "Hora",
     "alertPickerLabel": "Alerta",
