@@ -2832,7 +2832,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
 
     return Scaffold(
       body: GestureDetector(
-        onTap: () => FocusScope.of(context).unfocus(),
+        onTap: () => _messageFocusNode.unfocus(),
         behavior: HitTestBehavior.translucent,
         child: Column(
         children: [
