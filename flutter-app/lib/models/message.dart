@@ -165,6 +165,11 @@ class Message {
   // Action sul messaggio (azione con effetto logico, es. completare todo)
   MessageAction? action;
 
+  // Reply: riferimento al messaggio a cui si sta rispondendo
+  String? replyToMessageId; // ID del messaggio a cui si risponde
+  String? replyToText; // Prima riga del testo del messaggio a cui si risponde
+  String? replyToSenderId; // SenderId del messaggio a cui si risponde
+
   Message({
     required this.id,
     required this.senderId,
@@ -196,6 +201,9 @@ class Message {
     this.linkUrl,
     this.reaction,
     this.action,
+    this.replyToMessageId,
+    this.replyToText,
+    this.replyToSenderId,
   });
 
   factory Message.fromJson(Map<String, dynamic> json) {
@@ -276,6 +284,9 @@ class Message {
       linkUrl: data['link_url'],
       reaction: reaction,
       action: action,
+      replyToMessageId: data['reply_to_message_id'],
+      replyToText: data['reply_to_text'],
+      replyToSenderId: data['reply_to_sender_id'],
     );
   }
 
@@ -301,6 +312,9 @@ class Message {
       if (linkUrl != null) 'link_url': linkUrl,
       if (reaction != null) 'reaction': reaction!.toJson(),
       if (action != null) 'action': action!.toJson(),
+      if (replyToMessageId != null) 'reply_to_message_id': replyToMessageId,
+      if (replyToText != null) 'reply_to_text': replyToText,
+      if (replyToSenderId != null) 'reply_to_sender_id': replyToSenderId,
     };
   }
 }

@@ -1017,6 +1017,9 @@ class ChatService extends ChangeNotifier {
     String recipientPublicKey, {
     List<Attachment>? attachments, // Allegati opzionali
     String? messageId, // ID pre-generato (opzionale)
+    String? replyToMessageId, // ID del messaggio a cui si risponde
+    String? replyToText, // Prima riga del messaggio a cui si risponde
+    String? replyToSenderId, // SenderId del messaggio a cui si risponde
   }) async {
     try {
       final timestamp = DateTime.now();
@@ -1058,6 +1061,9 @@ class ChatService extends ChangeNotifier {
         'read': false, // Non ancora letto dal destinatario
         if (attachments != null && attachments.isNotEmpty)
           'attachments': attachments.map((a) => a.toJson()).toList(),
+        if (replyToMessageId != null) 'reply_to_message_id': replyToMessageId,
+        if (replyToText != null) 'reply_to_text': replyToText,
+        if (replyToSenderId != null) 'reply_to_sender_id': replyToSenderId,
       });
 
       if (kDebugMode) {

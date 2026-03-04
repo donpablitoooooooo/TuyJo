@@ -75,6 +75,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   String? _editingMessageId; // ID del messaggio che stiamo modificando (null = nuovo messaggio)
   List<Attachment> _editingAttachments = []; // Allegati esistenti del messaggio in modifica
   String? _editingMessageSenderId; // SenderId del messaggio in modifica (per decriptare allegati)
+  Message? _replyToMessage; // Messaggio a cui si sta rispondendo (null = nessuna reply)
   final PendingUploadService _pendingUploadService = PendingUploadService();
   Timer? _pendingUploadRetryTimer; // Riprova pending uploads ogni 15s
   bool _isProcessingPending = false; // Guard contro esecuzioni concorrenti
@@ -286,7 +287,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   }
 
   /// Fetch metadata del link e invia messaggio con preview
-  Future<void> _fetchAndSendLinkMessage(String url, {String? originalText}) async {
+  Future<void> _fetchAndSendLinkMessage(String url, {String? originalText, Message? replyToMessage}) async {
     final messageText = originalText ?? url;
 
     // ⚡ STEP 1: Invia SUBITO il messaggio con solo testo (UX veloce!)
@@ -296,7 +297,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
 
     String? messageId;
     try {
-      messageId = await _sendMessageWithAttachments(messageText, []);
+      messageId = await _sendMessageWithAttachments(messageText, [], replyToMessage: replyToMessage);
       if (kDebugMode) {
         print("✅ [LINK] Text message sent instantly, ID: $messageId");
       }
@@ -361,7 +362,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
 
   /// Invia messaggio con allegati (usato per link condivisi)
   /// Restituisce il messageId se il messaggio è stato inviato con successo
-  Future<String?> _sendMessageWithAttachments(String messageText, List<File> attachments) async {
+  Future<String?> _sendMessageWithAttachments(String messageText, List<File> attachments, {Message? replyToMessage}) async {
     if (kDebugMode) {
       print("📤 [SEND] Attempting to send message...");
       print("📤 [SEND] Text length: ${messageText.length}, Attachments: ${attachments.length}");
@@ -433,6 +434,9 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
         myPublicKey,
         _partnerPublicKey!,
         attachments: uploadedAttachments,
+        replyToMessageId: replyToMessage?.id,
+        replyToText: replyToMessage?.decryptedContent,
+        replyToSenderId: replyToMessage?.senderId,
       );
 
       if (kDebugMode) {
@@ -936,6 +940,24 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     }
   }
 
+  /// Scrolla al messaggio con l'ID specificato (usato per reply tap)
+  void _scrollToMessage(String messageId, List<Message> visibleMessages) {
+    if (!_scrollController.hasClients) return;
+
+    // Trova l'indice del messaggio nella lista visibile
+    final messageIndex = visibleMessages.indexWhere((m) => m.id == messageId);
+    if (messageIndex == -1) return; // Messaggio non trovato nella lista visibile
+
+    // Con reverse: true, l'indice corrisponde alla posizione dal basso
+    // Stima: ogni messaggio ~80px, scorriamo all'indice approssimativo
+    final estimatedOffset = messageIndex * 80.0;
+    _scrollController.animateTo(
+      estimatedOffset,
+      duration: const Duration(milliseconds: 400),
+      curve: Curves.easeOutCubic,
+    );
+  }
+
   /// Scrolla al primo messaggio non letto
   /// Se tutti i messaggi sono letti, rimane in fondo
   void _scrollToFirstUnreadMessage() async {
@@ -1089,6 +1111,14 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
         actionType,
       );
       if (kDebugMode) print('✅ Todo marked as completed via action');
+    } else if (actionType == 'reply') {
+      // Reply: imposta il messaggio a cui si sta rispondendo
+      if (kDebugMode) print('↩️ Replying to message: $messageId');
+      setState(() {
+        _replyToMessage = message;
+      });
+      // Focalizza il campo di testo
+      _messageFocusNode.requestFocus();
     } else if (actionType == 'edit') {
       // Modifica: popola i campi (per tutti i messaggi tranne location_share)
       if (kDebugMode) print('✏️ Editing message: $messageId');
@@ -2357,6 +2387,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     final rangeStart = _selectedRangeStart;
     final rangeEnd = _selectedRangeEnd;
     final attachments = List<File>.from(_selectedAttachments);
+    final replyToMessage = _replyToMessage; // Salva reply prima di resettare
 
     // Permetti invio se c'è testo, una data selezionata o allegati
     if (_messageController.text.trim().isEmpty && todoDate == null && attachments.isEmpty) {
@@ -2378,6 +2409,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       _selectedReminderHours = null; // Reset reminder hours
       _selectedAttachments.clear(); // Clear attachments
       _isUploadingAttachments = true; // Mostra loader
+      _replyToMessage = null; // Reset reply
     });
 
     // BLOCCO INVIO: Verifica che siamo in pairing
@@ -2558,7 +2590,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
           });
 
           // Usa il flusso veloce: send subito + preview in background
-          await _fetchAndSendLinkMessage(urls.first, originalText: messageText);
+          await _fetchAndSendLinkMessage(urls.first, originalText: messageText, replyToMessage: replyToMessage);
 
           // Scrolla in fondo
           WidgetsBinding.instance.addPostFrameCallback((_) => _scrollToBottom());
@@ -2657,6 +2689,9 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
               _partnerPublicKey!,
               attachments: uploadedAttachments,
               messageId: preGeneratedMessageId,
+              replyToMessageId: replyToMessage?.id,
+              replyToText: replyToMessage?.decryptedContent,
+              replyToSenderId: replyToMessage?.senderId,
             );
 
             await _pendingUploadService.logDiag('SEND_MSG DONE: sentId=$sentId');
@@ -2695,6 +2730,9 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
           _myDeviceId!,
           myPublicKey,
           _partnerPublicKey!,
+          replyToMessageId: replyToMessage?.id,
+          replyToText: replyToMessage?.decryptedContent,
+          replyToSenderId: replyToMessage?.senderId,
         );
         success = sentMessageId != null;
       }
@@ -2904,6 +2942,9 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                                 reaction: message.reaction,
                                 onReact: (reactionType) => _addReaction(message.id, reactionType),
                                 messageObject: message,
+                                onReplyTap: message.replyToMessageId != null
+                                    ? () => _scrollToMessage(message.replyToMessageId!, visibleMessages)
+                                    : null,
                               );
                             }
 
@@ -2969,6 +3010,68 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
             ),
             child: Column(
                 children: [
+                  // Preview reply (messaggio a cui si sta rispondendo)
+                  if (_replyToMessage != null)
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      decoration: BoxDecoration(
+                        color: Colors.grey[100],
+                        border: Border(
+                          bottom: BorderSide(color: Colors.grey[300]!),
+                        ),
+                      ),
+                      child: Row(
+                        children: [
+                          Container(
+                            width: 3,
+                            height: 36,
+                            decoration: BoxDecoration(
+                              color: const Color(0xFF3BA8B0),
+                              borderRadius: BorderRadius.circular(2),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Text(
+                                  _replyToMessage!.senderId == _myDeviceId
+                                      ? l10n.replyToYou
+                                      : l10n.replyToPartner,
+                                  style: const TextStyle(
+                                    color: Color(0xFF3BA8B0),
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                                const SizedBox(height: 2),
+                                Text(
+                                  _replyToMessage!.decryptedContent ?? '',
+                                  style: TextStyle(
+                                    color: Colors.grey[600],
+                                    fontSize: 13,
+                                  ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ],
+                            ),
+                          ),
+                          IconButton(
+                            onPressed: () {
+                              setState(() {
+                                _replyToMessage = null;
+                              });
+                            },
+                            icon: Icon(Icons.close, size: 18, color: Colors.grey[500]),
+                            padding: EdgeInsets.zero,
+                            constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                          ),
+                        ],
+                      ),
+                    ),
                   // Mostra allegati selezionati
                   // Preview data/range/alert selezionata per todo
                   if (_selectedTodoDate != null || _selectedRangeStart != null)
@@ -3556,6 +3659,7 @@ class _MessageBubble extends StatelessWidget {
   final Reaction? reaction; // Reaction al messaggio
   final Function(String reactionType)? onReact; // Callback per aggiungere reaction
   final Message? messageObject; // Oggetto Message completo per il ReactionPicker
+  final VoidCallback? onReplyTap; // Callback quando si tocca il reply banner
 
   const _MessageBubble({
     super.key,
@@ -3571,6 +3675,7 @@ class _MessageBubble extends StatelessWidget {
     this.reaction,
     this.onReact,
     this.messageObject,
+    this.onReplyTap,
   });
 
   /// Costruisce widget di testo con URL abbreviati ma cliccabili
@@ -4059,6 +4164,65 @@ class _MessageBubble extends StatelessWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
+                      // Reply banner (se è una risposta a un altro messaggio)
+                      if (messageObject?.replyToText != null && messageObject!.replyToText!.isNotEmpty)
+                        GestureDetector(
+                          onTap: onReplyTap,
+                          child: Container(
+                            width: double.infinity,
+                            padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
+                            decoration: BoxDecoration(
+                              color: isMe
+                                  ? Colors.white.withOpacity(0.15)
+                                  : Colors.black.withOpacity(0.05),
+                              borderRadius: const BorderRadius.only(
+                                topLeft: Radius.circular(20),
+                                topRight: Radius.circular(20),
+                              ),
+                            ),
+                            child: Row(
+                              children: [
+                                Container(
+                                  width: 3,
+                                  height: 32,
+                                  decoration: BoxDecoration(
+                                    color: isMe ? Colors.white.withOpacity(0.6) : const Color(0xFF3BA8B0),
+                                    borderRadius: BorderRadius.circular(2),
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Text(
+                                        messageObject!.replyToSenderId == currentUserId
+                                            ? AppLocalizations.of(context)!.replyToYou
+                                            : AppLocalizations.of(context)!.replyToPartner,
+                                        style: TextStyle(
+                                          color: isMe ? Colors.white.withOpacity(0.8) : const Color(0xFF3BA8B0),
+                                          fontSize: 11,
+                                          fontWeight: FontWeight.w600,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 2),
+                                      Text(
+                                        messageObject!.replyToText!,
+                                        style: TextStyle(
+                                          color: isMe ? Colors.white.withOpacity(0.6) : Colors.black45,
+                                          fontSize: 12,
+                                        ),
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
                       // Allegati (se presenti) - senza padding per occupare tutta la larghezza
                       if (attachments != null && attachments!.isNotEmpty || messageObject?.messageType == 'location_share')
                         ..._buildAttachments(context),
