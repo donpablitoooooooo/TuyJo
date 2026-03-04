@@ -3015,22 +3015,15 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                       decoration: BoxDecoration(
-                        color: Colors.grey[100],
+                        color: _replyToMessage!.senderId == _myDeviceId
+                            ? const Color(0xFF3BA8B0).withOpacity(0.12)
+                            : Colors.grey[200],
                         border: Border(
                           bottom: BorderSide(color: Colors.grey[300]!),
                         ),
                       ),
                       child: Row(
                         children: [
-                          Container(
-                            width: 3,
-                            height: 36,
-                            decoration: BoxDecoration(
-                              color: const Color(0xFF3BA8B0),
-                              borderRadius: BorderRadius.circular(2),
-                            ),
-                          ),
-                          const SizedBox(width: 8),
                           Expanded(
                             child: Text(
                               _replyToMessage!.decryptedContent ?? '',
@@ -4151,42 +4144,32 @@ class _MessageBubble extends StatelessWidget {
                       if (messageObject?.replyToText != null && messageObject!.replyToText!.isNotEmpty)
                         GestureDetector(
                           onTap: onReplyTap,
-                          child: Container(
-                            width: double.infinity,
-                            padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
-                            decoration: BoxDecoration(
-                              color: isMe
-                                  ? Colors.white.withOpacity(0.15)
-                                  : Colors.black.withOpacity(0.05),
-                              borderRadius: const BorderRadius.only(
-                                topLeft: Radius.circular(20),
-                                topRight: Radius.circular(20),
-                              ),
-                            ),
-                            child: Row(
-                              children: [
-                                Container(
-                                  width: 3,
-                                  height: 32,
-                                  decoration: BoxDecoration(
-                                    color: isMe ? Colors.white.withOpacity(0.6) : const Color(0xFF3BA8B0),
-                                    borderRadius: BorderRadius.circular(2),
+                          child: Builder(
+                            builder: (context) {
+                              final bool replyToMyMessage = messageObject!.replyToSenderId == currentUserId;
+                              return Container(
+                                width: double.infinity,
+                                padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
+                                decoration: BoxDecoration(
+                                  color: replyToMyMessage
+                                      ? const Color(0xFF3BA8B0).withOpacity(isMe ? 0.3 : 0.12)
+                                      : Colors.black.withOpacity(isMe ? 0.15 : 0.05),
+                                  borderRadius: const BorderRadius.only(
+                                    topLeft: Radius.circular(20),
+                                    topRight: Radius.circular(20),
                                   ),
                                 ),
-                                const SizedBox(width: 8),
-                                Expanded(
-                                  child: Text(
-                                    messageObject!.replyToText!,
-                                    style: TextStyle(
-                                      color: isMe ? Colors.white.withOpacity(0.6) : Colors.black45,
-                                      fontSize: 12,
-                                    ),
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
+                                child: Text(
+                                  messageObject!.replyToText!,
+                                  style: TextStyle(
+                                    color: isMe ? Colors.white.withOpacity(0.7) : Colors.black54,
+                                    fontSize: 12,
                                   ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
                                 ),
-                              ],
-                            ),
+                              );
+                            },
                           ),
                         ),
                       // Allegati (se presenti) - senza padding per occupare tutta la larghezza
