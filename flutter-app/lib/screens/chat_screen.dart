@@ -4157,46 +4157,35 @@ class _MessageBubble extends StatelessWidget {
                       if (messageObject?.replyToText != null && messageObject!.replyToText!.isNotEmpty)
                         GestureDetector(
                           onTap: onReplyTap,
-                          child: Builder(
-                            builder: (context) {
-                              final bool replyToMyMessage = messageObject!.replyToSenderId == currentUserId;
-                              return Container(
-                                width: double.infinity,
-                                padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
-                                decoration: BoxDecoration(
-                                  gradient: replyToMyMessage
-                                      ? const LinearGradient(
-                                          colors: [Color(0xFF3BA8B0), Color(0xFF145A60)],
-                                          begin: Alignment.topLeft,
-                                          end: Alignment.bottomRight,
-                                        )
-                                      : isMe
-                                          ? const LinearGradient(
-                                              colors: [Color(0xFF4DB8BF), Color(0xFF1D6B72)],
-                                              begin: Alignment.topLeft,
-                                              end: Alignment.bottomRight,
-                                            )
-                                          : LinearGradient(
-                                              colors: [Colors.grey[200]!, Colors.grey[100]!],
-                                              begin: Alignment.topLeft,
-                                              end: Alignment.bottomRight,
-                                            ),
-                                  borderRadius: const BorderRadius.only(
-                                    topLeft: Radius.circular(20),
-                                    topRight: Radius.circular(20),
-                                  ),
-                                ),
-                                child: Text(
-                                  messageObject!.replyToText!,
-                                  style: TextStyle(
-                                    color: isMe ? Colors.white.withOpacity(0.85) : Colors.black54,
-                                    fontSize: 12,
-                                  ),
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                              );
-                            },
+                          child: Container(
+                            width: double.infinity,
+                            padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
+                            decoration: BoxDecoration(
+                              gradient: isMe
+                                  ? const LinearGradient(
+                                      colors: [Color(0xFF4DB8BF), Color(0xFF1D6B72)],
+                                      begin: Alignment.topLeft,
+                                      end: Alignment.bottomRight,
+                                    )
+                                  : LinearGradient(
+                                      colors: [Colors.grey[100]!, Colors.grey[50]!],
+                                      begin: Alignment.topLeft,
+                                      end: Alignment.bottomRight,
+                                    ),
+                              borderRadius: const BorderRadius.only(
+                                topLeft: Radius.circular(20),
+                                topRight: Radius.circular(20),
+                              ),
+                            ),
+                            child: Text(
+                              messageObject!.replyToText!,
+                              style: TextStyle(
+                                color: isMe ? Colors.white.withOpacity(0.85) : Colors.black54,
+                                fontSize: 12,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
                           ),
                         ),
                       // Allegati (se presenti) - senza padding per occupare tutta la larghezza
