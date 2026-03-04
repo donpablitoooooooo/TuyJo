@@ -156,6 +156,11 @@ class _MainScreenState extends State<MainScreen> {
     ];
 
     return Scaffold(
+      onDrawerChanged: (isOpened) {
+        if (isOpened) {
+          FocusScope.of(context).unfocus();
+        }
+      },
       drawer: Drawer(
         child: Container(
           decoration: const BoxDecoration(
