@@ -48,6 +48,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   final _messageFocusNode = FocusNode();
   AttachmentService? _attachmentService;
   bool _isLoading = true;
+  bool _isFirstLoad = true; // Prima chiamata a didChangeDependencies
   bool _hasText = false;
   String? _familyChatId;
 
@@ -698,8 +699,16 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       _lastMessageCount = 0;
 
       _initialize();
+    } else if (_isFirstLoad) {
+      // Primo caricamento senza pairing attivo (es. app appena installata,
+      // o utente non ancora paired): nascondi il loader per mostrare
+      // lo stato vuoto invece di rimanere in loading infinito
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
     }
 
+    _isFirstLoad = false;
     _lastPairingStatus = currentPairingStatus;
     _lastFamilyChatId = currentFamilyChatId;
   }
@@ -708,84 +717,89 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     if (kDebugMode) print('⏱️ [CHAT_SCREEN] Starting chat initialization...');
     final startTime = DateTime.now();
 
-    final pairingService = Provider.of<PairingService>(context, listen: false);
-    final chatService = Provider.of<ChatService>(context, listen: false);
-    final notificationService = Provider.of<NotificationService>(context, listen: false);
+    try {
+      final pairingService = Provider.of<PairingService>(context, listen: false);
+      final chatService = Provider.of<ChatService>(context, listen: false);
+      final notificationService = Provider.of<NotificationService>(context, listen: false);
 
-    // Inizializza AttachmentService con EncryptionService condiviso
-    _attachmentService = AttachmentService(encryptionService: chatService.encryptionService);
+      // Inizializza AttachmentService con EncryptionService condiviso
+      _attachmentService = AttachmentService(encryptionService: chatService.encryptionService);
 
-    // Ottieni il family_chat_id e le chiavi
-    _familyChatId = await pairingService.getFamilyChatId();
-    _myDeviceId = await pairingService.getMyUserId();
-    _partnerPublicKey = pairingService.partnerPublicKey;
+      // Ottieni il family_chat_id e le chiavi
+      _familyChatId = await pairingService.getFamilyChatId();
+      _myDeviceId = await pairingService.getMyUserId();
+      _partnerPublicKey = pairingService.partnerPublicKey;
 
-    print('🔍 Chat initialization:');
-    print('   Family Chat ID: $_familyChatId');
-    print('   My Device ID: $_myDeviceId');
-    print('   Partner Public Key: ${_partnerPublicKey != null ? "${_partnerPublicKey!.substring(0, 20)}..." : "null"}');
+      print('🔍 Chat initialization:');
+      print('   Family Chat ID: $_familyChatId');
+      print('   My Device ID: $_myDeviceId');
+      print('   Partner Public Key: ${_partnerPublicKey != null ? "${_partnerPublicKey!.substring(0, 20)}..." : "null"}');
 
-    if (_familyChatId != null && _partnerPublicKey != null) {
-      // Imposta il device ID nel ChatService (per decryption)
-      if (_myDeviceId != null) {
-        chatService.setMyDeviceId(_myDeviceId!);
-      }
-
-      // Avvia listener per la chat (carica cache e connette Firestore in background)
-      if (kDebugMode) print('⏱️ [CHAT_SCREEN] Starting Firestore listener...');
-      final listenerStart = DateTime.now();
-      await chatService.startListening(_familyChatId!); // AWAIT per garantire che cache sia caricata
-      final listenerDuration = DateTime.now().difference(listenerStart);
-      if (kDebugMode) print('⏱️ [CHAT_SCREEN] Listener started in ${listenerDuration.inMilliseconds}ms');
-
-      // 🔧 FIX: Nascondi loader DOPO che la cache è stata caricata
-      // Questo garantisce che il prossimo build avrà già i messaggi pronti per lo scroll
-      setState(() => _isLoading = false);
-
-      // 📜 Scrolla al primo messaggio non letto dopo il primo build
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted) {
-          _scrollToFirstUnreadMessage();
+      if (_familyChatId != null && _partnerPublicKey != null) {
+        // Imposta il device ID nel ChatService (per decryption)
+        if (_myDeviceId != null) {
+          chatService.setMyDeviceId(_myDeviceId!);
         }
-      });
 
-      // ✅ Marca tutti i messaggi ricevuti come letti quando l'utente apre la chat
-      if (_myDeviceId != null) {
-        chatService.markAllMessagesAsRead(_familyChatId!, _myDeviceId!);
-        // 🔴 Azzera badge notifiche
-        notificationService.clearBadge();
-      }
+        // Avvia listener per la chat (carica cache e connette Firestore in background)
+        if (kDebugMode) print('⏱️ [CHAT_SCREEN] Starting Firestore listener...');
+        final listenerStart = DateTime.now();
+        await chatService.startListening(_familyChatId!); // AWAIT per garantire che cache sia caricata
+        final listenerDuration = DateTime.now().difference(listenerStart);
+        if (kDebugMode) print('⏱️ [CHAT_SCREEN] Listener started in ${listenerDuration.inMilliseconds}ms');
 
-      final totalDuration = DateTime.now().difference(startTime);
-      if (kDebugMode) print('⏱️ [CHAT_SCREEN] Chat initialization complete in ${totalDuration.inMilliseconds}ms');
+        // 🔧 FIX: Nascondi loader DOPO che la cache è stata caricata
+        // Questo garantisce che il prossimo build avrà già i messaggi pronti per lo scroll
+        if (mounted) setState(() => _isLoading = false);
 
-      // Salva il token FCM in Firestore (in background, non blocca la UI)
-      if (_myDeviceId != null) {
-        // Non await - lascia che succeda in background
-        notificationService.saveTokenToFirestore(_familyChatId!, _myDeviceId!).catchError((e) {
-          if (kDebugMode) print('⚠️ Error saving FCM token (probably offline): $e');
+        // 📜 Scrolla al primo messaggio non letto dopo il primo build
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) {
+            _scrollToFirstUnreadMessage();
+          }
         });
 
-        // UNPAIR SYNC: Avvia background listener
-        pairingService.startBackgroundUnpairListener();
-      }
+        // ✅ Marca tutti i messaggi ricevuti come letti quando l'utente apre la chat
+        if (_myDeviceId != null) {
+          chatService.markAllMessagesAsRead(_familyChatId!, _myDeviceId!);
+          // 🔴 Azzera badge notifiche
+          notificationService.clearBadge();
+        }
 
-      // OFFLINE QUEUE: Stampa log sessione precedente + processa pending uploads
-      await _pendingUploadService.printPreviousSessionDiag();
-      await _pendingUploadService.printQueueFileStatus();
-      _processPendingUploads();
-      // Timer periodico: riprova pending uploads ogni 15 secondi
-      // (copre il caso in cui si torna online senza passare per background/foreground)
-      _pendingUploadRetryTimer?.cancel();
-      _pendingUploadRetryTimer = Timer.periodic(const Duration(seconds: 15), (_) {
+        final totalDuration = DateTime.now().difference(startTime);
+        if (kDebugMode) print('⏱️ [CHAT_SCREEN] Chat initialization complete in ${totalDuration.inMilliseconds}ms');
+
+        // Salva il token FCM in Firestore (in background, non blocca la UI)
+        if (_myDeviceId != null) {
+          // Non await - lascia che succeda in background
+          notificationService.saveTokenToFirestore(_familyChatId!, _myDeviceId!).catchError((e) {
+            if (kDebugMode) print('⚠️ Error saving FCM token (probably offline): $e');
+          });
+
+          // UNPAIR SYNC: Avvia background listener
+          pairingService.startBackgroundUnpairListener();
+        }
+
+        // OFFLINE QUEUE: Stampa log sessione precedente + processa pending uploads
+        await _pendingUploadService.printPreviousSessionDiag();
+        await _pendingUploadService.printQueueFileStatus();
         _processPendingUploads();
-      });
-    } else {
-      print('❌ Cannot start listener - missing chat ID or partner public key');
-      setState(() => _isLoading = false);
+        // Timer periodico: riprova pending uploads ogni 15 secondi
+        // (copre il caso in cui si torna online senza passare per background/foreground)
+        _pendingUploadRetryTimer?.cancel();
+        _pendingUploadRetryTimer = Timer.periodic(const Duration(seconds: 15), (_) {
+          _processPendingUploads();
+        });
+      } else {
+        print('❌ Cannot start listener - missing chat ID or partner public key');
+        if (mounted) setState(() => _isLoading = false);
 
-      final totalDuration = DateTime.now().difference(startTime);
-      if (kDebugMode) print('⏱️ [CHAT_SCREEN] Chat initialization failed in ${totalDuration.inMilliseconds}ms');
+        final totalDuration = DateTime.now().difference(startTime);
+        if (kDebugMode) print('⏱️ [CHAT_SCREEN] Chat initialization failed in ${totalDuration.inMilliseconds}ms');
+      }
+    } catch (e) {
+      print('❌ [CHAT_SCREEN] Error during initialization: $e');
+      if (mounted) setState(() => _isLoading = false);
     }
   }
 
