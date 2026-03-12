@@ -1,8 +1,4 @@
-/* Catalan localizations */
-"CFBundleDisplayName" = "TuyJo";
-"CFBundleName" = "TuyJo";
-
-/* Permisos */
+/* Catalan - iOS Permission Descriptions */
 "NSPhotoLibraryUsageDescription" = "Per enviar fotos al xat";
 "NSCameraUsageDescription" = "Per fer fotos al xat";
 "NSMicrophoneUsageDescription" = "Per fer trucades de veu amb la teva parella";

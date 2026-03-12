@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		AABB00062F30A00100000006 /* InfoPlist.strings in Resources */ = {isa = PBXBuildFile; fileRef = AABB00052F30A00100000005 /* InfoPlist.strings */; };
 		011E04922F18E86B00F61FED /* Main.strings in Resources */ = {isa = PBXBuildFile; fileRef = 011E04902F18E86A00F61FED /* Main.strings */; };
 		011E04932F18E86B00F61FED /* LaunchScreen.strings in Resources */ = {isa = PBXBuildFile; fileRef = 011E048C2F18E86A00F61FED /* LaunchScreen.strings */; };
 		011E04942F18E86B00F61FED /* Localizable.strings in Resources */ = {isa = PBXBuildFile; fileRef = 011E048E2F18E86A00F61FED /* Localizable.strings */; };
@@ -75,6 +76,10 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		AABB00012F30A00100000001 /* en */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = en; path = en.lproj/InfoPlist.strings; sourceTree = "<group>"; };
+		AABB00022F30A00100000002 /* it */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = it; path = it.lproj/InfoPlist.strings; sourceTree = "<group>"; };
+		AABB00032F30A00100000003 /* es */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = es; path = es.lproj/InfoPlist.strings; sourceTree = "<group>"; };
+		AABB00042F30A00100000004 /* ca */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = ca; path = ca.lproj/InfoPlist.strings; sourceTree = "<group>"; };
 		009A3DBE01C2DE2948016401 /* Pods-Runner.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-Runner.release.xcconfig"; path = "Target Support Files/Pods-Runner/Pods-Runner.release.xcconfig"; sourceTree = "<group>"; };
 		011E048B2F18E86A00F61FED /* ca */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = ca; path = LaunchScreen.strings; sourceTree = "<group>"; };
 		011E048D2F18E86A00F61FED /* ca */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = ca; path = Localizable.strings; sourceTree = "<group>"; };
@@ -181,6 +186,7 @@
 		011E04912F18E86A00F61FED /* ca.lproj */ = {
 			isa = PBXGroup;
 			children = (
+				AABB00042F30A00100000004 /* InfoPlist.strings */,
 				011E048C2F18E86A00F61FED /* LaunchScreen.strings */,
 				011E048E2F18E86A00F61FED /* Localizable.strings */,
 				011E04902F18E86A00F61FED /* Main.strings */,
@@ -191,6 +197,7 @@
 		017E7C1B2F17F2C700FD1264 /* en.lproj */ = {
 			isa = PBXGroup;
 			children = (
+				AABB00012F30A00100000001 /* InfoPlist.strings */,
 				017E7C162F17F2C700FD1264 /* LaunchScreen.strings */,
 				017E7C182F17F2C700FD1264 /* Localizable.strings */,
 				017E7C1A2F17F2C700FD1264 /* Main.strings */,
@@ -201,6 +208,7 @@
 		017E7C222F17F2C700FD1264 /* es.lproj */ = {
 			isa = PBXGroup;
 			children = (
+				AABB00032F30A00100000003 /* InfoPlist.strings */,
 				017E7C1D2F17F2C700FD1264 /* LaunchScreen.strings */,
 				017E7C1F2F17F2C700FD1264 /* Localizable.strings */,
 				017E7C212F17F2C700FD1264 /* Main.strings */,
@@ -211,6 +219,7 @@
 		017E7C292F17F2C700FD1264 /* it.lproj */ = {
 			isa = PBXGroup;
 			children = (
+				AABB00022F30A00100000002 /* InfoPlist.strings */,
 				017E7C242F17F2C700FD1264 /* LaunchScreen.strings */,
 				017E7C262F17F2C700FD1264 /* Localizable.strings */,
 				017E7C282F17F2C700FD1264 /* Main.strings */,
@@ -288,6 +297,7 @@
 				74858FAE1ED2DC5600515810 /* AppDelegate.swift */,
 				74858FAD1ED2DC5600515810 /* Runner-Bridging-Header.h */,
 				0154FCAA2F1798DD006B9BE6 /* Localizable.strings */,
+				AABB00052F30A00100000005 /* InfoPlist.strings */,
 			);
 			path = Runner;
 			sourceTree = "<group>";
@@ -460,6 +470,7 @@
 				97C146FE1CF9000F007C117D /* Assets.xcassets in Resources */,
 				97C146FC1CF9000F007C117D /* Main.storyboard in Resources */,
 				0154FCAC2F1798DD006B9BE6 /* Localizable.strings in Resources */,
+				AABB00062F30A00100000006 /* InfoPlist.strings in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -744,6 +755,17 @@
 				0154FCB42F179B2F006B9BE6 /* es */,
 			);
 			name = LaunchScreen.storyboard;
+			sourceTree = "<group>";
+		};
+		AABB00052F30A00100000005 /* InfoPlist.strings */ = {
+			isa = PBXVariantGroup;
+			children = (
+				AABB00012F30A00100000001 /* en */,
+				AABB00022F30A00100000002 /* it */,
+				AABB00032F30A00100000003 /* es */,
+				AABB00042F30A00100000004 /* ca */,
+			);
+			name = InfoPlist.strings;
 			sourceTree = "<group>";
 		};
 /* End PBXVariantGroup section */

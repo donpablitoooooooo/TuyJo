@@ -303,5 +303,21 @@
     "permissionLocationGpsDisabledTitle": "GPS desactivat",
     "permissionLocationGpsDisabledMessage": "El GPS és necessari per compartir la teva ubicació. Habilita els serveis d'ubicació al teu dispositiu.",
     "permissionCameraDeniedTitle": "Càmera no disponible",
-    "permissionCameraDeniedMessage": "L'accés a la càmera és necessari per fer fotos. Habilita el permís de càmera a la configuració del dispositiu."
+    "permissionCameraDeniedMessage": "L'accés a la càmera és necessari per fer fotos. Habilita el permís de càmera a la configuració del dispositiu.",
+    "chatDemoWelcome": "Benvingut a Tuijo, l'app per a parelles!",
+    "chatDemoFeatureChat": "💬 Xat Segur — Missatges xifrats d'extrem a extrem amb confirmacions de lectura i indicador d'escriptura",
+    "chatDemoFeatureLocation": "📍 Ubicació Xifrada — Comparteix la posició GPS en temps real amb coordenades xifrades AES-256 i navegació amb brúixola",
+    "chatDemoFeatureCalls": "📞 Trucades de Veu — Trucades d'àudio peer-to-peer via WebRTC amb CallKit natiu",
+    "chatDemoFeatureAttachments": "📎 Adjunts Protegits — Envia fotos, vídeos i documents totalment xifrats amb visor integrat",
+    "chatDemoFeatureTodos": "📅 TODOs i Recordatoris — Crea recordatoris compartits amb notificacions automàtiques i calendari integrat",
+    "chatDemoFeatureMultilang": "🌍 Multilingüe — Interfície en 4 idiomes: Italià, Anglès, Espanyol i Català",
+    "chatDemoFeatureSelfie": "💑 Couple Selfie — Una foto de perfil compartida que es sincronitza automàticament entre dispositius",
+    "chatDemoFeatureGallery": "🖼️ Galeria de Mitjans — Fotos, enllaços i documents organitzats en pestanyes amb quadrícula estil Pinterest",
+    "chatDemoFeatureLinkPreview": "🔗 Vista Prèvia d'Enllaços — Enganxa un enllaç i l'app extreu automàticament títol, descripció i imatge",
+    "chatDemoFeatureSharing": "📤 Compartició Externa — Comparteix fotos, vídeos, documents i enllaços directament des d'altres apps",
+    "chatDemoTryMessage": "Prova d'enviar un missatge per veure com funciona el xat",
+    "chatDemoPairingRequired": "Fes el pairing amb la teva parella per usar aquesta funció",
+    "chatDemoNotABot": "No sóc un bot d'intel·ligència artificial 🤖❌ Fes el pairing amb la teva parella i veuràs els seus missatges aquí, sense necessitat de registre — només intercanvia el codi QR!",
+    "chatDemoPartnerReply": "Aixi es veuran els missatges de la teva parella!",
+    "chatDemoNotice": "Aixo es una demo. Els missatges se substituiran despres del pairing."
 }

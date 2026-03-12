@@ -46,13 +46,13 @@
 	<key>UIViewControllerBasedStatusBarAppearance</key>
 	<false/>
 	<key>NSPhotoLibraryUsageDescription</key>
-	<string>Per inviare foto nella chat</string>
+	<string>To send photos in the chat</string>
 	<key>NSCameraUsageDescription</key>
-	<string>Per scattare foto nella chat</string>
+	<string>To take photos in the chat</string>
 	<key>NSMicrophoneUsageDescription</key>
-	<string>Per effettuare chiamate vocali con il partner</string>
+	<string>To make voice calls with your partner</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
-	<string>Per condividere la tua posizione con il partner</string>
+	<string>To share your location with your partner</string>
 	<key>UISupportsDocumentBrowser</key>
 	<true/>
 	<key>LSSupportsOpeningDocumentsInPlace</key>

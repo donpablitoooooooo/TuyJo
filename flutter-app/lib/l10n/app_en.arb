@@ -303,5 +303,21 @@
     "permissionLocationGpsDisabledTitle": "GPS disabled",
     "permissionLocationGpsDisabledMessage": "GPS is required to share your location. Please enable location services on your device.",
     "permissionCameraDeniedTitle": "Camera not available",
-    "permissionCameraDeniedMessage": "Camera access is required to take photos. Please enable camera permission in your device settings."
+    "permissionCameraDeniedMessage": "Camera access is required to take photos. Please enable camera permission in your device settings.",
+    "chatDemoWelcome": "Welcome to Tuijo, the app for couples!",
+    "chatDemoFeatureChat": "💬 Secure Chat — End-to-end encrypted messages with read receipts and typing indicator",
+    "chatDemoFeatureLocation": "📍 Encrypted Location — Share real-time GPS position with AES-256 encrypted coordinates and compass navigation",
+    "chatDemoFeatureCalls": "📞 Voice Calls — Peer-to-peer audio calls via WebRTC with native CallKit",
+    "chatDemoFeatureAttachments": "📎 Protected Attachments — Send fully encrypted photos, videos and documents with built-in viewer",
+    "chatDemoFeatureTodos": "📅 TODOs & Reminders — Create shared reminders with automatic notifications and integrated calendar",
+    "chatDemoFeatureMultilang": "🌍 Multilingual — Interface available in 4 languages: Italian, English, Spanish and Catalan",
+    "chatDemoFeatureSelfie": "💑 Couple Selfie — A shared profile photo that syncs automatically across devices",
+    "chatDemoFeatureGallery": "🖼️ Media Gallery — Photos, links and documents organized in tabs with Pinterest-style grid",
+    "chatDemoFeatureLinkPreview": "🔗 Link Preview — Paste a link and the app automatically extracts title, description and image",
+    "chatDemoFeatureSharing": "📤 External Sharing — Share photos, videos, documents and links directly from other apps",
+    "chatDemoTryMessage": "Try sending a message to see how the chat works",
+    "chatDemoPairingRequired": "Pair with your partner to use this feature",
+    "chatDemoNotABot": "I'm not an AI bot 🤖❌ Pair with your partner and you'll see their messages here — no registration needed, just exchange the QR code!",
+    "chatDemoPartnerReply": "This is how your partner's messages will look!",
+    "chatDemoNotice": "This is a demo. Messages will be replaced after pairing."
 }

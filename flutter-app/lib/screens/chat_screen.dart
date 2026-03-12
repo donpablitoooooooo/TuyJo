@@ -86,6 +86,11 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   /// Struttura: {pendingId: {text, files (List<File>), createdAt}}
   final Map<String, Map<String, dynamic>> _pendingLocalMessages = {};
 
+  // Demo mode: messaggi finti mostrati prima del pairing
+  final List<_DemoMessage> _demoMessages = [];
+  bool _demoInitialized = false;
+  bool _demoHasReplied = false;
+
   // Method Channel per condivisione file da altre app (iOS)
   static const platform = MethodChannel('com.privatemessaging.tuyjo/shared_media');
 
@@ -697,6 +702,11 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
 
       // Reset message count per nuovo caricamento
       _lastMessageCount = 0;
+
+      // Pulisci i messaggi demo quando si effettua il pairing
+      _demoMessages.clear();
+      _demoInitialized = false;
+      _demoHasReplied = false;
 
       _initialize();
     } else if (_isFirstLoad) {
@@ -1432,6 +1442,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                 color: Colors.blue,
                 onTap: () async {
                   Navigator.pop(context);
+                  if (_isDemoMode()) { _showDemoFeatureSnackBar(l10n); return; }
                   try {
                     final files = await _attachmentService!.pickImageFromGallery();
                     if (files.isNotEmpty) {
@@ -1456,6 +1467,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                 color: Colors.purple,
                 onTap: () async {
                   Navigator.pop(context);
+                  if (_isDemoMode()) { _showDemoFeatureSnackBar(l10n); return; }
                   try {
                     final file = await _attachmentService!.pickImageFromCamera();
                     if (file != null) {
@@ -1480,6 +1492,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                 color: Colors.green,
                 onTap: () async {
                   Navigator.pop(context);
+                  if (_isDemoMode()) { _showDemoFeatureSnackBar(l10n); return; }
                   final file = await _attachmentService!.pickDocument();
                   if (file != null) {
                     setState(() {
@@ -1494,6 +1507,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                 color: Colors.orange,
                 onTap: () {
                   Navigator.pop(context);
+                  if (_isDemoMode()) { _showDemoFeatureSnackBar(l10n); return; }
                   _showLocationSharingDialog();
                 },
               ),
@@ -2242,6 +2256,15 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
         _selectedReminderHours = null;
       });
     } else if (result != null) {
+      // In demo mode, mostra snackbar e non fare nulla
+      if (_isDemoMode()) {
+        final l10n = AppLocalizations.of(context)!;
+        _showDemoFeatureSnackBar(l10n);
+        Future.delayed(const Duration(milliseconds: 300), () {
+          if (mounted) _messageFocusNode.canRequestFocus = true;
+        });
+        return;
+      }
       // Data/range selezionato e confermato
       setState(() {
         if (result['isRange'] == true) {
@@ -2385,6 +2408,127 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     }
   }
 
+  /// Inizializza i messaggi demo con una bubble per ogni funzionalità
+  void _initDemoMessages() {
+    if (_demoInitialized) return;
+    _demoInitialized = true;
+    final l10n = AppLocalizations.of(context)!;
+    final now = DateTime.now();
+    final featureTexts = [
+      l10n.chatDemoWelcome,
+      l10n.chatDemoFeatureChat,
+      l10n.chatDemoFeatureLocation,
+      l10n.chatDemoFeatureCalls,
+      l10n.chatDemoFeatureAttachments,
+      l10n.chatDemoFeatureTodos,
+      l10n.chatDemoFeatureMultilang,
+      l10n.chatDemoFeatureSelfie,
+      l10n.chatDemoFeatureGallery,
+      l10n.chatDemoFeatureLinkPreview,
+      l10n.chatDemoFeatureSharing,
+      l10n.chatDemoNotice,
+      l10n.chatDemoTryMessage,
+    ];
+    for (var i = 0; i < featureTexts.length; i++) {
+      _demoMessages.add(_DemoMessage(
+        text: featureTexts[i],
+        isMe: false,
+        timestamp: now.subtract(Duration(minutes: featureTexts.length - i)),
+      ));
+    }
+  }
+
+  /// Gestisce l'invio di un messaggio in modalità demo (pre-pairing)
+  void _handleDemoSend(String messageText) {
+    if (messageText.isEmpty) return;
+    final l10n = AppLocalizations.of(context)!;
+
+    setState(() {
+      _demoMessages.add(_DemoMessage(
+        text: messageText,
+        isMe: true,
+      ));
+      _isUploadingAttachments = false;
+    });
+    _scrollDemoToBottom();
+
+    // Rispondi solo una volta con il messaggio "non sono un bot"
+    if (!_demoHasReplied) {
+      _demoHasReplied = true;
+      Future.delayed(const Duration(milliseconds: 1500), () {
+        if (mounted) {
+          setState(() {
+            _demoMessages.add(_DemoMessage(
+              text: l10n.chatDemoNotABot,
+              isMe: false,
+            ));
+          });
+          _scrollDemoToBottom();
+        }
+      });
+    }
+  }
+
+  /// Controlla se siamo in modalità demo (non in pairing)
+  bool _isDemoMode() {
+    return !Provider.of<PairingService>(context, listen: false).isPaired;
+  }
+
+  /// Mostra snackbar per feature non disponibili in demo mode
+  void _showDemoFeatureSnackBar(AppLocalizations l10n) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(l10n.chatDemoPairingRequired),
+        behavior: SnackBarBehavior.floating,
+        duration: const Duration(seconds: 3),
+      ),
+    );
+  }
+
+  /// Scrolla la lista demo verso il fondo (ultimo messaggio)
+  void _scrollDemoToBottom() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (_scrollController.hasClients) {
+        _scrollController.animateTo(
+          _scrollController.position.maxScrollExtent,
+          duration: const Duration(milliseconds: 300),
+          curve: Curves.easeOut,
+        );
+      }
+    });
+  }
+
+  /// Costruisce la lista dei messaggi demo
+  Widget _buildDemoMessageList() {
+    if (_demoMessages.isEmpty) {
+      final l10n = AppLocalizations.of(context)!;
+      return Center(
+        child: Text(
+          l10n.chatDemoTryMessage,
+          textAlign: TextAlign.center,
+          style: const TextStyle(color: Colors.grey),
+        ),
+      );
+    }
+
+    return ListView.builder(
+      controller: _scrollController,
+      padding: const EdgeInsets.fromLTRB(12, 100, 12, 2),
+      itemCount: _demoMessages.length,
+      itemBuilder: (context, index) {
+        final demoMsg = _demoMessages[index];
+        return _MessageBubble(
+          key: ValueKey('demo_$index'),
+          message: demoMsg.text,
+          timestamp: demoMsg.timestamp,
+          isMe: demoMsg.isMe,
+          delivered: demoMsg.isMe,
+          read: demoMsg.isMe,
+        );
+      },
+    );
+  }
+
   void _sendMessage() async {
     // Log diagnostico incondizionato all'entrata del metodo
     final _smAttachCount = _selectedAttachments.length;
@@ -2427,17 +2571,10 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       _replyToMessage = null; // Reset reply
     });
 
-    // BLOCCO INVIO: Verifica che siamo in pairing
+    // DEMO MODE: Se non siamo in pairing, gestisci come demo
     final pairingService = Provider.of<PairingService>(context, listen: false);
     if (!pairingService.isPaired) {
-      final l10n = AppLocalizations.of(context)!;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(l10n.chatNotPairedWarning),
-          backgroundColor: Colors.orange,
-          duration: const Duration(seconds: 4),
-        ),
-      );
+      _handleDemoSend(messageText);
       return;
     }
 
@@ -2835,6 +2972,12 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     }
 
     final l10n = AppLocalizations.of(context)!;
+    final bool isDemoMode = !pairingService.isPaired;
+
+    // Inizializza messaggi demo se non ancora fatto
+    if (isDemoMode && !_demoInitialized) {
+      _initDemoMessages();
+    }
 
     // Pre-filtra messaggi visibili (escludi todo_completed e TODO futuri)
     // Questo garantisce che itemCount corrisponda ai messaggi realmente mostrati
@@ -2851,7 +2994,9 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
         child: Column(
         children: [
           Expanded(
-            child: visibleMessages.isEmpty && _pendingLocalMessages.isEmpty
+            child: isDemoMode
+                ? _buildDemoMessageList()
+                : visibleMessages.isEmpty && _pendingLocalMessages.isEmpty
                 ? Center(
                     child: Text(
                       l10n.chatEmptyMessage,
@@ -3291,6 +3436,16 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       ), // Fine GestureDetector
     );
   }
+}
+
+/// Modello semplice per i messaggi demo (pre-pairing)
+class _DemoMessage {
+  final String text;
+  final bool isMe;
+  final DateTime timestamp;
+
+  _DemoMessage({required this.text, required this.isMe, DateTime? timestamp})
+      : timestamp = timestamp ?? DateTime.now();
 }
 
 /// Widget per le opzioni di selezione allegati nel bottom sheet

@@ -1,8 +1,4 @@
-/* Spanish localizations */
-"CFBundleDisplayName" = "TuyJo";
-"CFBundleName" = "TuyJo";
-
-/* Permisos */
+/* Spanish - iOS Permission Descriptions */
 "NSPhotoLibraryUsageDescription" = "Para enviar fotos en el chat";
 "NSCameraUsageDescription" = "Para tomar fotos en el chat";
 "NSMicrophoneUsageDescription" = "Para realizar llamadas de voz con tu pareja";
