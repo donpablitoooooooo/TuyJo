@@ -2513,7 +2513,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
 
     return ListView.builder(
       controller: _scrollController,
-      padding: const EdgeInsets.fromLTRB(12, 12, 12, 2),
+      padding: const EdgeInsets.fromLTRB(12, 100, 12, 2),
       itemCount: _demoMessages.length,
       itemBuilder: (context, index) {
         final demoMsg = _demoMessages[index];
