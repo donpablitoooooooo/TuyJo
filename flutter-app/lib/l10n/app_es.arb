@@ -303,5 +303,9 @@
     "permissionLocationGpsDisabledTitle": "GPS desactivado",
     "permissionLocationGpsDisabledMessage": "El GPS es necesario para compartir tu ubicación. Habilita los servicios de ubicación en tu dispositivo.",
     "permissionCameraDeniedTitle": "Cámara no disponible",
-    "permissionCameraDeniedMessage": "El acceso a la cámara es necesario para tomar fotos. Habilita el permiso de cámara en los ajustes del dispositivo."
+    "permissionCameraDeniedMessage": "El acceso a la cámara es necesario para tomar fotos. Habilita el permiso de cámara en los ajustes del dispositivo.",
+    "chatDemoWelcome": "Bienvenido a Tuijo, la app para parejas!",
+    "chatDemoTryMessage": "Intenta enviar un mensaje para ver como funciona el chat",
+    "chatDemoPartnerReply": "Asi se veran los mensajes de tu pareja!",
+    "chatDemoNotice": "Esto es una demo. Los mensajes se reemplazaran despues del pairing."
 }
