@@ -1442,6 +1442,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                 color: Colors.blue,
                 onTap: () async {
                   Navigator.pop(context);
+                  if (_isDemoMode()) { _showDemoFeatureSnackBar(l10n); return; }
                   try {
                     final files = await _attachmentService!.pickImageFromGallery();
                     if (files.isNotEmpty) {
@@ -1466,6 +1467,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                 color: Colors.purple,
                 onTap: () async {
                   Navigator.pop(context);
+                  if (_isDemoMode()) { _showDemoFeatureSnackBar(l10n); return; }
                   try {
                     final file = await _attachmentService!.pickImageFromCamera();
                     if (file != null) {
@@ -1490,6 +1492,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                 color: Colors.green,
                 onTap: () async {
                   Navigator.pop(context);
+                  if (_isDemoMode()) { _showDemoFeatureSnackBar(l10n); return; }
                   final file = await _attachmentService!.pickDocument();
                   if (file != null) {
                     setState(() {
@@ -1504,6 +1507,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                 color: Colors.orange,
                 onTap: () {
                   Navigator.pop(context);
+                  if (_isDemoMode()) { _showDemoFeatureSnackBar(l10n); return; }
                   _showLocationSharingDialog();
                 },
               ),
@@ -2252,6 +2256,15 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
         _selectedReminderHours = null;
       });
     } else if (result != null) {
+      // In demo mode, mostra snackbar e non fare nulla
+      if (_isDemoMode()) {
+        final l10n = AppLocalizations.of(context)!;
+        _showDemoFeatureSnackBar(l10n);
+        Future.delayed(const Duration(milliseconds: 300), () {
+          if (mounted) _messageFocusNode.canRequestFocus = true;
+        });
+        return;
+      }
       // Data/range selezionato e confermato
       setState(() {
         if (result['isRange'] == true) {
@@ -2454,6 +2467,11 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
         }
       });
     }
+  }
+
+  /// Controlla se siamo in modalità demo (non in pairing)
+  bool _isDemoMode() {
+    return !Provider.of<PairingService>(context, listen: false).isPaired;
   }
 
   /// Mostra snackbar per feature non disponibili in demo mode
@@ -3321,8 +3339,6 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                       IconButton(
                         onPressed: _editingMessageId != null
                             ? null // Disabilita l'aggiunta di nuovi allegati durante la modifica
-                            : isDemoMode
-                            ? () => _showDemoFeatureSnackBar(l10n)
                             : _showAttachmentPicker,
                         icon: const Icon(Icons.add_circle_outline),
                         color: _selectedAttachments.isNotEmpty
@@ -3360,9 +3376,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                                   ? const Color(0xFF3BA8B0)
                                   : Colors.grey[600],
                             ),
-                            onPressed: isDemoMode
-                                ? () => _showDemoFeatureSnackBar(l10n)
-                                : _showDateTimePicker,
+                            onPressed: _showDateTimePicker,
                             tooltip: l10n.chatSetDateTimeTooltip,
                           ),
                         ),
