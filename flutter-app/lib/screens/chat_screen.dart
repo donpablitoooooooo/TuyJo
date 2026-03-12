@@ -89,6 +89,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   // Demo mode: messaggi finti mostrati prima del pairing
   final List<_DemoMessage> _demoMessages = [];
   bool _demoInitialized = false;
+  bool _demoHasReplied = false;
 
   // Method Channel per condivisione file da altre app (iOS)
   static const platform = MethodChannel('com.privatemessaging.tuyjo/shared_media');
@@ -705,6 +706,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       // Pulisci i messaggi demo quando si effettua il pairing
       _demoMessages.clear();
       _demoInitialized = false;
+      _demoHasReplied = false;
 
       _initialize();
     } else if (_isFirstLoad) {
@@ -2393,21 +2395,33 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     }
   }
 
-  /// Inizializza i messaggi demo con il messaggio di benvenuto
+  /// Inizializza i messaggi demo con una bubble per ogni funzionalità
   void _initDemoMessages() {
     if (_demoInitialized) return;
     _demoInitialized = true;
     final l10n = AppLocalizations.of(context)!;
-    _demoMessages.add(_DemoMessage(
-      text: l10n.chatDemoWelcome,
-      isMe: false,
-      timestamp: DateTime.now().subtract(const Duration(minutes: 2)),
-    ));
-    _demoMessages.add(_DemoMessage(
-      text: l10n.chatDemoTryMessage,
-      isMe: false,
-      timestamp: DateTime.now().subtract(const Duration(minutes: 1)),
-    ));
+    final now = DateTime.now();
+    final featureTexts = [
+      l10n.chatDemoWelcome,
+      l10n.chatDemoFeatureChat,
+      l10n.chatDemoFeatureLocation,
+      l10n.chatDemoFeatureCalls,
+      l10n.chatDemoFeatureAttachments,
+      l10n.chatDemoFeatureTodos,
+      l10n.chatDemoFeatureMultilang,
+      l10n.chatDemoFeatureSelfie,
+      l10n.chatDemoFeatureGallery,
+      l10n.chatDemoFeatureLinkPreview,
+      l10n.chatDemoFeatureSharing,
+      l10n.chatDemoTryMessage,
+    ];
+    for (var i = 0; i < featureTexts.length; i++) {
+      _demoMessages.add(_DemoMessage(
+        text: featureTexts[i],
+        isMe: false,
+        timestamp: now.subtract(Duration(minutes: featureTexts.length - i)),
+      ));
+    }
   }
 
   /// Gestisce l'invio di un messaggio in modalità demo (pre-pairing)
@@ -2423,17 +2437,20 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       _isUploadingAttachments = false;
     });
 
-    // Simula risposta del partner dopo 1.5 secondi
-    Future.delayed(const Duration(milliseconds: 1500), () {
-      if (mounted) {
-        setState(() {
-          _demoMessages.add(_DemoMessage(
-            text: l10n.chatDemoPartnerReply,
-            isMe: false,
-          ));
-        });
-      }
-    });
+    // Rispondi solo una volta con il messaggio "non sono un bot"
+    if (!_demoHasReplied) {
+      _demoHasReplied = true;
+      Future.delayed(const Duration(milliseconds: 1500), () {
+        if (mounted) {
+          setState(() {
+            _demoMessages.add(_DemoMessage(
+              text: l10n.chatDemoNotABot,
+              isMe: false,
+            ));
+          });
+        }
+      });
+    }
   }
 
   /// Costruisce la lista dei messaggi demo

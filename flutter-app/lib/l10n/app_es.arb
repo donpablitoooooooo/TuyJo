@@ -305,7 +305,18 @@
     "permissionCameraDeniedTitle": "Cámara no disponible",
     "permissionCameraDeniedMessage": "El acceso a la cámara es necesario para tomar fotos. Habilita el permiso de cámara en los ajustes del dispositivo.",
     "chatDemoWelcome": "Bienvenido a Tuijo, la app para parejas!",
+    "chatDemoFeatureChat": "💬 Chat Seguro — Mensajes cifrados de extremo a extremo con confirmaciones de lectura e indicador de escritura",
+    "chatDemoFeatureLocation": "📍 Ubicación Cifrada — Comparte la posición GPS en tiempo real con coordenadas cifradas AES-256 y navegación con brújula",
+    "chatDemoFeatureCalls": "📞 Llamadas de Voz — Llamadas de audio peer-to-peer vía WebRTC con CallKit nativo",
+    "chatDemoFeatureAttachments": "📎 Adjuntos Protegidos — Envía fotos, vídeos y documentos totalmente cifrados con visor integrado",
+    "chatDemoFeatureTodos": "📅 TODOs y Recordatorios — Crea recordatorios compartidos con notificaciones automáticas y calendario integrado",
+    "chatDemoFeatureMultilang": "🌍 Multilingüe — Interfaz en 4 idiomas: Italiano, Inglés, Español y Catalán",
+    "chatDemoFeatureSelfie": "💑 Couple Selfie — Una foto de perfil compartida que se sincroniza automáticamente entre dispositivos",
+    "chatDemoFeatureGallery": "🖼️ Galería de Medios — Fotos, enlaces y documentos organizados en pestañas con cuadrícula estilo Pinterest",
+    "chatDemoFeatureLinkPreview": "🔗 Vista Previa de Enlaces — Pega un enlace y la app extrae automáticamente título, descripción e imagen",
+    "chatDemoFeatureSharing": "📤 Compartir Externo — Comparte fotos, vídeos, documentos y enlaces directamente desde otras apps",
     "chatDemoTryMessage": "Intenta enviar un mensaje para ver como funciona el chat",
+    "chatDemoNotABot": "No soy un bot de inteligencia artificial 🤖❌ Haz el pairing con tu pareja y verás sus mensajes aquí, sin necesidad de registro — ¡solo intercambia el código QR!",
     "chatDemoPartnerReply": "Asi se veran los mensajes de tu pareja!",
     "chatDemoNotice": "Esto es una demo. Los mensajes se reemplazaran despues del pairing."
 }
