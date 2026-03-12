@@ -2437,6 +2437,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       ));
       _isUploadingAttachments = false;
     });
+    _scrollDemoToBottom();
 
     // Rispondi solo una volta con il messaggio "non sono un bot"
     if (!_demoHasReplied) {
@@ -2449,9 +2450,34 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
               isMe: false,
             ));
           });
+          _scrollDemoToBottom();
         }
       });
     }
+  }
+
+  /// Mostra snackbar per feature non disponibili in demo mode
+  void _showDemoFeatureSnackBar(AppLocalizations l10n) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(l10n.chatDemoPairingRequired),
+        behavior: SnackBarBehavior.floating,
+        duration: const Duration(seconds: 3),
+      ),
+    );
+  }
+
+  /// Scrolla la lista demo verso il fondo (ultimo messaggio)
+  void _scrollDemoToBottom() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (_scrollController.hasClients) {
+        _scrollController.animateTo(
+          _scrollController.position.maxScrollExtent,
+          duration: const Duration(milliseconds: 300),
+          curve: Curves.easeOut,
+        );
+      }
+    });
   }
 
   /// Costruisce la lista dei messaggi demo
@@ -3295,6 +3321,8 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                       IconButton(
                         onPressed: _editingMessageId != null
                             ? null // Disabilita l'aggiunta di nuovi allegati durante la modifica
+                            : isDemoMode
+                            ? () => _showDemoFeatureSnackBar(l10n)
                             : _showAttachmentPicker,
                         icon: const Icon(Icons.add_circle_outline),
                         color: _selectedAttachments.isNotEmpty
@@ -3332,7 +3360,9 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                                   ? const Color(0xFF3BA8B0)
                                   : Colors.grey[600],
                             ),
-                            onPressed: _showDateTimePicker,
+                            onPressed: isDemoMode
+                                ? () => _showDemoFeatureSnackBar(l10n)
+                                : _showDateTimePicker,
                             tooltip: l10n.chatSetDateTimeTooltip,
                           ),
                         ),

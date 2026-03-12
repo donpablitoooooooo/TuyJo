@@ -315,6 +315,7 @@
     "chatDemoFeatureLinkPreview": "🔗 Link Preview — Incolla un link e l'app estrae automaticamente titolo, descrizione e immagine",
     "chatDemoFeatureSharing": "📤 Condivisione Esterna — Condividi foto, video, documenti e link direttamente da altre app",
     "chatDemoTryMessage": "Prova a mandare un messaggio per vedere come funziona la chat",
+    "chatDemoPairingRequired": "Fai il pairing con il tuo partner per usare questa funzione",
     "chatDemoNotABot": "Non sono un bot di intelligenza artificiale 🤖❌ Fai il pairing con il tuo partner e vedrai i suoi messaggi qui, senza bisogno di registrazione — basta scambiare il codice QR!",
     "chatDemoPartnerReply": "Ecco come appariranno i messaggi del tuo partner!",
     "chatDemoNotice": "Questa è una demo. I messaggi verranno sostituiti dopo il pairing."
