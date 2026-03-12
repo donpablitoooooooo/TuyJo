@@ -2413,6 +2413,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       l10n.chatDemoFeatureGallery,
       l10n.chatDemoFeatureLinkPreview,
       l10n.chatDemoFeatureSharing,
+      l10n.chatDemoNotice,
       l10n.chatDemoTryMessage,
     ];
     for (var i = 0; i < featureTexts.length; i++) {
@@ -2466,16 +2467,12 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       );
     }
 
-    // Reverse per mostrare i messaggi dal basso (come nella chat reale)
-    final reversedMessages = _demoMessages.reversed.toList();
-
     return ListView.builder(
       controller: _scrollController,
-      padding: const EdgeInsets.fromLTRB(12, 60, 12, 2),
-      itemCount: reversedMessages.length,
-      reverse: true,
+      padding: const EdgeInsets.fromLTRB(12, 12, 12, 2),
+      itemCount: _demoMessages.length,
       itemBuilder: (context, index) {
-        final demoMsg = reversedMessages[index];
+        final demoMsg = _demoMessages[index];
         return _MessageBubble(
           key: ValueKey('demo_$index'),
           message: demoMsg.text,
@@ -2952,32 +2949,6 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
         behavior: HitTestBehavior.translucent,
         child: Column(
         children: [
-          // Banner demo mode
-          if (isDemoMode)
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  colors: [
-                    const Color(0xFF3BA8B0).withOpacity(0.15),
-                    const Color(0xFF145A60).withOpacity(0.10),
-                  ],
-                ),
-              ),
-              child: SafeArea(
-                bottom: false,
-                child: Text(
-                  l10n.chatDemoNotice,
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    color: const Color(0xFF145A60),
-                    fontSize: 12,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-              ),
-            ),
           Expanded(
             child: isDemoMode
                 ? _buildDemoMessageList()
@@ -3322,9 +3293,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                     crossAxisAlignment: CrossAxisAlignment.center,
                     children: [
                       IconButton(
-                        onPressed: isDemoMode
-                            ? null // Disabilita allegati in modalità demo
-                            : _editingMessageId != null
+                        onPressed: _editingMessageId != null
                             ? null // Disabilita l'aggiunta di nuovi allegati durante la modifica
                             : _showAttachmentPicker,
                         icon: const Icon(Icons.add_circle_outline),
@@ -3354,7 +3323,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                             horizontal: 20,
                             vertical: 12,
                           ),
-                          suffixIcon: isDemoMode ? null : IconButton(
+                          suffixIcon: IconButton(
                             icon: Icon(
                               _selectedTodoDate != null
                                   ? Icons.calendar_month
