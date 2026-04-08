@@ -15,6 +15,7 @@ class PairingService extends ChangeNotifier {
   bool _isPaired = false;
   String? _partnerPublicKey;
   bool _familyWasComplete = false; // Traccia se abbiamo mai visto 2 users
+  Completer<void>? _initCompleter; // Evita doppia inizializzazione
 
   /// Callback invocato quando il partner fa "Elimina Tutto"
   /// Permette al codice chiamante di pulire la cache locale (messaggi + foto)
@@ -25,7 +26,23 @@ class PairingService extends ChangeNotifier {
 
   /// Inizializza il servizio verificando se esiste già un pairing
   /// Il pairing è considerato valido se esiste partner_public_key
-  Future<void> initialize() async {
+  /// Usa un Completer per evitare doppie letture da secure storage
+  Future<void> initialize() {
+    if (_initCompleter != null) {
+      if (kDebugMode) print('🔍 [PAIRING] initialize() already running/completed, reusing');
+      return _initCompleter!.future;
+    }
+    _initCompleter = Completer<void>();
+    _doInitialize().then((_) {
+      _initCompleter!.complete();
+    }).catchError((e) {
+      _initCompleter!.completeError(e);
+      _initCompleter = null; // Permetti retry in caso di errore
+    });
+    return _initCompleter!.future;
+  }
+
+  Future<void> _doInitialize() async {
     if (kDebugMode) print('🔍 [PAIRING] initialize() called');
 
     final partnerPubKey = await _storage.read(key: 'partner_public_key');
@@ -112,6 +129,7 @@ class PairingService extends ChangeNotifier {
       // IMPORTANTE: Ferma il vecchio listener prima di cambiare familyChatId
       // Altrimenti rimane un listener attivo sulla vecchia famiglia che può causare unpair
       stopListeningToPairingStatus();
+      _initCompleter = null; // Reset per permettere re-inizializzazione con nuovo pairing
       _familyWasComplete = false; // Reset per il nuovo pairing
 
       // NON impostare _isPaired = true qui! Verrà impostato dal listener quando userCount >= 2
@@ -546,6 +564,7 @@ class PairingService extends ChangeNotifier {
           _isPaired = false;
           _partnerPublicKey = null;
           _familyWasComplete = false; // Reset per il prossimo pairing
+          _initCompleter = null; // Reset per permettere re-inizializzazione
 
           // Ferma il listener
           stopListeningToPairingStatus();
@@ -572,6 +591,7 @@ class PairingService extends ChangeNotifier {
           _isPaired = false;
           _partnerPublicKey = null;
           _familyWasComplete = false; // Reset per il prossimo pairing
+          _initCompleter = null; // Reset per permettere re-inizializzazione
           stopListeningToPairingStatus();
           notifyListeners();
 
