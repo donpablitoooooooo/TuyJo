@@ -54,7 +54,22 @@ class ShareViewController: UIViewController {
             }
         }
 
-        // Seconda passa: cerca URL o testo (PRIMA dei documenti per evitare che .html venga trattato come documento)
+        // Seconda passa: cerca documenti (PDF, DOC, XLS, PPT, etc.) PRIMA di URL/testo
+        // perché i documenti condivisi conformano anche a UTType.url e verrebbero trattati come link
+        for attachment in attachments {
+            if attachment.hasItemConformingToTypeIdentifier(UTType.pdf.identifier) ||
+               attachment.hasItemConformingToTypeIdentifier("com.microsoft.word.doc") ||
+               attachment.hasItemConformingToTypeIdentifier("org.openxmlformats.wordprocessingml.document") ||
+               attachment.hasItemConformingToTypeIdentifier("com.microsoft.excel.xls") ||
+               attachment.hasItemConformingToTypeIdentifier("org.openxmlformats.spreadsheetml.sheet") ||
+               attachment.hasItemConformingToTypeIdentifier("com.microsoft.powerpoint.ppt") ||
+               attachment.hasItemConformingToTypeIdentifier("org.openxmlformats.presentationml.presentation") {
+                handleDocument(attachment)
+                return
+            }
+        }
+
+        // Terza passa: cerca URL o testo (solo se NON è un documento)
         var hasText = false
         var hasUrl = false
         var textAttachment: NSItemProvider?
@@ -71,25 +86,10 @@ class ShareViewController: UIViewController {
             }
         }
 
-        // Se c'è un URL o testo con URL, gestiscilo come link (non come documento)
+        // Se c'è un URL o testo con URL, gestiscilo come link
         if hasUrl || hasText {
             handleTextOrUrl(hasText: hasText, hasUrl: hasUrl, textAttachment: textAttachment, urlAttachment: urlAttachment)
             return
-        }
-
-        // Terza passa: cerca documenti (PDF, DOC, XLS, PPT, etc.) - solo se non c'è URL
-        for attachment in attachments {
-            // Controlla tipi specifici di documento (esclude fileURL generico per evitare conflitti con link)
-            if attachment.hasItemConformingToTypeIdentifier(UTType.pdf.identifier) ||
-               attachment.hasItemConformingToTypeIdentifier("com.microsoft.word.doc") ||
-               attachment.hasItemConformingToTypeIdentifier("org.openxmlformats.wordprocessingml.document") ||
-               attachment.hasItemConformingToTypeIdentifier("com.microsoft.excel.xls") ||
-               attachment.hasItemConformingToTypeIdentifier("org.openxmlformats.spreadsheetml.sheet") ||
-               attachment.hasItemConformingToTypeIdentifier("com.microsoft.powerpoint.ppt") ||
-               attachment.hasItemConformingToTypeIdentifier("org.openxmlformats.presentationml.presentation") {
-                handleDocument(attachment)
-                return
-            }
         }
 
         // Quarta passa: fileURL generico (solo per file locali, non web)
