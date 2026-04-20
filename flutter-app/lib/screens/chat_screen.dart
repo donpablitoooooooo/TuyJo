@@ -2777,7 +2777,10 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
         // ═══════════════════════════════════════════════════════════════
 
         final preGeneratedMessageId = chatService.generateMessageId(_familyChatId!);
-        final pendingId = 'upload_${DateTime.now().millisecondsSinceEpoch}';
+        // STESSO ID per pending e real: così la ValueKey della bubble non cambia
+        // quando il messaggio passa da "in invio" a "inviato" e Flutter preserva
+        // lo State del widget (niente flash / niente rebuild completo).
+        final pendingId = preGeneratedMessageId;
         List<String> permanentPaths = [];
 
         await _pendingUploadService.logDiag('PRE_GEN_ID: $preGeneratedMessageId');
@@ -2979,11 +2982,15 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       _initDemoMessages();
     }
 
-    // Pre-filtra messaggi visibili (escludi todo_completed e TODO futuri)
-    // Questo garantisce che itemCount corrisponda ai messaggi realmente mostrati
+    // Pre-filtra messaggi visibili (escludi todo_completed e TODO futuri).
+    // Inoltre, se un messaggio Firestore ha lo stesso ID di un pending locale
+    // (stesso preGeneratedMessageId), lo nascondiamo finché non togliamo il
+    // pending: altrimenti avremmo due bubble con la stessa ValueKey.
+    final pendingIds = _pendingLocalMessages.keys.toSet();
     final visibleMessages = chatService.messages.where((m) {
       if (m.messageType == 'todo_completed') return false;
       if (m.messageType == 'todo' && m.timestamp.isAfter(DateTime.now())) return false;
+      if (pendingIds.contains(m.id)) return false;
       return true;
     }).toList();
 
@@ -3021,7 +3028,9 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                                 data['files'] as List<File>,
                               );
                               return _MessageBubble(
-                                key: ValueKey('pending_$pendingId'),
+                                // Stessa key del real message (pendingId == messageId)
+                                // così la bubble resta la stessa istanza nel tree.
+                                key: ValueKey(pendingId),
                                 message: pendingMessage.decryptedContent ?? '',
                                 timestamp: pendingMessage.timestamp,
                                 isMe: true,

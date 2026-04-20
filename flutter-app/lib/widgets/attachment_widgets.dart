@@ -35,75 +35,63 @@ class AttachmentImage extends StatefulWidget {
 
 class _AttachmentImageState extends State<AttachmentImage> {
   late Future<Uint8List?> _imageFuture;
+  // Ultimi bytes decodificati con successo. Servono come "placeholder" durante
+  // il cambio URL (pending -> real) per evitare che la foto sparisca.
+  Uint8List? _lastBytes;
 
   @override
   void initState() {
     super.initState();
-    // Crea il Future solo una volta - non verrà ricreato al rebuild
     _imageFuture = _loadImage();
   }
 
   @override
   void didUpdateWidget(AttachmentImage oldWidget) {
     super.didUpdateWidget(oldWidget);
-    // Ricrea il Future SOLO se l'URL dell'attachment è cambiato
-    // (es. da vuoto a pieno quando il messaggio passa da pending a reale)
+    // Ricrea il Future SOLO se l'URL è cambiato (es. pending->real).
+    // _lastBytes rimane valido così la bubble continua a mostrare la foto
+    // vecchia finché la nuova non è pronta: niente flash verde.
     if (oldWidget.attachment.url != widget.attachment.url) {
-      if (kDebugMode) {
-        print('📸 [AttachmentImage] URL changed, reloading image');
-        print('   Old URL: ${oldWidget.attachment.url.isEmpty ? "(empty)" : "present"}');
-        print('   New URL: ${widget.attachment.url.isEmpty ? "(empty)" : "present"}');
-      }
       _imageFuture = _loadImage();
     }
   }
 
-  Future<Uint8List?> _loadImage() {
-    // Se URL è vuoto o è un path locale (placeholder in upload), non scaricare
-    if (widget.attachment.url.isEmpty || !widget.attachment.url.startsWith('http')) {
-      return Future.value(null);
+  /// Carica i bytes dell'immagine:
+  ///  - URL http(s)  → download + decrypt via AttachmentService (con cache)
+  ///  - Path locale  → lettura diretta dal file system (pending bubble)
+  ///  - URL vuoto    → null
+  Future<Uint8List?> _loadImage() async {
+    final url = widget.attachment.url;
+    if (url.isEmpty) return null;
+
+    if (url.startsWith('http') || url.startsWith('gs://')) {
+      return widget.attachmentService.downloadAndDecryptAttachment(
+        widget.attachment,
+        widget.currentUserId ?? '',
+        widget.senderId ?? '',
+        useThumbnail: true,
+      );
     }
 
-    return widget.attachmentService.downloadAndDecryptAttachment(
-      widget.attachment,
-      widget.currentUserId ?? '',
-      widget.senderId ?? '',
-      useThumbnail: true, // Usa thumbnail per performance
-    );
+    // Path locale: leggi direttamente dal disco (pending / offline queue).
+    try {
+      final file = File(url);
+      if (await file.exists()) {
+        return await file.readAsBytes();
+      }
+    } catch (e) {
+      if (kDebugMode) print('⚠️ [AttachmentImage] Failed to read local file: $e');
+    }
+    return null;
   }
 
   @override
   Widget build(BuildContext context) {
-    final l10n = AppLocalizations.of(context)!;
-    // Se URL è vuoto o path locale (placeholder), mostra loader
-    if (widget.attachment.url.isEmpty || !widget.attachment.url.startsWith('http')) {
-      return ClipRRect(
-        borderRadius: BorderRadius.circular(12),
-        child: Container(
-          width: 200,
-          height: 200,
-          color: widget.isMe ? Colors.white.withOpacity(0.1) : Colors.grey[200],
-          child: Center(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const CircularProgressIndicator(),
-                const SizedBox(height: 8),
-                Text(
-                  l10n.chatLoadingAttachment,
-                  style: const TextStyle(fontSize: 12, color: Colors.grey),
-                ),
-              ],
-            ),
-          ),
-        ),
-      );
-    }
-
     return GestureDetector(
       onTap: () {
-        // Apri fullscreen image viewer
+        // Il fullscreen viewer scarica l'immagine full-res via AttachmentService.
+        // Se l'URL è ancora locale (pending), non apriamo nulla.
+        if (!widget.attachment.url.startsWith('http')) return;
         Navigator.of(context).push(
           MaterialPageRoute(
             builder: (context) => FullscreenImageViewer(
@@ -118,47 +106,44 @@ class _AttachmentImageState extends State<AttachmentImage> {
       child: ClipRRect(
         borderRadius: BorderRadius.circular(12),
         child: FutureBuilder<Uint8List?>(
-          future: _imageFuture, // Usa il Future cachato
+          future: _imageFuture,
           builder: (context, snapshot) {
-            if (kDebugMode) {
-              print('📸 [AttachmentImage] State: ${snapshot.connectionState}');
-              print('  - hasError: ${snapshot.hasError}');
-              print('  - hasData: ${snapshot.hasData}');
-              print('  - data size: ${snapshot.data?.length ?? 0}');
-              if (snapshot.hasError) {
-                print('  - error: ${snapshot.error}');
-              }
+            // Dati pronti: aggiorna il "placeholder" persistente e mostra.
+            if (snapshot.connectionState == ConnectionState.done &&
+                snapshot.hasData &&
+                snapshot.data != null) {
+              _lastBytes = snapshot.data;
             }
 
-            if (snapshot.connectionState == ConnectionState.waiting) {
-              // Caricamento
-              return Container(
+            // Se abbiamo bytes (correnti o precedenti), mostra la foto.
+            // Questo copre anche il caso waiting->done smooth.
+            final bytesToShow = (snapshot.hasData && snapshot.data != null)
+                ? snapshot.data
+                : _lastBytes;
+            if (bytesToShow != null) {
+              return SizedBox(
                 width: 200,
                 height: 200,
-                color: widget.isMe ? Colors.white.withOpacity(0.1) : Colors.grey[200],
-                child: const Center(
-                  child: CircularProgressIndicator(),
+                child: Image.memory(
+                  bytesToShow,
+                  fit: BoxFit.cover,
+                  gaplessPlayback: true, // no flash quando i bytes cambiano
                 ),
               );
             }
 
-            if (snapshot.hasError || !snapshot.hasData || snapshot.data == null) {
-              // Errore decifratura - non mostrare nulla (come se l'allegato non esistesse)
-              if (kDebugMode) {
-                print('❌ [AttachmentImage] Failed to load, hiding attachment');
-              }
-              return const SizedBox.shrink();
+            // Prima render, nessun byte ancora disponibile: loader.
+            if (snapshot.connectionState == ConnectionState.waiting) {
+              return Container(
+                width: 200,
+                height: 200,
+                color: widget.isMe ? Colors.white.withOpacity(0.1) : Colors.grey[200],
+                child: const Center(child: CircularProgressIndicator()),
+              );
             }
 
-            // Immagine decifrata visualizzata - box quadrato 200x200 (matcha thumbnail 300x300)
-            return SizedBox(
-              width: 200,
-              height: 200,
-              child: Image.memory(
-                snapshot.data!,
-                fit: BoxFit.cover, // Aspect ratio 1:1 → nessuna deformazione
-              ),
-            );
+            // Errore o file mancante: non occupare spazio.
+            return const SizedBox.shrink();
           },
         ),
       ),
