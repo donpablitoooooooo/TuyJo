@@ -158,53 +158,35 @@ class AttachmentService {
     }
   }
 
-  /// Genera thumbnail quadrato 300x300 con center crop.
+  /// Genera thumbnail ~300px (lato corto) via resize NATIVO in un solo step.
   ///
-  /// Prima chiamavamo img.decodeImage sui bytes originali (fino a 20 MP di
-  /// un Samsung/iPhone) → CPU al 100%, ~10-13s sul main o su isolate.
+  /// FlutterImageCompress gira su thread nativo (libjpeg / libpng / Android
+  /// BitmapFactory + inSampleSize) e decodifica + resize + re-encode in una
+  /// singola passata. Tipicamente 100-250ms anche su foto da 20 MP.
   ///
-  /// Ora prima resize NATIVA a ~600x600 via FlutterImageCompress (decode+
-  /// resize su thread nativo, ~100-200ms), POI center-crop pure-Dart su una
-  /// sola 600×600 (trivial, <50ms su isolate), poi resize finale nativa.
+  /// NOTA: il risultato preserva l'aspect ratio (es. 450×300 per una foto
+  /// 3:2), non è square-cropped. Il widget AttachmentImage usa BoxFit.cover
+  /// dentro un container quadrato, che esegue il center-crop visuale senza
+  /// che serva toccare i pixel. Risparmiamo ~2s di pure-Dart crop.
   Future<Uint8List?> _generateThumbnail(Uint8List imageBytes) async {
     try {
       final stopwatch = Stopwatch()..start();
 
-      // Step 1: NATIVE decode + resize a max 600px lato corto.
-      // FlutterImageCompress usa libjpeg/libpng/native sul thread nativo.
-      final Uint8List resized = await FlutterImageCompress.compressWithList(
-        imageBytes,
-        minWidth: 600,
-        minHeight: 600,
-        quality: 90,
-        format: CompressFormat.jpeg,
-        keepExif: false,
-      );
-      final nativeResizeMs = stopwatch.elapsedMilliseconds;
-
-      // Step 2: center-crop su isolate. Lavoriamo su ~600×600, non più
-      // sull'originale 20 MP: l'operazione è ora sub-50ms.
-      final Uint8List? cropped = await compute(thumbnailCropEntry, resized);
-      if (cropped == null) return null;
-      final cropMs = stopwatch.elapsedMilliseconds - nativeResizeMs;
-
-      // Step 3: resize finale 300x300 nativo (assicura dimensioni coerenti).
       final Uint8List thumbnailBytes = await FlutterImageCompress.compressWithList(
-        cropped,
+        imageBytes,
         minWidth: 300,
         minHeight: 300,
         quality: 85,
         format: CompressFormat.jpeg,
         keepExif: false,
       );
-      final finalResizeMs = stopwatch.elapsedMilliseconds - nativeResizeMs - cropMs;
       stopwatch.stop();
 
       if (kDebugMode) {
         print('📐 Generated thumbnail:');
         print('   Original: ${(imageBytes.length / 1024).toStringAsFixed(1)} KB');
         print('   Thumbnail: ${(thumbnailBytes.length / 1024).toStringAsFixed(1)} KB');
-        print('⏱ [TIMING] thumbnail gen: native-resize ${nativeResizeMs}ms + crop ${cropMs}ms + final-resize ${finalResizeMs}ms');
+        print('⏱ [TIMING] thumbnail gen (single native pass): ${stopwatch.elapsedMilliseconds}ms');
       }
 
       return thumbnailBytes;
