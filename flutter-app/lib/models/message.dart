@@ -71,7 +71,14 @@ class Attachment {
   // ========== Encryption metadata (dual encryption) ==========
   final String encryptedKeyRecipient; // Chiave AES cifrata con chiave pubblica destinatario
   final String encryptedKeySender; // Chiave AES cifrata con chiave pubblica mittente
-  final String iv; // Initialization vector per AES (base64)
+  final String iv; // CBC: 16-byte IV. GCM: 12-byte nonce del file full.
+  // ========== Nuovi campi per GCM nativo ==========
+  // encryptVersion == null => AES-CBC legacy (pointycastle, lento).
+  // encryptVersion == 'gcm-v1' => AES-GCM nativo (cryptography_flutter, veloce).
+  final String? encryptVersion;
+  // Solo 'gcm-v1': nonce separato per il thumbnail (GCM richiede nonce
+  // diverso per ogni cifratura con la stessa chiave).
+  final String? thumbnailIv;
 
   Attachment({
     required this.id,
@@ -84,6 +91,8 @@ class Attachment {
     required this.encryptedKeyRecipient,
     required this.encryptedKeySender,
     required this.iv,
+    this.encryptVersion,
+    this.thumbnailIv,
   });
 
   factory Attachment.fromJson(Map<String, dynamic> json) {
@@ -98,6 +107,8 @@ class Attachment {
       encryptedKeyRecipient: json['encryptedKeyRecipient'] ?? '',
       encryptedKeySender: json['encryptedKeySender'] ?? '',
       iv: json['iv'] ?? '',
+      encryptVersion: json['encryptVersion'],
+      thumbnailIv: json['thumbnailIv'],
     );
   }
 
@@ -113,6 +124,8 @@ class Attachment {
       'encryptedKeyRecipient': encryptedKeyRecipient,
       'encryptedKeySender': encryptedKeySender,
       'iv': iv,
+      if (encryptVersion != null) 'encryptVersion': encryptVersion,
+      if (thumbnailIv != null) 'thumbnailIv': thumbnailIv,
     };
   }
 }

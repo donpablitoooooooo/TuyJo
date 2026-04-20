@@ -246,9 +246,11 @@ class AttachmentService {
       final totalStopwatch = Stopwatch()..start();
       final encryptStopwatch = Stopwatch()..start();
 
-      // Phase 1: encrypt full file e generate thumbnail in parallelo.
-      // Sono entrambi CPU-bound, girano su isolate diversi via compute().
-      final encryptFuture = encryptionService.encryptFileDualAsync(
+      // Phase 1: encrypt full file (AES-GCM nativo, zero isolate) e
+      // generate thumbnail (compute() perché è Dart puro) in parallelo.
+      // L'encrypt ora usa il plugin cryptography_flutter → AES hardware
+      // Android/iOS, tipicamente <100ms per MB invece dei 1-4s di pointycastle.
+      final encryptFuture = encryptionService.encryptFileDualGcm(
         fileBytes,
         senderPublicKey,
         recipientPublicKey,
@@ -263,6 +265,7 @@ class AttachmentService {
       final String encryptedKeySender = encryptedData['encryptedKeySender'] as String;
       final String iv = encryptedData['iv'] as String;
       final Uint8List aesKey = encryptedData['aesKey'] as Uint8List;
+      final String encryptVersion = encryptedData['encryptVersion'] as String; // 'gcm-v1'
       encryptStopwatch.stop();
 
       if (kDebugMode) {
@@ -314,6 +317,9 @@ class AttachmentService {
       // avvia il suo upload IN PARALLELO con l'upload full.
       Future<String?> thumbnailUrlFuture = Future.value(null);
       Uint8List? thumbnailBytes;
+      // GCM vieta nonce-reuse con la stessa chiave, quindi il thumbnail ha
+      // un nonce suo (generato dentro encryptFileWithExistingKeyGcm).
+      String? thumbnailIv;
       if (attachmentType == 'photo') {
         try {
           thumbnailBytes = await thumbnailGenFuture;
@@ -321,9 +327,11 @@ class AttachmentService {
             final tBytes = thumbnailBytes;
             thumbnailUrlFuture = () async {
               final thumbStopwatch = Stopwatch()..start();
-              final encryptedThumbnailBytes = await encryptionService.encryptFileWithExistingKeyAsync(
-                tBytes, aesKey, iv,
+              final thumbEncryptResult = await encryptionService.encryptFileWithExistingKeyGcm(
+                tBytes, aesKey,
               );
+              final encryptedThumbnailBytes = thumbEncryptResult['encryptedFileBytes'] as Uint8List;
+              thumbnailIv = thumbEncryptResult['iv'] as String;
               final thumbEncryptMs = thumbStopwatch.elapsedMilliseconds;
               final thumbnailPath = 'families/$familyChatId/attachments/$attachmentType/thumbnails/$attachmentId';
               if (kDebugMode) {
@@ -400,6 +408,8 @@ class AttachmentService {
         encryptedKeyRecipient: encryptedKeyRecipient,
         encryptedKeySender: encryptedKeySender,
         iv: iv,
+        encryptVersion: encryptVersion, // 'gcm-v1' per tutti i nuovi file
+        thumbnailIv: thumbnailIv,       // nonce separato del thumbnail (GCM)
       );
     } catch (e, stackTrace) {
       if (kDebugMode) {
@@ -519,12 +529,29 @@ class AttachmentService {
         print('   Using ${currentUserId == messageSenderId ? "sender" : "recipient"} key for decryption');
       }
 
-      // Decifra il file usando la propria chiave privata (su isolate di background)
-      final Uint8List decryptedBytes = await encryptionService.decryptFileAsync(
-        encryptedBytes,
-        encryptedAesKey,
-        attachment.iv,
-      );
+      // Per GCM il thumbnail usa un nonce diverso dal full image. Gli
+      // allegati vecchi (CBC) e il full image GCM usano il campo iv.
+      final String ivToUse = (useThumbnail && attachment.thumbnailIv != null)
+          ? attachment.thumbnailIv!
+          : attachment.iv;
+
+      // Route in base a encryptVersion:
+      //   'gcm-v1' → decrypt AES-GCM nativo (veloce, ~<100ms/MB)
+      //   null     → CBC legacy via pointycastle (slow path per file vecchi)
+      final Uint8List decryptedBytes;
+      if (attachment.encryptVersion == 'gcm-v1') {
+        decryptedBytes = await encryptionService.decryptFileGcm(
+          encryptedBytes,
+          encryptedAesKey,
+          ivToUse,
+        );
+      } else {
+        decryptedBytes = await encryptionService.decryptFileAsync(
+          encryptedBytes,
+          encryptedAesKey,
+          ivToUse,
+        );
+      }
 
       if (kDebugMode) {
         print('✅ File decrypted successfully');
