@@ -221,39 +221,55 @@ class AttachmentService {
         print('   Type: $attachmentType');
       }
 
-      // 🔐 CIFRA IL FILE con dual encryption (su isolate di background per non
-      // bloccare la UI con AES su file grandi + due RSA encrypt)
-      final encryptedData = await encryptionService.encryptFileDualAsync(
+      // ═══════════════════════════════════════════════════════════════
+      // PARALLELIZZAZIONE: il flusso serial era encrypt → upload full →
+      // gen thumb → encrypt thumb → upload thumb. Qui facciamo:
+      //
+      //   [encrypt full]  ‖  [gen thumbnail]           <- isolate
+      //          ↓                  ↓
+      //   [upload full]   ‖  [encrypt thumb]→[upload thumb]
+      //
+      // Upload full e upload thumb girano in parallelo su Firebase. Sulla
+      // chiamata tipica (~2-4 MB) si risparmia tutto il tempo di gen+
+      // encrypt+upload del thumbnail (era in coda all'upload principale).
+      // ═══════════════════════════════════════════════════════════════
+
+      if (kDebugMode) print('🔐 Encrypting + generating thumbnail (parallel)...');
+
+      // Phase 1: encrypt full file e generate thumbnail in parallelo.
+      // Sono entrambi CPU-bound, girano su isolate diversi via compute().
+      final encryptFuture = encryptionService.encryptFileDualAsync(
         fileBytes,
         senderPublicKey,
         recipientPublicKey,
       );
+      final Future<Uint8List?> thumbnailGenFuture = (attachmentType == 'photo')
+          ? _generateThumbnail(fileBytes)
+          : Future<Uint8List?>.value(null);
 
+      final encryptedData = await encryptFuture;
       final Uint8List encryptedFileBytes = encryptedData['encryptedFileBytes'] as Uint8List;
       final String encryptedKeyRecipient = encryptedData['encryptedKeyRecipient'] as String;
       final String encryptedKeySender = encryptedData['encryptedKeySender'] as String;
       final String iv = encryptedData['iv'] as String;
-      final Uint8List aesKey = encryptedData['aesKey'] as Uint8List; // Salva chiave AES per thumbnail
+      final Uint8List aesKey = encryptedData['aesKey'] as Uint8List;
 
       if (kDebugMode) {
         print('✅ File encrypted successfully');
         print('   Encrypted size: ${(encryptedFileBytes.length / 1024 / 1024).toStringAsFixed(2)} MB');
       }
 
-      // Path su Firebase Storage: /families/{familyChatId}/attachments/{attachmentType}/{attachmentId}
+      // Phase 2: kick off full file upload subito (non aspetta il thumbnail).
       final String storagePath = 'families/$familyChatId/attachments/$attachmentType/$attachmentId';
-
       if (kDebugMode) {
         print('📤 Uploading encrypted file to Firebase Storage...');
         print('   Path: $storagePath');
       }
 
-      // Upload del file CIFRATO
-      final Reference ref = _storage.ref().child(storagePath);
-      final UploadTask uploadTask = ref.putData(
+      final UploadTask fullUploadTask = _storage.ref().child(storagePath).putData(
         encryptedFileBytes,
         SettableMetadata(
-          contentType: 'application/octet-stream', // File cifrato binario
+          contentType: 'application/octet-stream',
           customMetadata: {
             'senderId': senderId,
             'originalFileName': fileName,
@@ -262,80 +278,72 @@ class AttachmentService {
           },
         ),
       );
+      final Future<String> fullDownloadUrlFuture = fullUploadTask.then((snapshot) async {
+        final url = await snapshot.ref.getDownloadURL();
+        if (kDebugMode) {
+          print('✅ Encrypted attachment uploaded successfully');
+          print('   URL: $url');
+        }
+        return url;
+      });
 
-      // Attendi il completamento
-      final TaskSnapshot snapshot = await uploadTask;
-
-      // Ottieni l'URL di download
-      final String downloadUrl = await snapshot.ref.getDownloadURL();
-
-      if (kDebugMode) {
-        print('✅ Encrypted attachment uploaded successfully');
-        print('   URL: $downloadUrl');
-      }
-
-      // 🚀 PRE-POPULATE CACHE: abbiamo già i bytes decifrati (fileBytes) e
-      // ora conosciamo l'attachmentId finale. Salvandoli nella cache ora
-      // evitiamo che AttachmentImage ri-scarichi e ri-decifri lo stesso
-      // file quando il Firestore listener arriverà col messaggio reale.
-      await _cacheService.saveToCache(attachmentId, fileBytes, isThumbnail: false);
-
-      // 🖼️ GENERA E CARICA THUMBNAIL (solo per foto)
-      // Wrappato in try/catch separato: un errore thumbnail NON deve
-      // impedire il ritorno dell'Attachment (il full image è già caricato)
-      String? thumbnailUrl;
+      // Phase 3: aspetta il thumbnail (può essere già pronto), poi
+      // avvia il suo upload IN PARALLELO con l'upload full.
+      Future<String?> thumbnailUrlFuture = Future.value(null);
+      Uint8List? thumbnailBytes;
       if (attachmentType == 'photo') {
         try {
-          if (kDebugMode) print('📐 Generating thumbnail for photo...');
-
-          final Uint8List? thumbnailBytes = await _generateThumbnail(fileBytes);
-
+          thumbnailBytes = await thumbnailGenFuture;
           if (thumbnailBytes != null) {
-            // Cifra il thumbnail con le STESSE chiavi AES e IV del full image
-            // (su isolate di background)
-            final Uint8List encryptedThumbnailBytes = await encryptionService.encryptFileWithExistingKeyAsync(
-              thumbnailBytes,
-              aesKey, // Usa la stessa chiave AES del full image
-              iv,     // Usa lo stesso IV del full image
-            );
-
-            // Upload thumbnail cifrato con path diverso
-            final String thumbnailPath = 'families/$familyChatId/attachments/$attachmentType/thumbnails/$attachmentId';
-            final Reference thumbnailRef = _storage.ref().child(thumbnailPath);
-
-            if (kDebugMode) {
-              print('📤 Uploading encrypted thumbnail...');
-              print('   Path: $thumbnailPath');
-            }
-
-            final UploadTask thumbnailUploadTask = thumbnailRef.putData(
-              encryptedThumbnailBytes,
-              SettableMetadata(
-                contentType: 'application/octet-stream',
-                customMetadata: {
-                  'senderId': senderId,
-                  'type': 'thumbnail',
-                  'encrypted': 'true',
-                },
-              ),
-            );
-
-            final TaskSnapshot thumbnailSnapshot = await thumbnailUploadTask;
-            thumbnailUrl = await thumbnailSnapshot.ref.getDownloadURL();
-
-            if (kDebugMode) {
-              print('✅ Thumbnail uploaded successfully');
-              print('   URL: $thumbnailUrl');
-            }
-
-            // 🚀 PRE-POPULATE CACHE: stesso motivo del full image — zero
-            // round-trip a Firebase quando il messaggio arriva via listener.
-            await _cacheService.saveToCache(attachmentId, thumbnailBytes, isThumbnail: true);
+            final tBytes = thumbnailBytes;
+            thumbnailUrlFuture = () async {
+              final encryptedThumbnailBytes = await encryptionService.encryptFileWithExistingKeyAsync(
+                tBytes, aesKey, iv,
+              );
+              final thumbnailPath = 'families/$familyChatId/attachments/$attachmentType/thumbnails/$attachmentId';
+              if (kDebugMode) {
+                print('📤 Uploading encrypted thumbnail (in parallel)...');
+                print('   Path: $thumbnailPath');
+              }
+              final thumbTask = _storage.ref().child(thumbnailPath).putData(
+                encryptedThumbnailBytes,
+                SettableMetadata(
+                  contentType: 'application/octet-stream',
+                  customMetadata: {
+                    'senderId': senderId,
+                    'type': 'thumbnail',
+                    'encrypted': 'true',
+                  },
+                ),
+              );
+              final snap = await thumbTask;
+              final url = await snap.ref.getDownloadURL();
+              if (kDebugMode) {
+                print('✅ Thumbnail uploaded successfully');
+                print('   URL: $url');
+              }
+              return url;
+            }();
           }
         } catch (e) {
-          // Thumbnail fallito, ma il full image è già caricato → continua
-          if (kDebugMode) print('⚠️ Thumbnail generation/upload failed (non-fatal): $e');
+          if (kDebugMode) print('⚠️ Thumbnail gen failed (non-fatal): $e');
         }
+      }
+
+      // Phase 4: aspetta entrambi gli upload in parallelo.
+      final String downloadUrl = await fullDownloadUrlFuture;
+      String? thumbnailUrl;
+      try {
+        thumbnailUrl = await thumbnailUrlFuture;
+      } catch (e) {
+        if (kDebugMode) print('⚠️ Thumbnail upload failed (non-fatal): $e');
+      }
+
+      // 🚀 PRE-POPULATE CACHE per il receiver-side-equivalente (il Firestore
+      // listener sulla stessa istanza che ora vedrà il messaggio arrivare).
+      await _cacheService.saveToCache(attachmentId, fileBytes, isThumbnail: false);
+      if (thumbnailBytes != null) {
+        await _cacheService.saveToCache(attachmentId, thumbnailBytes, isThumbnail: true);
       }
 
       // Crea l'oggetto Attachment con metadata di cifratura
