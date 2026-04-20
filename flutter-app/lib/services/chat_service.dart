@@ -343,46 +343,52 @@ class ChatService extends ChangeNotifier {
         if (isFirstSnapshot) {
           isFirstSnapshot = false;
 
-          final List<Message> newMessages = [];
-
+          // 1) Parse tutti i messaggi dal snapshot (solo added)
+          final List<Message> parsedMessages = [];
           for (var change in snapshot.docChanges) {
             if (change.type == DocumentChangeType.added) {
               final message = Message.fromFirestore(
                 change.doc.id,
                 change.doc.data()!,
               );
+              parsedMessages.add(message);
+            }
+          }
 
-              // Log se il messaggio ha attachments
-              if (kDebugMode && message.attachments != null && message.attachments!.isNotEmpty) {
-                print('📎 Message ${message.id.substring(0, 8)} has ${message.attachments!.length} attachments');
+          // 2) Decrypt batch di TUTTI i messaggi su isolate (una sola RSA key
+          //    decode + tutte le decrypt in background). Questo elimina il
+          //    jank della UI durante il caricamento iniziale di chat grandi.
+          if (_myDeviceId != null && parsedMessages.isNotEmpty) {
+            if (kDebugMode) {
+              print('🔓 [BATCH_DECRYPT] Decrypting ${parsedMessages.length} messages on isolate...');
+            }
+            final batchStart = DateTime.now();
+            await _batchDecryptAndPopulate(parsedMessages, _myDeviceId!);
+            if (kDebugMode) {
+              final ms = DateTime.now().difference(batchStart).inMilliseconds;
+              print('🔓 [BATCH_DECRYPT] Done in ${ms}ms');
+            }
+          }
+
+          // 3) Merge in _messages: sostituisci quelli già in cache, aggiungi i nuovi
+          final List<Message> newMessages = [];
+          for (final message in parsedMessages) {
+            if (kDebugMode && message.attachments != null && message.attachments!.isNotEmpty) {
+              print('📎 Message ${message.id.substring(0, 8)} has ${message.attachments!.length} attachments');
+            }
+            if (kDebugMode && message.reaction != null) {
+              print('⭐ Message ${message.id.substring(0, 8)} has reaction: ${message.reaction!.type}');
+            }
+            final existingIndex = _messages.indexWhere((m) => m.id == message.id);
+            if (existingIndex != -1) {
+              if (kDebugMode) {
+                print('🔄 Updating existing message ${message.id.substring(0, 8)} from Firestore');
               }
-
-              // Log se il messaggio ha reaction
-              if (kDebugMode && message.reaction != null) {
-                print('⭐ Message ${message.id.substring(0, 8)} has reaction: ${message.reaction!.type}');
-              }
-
-              // Decrypt e popola i campi
-              if (_myDeviceId != null) {
-                _decryptAndPopulateMessage(message, _myDeviceId!);
-              }
-
-              // Controlla se il messaggio esiste già in memoria (caricato dalla cache)
-              final existingIndex = _messages.indexWhere((m) => m.id == message.id);
-
-              if (existingIndex != -1) {
-                // Messaggio esiste: SOSTITUISCILO con quello da Firestore
-                // Firestore è la fonte di verità e ha reactions/attachments aggiornati
-                if (kDebugMode) {
-                  print('🔄 Updating existing message ${message.id.substring(0, 8)} from Firestore');
-                }
-                _messages[existingIndex] = message;
-                newMessages.add(message); // Aggiungilo per batch save cache
-              } else {
-                // Messaggio nuovo: aggiungilo
-                _messages.add(message);
-                newMessages.add(message);
-              }
+              _messages[existingIndex] = message;
+              newMessages.add(message);
+            } else {
+              _messages.add(message);
+              newMessages.add(message);
             }
           }
 
@@ -1514,6 +1520,93 @@ class ChatService extends ChangeNotifier {
         print('Stack trace: $stackTrace');
       }
       return false;
+    }
+  }
+
+  /// Costruisce il payload cifrato (base64(json)) nel formato atteso da
+  /// EncryptionService.decryptMessage. Restituisce null se non c'è una
+  /// chiave AES cifrata utilizzabile per questo dispositivo.
+  String? _buildEncryptedPayload(Message message, String myDeviceId) {
+    final bool iAmSender = message.senderId == myDeviceId;
+    String? finalEncryptedKey = iAmSender
+        ? message.encryptedKeySender
+        : message.encryptedKeyRecipient;
+    if (!iAmSender && finalEncryptedKey == null) {
+      finalEncryptedKey = message.encryptedKey;
+    }
+    if (finalEncryptedKey == null) return null;
+    final payload = {
+      'encryptedKey': finalEncryptedKey,
+      'iv': message.iv,
+      'message': message.encryptedMessage,
+    };
+    return base64Encode(utf8.encode(json.encode(payload)));
+  }
+
+  /// Applica un plaintext già decifrato ad un [Message] in-place,
+  /// gestendo il parse JSON per messageType=todo / todo_completed.
+  void _applyPlaintextToMessage(Message message, String? plaintext) {
+    if (plaintext == null) {
+      message.decryptedContent = '[Messaggio non decifrabile]';
+      message.messageType = 'text';
+      return;
+    }
+    try {
+      final data = json.decode(plaintext);
+      message.decryptedContent = (data['body'] as String?) ?? plaintext;
+      message.messageType = (data['type'] as String?) ?? 'text';
+
+      if (message.messageType == 'todo') {
+        message.dueDate = DateTime.parse(data['due_date']);
+        message.completed = false;
+        if (data['range_end'] != null) {
+          message.rangeEnd = DateTime.parse(data['range_end']);
+        }
+        message.isReminder = data['is_reminder'] == true;
+        if (data['alert_hours'] != null) {
+          message.alertHours = data['alert_hours'] as int;
+        }
+        if (!message.isReminder!) {
+          _scheduleReminderNotification(message);
+        }
+      } else if (message.messageType == 'todo_completed') {
+        message.originalTodoId = data['body'] as String?;
+        if (message.originalTodoId != null) {
+          _cancelReminderNotification(message.originalTodoId!);
+        }
+      }
+    } catch (_) {
+      // Non è JSON valido: trattalo come messaggio di testo semplice
+      message.decryptedContent = plaintext;
+      message.messageType = 'text';
+    }
+  }
+
+  /// Decifra in batch N messaggi su un isolate di background ([compute]),
+  /// poi applica i plaintext ai messaggi in-place. Ottimizzato per il
+  /// primo snapshot Firestore dove N può essere grande.
+  Future<void> _batchDecryptAndPopulate(
+    List<Message> messages,
+    String myDeviceId,
+  ) async {
+    if (messages.isEmpty) return;
+
+    final payloads = <String>[];
+    final indices = <int>[];
+    for (var i = 0; i < messages.length; i++) {
+      final p = _buildEncryptedPayload(messages[i], myDeviceId);
+      if (p == null) {
+        _applyPlaintextToMessage(messages[i], null);
+      } else {
+        payloads.add(p);
+        indices.add(i);
+      }
+    }
+    if (payloads.isEmpty) return;
+
+    final plaintexts = await _encryptionService.decryptMessagesBatch(payloads);
+    for (var k = 0; k < payloads.length; k++) {
+      _applyPlaintextToMessage(messages[indices[k]], plaintexts[k]);
     }
   }
 

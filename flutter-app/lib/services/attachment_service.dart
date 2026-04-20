@@ -7,11 +7,11 @@ import 'package:image_picker/image_picker.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:mime/mime.dart';
 import 'package:uuid/uuid.dart';
-import 'package:image/image.dart' as img;
 import 'package:flutter_image_compress/flutter_image_compress.dart';
 import '../models/message.dart';
 import 'encryption_service.dart';
 import 'attachment_cache_service.dart';
+import 'crypto_isolate.dart';
 
 /// Eccezione lanciata quando un permesso necessario per un allegato è negato
 class AttachmentPermissionDeniedException implements Exception {
@@ -153,40 +153,15 @@ class AttachmentService {
     }
   }
 
-  /// Genera thumbnail quadrato 300x300 con center crop
+  /// Genera thumbnail quadrato 300x300 con center crop.
+  /// Il decode + center-crop + encode JPEG gira su un isolate di background
+  /// (compute()); il resize finale usa FlutterImageCompress che già usa
+  /// un thread nativo, quindi non blocca l'UI.
   Future<Uint8List?> _generateThumbnail(Uint8List imageBytes) async {
     try {
-      // Decodifica immagine per log dimensioni originali
-      final image = img.decodeImage(imageBytes);
-      if (image == null) return null;
+      final Uint8List? croppedBytes = await compute(thumbnailCropEntry, imageBytes);
+      if (croppedBytes == null) return null;
 
-      if (kDebugMode) {
-        print('📐 Original image dimensions: ${image.width}x${image.height}');
-        print('   Aspect ratio: ${(image.width / image.height).toStringAsFixed(2)}');
-      }
-
-      // 1) Center crop a quadrato (usa il lato più corto come dimensione)
-      final int cropSize = image.width < image.height ? image.width : image.height;
-      final int offsetX = (image.width - cropSize) ~/ 2;
-      final int offsetY = (image.height - cropSize) ~/ 2;
-
-      final img.Image croppedImage = img.copyCrop(
-        image,
-        x: offsetX,
-        y: offsetY,
-        width: cropSize,
-        height: cropSize,
-      );
-
-      if (kDebugMode) {
-        print('✂️ Center cropped to: ${croppedImage.width}x${croppedImage.height}');
-        print('   Aspect ratio: ${(croppedImage.width / croppedImage.height).toStringAsFixed(2)}');
-      }
-
-      // 2) Converti a bytes per compressione
-      final Uint8List croppedBytes = Uint8List.fromList(img.encodeJpg(croppedImage, quality: 95));
-
-      // 3) Resize a 300x300 con flutter_image_compress (alta qualità)
       final thumbnailBytes = await FlutterImageCompress.compressWithList(
         croppedBytes,
         minWidth: 300,
@@ -195,13 +170,6 @@ class AttachmentService {
         format: CompressFormat.jpeg,
         keepExif: false,
       );
-
-      // Decodifica thumbnail per log dimensioni finali
-      final thumbnail = img.decodeImage(thumbnailBytes);
-      if (thumbnail != null && kDebugMode) {
-        print('📐 Final thumbnail dimensions: ${thumbnail.width}x${thumbnail.height}');
-        print('   Aspect ratio: ${(thumbnail.width / thumbnail.height).toStringAsFixed(2)} (should be 1.00)');
-      }
 
       if (kDebugMode) {
         print('📐 Generated thumbnail:');
@@ -253,8 +221,9 @@ class AttachmentService {
         print('   Type: $attachmentType');
       }
 
-      // 🔐 CIFRA IL FILE con dual encryption
-      final encryptedData = encryptionService.encryptFileDual(
+      // 🔐 CIFRA IL FILE con dual encryption (su isolate di background per non
+      // bloccare la UI con AES su file grandi + due RSA encrypt)
+      final encryptedData = await encryptionService.encryptFileDualAsync(
         fileBytes,
         senderPublicKey,
         recipientPublicKey,
@@ -317,7 +286,8 @@ class AttachmentService {
 
           if (thumbnailBytes != null) {
             // Cifra il thumbnail con le STESSE chiavi AES e IV del full image
-            final Uint8List encryptedThumbnailBytes = encryptionService.encryptFileWithExistingKey(
+            // (su isolate di background)
+            final Uint8List encryptedThumbnailBytes = await encryptionService.encryptFileWithExistingKeyAsync(
               thumbnailBytes,
               aesKey, // Usa la stessa chiave AES del full image
               iv,     // Usa lo stesso IV del full image
@@ -492,8 +462,8 @@ class AttachmentService {
         print('   Using ${currentUserId == messageSenderId ? "sender" : "recipient"} key for decryption');
       }
 
-      // Decifra il file usando la propria chiave privata
-      final Uint8List decryptedBytes = encryptionService.decryptFile(
+      // Decifra il file usando la propria chiave privata (su isolate di background)
+      final Uint8List decryptedBytes = await encryptionService.decryptFileAsync(
         encryptedBytes,
         encryptedAesKey,
         attachment.iv,

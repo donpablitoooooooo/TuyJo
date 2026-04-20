@@ -80,9 +80,9 @@ class CoupleSelfieService extends ChangeNotifier {
           return;
         }
 
-        // Decifra il file
+        // Decifra il file (su isolate di background per non bloccare la UI)
         if (kDebugMode) print('🔓 [COUPLE_SELFIE] Decrypting photo...');
-        final decryptedBytes = encryptionService.decryptFile(
+        final decryptedBytes = await encryptionService.decryptFileAsync(
           encryptedBytes,
           encryptedKey,
           iv,
@@ -235,8 +235,8 @@ class CoupleSelfieService extends ChangeNotifier {
         print('   Partner userId: $partnerUserId');
       }
 
-      // 4. Cifra il file con dual encryption
-      final encryptedData = encryptionService.encryptFileDual(
+      // 4. Cifra il file con dual encryption (su isolate di background)
+      final encryptedData = await encryptionService.encryptFileDualAsync(
         imageBytes,
         myPublicKey,
         partnerPublicKey,

@@ -1,15 +1,22 @@
 import 'dart:convert';
 import 'dart:math';
 import 'dart:typed_data';
+import 'package:flutter/foundation.dart';
 import 'package:pointycastle/export.dart';
 import 'package:asn1lib/asn1lib.dart';
 import 'package:crypto/crypto.dart';
 import 'package:encrypt/encrypt.dart' as encrypt_lib;
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'crypto_isolate.dart';
 
 class EncryptionService {
   AsymmetricKeyPair<PublicKey, PrivateKey>? _keyPair;
+  String? _privateKeyBase64; // Cached for compute() isolate decrypts
   final _storage = const FlutterSecureStorage();
+
+  /// Private key (base64, PKCS#1) — for sending to isolates via compute().
+  /// Returns null if keypair is not loaded yet.
+  String? get privateKeyBase64 => _privateKeyBase64;
 
   // Genera una coppia di chiavi RSA (pubblica/privata)
   Future<Map<String, String>> generateKeyPair() async {
@@ -40,6 +47,7 @@ class EncryptionService {
       (privateKey).publicExponent!,
     );
     _keyPair = AsymmetricKeyPair(publicKey, privateKey);
+    _privateKeyBase64 = privateKeyStr;
   }
 
   // Genera e salva keypair in secure storage
@@ -57,6 +65,7 @@ class EncryptionService {
 
     // Genera nuova coppia di chiavi
     final keys = await generateKeyPair();
+    _privateKeyBase64 = keys['privateKey'];
 
     // Salva in secure storage
     await _storage.write(key: 'rsa_public_key', value: keys['publicKey']!);
@@ -578,5 +587,79 @@ class EncryptionService {
     } catch (e) {
       throw Exception('K_family decryption failed: $e');
     }
+  }
+
+  // ========== Async/compute() wrappers ==========
+  // These run CPU-heavy crypto on a background isolate so the UI thread
+  // stays smooth during chat load, attachment upload/download and thumbnails.
+
+  /// Batch-decrypts N encrypted payloads on a single background isolate.
+  /// Each payload has the same structure produced by encryptMessage/Dual.
+  /// Returns plaintexts in the same order (null entries for failures).
+  Future<List<String?>> decryptMessagesBatch(List<String> encryptedPayloads) async {
+    if (encryptedPayloads.isEmpty) return const [];
+    final privKey = _privateKeyBase64;
+    if (privKey == null) {
+      // Fallback to sync path if key isn't cached (shouldn't happen post-init)
+      return encryptedPayloads.map((p) {
+        try {
+          return decryptMessage(p);
+        } catch (_) {
+          return null;
+        }
+      }).toList();
+    }
+    return compute(
+      batchDecryptMessagesEntry,
+      BatchDecryptArgs(privKey, encryptedPayloads),
+    );
+  }
+
+  /// Same as [encryptFileDual] but runs on a background isolate.
+  Future<Map<String, dynamic>> encryptFileDualAsync(
+    Uint8List fileBytes,
+    String senderPublicKey,
+    String recipientPublicKey,
+  ) async {
+    final result = await compute(
+      encryptFileDualEntry,
+      EncryptFileDualArgs(fileBytes, senderPublicKey, recipientPublicKey),
+    );
+    return {
+      'encryptedFileBytes': result.encryptedFileBytes,
+      'encryptedKeyRecipient': result.encryptedKeyRecipient,
+      'encryptedKeySender': result.encryptedKeySender,
+      'iv': result.iv,
+      'aesKey': result.aesKey,
+    };
+  }
+
+  /// Same as [encryptFileWithExistingKey] but runs on a background isolate.
+  Future<Uint8List> encryptFileWithExistingKeyAsync(
+    Uint8List fileBytes,
+    Uint8List aesKey,
+    String ivBase64,
+  ) {
+    return compute(
+      encryptFileWithExistingKeyEntry,
+      EncryptWithExistingKeyArgs(fileBytes, aesKey, ivBase64),
+    );
+  }
+
+  /// Same as [decryptFile] but runs on a background isolate.
+  Future<Uint8List> decryptFileAsync(
+    Uint8List encryptedBytes,
+    String encryptedAesKeyBase64,
+    String ivBase64,
+  ) async {
+    final privKey = _privateKeyBase64;
+    if (privKey == null) {
+      // Fallback: sync on main. Shouldn't happen after startup.
+      return decryptFile(encryptedBytes, encryptedAesKeyBase64, ivBase64);
+    }
+    return compute(
+      decryptFileEntry,
+      DecryptFileArgs(encryptedBytes, encryptedAesKeyBase64, ivBase64, privKey),
+    );
   }
 }
