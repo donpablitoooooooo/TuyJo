@@ -162,18 +162,17 @@ class ChatService extends ChangeNotifier {
       final List<Message> messages = [];
       for (final doc in snapshot.docs) {
         try {
-          final message = Message.fromFirestore(doc.id, doc.data());
-
-          // Decrypt e popola i campi
-          if (_myDeviceId != null) {
-            _decryptAndPopulateMessage(message, _myDeviceId!);
-          }
-
-          messages.add(message);
+          messages.add(Message.fromFirestore(doc.id, doc.data()));
         } catch (e) {
           if (kDebugMode) print('⚠️ Error parsing message ${doc.id}: $e');
           // Continua con i prossimi messaggi invece di fallire tutto
         }
+      }
+
+      // Batch decrypt su isolate (una sola RSA key decode + tutte le decrypt
+      // in background). Evita jank dell'infinite scroll su pagine da 50 msg.
+      if (_myDeviceId != null && messages.isNotEmpty) {
+        await _batchDecryptAndPopulate(messages, _myDeviceId!);
       }
 
       if (kDebugMode) print('📡 Successfully parsed ${messages.length}/${snapshot.docs.length} messages');
