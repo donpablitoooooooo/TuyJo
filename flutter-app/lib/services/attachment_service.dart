@@ -291,7 +291,12 @@ class AttachmentService {
           },
         ),
       );
-      final Future<String> fullDownloadUrlFuture = fullUploadTask.then((snapshot) async {
+      // Usiamo await in un helper invece di .then(): sull'UploadTask .then
+      // sembra non far partire il callback in modo affidabile, perdiamo i
+      // log di timing. Con await diretto è garantito.
+      final fullSizeKB = (encryptedFileBytes.length / 1024).toStringAsFixed(0);
+      final Future<String> fullDownloadUrlFuture = () async {
+        final snapshot = await fullUploadTask;
         final uploadMs = fullUploadStopwatch.elapsedMilliseconds;
         final urlStopwatch = Stopwatch()..start();
         final url = await snapshot.ref.getDownloadURL();
@@ -300,10 +305,10 @@ class AttachmentService {
         if (kDebugMode) {
           print('✅ Encrypted attachment uploaded successfully');
           print('   URL: $url');
-          print('⏱ [TIMING] full upload(${(encryptedFileBytes.length / 1024).toStringAsFixed(0)}KB): ${uploadMs}ms + getDownloadURL: ${urlMs}ms');
+          print('⏱ [TIMING] full upload(${fullSizeKB}KB): ${uploadMs}ms + getDownloadURL: ${urlMs}ms');
         }
         return url;
-      });
+      }();
 
       // Phase 3: aspetta il thumbnail (può essere già pronto), poi
       // avvia il suo upload IN PARALLELO con l'upload full.
