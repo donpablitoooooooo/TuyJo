@@ -1,15 +1,28 @@
 import 'dart:convert';
 import 'dart:math';
 import 'dart:typed_data';
+import 'package:flutter/foundation.dart';
 import 'package:pointycastle/export.dart';
 import 'package:asn1lib/asn1lib.dart';
 import 'package:crypto/crypto.dart';
 import 'package:encrypt/encrypt.dart' as encrypt_lib;
+import 'package:cryptography/cryptography.dart' as cg;
+import 'package:cryptography_flutter/cryptography_flutter.dart' as cgf;
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'crypto_isolate.dart';
+
+// Istanza singleton di AES-GCM backed dal plugin nativo (Android/iOS).
+// Su desktop/web cade back su pure-Dart, ma sui telefoni usa AES hardware.
+final cg.AesGcm _nativeAesGcm = cgf.FlutterAesGcm.with256bits();
 
 class EncryptionService {
   AsymmetricKeyPair<PublicKey, PrivateKey>? _keyPair;
+  String? _privateKeyBase64; // Cached for compute() isolate decrypts
   final _storage = const FlutterSecureStorage();
+
+  /// Private key (base64, PKCS#1) — for sending to isolates via compute().
+  /// Returns null if keypair is not loaded yet.
+  String? get privateKeyBase64 => _privateKeyBase64;
 
   // Genera una coppia di chiavi RSA (pubblica/privata)
   Future<Map<String, String>> generateKeyPair() async {
@@ -40,6 +53,7 @@ class EncryptionService {
       (privateKey).publicExponent!,
     );
     _keyPair = AsymmetricKeyPair(publicKey, privateKey);
+    _privateKeyBase64 = privateKeyStr;
   }
 
   // Genera e salva keypair in secure storage
@@ -57,6 +71,7 @@ class EncryptionService {
 
     // Genera nuova coppia di chiavi
     final keys = await generateKeyPair();
+    _privateKeyBase64 = keys['privateKey'];
 
     // Salva in secure storage
     await _storage.write(key: 'rsa_public_key', value: keys['publicKey']!);
@@ -578,5 +593,181 @@ class EncryptionService {
     } catch (e) {
       throw Exception('K_family decryption failed: $e');
     }
+  }
+
+  // ========== Async/compute() wrappers ==========
+  // These run CPU-heavy crypto on a background isolate so the UI thread
+  // stays smooth during chat load, attachment upload/download and thumbnails.
+
+  /// Batch-decrypts N encrypted payloads on a single background isolate.
+  /// Each payload has the same structure produced by encryptMessage/Dual.
+  /// Returns plaintexts in the same order (null entries for failures).
+  Future<List<String?>> decryptMessagesBatch(List<String> encryptedPayloads) async {
+    if (encryptedPayloads.isEmpty) return const [];
+    final privKey = _privateKeyBase64;
+    if (privKey == null) {
+      // Fallback to sync path if key isn't cached (shouldn't happen post-init)
+      return encryptedPayloads.map((p) {
+        try {
+          return decryptMessage(p);
+        } catch (_) {
+          return null;
+        }
+      }).toList();
+    }
+    return compute(
+      batchDecryptMessagesEntry,
+      BatchDecryptArgs(privKey, encryptedPayloads),
+    );
+  }
+
+  /// Same as [encryptFileDual] but runs on a background isolate.
+  Future<Map<String, dynamic>> encryptFileDualAsync(
+    Uint8List fileBytes,
+    String senderPublicKey,
+    String recipientPublicKey,
+  ) async {
+    final result = await compute(
+      encryptFileDualEntry,
+      EncryptFileDualArgs(fileBytes, senderPublicKey, recipientPublicKey),
+    );
+    return {
+      'encryptedFileBytes': result.encryptedFileBytes,
+      'encryptedKeyRecipient': result.encryptedKeyRecipient,
+      'encryptedKeySender': result.encryptedKeySender,
+      'iv': result.iv,
+      'aesKey': result.aesKey,
+    };
+  }
+
+  /// Same as [encryptFileWithExistingKey] but runs on a background isolate.
+  Future<Uint8List> encryptFileWithExistingKeyAsync(
+    Uint8List fileBytes,
+    Uint8List aesKey,
+    String ivBase64,
+  ) {
+    return compute(
+      encryptFileWithExistingKeyEntry,
+      EncryptWithExistingKeyArgs(fileBytes, aesKey, ivBase64),
+    );
+  }
+
+  /// Same as [decryptFile] but runs on a background isolate.
+  Future<Uint8List> decryptFileAsync(
+    Uint8List encryptedBytes,
+    String encryptedAesKeyBase64,
+    String ivBase64,
+  ) async {
+    final privKey = _privateKeyBase64;
+    if (privKey == null) {
+      // Fallback: sync on main. Shouldn't happen after startup.
+      return decryptFile(encryptedBytes, encryptedAesKeyBase64, ivBase64);
+    }
+    return compute(
+      decryptFileEntry,
+      DecryptFileArgs(encryptedBytes, encryptedAesKeyBase64, ivBase64, privKey),
+    );
+  }
+
+  // ========== AES-GCM native wrappers ==========
+  // Usano cryptography_flutter che su Android/iOS delega al plugin nativo
+  // (AES hardware). Bypassano completamente compute() / isolate: il canale
+  // di metodo Flutter esegue già su thread nativo, quindi niente spawn
+  // cost (~1-4s su cold start con compute() + pointycastle).
+
+  /// Cifra un file con AES-256-GCM e doppia cifratura RSA della chiave AES.
+  /// Ritorna una mappa compatibile con la struttura CBC esistente più:
+  ///   - 'encryptVersion': 'gcm-v1'
+  /// Il ciphertext risultante ha il MAC GCM (16 byte) concatenato in coda,
+  /// così possiamo tenere 'encryptedFileBytes' come singolo Uint8List senza
+  /// cambiare la struttura di storage/Attachment.
+  Future<Map<String, dynamic>> encryptFileDualGcm(
+    Uint8List fileBytes,
+    String senderPublicKey,
+    String recipientPublicKey,
+  ) async {
+    // 256-bit AES key random
+    final secretKey = await _nativeAesGcm.newSecretKey();
+    final aesKeyBytes = Uint8List.fromList(await secretKey.extractBytes());
+
+    // Nonce random (12 byte, standard GCM)
+    final nonce = _nativeAesGcm.newNonce();
+
+    // Encrypt file → cipherText + mac (16 byte)
+    final secretBox = await _nativeAesGcm.encrypt(
+      fileBytes,
+      secretKey: secretKey,
+      nonce: nonce,
+    );
+
+    // Concateno ciphertext + mac in un solo blob per riutilizzare il campo
+    // url/storage esistente senza aggiungere metadata extra.
+    final encryptedBlob = Uint8List(secretBox.cipherText.length + secretBox.mac.bytes.length)
+      ..setRange(0, secretBox.cipherText.length, secretBox.cipherText)
+      ..setRange(secretBox.cipherText.length, secretBox.cipherText.length + secretBox.mac.bytes.length, secretBox.mac.bytes);
+
+    // RSA-wrap della chiave AES per sender e recipient (operazioni piccole,
+    // possono restare sul main — sono qualche ms).
+    final encryptedKeySender = encryptAesKeyOnly(aesKeyBytes, senderPublicKey);
+    final encryptedKeyRecipient = encryptAesKeyOnly(aesKeyBytes, recipientPublicKey);
+
+    return {
+      'encryptedFileBytes': encryptedBlob,
+      'encryptedKeyRecipient': encryptedKeyRecipient,
+      'encryptedKeySender': encryptedKeySender,
+      'iv': base64Encode(nonce), // 12 byte (nonce GCM) nel campo iv
+      'aesKey': aesKeyBytes, // riutilizzo per thumbnail
+      'encryptVersion': 'gcm-v1',
+    };
+  }
+
+  /// Cifra un secondo buffer (es. thumbnail) con la STESSA chiave AES ma un
+  /// NUOVO nonce (GCM vieta riuso di nonce con stessa chiave). Ritorna
+  /// bytes cifrati (cipherText + mac concatenati) e il nonce base64.
+  Future<Map<String, dynamic>> encryptFileWithExistingKeyGcm(
+    Uint8List fileBytes,
+    Uint8List aesKey,
+  ) async {
+    final secretKey = cg.SecretKey(aesKey);
+    final nonce = _nativeAesGcm.newNonce();
+    final secretBox = await _nativeAesGcm.encrypt(
+      fileBytes,
+      secretKey: secretKey,
+      nonce: nonce,
+    );
+    final encryptedBlob = Uint8List(secretBox.cipherText.length + secretBox.mac.bytes.length)
+      ..setRange(0, secretBox.cipherText.length, secretBox.cipherText)
+      ..setRange(secretBox.cipherText.length, secretBox.cipherText.length + secretBox.mac.bytes.length, secretBox.mac.bytes);
+    return {
+      'encryptedFileBytes': encryptedBlob,
+      'iv': base64Encode(nonce),
+    };
+  }
+
+  /// Decifra un file cifrato con encryptFileDualGcm / encryptFileWithExistingKeyGcm.
+  /// [encryptedBytes] è cipherText + mac(16 byte). [ivBase64] è il nonce da 12 byte.
+  Future<Uint8List> decryptFileGcm(
+    Uint8List encryptedBytes,
+    String encryptedAesKeyBase64,
+    String ivBase64,
+  ) async {
+    // Unwrap AES key con RSA (qui serve la chiave privata — operazione veloce).
+    final encryptedAesKey = base64Decode(encryptedAesKeyBase64);
+    final aesKey = _rsaDecrypt(encryptedAesKey);
+
+    // Split ciphertext / mac (mac = ultimi 16 byte).
+    if (encryptedBytes.length < 16) {
+      throw Exception('Encrypted blob too small to contain GCM MAC');
+    }
+    final macStart = encryptedBytes.length - 16;
+    final cipherText = encryptedBytes.sublist(0, macStart);
+    final macBytes = encryptedBytes.sublist(macStart);
+
+    final nonce = base64Decode(ivBase64);
+    final secretBox = cg.SecretBox(cipherText, nonce: nonce, mac: cg.Mac(macBytes));
+    final secretKey = cg.SecretKey(aesKey);
+
+    final decrypted = await _nativeAesGcm.decrypt(secretBox, secretKey: secretKey);
+    return Uint8List.fromList(decrypted);
   }
 }

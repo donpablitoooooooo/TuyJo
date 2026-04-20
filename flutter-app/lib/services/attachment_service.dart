@@ -7,11 +7,11 @@ import 'package:image_picker/image_picker.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:mime/mime.dart';
 import 'package:uuid/uuid.dart';
-import 'package:image/image.dart' as img;
 import 'package:flutter_image_compress/flutter_image_compress.dart';
 import '../models/message.dart';
 import 'encryption_service.dart';
 import 'attachment_cache_service.dart';
+import 'crypto_isolate.dart';
 
 /// Eccezione lanciata quando un permesso necessario per un allegato è negato
 class AttachmentPermissionDeniedException implements Exception {
@@ -37,9 +37,12 @@ class AttachmentService {
   Future<List<File>> pickImageFromGallery() async {
     try {
       final List<XFile> images = await _imagePicker.pickMultiImage(
-        maxWidth: 4096,  // Qualità stampa
-        maxHeight: 4096, // Qualità stampa
-        imageQuality: 95, // Alta qualità per stampa
+        // 4096px mantiene risoluzione di stampa (fino a ~13x13" a 300 DPI).
+        // q85 vs q95: ~40% meno byte, differenza visiva impercettibile anche
+        // in stampa (gli artefatti JPEG compaiono sotto q70-75).
+        maxWidth: 4096,
+        maxHeight: 4096,
+        imageQuality: 85,
       );
 
       if (images.isNotEmpty) {
@@ -64,9 +67,11 @@ class AttachmentService {
     try {
       final XFile? image = await _imagePicker.pickImage(
         source: ImageSource.camera,
-        maxWidth: 4096,  // Qualità stampa
-        maxHeight: 4096, // Qualità stampa
-        imageQuality: 95, // Alta qualità per stampa
+        // Stessi parametri di pickImageFromGallery: 4096px per stampa,
+        // q85 per upload veloci senza artefatti visibili.
+        maxWidth: 4096,
+        maxHeight: 4096,
+        imageQuality: 85,
       );
 
       if (image != null) {
@@ -153,60 +158,35 @@ class AttachmentService {
     }
   }
 
-  /// Genera thumbnail quadrato 300x300 con center crop
+  /// Genera thumbnail ~300px (lato corto) via resize NATIVO in un solo step.
+  ///
+  /// FlutterImageCompress gira su thread nativo (libjpeg / libpng / Android
+  /// BitmapFactory + inSampleSize) e decodifica + resize + re-encode in una
+  /// singola passata. Tipicamente 100-250ms anche su foto da 20 MP.
+  ///
+  /// NOTA: il risultato preserva l'aspect ratio (es. 450×300 per una foto
+  /// 3:2), non è square-cropped. Il widget AttachmentImage usa BoxFit.cover
+  /// dentro un container quadrato, che esegue il center-crop visuale senza
+  /// che serva toccare i pixel. Risparmiamo ~2s di pure-Dart crop.
   Future<Uint8List?> _generateThumbnail(Uint8List imageBytes) async {
     try {
-      // Decodifica immagine per log dimensioni originali
-      final image = img.decodeImage(imageBytes);
-      if (image == null) return null;
+      final stopwatch = Stopwatch()..start();
 
-      if (kDebugMode) {
-        print('📐 Original image dimensions: ${image.width}x${image.height}');
-        print('   Aspect ratio: ${(image.width / image.height).toStringAsFixed(2)}');
-      }
-
-      // 1) Center crop a quadrato (usa il lato più corto come dimensione)
-      final int cropSize = image.width < image.height ? image.width : image.height;
-      final int offsetX = (image.width - cropSize) ~/ 2;
-      final int offsetY = (image.height - cropSize) ~/ 2;
-
-      final img.Image croppedImage = img.copyCrop(
-        image,
-        x: offsetX,
-        y: offsetY,
-        width: cropSize,
-        height: cropSize,
-      );
-
-      if (kDebugMode) {
-        print('✂️ Center cropped to: ${croppedImage.width}x${croppedImage.height}');
-        print('   Aspect ratio: ${(croppedImage.width / croppedImage.height).toStringAsFixed(2)}');
-      }
-
-      // 2) Converti a bytes per compressione
-      final Uint8List croppedBytes = Uint8List.fromList(img.encodeJpg(croppedImage, quality: 95));
-
-      // 3) Resize a 300x300 con flutter_image_compress (alta qualità)
-      final thumbnailBytes = await FlutterImageCompress.compressWithList(
-        croppedBytes,
+      final Uint8List thumbnailBytes = await FlutterImageCompress.compressWithList(
+        imageBytes,
         minWidth: 300,
         minHeight: 300,
-        quality: 90,
+        quality: 85,
         format: CompressFormat.jpeg,
         keepExif: false,
       );
-
-      // Decodifica thumbnail per log dimensioni finali
-      final thumbnail = img.decodeImage(thumbnailBytes);
-      if (thumbnail != null && kDebugMode) {
-        print('📐 Final thumbnail dimensions: ${thumbnail.width}x${thumbnail.height}');
-        print('   Aspect ratio: ${(thumbnail.width / thumbnail.height).toStringAsFixed(2)} (should be 1.00)');
-      }
+      stopwatch.stop();
 
       if (kDebugMode) {
         print('📐 Generated thumbnail:');
         print('   Original: ${(imageBytes.length / 1024).toStringAsFixed(1)} KB');
         print('   Thumbnail: ${(thumbnailBytes.length / 1024).toStringAsFixed(1)} KB');
+        print('⏱ [TIMING] thumbnail gen (single native pass): ${stopwatch.elapsedMilliseconds}ms');
       }
 
       return thumbnailBytes;
@@ -253,38 +233,66 @@ class AttachmentService {
         print('   Type: $attachmentType');
       }
 
-      // 🔐 CIFRA IL FILE con dual encryption
-      final encryptedData = encryptionService.encryptFileDual(
+      // ═══════════════════════════════════════════════════════════════
+      // PARALLELIZZAZIONE: il flusso serial era encrypt → upload full →
+      // gen thumb → encrypt thumb → upload thumb. Qui facciamo:
+      //
+      //   [encrypt full]  ‖  [gen thumbnail]           <- isolate
+      //          ↓                  ↓
+      //   [upload full]   ‖  [encrypt thumb]→[upload thumb]
+      //
+      // Upload full e upload thumb girano in parallelo su Firebase. Sulla
+      // chiamata tipica (~2-4 MB) si risparmia tutto il tempo di gen+
+      // encrypt+upload del thumbnail (era in coda all'upload principale).
+      // ═══════════════════════════════════════════════════════════════
+
+      if (kDebugMode) print('🔐 Encrypting + generating thumbnail (parallel)...');
+
+      // ⏱ TIMING: scandaglia ogni fase dell'upload così possiamo vedere
+      // esattamente dove vanno i secondi (encrypt vs upload vs getDownloadURL).
+      final totalStopwatch = Stopwatch()..start();
+      final encryptStopwatch = Stopwatch()..start();
+
+      // Phase 1: encrypt full file (AES-GCM nativo, zero isolate) e
+      // generate thumbnail (compute() perché è Dart puro) in parallelo.
+      // L'encrypt ora usa il plugin cryptography_flutter → AES hardware
+      // Android/iOS, tipicamente <100ms per MB invece dei 1-4s di pointycastle.
+      final encryptFuture = encryptionService.encryptFileDualGcm(
         fileBytes,
         senderPublicKey,
         recipientPublicKey,
       );
+      final Future<Uint8List?> thumbnailGenFuture = (attachmentType == 'photo')
+          ? _generateThumbnail(fileBytes)
+          : Future<Uint8List?>.value(null);
 
+      final encryptedData = await encryptFuture;
       final Uint8List encryptedFileBytes = encryptedData['encryptedFileBytes'] as Uint8List;
       final String encryptedKeyRecipient = encryptedData['encryptedKeyRecipient'] as String;
       final String encryptedKeySender = encryptedData['encryptedKeySender'] as String;
       final String iv = encryptedData['iv'] as String;
-      final Uint8List aesKey = encryptedData['aesKey'] as Uint8List; // Salva chiave AES per thumbnail
+      final Uint8List aesKey = encryptedData['aesKey'] as Uint8List;
+      final String encryptVersion = encryptedData['encryptVersion'] as String; // 'gcm-v1'
+      encryptStopwatch.stop();
 
       if (kDebugMode) {
         print('✅ File encrypted successfully');
         print('   Encrypted size: ${(encryptedFileBytes.length / 1024 / 1024).toStringAsFixed(2)} MB');
+        print('⏱ [TIMING] encrypt(parallel with thumb gen): ${encryptStopwatch.elapsedMilliseconds}ms');
       }
 
-      // Path su Firebase Storage: /families/{familyChatId}/attachments/{attachmentType}/{attachmentId}
+      // Phase 2: kick off full file upload subito (non aspetta il thumbnail).
       final String storagePath = 'families/$familyChatId/attachments/$attachmentType/$attachmentId';
-
       if (kDebugMode) {
         print('📤 Uploading encrypted file to Firebase Storage...');
         print('   Path: $storagePath');
       }
 
-      // Upload del file CIFRATO
-      final Reference ref = _storage.ref().child(storagePath);
-      final UploadTask uploadTask = ref.putData(
+      final fullUploadStopwatch = Stopwatch()..start();
+      final UploadTask fullUploadTask = _storage.ref().child(storagePath).putData(
         encryptedFileBytes,
         SettableMetadata(
-          contentType: 'application/octet-stream', // File cifrato binario
+          contentType: 'application/octet-stream',
           customMetadata: {
             'senderId': senderId,
             'originalFileName': fileName,
@@ -293,74 +301,108 @@ class AttachmentService {
           },
         ),
       );
+      // Usiamo await in un helper invece di .then(): sull'UploadTask .then
+      // sembra non far partire il callback in modo affidabile, perdiamo i
+      // log di timing. Con await diretto è garantito.
+      final fullSizeKB = (encryptedFileBytes.length / 1024).toStringAsFixed(0);
+      final Future<String> fullDownloadUrlFuture = () async {
+        final snapshot = await fullUploadTask;
+        final uploadMs = fullUploadStopwatch.elapsedMilliseconds;
+        final urlStopwatch = Stopwatch()..start();
+        final url = await snapshot.ref.getDownloadURL();
+        final urlMs = urlStopwatch.elapsedMilliseconds;
+        fullUploadStopwatch.stop();
+        if (kDebugMode) {
+          print('✅ Encrypted attachment uploaded successfully');
+          print('   URL: $url');
+          print('⏱ [TIMING] full upload(${fullSizeKB}KB): ${uploadMs}ms + getDownloadURL: ${urlMs}ms');
+        }
+        return url;
+      }();
 
-      // Attendi il completamento
-      final TaskSnapshot snapshot = await uploadTask;
-
-      // Ottieni l'URL di download
-      final String downloadUrl = await snapshot.ref.getDownloadURL();
-
-      if (kDebugMode) {
-        print('✅ Encrypted attachment uploaded successfully');
-        print('   URL: $downloadUrl');
-      }
-
-      // 🖼️ GENERA E CARICA THUMBNAIL (solo per foto)
-      // Wrappato in try/catch separato: un errore thumbnail NON deve
-      // impedire il ritorno dell'Attachment (il full image è già caricato)
-      String? thumbnailUrl;
+      // Phase 3: aspetta il thumbnail (può essere già pronto), poi
+      // avvia il suo upload IN PARALLELO con l'upload full.
+      Future<String?> thumbnailUrlFuture = Future.value(null);
+      Uint8List? thumbnailBytes;
+      // GCM vieta nonce-reuse con la stessa chiave, quindi il thumbnail ha
+      // un nonce suo (generato dentro encryptFileWithExistingKeyGcm).
+      String? thumbnailIv;
       if (attachmentType == 'photo') {
         try {
-          if (kDebugMode) print('📐 Generating thumbnail for photo...');
-
-          final Uint8List? thumbnailBytes = await _generateThumbnail(fileBytes);
-
+          thumbnailBytes = await thumbnailGenFuture;
           if (thumbnailBytes != null) {
-            // Cifra il thumbnail con le STESSE chiavi AES e IV del full image
-            final Uint8List encryptedThumbnailBytes = encryptionService.encryptFileWithExistingKey(
-              thumbnailBytes,
-              aesKey, // Usa la stessa chiave AES del full image
-              iv,     // Usa lo stesso IV del full image
-            );
-
-            // Upload thumbnail cifrato con path diverso
-            final String thumbnailPath = 'families/$familyChatId/attachments/$attachmentType/thumbnails/$attachmentId';
-            final Reference thumbnailRef = _storage.ref().child(thumbnailPath);
-
-            if (kDebugMode) {
-              print('📤 Uploading encrypted thumbnail...');
-              print('   Path: $thumbnailPath');
-            }
-
-            final UploadTask thumbnailUploadTask = thumbnailRef.putData(
-              encryptedThumbnailBytes,
-              SettableMetadata(
-                contentType: 'application/octet-stream',
-                customMetadata: {
-                  'senderId': senderId,
-                  'type': 'thumbnail',
-                  'encrypted': 'true',
-                },
-              ),
-            );
-
-            final TaskSnapshot thumbnailSnapshot = await thumbnailUploadTask;
-            thumbnailUrl = await thumbnailSnapshot.ref.getDownloadURL();
-
-            if (kDebugMode) {
-              print('✅ Thumbnail uploaded successfully');
-              print('   URL: $thumbnailUrl');
-            }
+            final tBytes = thumbnailBytes;
+            thumbnailUrlFuture = () async {
+              final thumbStopwatch = Stopwatch()..start();
+              final thumbEncryptResult = await encryptionService.encryptFileWithExistingKeyGcm(
+                tBytes, aesKey,
+              );
+              final encryptedThumbnailBytes = thumbEncryptResult['encryptedFileBytes'] as Uint8List;
+              thumbnailIv = thumbEncryptResult['iv'] as String;
+              final thumbEncryptMs = thumbStopwatch.elapsedMilliseconds;
+              final thumbnailPath = 'families/$familyChatId/attachments/$attachmentType/thumbnails/$attachmentId';
+              if (kDebugMode) {
+                print('📤 Uploading encrypted thumbnail (in parallel)...');
+                print('   Path: $thumbnailPath');
+              }
+              final thumbUploadStart = thumbStopwatch.elapsedMilliseconds;
+              final thumbTask = _storage.ref().child(thumbnailPath).putData(
+                encryptedThumbnailBytes,
+                SettableMetadata(
+                  contentType: 'application/octet-stream',
+                  customMetadata: {
+                    'senderId': senderId,
+                    'type': 'thumbnail',
+                    'encrypted': 'true',
+                  },
+                ),
+              );
+              final snap = await thumbTask;
+              final thumbUploadMs = thumbStopwatch.elapsedMilliseconds - thumbUploadStart;
+              final thumbUrlStart = thumbStopwatch.elapsedMilliseconds;
+              final url = await snap.ref.getDownloadURL();
+              final thumbUrlMs = thumbStopwatch.elapsedMilliseconds - thumbUrlStart;
+              thumbStopwatch.stop();
+              if (kDebugMode) {
+                print('✅ Thumbnail uploaded successfully');
+                print('   URL: $url');
+                print('⏱ [TIMING] thumb encrypt: ${thumbEncryptMs}ms + upload: ${thumbUploadMs}ms + getDownloadURL: ${thumbUrlMs}ms');
+              }
+              return url;
+            }();
           }
         } catch (e) {
-          // Thumbnail fallito, ma il full image è già caricato → continua
-          if (kDebugMode) print('⚠️ Thumbnail generation/upload failed (non-fatal): $e');
+          if (kDebugMode) print('⚠️ Thumbnail gen failed (non-fatal): $e');
         }
       }
+
+      // Phase 4: aspetta entrambi gli upload in parallelo.
+      final String downloadUrl = await fullDownloadUrlFuture;
+      String? thumbnailUrl;
+      try {
+        thumbnailUrl = await thumbnailUrlFuture;
+      } catch (e) {
+        if (kDebugMode) print('⚠️ Thumbnail upload failed (non-fatal): $e');
+      }
+
+      // 🚀 PRE-POPULATE CACHE per il receiver-side-equivalente (il Firestore
+      // listener sulla stessa istanza che ora vedrà il messaggio arrivare).
+      final cacheStopwatch = Stopwatch()..start();
+      await _cacheService.saveToCache(attachmentId, fileBytes, isThumbnail: false);
+      if (thumbnailBytes != null) {
+        await _cacheService.saveToCache(attachmentId, thumbnailBytes, isThumbnail: true);
+      }
+      cacheStopwatch.stop();
+
+      totalStopwatch.stop();
 
       // Crea l'oggetto Attachment con metadata di cifratura
       if (kDebugMode) {
         print('✅ [uploadAttachment] Returning Attachment: id=$attachmentId, url=${downloadUrl.length > 50 ? '${downloadUrl.substring(0, 50)}...' : downloadUrl}');
+        print('⏱ [TIMING] ══════════════════════════════════════════');
+        print('⏱ [TIMING] uploadAttachment TOTAL: ${totalStopwatch.elapsedMilliseconds}ms');
+        print('⏱ [TIMING]   pre-populate cache: ${cacheStopwatch.elapsedMilliseconds}ms');
+        print('⏱ [TIMING] ══════════════════════════════════════════');
       }
       return Attachment(
         id: attachmentId,
@@ -373,6 +415,8 @@ class AttachmentService {
         encryptedKeyRecipient: encryptedKeyRecipient,
         encryptedKeySender: encryptedKeySender,
         iv: iv,
+        encryptVersion: encryptVersion, // 'gcm-v1' per tutti i nuovi file
+        thumbnailIv: thumbnailIv,       // nonce separato del thumbnail (GCM)
       );
     } catch (e, stackTrace) {
       if (kDebugMode) {
@@ -492,12 +536,29 @@ class AttachmentService {
         print('   Using ${currentUserId == messageSenderId ? "sender" : "recipient"} key for decryption');
       }
 
-      // Decifra il file usando la propria chiave privata
-      final Uint8List decryptedBytes = encryptionService.decryptFile(
-        encryptedBytes,
-        encryptedAesKey,
-        attachment.iv,
-      );
+      // Per GCM il thumbnail usa un nonce diverso dal full image. Gli
+      // allegati vecchi (CBC) e il full image GCM usano il campo iv.
+      final String ivToUse = (useThumbnail && attachment.thumbnailIv != null)
+          ? attachment.thumbnailIv!
+          : attachment.iv;
+
+      // Route in base a encryptVersion:
+      //   'gcm-v1' → decrypt AES-GCM nativo (veloce, ~<100ms/MB)
+      //   null     → CBC legacy via pointycastle (slow path per file vecchi)
+      final Uint8List decryptedBytes;
+      if (attachment.encryptVersion == 'gcm-v1') {
+        decryptedBytes = await encryptionService.decryptFileGcm(
+          encryptedBytes,
+          encryptedAesKey,
+          ivToUse,
+        );
+      } else {
+        decryptedBytes = await encryptionService.decryptFileAsync(
+          encryptedBytes,
+          encryptedAesKey,
+          ivToUse,
+        );
+      }
 
       if (kDebugMode) {
         print('✅ File decrypted successfully');

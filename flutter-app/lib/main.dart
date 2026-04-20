@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:provider/provider.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:cryptography_flutter/cryptography_flutter.dart';
 import 'screens/main_screen.dart';
 import 'screens/voice_call_screen.dart';
 import 'services/auth_service.dart';
@@ -19,6 +21,12 @@ import 'package:private_messaging/generated/l10n/app_localizations.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
+  // 🔐 ATTIVA implementazioni native di cryptography_flutter.
+  // SENZA questa chiamata il package fallisce silenziosamente su pure-Dart
+  // (= stessa lentezza di pointycastle). DEVE essere chiamato una volta
+  // prima di usare FlutterAesGcm / FlutterCryptography.
+  FlutterCryptography.enable();
+
   print('⏱️ [STARTUP] Starting app initialization...');
   final startTime = DateTime.now();
 
@@ -28,6 +36,18 @@ void main() async {
   await Firebase.initializeApp();
   final firebaseDuration = DateTime.now().difference(firebaseStart);
   print('⏱️ [STARTUP] Firebase initialized in ${firebaseDuration.inMilliseconds}ms');
+
+  // 🔐 ANONYMOUS FIREBASE AUTH (non bloccante).
+  // Serve SOLO a dare un token valido al Firebase Storage SDK così non fa
+  // più retry cascata di "error getting token" prima di ogni upload — quelle
+  // cascate aggiungono secondi per ogni foto. Le storage.rules sono aperte
+  // (E2E è già garantita da AES+RSA), quindi l'identità anonima non serve
+  // a nulla di funzionale.
+  FirebaseAuth.instance.signInAnonymously().then((cred) {
+    print('⏱️ [STARTUP] Firebase anon sign-in OK (uid=${cred.user?.uid.substring(0, 6)})');
+  }).catchError((e) {
+    print('⚠️ [STARTUP] Firebase anon sign-in failed (non-fatal): $e');
+  });
 
   // Inizializza servizi (non bloccante - lazy init quando servono)
   final encryptionService = EncryptionService();

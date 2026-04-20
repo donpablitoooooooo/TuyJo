@@ -108,16 +108,8 @@ class MainActivity: FlutterActivity() {
 
         Log.d(TAG, "handleIntent: action=${intent.action}, type=${intent.type}")
 
-        // Controlla prima se c'è testo condiviso (link, URL, etc.)
-        if (intent.action == Intent.ACTION_SEND && intent.type?.startsWith("text/") == true) {
-            intent.getStringExtra(Intent.EXTRA_TEXT)?.let { sharedText ->
-                Log.d(TAG, "Shared text received: $sharedText")
-                handleSharedText(sharedText)
-                return
-            }
-        }
-
-        // Altrimenti gestisci i file
+        // Gestisci i file (EXTRA_STREAM ha priorità su EXTRA_TEXT)
+        // Alcuni app condividono PDF/documenti con sia EXTRA_STREAM che EXTRA_TEXT
         val uris = mutableListOf<Uri>()
 
         when (intent.action) {
@@ -139,6 +131,15 @@ class MainActivity: FlutterActivity() {
 
         if (uris.isNotEmpty()) {
             handleSharedMedia(uris)
+            return
+        }
+
+        // Solo se NON c'è un file, controlla il testo condiviso (link, URL, etc.)
+        if (intent.action == Intent.ACTION_SEND && intent.type?.startsWith("text/") == true) {
+            intent.getStringExtra(Intent.EXTRA_TEXT)?.let { sharedText ->
+                Log.d(TAG, "Shared text received: $sharedText")
+                handleSharedText(sharedText)
+            }
         }
     }
 

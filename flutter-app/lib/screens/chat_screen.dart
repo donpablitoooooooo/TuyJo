@@ -80,6 +80,10 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   final PendingUploadService _pendingUploadService = PendingUploadService();
   Timer? _pendingUploadRetryTimer; // Riprova pending uploads ogni 15s
   bool _isProcessingPending = false; // Guard contro esecuzioni concorrenti
+  /// PendingUpload.id attualmente in upload via il path "diretto" (al momento
+  /// dell'invio). Serve a impedire al queue processor di caricare la stessa
+  /// foto in parallelo — sennò ogni invio genera upload doppi.
+  final Set<String> _inFlightUploadIds = {};
 
   /// Messaggi locali in attesa di upload (non ancora su Firestore).
   /// Mostrati nella chat con un indicatore di invio in corso.
@@ -849,6 +853,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
         familyChatId: _familyChatId!,
         attachmentService: _attachmentService!,
         chatService: chatService,
+        excludeIds: Set<String>.from(_inFlightUploadIds),
       );
 
       if (mounted && kDebugMode) {
@@ -2777,7 +2782,10 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
         // ═══════════════════════════════════════════════════════════════
 
         final preGeneratedMessageId = chatService.generateMessageId(_familyChatId!);
-        final pendingId = 'upload_${DateTime.now().millisecondsSinceEpoch}';
+        // STESSO ID per pending e real: così la ValueKey della bubble non cambia
+        // quando il messaggio passa da "in invio" a "inviato" e Flutter preserva
+        // lo State del widget (niente flash / niente rebuild completo).
+        final pendingId = preGeneratedMessageId;
         List<String> permanentPaths = [];
 
         await _pendingUploadService.logDiag('PRE_GEN_ID: $preGeneratedMessageId');
@@ -2813,11 +2821,18 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
         // Mostra subito il messaggio pending nella UI (bubble locale con spinner)
         _addLocalPendingMessage(pendingId, messageText, attachments);
 
+        // Marca questo pending come "in carico dal path diretto" così il queue
+        // processor (timer 15s / app resume) non riparte un upload parallelo
+        // della stessa foto. Rimosso nel finally dopo upload + sendMessage.
+        _inFlightUploadIds.add(pendingId);
+
         // Prova upload subito
         await _pendingUploadService.logDiag('UPLOAD START: msg=$preGeneratedMessageId, files=${attachments.length}');
+        final sendFlowStopwatch = Stopwatch()..start();
         try {
           if (kDebugMode) print('📤 [UPLOAD] Starting upload of ${attachments.length} files...');
 
+          final uploadPhaseStart = sendFlowStopwatch.elapsedMilliseconds;
           final uploadedAttachments = await _attachmentService!.uploadMultipleAttachments(
             attachments,
             _familyChatId!,
@@ -2825,14 +2840,19 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
             myPublicKey,
             _partnerPublicKey!,
           );
+          final uploadPhaseMs = sendFlowStopwatch.elapsedMilliseconds - uploadPhaseStart;
 
           await _pendingUploadService.logDiag('UPLOAD RESULT: ${uploadedAttachments.length} attachments returned');
-          if (kDebugMode) print('📤 [UPLOAD] uploadMultipleAttachments returned ${uploadedAttachments.length} attachments');
+          if (kDebugMode) {
+            print('📤 [UPLOAD] uploadMultipleAttachments returned ${uploadedAttachments.length} attachments');
+            print('⏱ [TIMING] uploadMultipleAttachments phase: ${uploadPhaseMs}ms');
+          }
 
           if (uploadedAttachments.isNotEmpty) {
             // Upload riuscito! Invia messaggio COMPLETO su Firestore
             if (kDebugMode) print('📤 [UPLOAD] Sending complete message $preGeneratedMessageId...');
 
+            final sendMsgStart = sendFlowStopwatch.elapsedMilliseconds;
             final sentId = await chatService.sendMessage(
               messageText,
               _familyChatId!,
@@ -2846,11 +2866,19 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
               replyToSenderId: replyToMessage?.senderId,
               replyToAttachment: replyToMessage?.attachments?.cast<Attachment?>().firstWhere((a) => a?.type == 'photo', orElse: () => null),
             );
+            final sendMsgMs = sendFlowStopwatch.elapsedMilliseconds - sendMsgStart;
 
             await _pendingUploadService.logDiag('SEND_MSG DONE: sentId=$sentId');
 
             if (sentId != null) {
-              if (kDebugMode) print('✅ [UPLOAD] Complete message sent: $sentId');
+              sendFlowStopwatch.stop();
+              if (kDebugMode) {
+                print('✅ [UPLOAD] Complete message sent: $sentId');
+                print('⏱ [TIMING] sendMessage(Firestore + RSA msg encrypt): ${sendMsgMs}ms');
+                print('⏱ [TIMING] ═══════════════════════════════════════════');
+                print('⏱ [TIMING] TOTAL tap-send → message-sent: ${sendFlowStopwatch.elapsedMilliseconds}ms');
+                print('⏱ [TIMING] ═══════════════════════════════════════════');
+              }
               // Rimuovi pending, pulisci file
               await _pendingUploadService.removePendingUpload(pendingId);
               for (final p in permanentPaths) {
@@ -2873,6 +2901,10 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
           await _pendingUploadService.logDiag('UPLOAD EXCEPTION: $e');
           if (kDebugMode) print('📤 [UPLOAD] Upload failed (will retry): $e');
           success = true; // Non mostrare errore: il pending è salvato
+        } finally {
+          // Libera il lock: ora il queue processor può rimettere mano
+          // (se l'upload è fallito e la PendingUpload è rimasta su disco).
+          _inFlightUploadIds.remove(pendingId);
         }
 
       } else {
@@ -2979,11 +3011,15 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       _initDemoMessages();
     }
 
-    // Pre-filtra messaggi visibili (escludi todo_completed e TODO futuri)
-    // Questo garantisce che itemCount corrisponda ai messaggi realmente mostrati
+    // Pre-filtra messaggi visibili (escludi todo_completed e TODO futuri).
+    // Inoltre, se un messaggio Firestore ha lo stesso ID di un pending locale
+    // (stesso preGeneratedMessageId), lo nascondiamo finché non togliamo il
+    // pending: altrimenti avremmo due bubble con la stessa ValueKey.
+    final pendingIds = _pendingLocalMessages.keys.toSet();
     final visibleMessages = chatService.messages.where((m) {
       if (m.messageType == 'todo_completed') return false;
       if (m.messageType == 'todo' && m.timestamp.isAfter(DateTime.now())) return false;
+      if (pendingIds.contains(m.id)) return false;
       return true;
     }).toList();
 
@@ -3021,7 +3057,9 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                                 data['files'] as List<File>,
                               );
                               return _MessageBubble(
-                                key: ValueKey('pending_$pendingId'),
+                                // Stessa key del real message (pendingId == messageId)
+                                // così la bubble resta la stessa istanza nel tree.
+                                key: ValueKey(pendingId),
                                 message: pendingMessage.decryptedContent ?? '',
                                 timestamp: pendingMessage.timestamp,
                                 isMe: true,
