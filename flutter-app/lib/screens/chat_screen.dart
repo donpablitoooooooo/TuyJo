@@ -2828,9 +2828,11 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
 
         // Prova upload subito
         await _pendingUploadService.logDiag('UPLOAD START: msg=$preGeneratedMessageId, files=${attachments.length}');
+        final sendFlowStopwatch = Stopwatch()..start();
         try {
           if (kDebugMode) print('📤 [UPLOAD] Starting upload of ${attachments.length} files...');
 
+          final uploadPhaseStart = sendFlowStopwatch.elapsedMilliseconds;
           final uploadedAttachments = await _attachmentService!.uploadMultipleAttachments(
             attachments,
             _familyChatId!,
@@ -2838,14 +2840,19 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
             myPublicKey,
             _partnerPublicKey!,
           );
+          final uploadPhaseMs = sendFlowStopwatch.elapsedMilliseconds - uploadPhaseStart;
 
           await _pendingUploadService.logDiag('UPLOAD RESULT: ${uploadedAttachments.length} attachments returned');
-          if (kDebugMode) print('📤 [UPLOAD] uploadMultipleAttachments returned ${uploadedAttachments.length} attachments');
+          if (kDebugMode) {
+            print('📤 [UPLOAD] uploadMultipleAttachments returned ${uploadedAttachments.length} attachments');
+            print('⏱ [TIMING] uploadMultipleAttachments phase: ${uploadPhaseMs}ms');
+          }
 
           if (uploadedAttachments.isNotEmpty) {
             // Upload riuscito! Invia messaggio COMPLETO su Firestore
             if (kDebugMode) print('📤 [UPLOAD] Sending complete message $preGeneratedMessageId...');
 
+            final sendMsgStart = sendFlowStopwatch.elapsedMilliseconds;
             final sentId = await chatService.sendMessage(
               messageText,
               _familyChatId!,
@@ -2859,11 +2866,19 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
               replyToSenderId: replyToMessage?.senderId,
               replyToAttachment: replyToMessage?.attachments?.cast<Attachment?>().firstWhere((a) => a?.type == 'photo', orElse: () => null),
             );
+            final sendMsgMs = sendFlowStopwatch.elapsedMilliseconds - sendMsgStart;
 
             await _pendingUploadService.logDiag('SEND_MSG DONE: sentId=$sentId');
 
             if (sentId != null) {
-              if (kDebugMode) print('✅ [UPLOAD] Complete message sent: $sentId');
+              sendFlowStopwatch.stop();
+              if (kDebugMode) {
+                print('✅ [UPLOAD] Complete message sent: $sentId');
+                print('⏱ [TIMING] sendMessage(Firestore + RSA msg encrypt): ${sendMsgMs}ms');
+                print('⏱ [TIMING] ═══════════════════════════════════════════');
+                print('⏱ [TIMING] TOTAL tap-send → message-sent: ${sendFlowStopwatch.elapsedMilliseconds}ms');
+                print('⏱ [TIMING] ═══════════════════════════════════════════');
+              }
               // Rimuovi pending, pulisci file
               await _pendingUploadService.removePendingUpload(pendingId);
               for (final p in permanentPaths) {

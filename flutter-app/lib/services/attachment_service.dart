@@ -241,6 +241,11 @@ class AttachmentService {
 
       if (kDebugMode) print('🔐 Encrypting + generating thumbnail (parallel)...');
 
+      // ⏱ TIMING: scandaglia ogni fase dell'upload così possiamo vedere
+      // esattamente dove vanno i secondi (encrypt vs upload vs getDownloadURL).
+      final totalStopwatch = Stopwatch()..start();
+      final encryptStopwatch = Stopwatch()..start();
+
       // Phase 1: encrypt full file e generate thumbnail in parallelo.
       // Sono entrambi CPU-bound, girano su isolate diversi via compute().
       final encryptFuture = encryptionService.encryptFileDualAsync(
@@ -258,10 +263,12 @@ class AttachmentService {
       final String encryptedKeySender = encryptedData['encryptedKeySender'] as String;
       final String iv = encryptedData['iv'] as String;
       final Uint8List aesKey = encryptedData['aesKey'] as Uint8List;
+      encryptStopwatch.stop();
 
       if (kDebugMode) {
         print('✅ File encrypted successfully');
         print('   Encrypted size: ${(encryptedFileBytes.length / 1024 / 1024).toStringAsFixed(2)} MB');
+        print('⏱ [TIMING] encrypt(parallel with thumb gen): ${encryptStopwatch.elapsedMilliseconds}ms');
       }
 
       // Phase 2: kick off full file upload subito (non aspetta il thumbnail).
@@ -271,6 +278,7 @@ class AttachmentService {
         print('   Path: $storagePath');
       }
 
+      final fullUploadStopwatch = Stopwatch()..start();
       final UploadTask fullUploadTask = _storage.ref().child(storagePath).putData(
         encryptedFileBytes,
         SettableMetadata(
@@ -284,10 +292,15 @@ class AttachmentService {
         ),
       );
       final Future<String> fullDownloadUrlFuture = fullUploadTask.then((snapshot) async {
+        final uploadMs = fullUploadStopwatch.elapsedMilliseconds;
+        final urlStopwatch = Stopwatch()..start();
         final url = await snapshot.ref.getDownloadURL();
+        final urlMs = urlStopwatch.elapsedMilliseconds;
+        fullUploadStopwatch.stop();
         if (kDebugMode) {
           print('✅ Encrypted attachment uploaded successfully');
           print('   URL: $url');
+          print('⏱ [TIMING] full upload(${(encryptedFileBytes.length / 1024).toStringAsFixed(0)}KB): ${uploadMs}ms + getDownloadURL: ${urlMs}ms');
         }
         return url;
       });
@@ -302,14 +315,17 @@ class AttachmentService {
           if (thumbnailBytes != null) {
             final tBytes = thumbnailBytes;
             thumbnailUrlFuture = () async {
+              final thumbStopwatch = Stopwatch()..start();
               final encryptedThumbnailBytes = await encryptionService.encryptFileWithExistingKeyAsync(
                 tBytes, aesKey, iv,
               );
+              final thumbEncryptMs = thumbStopwatch.elapsedMilliseconds;
               final thumbnailPath = 'families/$familyChatId/attachments/$attachmentType/thumbnails/$attachmentId';
               if (kDebugMode) {
                 print('📤 Uploading encrypted thumbnail (in parallel)...');
                 print('   Path: $thumbnailPath');
               }
+              final thumbUploadStart = thumbStopwatch.elapsedMilliseconds;
               final thumbTask = _storage.ref().child(thumbnailPath).putData(
                 encryptedThumbnailBytes,
                 SettableMetadata(
@@ -322,10 +338,15 @@ class AttachmentService {
                 ),
               );
               final snap = await thumbTask;
+              final thumbUploadMs = thumbStopwatch.elapsedMilliseconds - thumbUploadStart;
+              final thumbUrlStart = thumbStopwatch.elapsedMilliseconds;
               final url = await snap.ref.getDownloadURL();
+              final thumbUrlMs = thumbStopwatch.elapsedMilliseconds - thumbUrlStart;
+              thumbStopwatch.stop();
               if (kDebugMode) {
                 print('✅ Thumbnail uploaded successfully');
                 print('   URL: $url');
+                print('⏱ [TIMING] thumb encrypt: ${thumbEncryptMs}ms + upload: ${thumbUploadMs}ms + getDownloadURL: ${thumbUrlMs}ms');
               }
               return url;
             }();
@@ -346,14 +367,22 @@ class AttachmentService {
 
       // 🚀 PRE-POPULATE CACHE per il receiver-side-equivalente (il Firestore
       // listener sulla stessa istanza che ora vedrà il messaggio arrivare).
+      final cacheStopwatch = Stopwatch()..start();
       await _cacheService.saveToCache(attachmentId, fileBytes, isThumbnail: false);
       if (thumbnailBytes != null) {
         await _cacheService.saveToCache(attachmentId, thumbnailBytes, isThumbnail: true);
       }
+      cacheStopwatch.stop();
+
+      totalStopwatch.stop();
 
       // Crea l'oggetto Attachment con metadata di cifratura
       if (kDebugMode) {
         print('✅ [uploadAttachment] Returning Attachment: id=$attachmentId, url=${downloadUrl.length > 50 ? '${downloadUrl.substring(0, 50)}...' : downloadUrl}');
+        print('⏱ [TIMING] ══════════════════════════════════════════');
+        print('⏱ [TIMING] uploadAttachment TOTAL: ${totalStopwatch.elapsedMilliseconds}ms');
+        print('⏱ [TIMING]   pre-populate cache: ${cacheStopwatch.elapsedMilliseconds}ms');
+        print('⏱ [TIMING] ══════════════════════════════════════════');
       }
       return Attachment(
         id: attachmentId,
