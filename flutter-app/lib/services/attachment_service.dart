@@ -37,11 +37,9 @@ class AttachmentService {
   Future<List<File>> pickImageFromGallery() async {
     try {
       final List<XFile> images = await _imagePicker.pickMultiImage(
-        // 2048px + q85 è più che sufficiente per visualizzazione su telefono
-        // e rende upload/encrypt 3-5x più veloci rispetto alla "qualità stampa".
-        maxWidth: 2048,
-        maxHeight: 2048,
-        imageQuality: 85,
+        maxWidth: 4096,  // Qualità stampa
+        maxHeight: 4096, // Qualità stampa
+        imageQuality: 95, // Alta qualità per stampa
       );
 
       if (images.isNotEmpty) {
@@ -66,11 +64,9 @@ class AttachmentService {
     try {
       final XFile? image = await _imagePicker.pickImage(
         source: ImageSource.camera,
-        // Stessi parametri di pickImageFromGallery: 2048px + q85 per
-        // mantenere gli upload veloci mantenendo qualità visiva alta.
-        maxWidth: 2048,
-        maxHeight: 2048,
-        imageQuality: 85,
+        maxWidth: 4096,  // Qualità stampa
+        maxHeight: 4096, // Qualità stampa
+        imageQuality: 95, // Alta qualità per stampa
       );
 
       if (image != null) {
