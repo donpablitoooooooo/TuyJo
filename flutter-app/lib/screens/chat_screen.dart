@@ -80,6 +80,10 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   final PendingUploadService _pendingUploadService = PendingUploadService();
   Timer? _pendingUploadRetryTimer; // Riprova pending uploads ogni 15s
   bool _isProcessingPending = false; // Guard contro esecuzioni concorrenti
+  /// PendingUpload.id attualmente in upload via il path "diretto" (al momento
+  /// dell'invio). Serve a impedire al queue processor di caricare la stessa
+  /// foto in parallelo — sennò ogni invio genera upload doppi.
+  final Set<String> _inFlightUploadIds = {};
 
   /// Messaggi locali in attesa di upload (non ancora su Firestore).
   /// Mostrati nella chat con un indicatore di invio in corso.
@@ -849,6 +853,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
         familyChatId: _familyChatId!,
         attachmentService: _attachmentService!,
         chatService: chatService,
+        excludeIds: Set<String>.from(_inFlightUploadIds),
       );
 
       if (mounted && kDebugMode) {
@@ -2816,6 +2821,11 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
         // Mostra subito il messaggio pending nella UI (bubble locale con spinner)
         _addLocalPendingMessage(pendingId, messageText, attachments);
 
+        // Marca questo pending come "in carico dal path diretto" così il queue
+        // processor (timer 15s / app resume) non riparte un upload parallelo
+        // della stessa foto. Rimosso nel finally dopo upload + sendMessage.
+        _inFlightUploadIds.add(pendingId);
+
         // Prova upload subito
         await _pendingUploadService.logDiag('UPLOAD START: msg=$preGeneratedMessageId, files=${attachments.length}');
         try {
@@ -2876,6 +2886,10 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
           await _pendingUploadService.logDiag('UPLOAD EXCEPTION: $e');
           if (kDebugMode) print('📤 [UPLOAD] Upload failed (will retry): $e');
           success = true; // Non mostrare errore: il pending è salvato
+        } finally {
+          // Libera il lock: ora il queue processor può rimettere mano
+          // (se l'upload è fallito e la PendingUpload è rimasta su disco).
+          _inFlightUploadIds.remove(pendingId);
         }
 
       } else {

@@ -261,16 +261,26 @@ class PendingUploadService {
 
   /// Prova a uploadare i file in coda e inviare il messaggio completo su Firestore.
   /// Il messaggio NON esiste ancora su Firestore: viene creato qui con gli allegati reali.
+  ///
+  /// [excludeIds] sono i PendingUpload.id attualmente già in carico dal path
+  /// "diretto" (quello che parte al momento dell'invio). Saltando quegli id
+  /// evitiamo di uploadare la stessa foto due volte in parallelo.
   Future<int> processPendingUploads({
     required String familyChatId,
     required AttachmentService attachmentService,
     required ChatService chatService,
+    Set<String> excludeIds = const {},
   }) async {
-    final pendingUploads = await getPendingUploadsForFamily(familyChatId);
+    final allPending = await getPendingUploadsForFamily(familyChatId);
+    final pendingUploads = excludeIds.isEmpty
+        ? allPending
+        : allPending.where((u) => !excludeIds.contains(u.id)).toList();
     if (pendingUploads.isEmpty) return 0;
 
     if (kDebugMode) {
-      print('🔄 [PENDING] Processing ${pendingUploads.length} pending uploads...');
+      final skipped = allPending.length - pendingUploads.length;
+      print('🔄 [PENDING] Processing ${pendingUploads.length} pending uploads...'
+          '${skipped > 0 ? ' (skipped $skipped in-flight)' : ''}');
     }
 
     int successCount = 0;
