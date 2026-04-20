@@ -274,6 +274,12 @@ class AttachmentService {
         print('   URL: $downloadUrl');
       }
 
+      // 🚀 PRE-POPULATE CACHE: abbiamo già i bytes decifrati (fileBytes) e
+      // ora conosciamo l'attachmentId finale. Salvandoli nella cache ora
+      // evitiamo che AttachmentImage ri-scarichi e ri-decifri lo stesso
+      // file quando il Firestore listener arriverà col messaggio reale.
+      await _cacheService.saveToCache(attachmentId, fileBytes, isThumbnail: false);
+
       // 🖼️ GENERA E CARICA THUMBNAIL (solo per foto)
       // Wrappato in try/catch separato: un errore thumbnail NON deve
       // impedire il ritorno dell'Attachment (il full image è già caricato)
@@ -321,6 +327,10 @@ class AttachmentService {
               print('✅ Thumbnail uploaded successfully');
               print('   URL: $thumbnailUrl');
             }
+
+            // 🚀 PRE-POPULATE CACHE: stesso motivo del full image — zero
+            // round-trip a Firebase quando il messaggio arriva via listener.
+            await _cacheService.saveToCache(attachmentId, thumbnailBytes, isThumbnail: true);
           }
         } catch (e) {
           // Thumbnail fallito, ma il full image è già caricato → continua
