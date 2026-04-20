@@ -159,27 +159,52 @@ class AttachmentService {
   }
 
   /// Genera thumbnail quadrato 300x300 con center crop.
-  /// Il decode + center-crop + encode JPEG gira su un isolate di background
-  /// (compute()); il resize finale usa FlutterImageCompress che già usa
-  /// un thread nativo, quindi non blocca l'UI.
+  ///
+  /// Prima chiamavamo img.decodeImage sui bytes originali (fino a 20 MP di
+  /// un Samsung/iPhone) → CPU al 100%, ~10-13s sul main o su isolate.
+  ///
+  /// Ora prima resize NATIVA a ~600x600 via FlutterImageCompress (decode+
+  /// resize su thread nativo, ~100-200ms), POI center-crop pure-Dart su una
+  /// sola 600×600 (trivial, <50ms su isolate), poi resize finale nativa.
   Future<Uint8List?> _generateThumbnail(Uint8List imageBytes) async {
     try {
-      final Uint8List? croppedBytes = await compute(thumbnailCropEntry, imageBytes);
-      if (croppedBytes == null) return null;
+      final stopwatch = Stopwatch()..start();
 
-      final thumbnailBytes = await FlutterImageCompress.compressWithList(
-        croppedBytes,
-        minWidth: 300,
-        minHeight: 300,
+      // Step 1: NATIVE decode + resize a max 600px lato corto.
+      // FlutterImageCompress usa libjpeg/libpng/native sul thread nativo.
+      final Uint8List resized = await FlutterImageCompress.compressWithList(
+        imageBytes,
+        minWidth: 600,
+        minHeight: 600,
         quality: 90,
         format: CompressFormat.jpeg,
         keepExif: false,
       );
+      final nativeResizeMs = stopwatch.elapsedMilliseconds;
+
+      // Step 2: center-crop su isolate. Lavoriamo su ~600×600, non più
+      // sull'originale 20 MP: l'operazione è ora sub-50ms.
+      final Uint8List? cropped = await compute(thumbnailCropEntry, resized);
+      if (cropped == null) return null;
+      final cropMs = stopwatch.elapsedMilliseconds - nativeResizeMs;
+
+      // Step 3: resize finale 300x300 nativo (assicura dimensioni coerenti).
+      final Uint8List thumbnailBytes = await FlutterImageCompress.compressWithList(
+        cropped,
+        minWidth: 300,
+        minHeight: 300,
+        quality: 85,
+        format: CompressFormat.jpeg,
+        keepExif: false,
+      );
+      final finalResizeMs = stopwatch.elapsedMilliseconds - nativeResizeMs - cropMs;
+      stopwatch.stop();
 
       if (kDebugMode) {
         print('📐 Generated thumbnail:');
         print('   Original: ${(imageBytes.length / 1024).toStringAsFixed(1)} KB');
         print('   Thumbnail: ${(thumbnailBytes.length / 1024).toStringAsFixed(1)} KB');
+        print('⏱ [TIMING] thumbnail gen: native-resize ${nativeResizeMs}ms + crop ${cropMs}ms + final-resize ${finalResizeMs}ms');
       }
 
       return thumbnailBytes;

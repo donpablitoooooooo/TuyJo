@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:cryptography_flutter/cryptography_flutter.dart';
 import 'screens/main_screen.dart';
 import 'screens/voice_call_screen.dart';
 import 'services/auth_service.dart';
@@ -19,6 +20,12 @@ import 'package:private_messaging/generated/l10n/app_localizations.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // 🔐 ATTIVA implementazioni native di cryptography_flutter.
+  // SENZA questa chiamata il package fallisce silenziosamente su pure-Dart
+  // (= stessa lentezza di pointycastle). DEVE essere chiamato una volta
+  // prima di usare FlutterAesGcm / FlutterCryptography.
+  FlutterCryptography.enable();
 
   print('⏱️ [STARTUP] Starting app initialization...');
   final startTime = DateTime.now();
