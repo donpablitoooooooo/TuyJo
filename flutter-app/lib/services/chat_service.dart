@@ -326,11 +326,18 @@ class ChatService extends ChangeNotifier {
 
     bool isFirstSnapshot = true; // Flag per il primo snapshot
 
+    // Carichiamo solo gli ultimi N messaggi live. Quelli più vecchi si
+    // recuperano in modo paginato via loadOlderMessages() quando l'utente
+    // scrolla in alto. Evita di scaricare + decifrare tutta la storia di
+    // chat lunghe e tiene il listener Firestore leggero.
+    const initialLiveWindow = 100;
+
     _subscription = _firestore
         .collection('families')
         .doc(familyChatId)
         .collection('messages')
         .orderBy('created_at', descending: false)
+        .limitToLast(initialLiveWindow)
         .snapshots()
         .listen(
       (snapshot) async {
@@ -414,9 +421,10 @@ class ChatService extends ChangeNotifier {
             if (kDebugMode) print('✅ Initial sync: no new messages (cache was up-to-date)');
           }
 
-          // Senza limitToLast, il listener carica TUTTI i messaggi
-          // Non serve paginazione - segna che non ci sono altri messaggi da caricare
-          _hasMoreMessages = false;
+          // Con limitToLast(initialLiveWindow), potrebbero esserci messaggi
+          // più vecchi non caricati. Se il primo snapshot ha saturato il
+          // limite, abilita la paginazione; altrimenti è tutta la chat.
+          _hasMoreMessages = snapshot.docs.length >= initialLiveWindow;
 
         } else {
           // SNAPSHOTS SUCCESSIVI: Gestisci i nuovi messaggi normalmente
@@ -553,6 +561,8 @@ class ChatService extends ChangeNotifier {
           print('   Changes: ${snapshot.docChanges.length}');
         }
 
+        int totalUpdated = 0;
+
         for (var doc in snapshot.docs) {
           final userId = doc.id;
           final data = doc.data();
@@ -575,29 +585,26 @@ class ChatService extends ChangeNotifier {
           }
 
           // Aggiorna i messaggi nella lista locale
-          int updatedCount = 0;
           for (final messageId in readMessageIds) {
             final index = _messages.indexWhere((m) => m.id == messageId);
             if (index != -1 && _messages[index].read != true) {
               _messages[index].read = true;
               _messages[index].readAt = lastReadAt?.toDate();
-              updatedCount++;
+              totalUpdated++;
             }
           }
+        }
 
-          if (updatedCount > 0) {
-            if (kDebugMode) {
-              print('✅ Updated $updatedCount messages to read=true');
-            }
-
-            // Notifica UI immediatamente (non aspettare il salvataggio cache)
-            notifyListeners();
-
-            // Aggiorna cache in background
-            _cacheService.saveMessages(_messages, familyChatId).catchError((e) {
-              if (kDebugMode) print('❌ Error updating cache: $e');
-            });
+        // Un solo notifyListeners + un solo save cache per snapshot,
+        // non uno per ogni doc + uno per ogni messaggio.
+        if (totalUpdated > 0) {
+          if (kDebugMode) {
+            print('✅ Updated $totalUpdated messages to read=true');
           }
+          notifyListeners();
+          _cacheService.saveMessages(_messages, familyChatId).catchError((e) {
+            if (kDebugMode) print('❌ Error updating cache: $e');
+          });
         }
       },
       onError: (error) {
