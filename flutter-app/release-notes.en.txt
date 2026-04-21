@@ -4,7 +4,8 @@ PERFORMANCE:
 ⚡ Photo sending up to 3-5x faster with a parallel upload pipeline
 🔐 New native encryption backend (AES-GCM): much faster encrypt/decrypt
 🧵 Heavy crypto moved off the main thread: smooth WhatsApp-grade UI
-📜 Batch decryption of older messages while scrolling
+📜 Instant chat open: we load the latest messages and fetch older ones only when you scroll up
+🖼️ Fuller Media section: photos, links and documents from the whole archive are visible as soon as you open the gallery
 📸 Optimized image thumbnail generation with a single native pass
 ☁️ Faster initial chat load and batched read receipts
 

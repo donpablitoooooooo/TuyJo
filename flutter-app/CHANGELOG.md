@@ -23,6 +23,10 @@ Tutte le modifiche notevoli a questo progetto saranno documentate in questo file
 - **Eliminata cascata di retry** del token di autenticazione Firebase
 - **Fix timing** sul tracciamento upload completo
 
+#### Chat e Media
+- **Scroll infinito messaggi storici**: `loadOlderMessages` è ora collegato allo scroll listener; quando arrivi vicino al top carichi 50 messaggi dalla cache SQLite (fallback Firestore se serve), con spinner di caricamento in cima
+- **Galleria media con archivio completo**: entrando nella sezione Media idratiamo tutti i messaggi dalla cache locale (one-shot per sessione), così foto/link/documenti storici sono visibili senza dover scrollare tutta la chat. Zero costo di rete, zero decrypt extra.
+
 ### 🐛 Bug Fix
 - **Avvio lento dell'app** e **PDF condivisi trattati come URL**: corretti
 - **Bolla foto che lampeggiava vuota** nella transizione pending → sent: risolto
