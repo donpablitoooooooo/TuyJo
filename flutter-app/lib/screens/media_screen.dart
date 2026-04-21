@@ -53,9 +53,17 @@ class _MediaScreenState extends State<MediaScreen> {
     _attachmentService = AttachmentService(encryptionService: chatService.encryptionService);
 
     final userId = await pairingService.getMyUserId();
-    setState(() {
-      _currentUserId = userId;
-    });
+    if (mounted) {
+      setState(() {
+        _currentUserId = userId;
+      });
+    }
+
+    // La chat parte con una finestra di 100 messaggi per essere veloce,
+    // ma la galleria ha bisogno dell'archivio completo per mostrare i
+    // media storici. Idratiamo _messages dalla cache SQLite (decryptata
+    // e locale: praticamente istantanea anche su chat lunghe).
+    await chatService.loadAllFromCache();
   }
 
   /// Ottiene foto e video dai messaggi (più recenti prima)

@@ -271,6 +271,22 @@ class MessageCacheService {
     return maps.reversed.map((map) => _messageFromMap(map)).toList();
   }
 
+  /// Carica TUTTI i messaggi dalla cache (DESC: più recenti prima).
+  /// Usato dalla MediaScreen per mostrare l'archivio completo senza
+  /// costringere l'utente a paginare tutta la chat.
+  Future<List<Message>> loadAllMessages(String familyChatId) async {
+    final db = await _getDatabase();
+
+    final List<Map<String, dynamic>> maps = await db.query(
+      _messagesTable,
+      where: 'family_chat_id = ?',
+      whereArgs: [familyChatId],
+      orderBy: 'timestamp DESC',
+    );
+
+    return maps.map((map) => _messageFromMap(map)).toList();
+  }
+
   /// Carica messaggi più vecchi di un certo timestamp (per infinite scroll)
   Future<List<Message>> loadMessagesBeforeTimestamp(
     String familyChatId,

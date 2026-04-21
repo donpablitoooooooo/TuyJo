@@ -24,6 +24,7 @@ class ChatService extends ChangeNotifier {
   bool _isLoadingFromCache = false;
   bool _isLoadingOlderMessages = false;
   bool _hasMoreMessages = true; // Flag per sapere se ci sono messaggi più vecchi da caricare
+  bool _allMessagesLoadedFromCache = false; // One-shot per MediaScreen
   bool _partnerIsTyping = false;
   Timer? _typingTimer;
 
@@ -244,6 +245,40 @@ class ChatService extends ChangeNotifier {
     }
   }
 
+  /// Carica TUTTI i messaggi dalla cache SQLite in `_messages`.
+  /// Pensato per la MediaScreen: la chat parte con una finestra limitata
+  /// per essere veloce, ma la galleria media ha bisogno dell'archivio
+  /// completo. È one-shot per sessione / famiglia — re-invocarlo è un
+  /// no-op finché non si cambia chat.
+  Future<void> loadAllFromCache() async {
+    if (_currentFamilyChatId == null) return;
+    if (_allMessagesLoadedFromCache) return;
+
+    try {
+      final allCached = await _cacheService.loadAllMessages(_currentFamilyChatId!);
+      if (allCached.isEmpty) {
+        _allMessagesLoadedFromCache = true;
+        return;
+      }
+
+      final existingIds = _messages.map((m) => m.id).toSet();
+      final newMessages = allCached.where((m) => !existingIds.contains(m.id)).toList();
+
+      if (newMessages.isNotEmpty) {
+        _messages.addAll(newMessages);
+        _messages.sort((a, b) => b.timestamp.compareTo(a.timestamp));
+        notifyListeners();
+        if (kDebugMode) {
+          print('💾 [MEDIA] Hydrated ${newMessages.length} older messages from cache (total: ${_messages.length})');
+        }
+      }
+
+      _allMessagesLoadedFromCache = true;
+    } catch (e) {
+      if (kDebugMode) print('❌ Error in loadAllFromCache: $e');
+    }
+  }
+
   /// Aggiorna il timestamp di un messaggio reminder quando diventa visibile
   /// Questo fa sì che il reminder appaia sempre "fresco" in cima alla chat
   Future<void> _updateReminderTimestamp(String messageId, String familyChatId) async {
@@ -280,6 +315,7 @@ class ChatService extends ChangeNotifier {
     if (_currentFamilyChatId != familyChatId) {
       _currentFamilyChatId = familyChatId;
       _hasMoreMessages = true; // Reset per nuova chat
+      _allMessagesLoadedFromCache = false; // Re-idrata cache per la nuova chat
 
       // 🐛 DEBUG: Ispeziona database prima di caricare
       if (kDebugMode) {
