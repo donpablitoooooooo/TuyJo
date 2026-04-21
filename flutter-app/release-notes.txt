@@ -1,4 +1,4 @@
-TuyJo v1.30.0
+TuyJo v1.31.0
 
 PRESTAZIONI:
 ⚡ Invio foto fino a 3-5x più veloce con pipeline di upload parallela

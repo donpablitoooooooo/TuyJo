@@ -1,4 +1,4 @@
-TuyJo v1.30.0
+TuyJo v1.31.0
 
 PERFORMANCE:
 ⚡ Photo sending up to 3-5x faster with a parallel upload pipeline
