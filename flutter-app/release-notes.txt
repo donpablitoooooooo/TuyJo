@@ -1,20 +1,21 @@
 TuyJo v1.30.0
 
-PERFORMANCE:
+PRESTAZIONI:
 ⚡ Invio foto fino a 3-5x più veloce con pipeline di upload parallela
-🔐 Backend di crittografia nativa (AES-GCM): cifratura/decifratura molto più rapida
-🧵 Crypto pesante spostato fuori dall'isolate principale: UI sempre fluida stile WhatsApp
-📜 Decifratura batch dei messaggi vecchi durante lo scroll infinito
-📸 Generazione thumbnail nativa con FlutterImageCompress (un solo passaggio)
-☁️ Cap snapshot Firestore iniziale e batch update ricevute di lettura
+🔐 Nuovo backend di crittografia nativa (AES-GCM): cifratura e decifratura molto più rapide
+🧵 Operazioni crittografiche pesanti spostate fuori dal thread principale: interfaccia sempre fluida stile WhatsApp
+📜 Decifratura batch dei messaggi più vecchi durante lo scroll
+📸 Generazione anteprime immagini ottimizzata con un singolo passaggio nativo
+☁️ Caricamento iniziale delle chat più veloce e ricevute di lettura raggruppate
 
-BUG FIX:
-🐛 Risolto avvio lento dell'app e PDF condivisi trattati come URL
-🔁 Eliminata la cascata di retry del token di autenticazione Firebase
-🖼️ Fix bolla foto che lampeggiava vuota nella transizione pending → sent
-📥 Pre-popolamento cache allegati dopo l'upload (no doppio download)
-🚫 Prevenzione upload duplicati paralleli dello stesso allegato
+CORREZIONI:
+🐛 Risolto avvio lento dell'app
+📄 Risolto problema con i PDF condivisi trattati come link
+🔁 Eliminata la cascata di retry del token di autenticazione
+🖼️ Risolto lampeggio della bolla foto durante l'invio
+📥 Le foto inviate non vengono più riscaricate inutilmente
+🚫 Prevenuti upload duplicati dello stesso allegato
 
 NOTE:
-📱 Compatibilità: Android 6.0+ (API 23) e iOS 15.0+
+📱 Compatibilità: Android 6.0+ e iOS 15.0+
 🔐 Crittografia end-to-end garantita
