@@ -2,6 +2,36 @@
 
 Tutte le modifiche notevoli a questo progetto saranno documentate in questo file.
 
+## [1.30.0] - 2026-04-21
+
+### ⚡ Performance
+
+#### Crittografia
+- **Backend nativo AES-GCM**: switch a `cryptography_flutter` per usare AES-GCM nativo su iOS/Android
+- **Crypto fuori dal main isolate**: cifratura/decifratura pesante spostata in isolate dedicato per UI fluida stile WhatsApp
+- **Decrypt batch dei messaggi vecchi** durante lo scroll infinito per ridurre i jank
+
+#### Invio foto e allegati
+- **Pipeline upload parallela**: invio foto 3-5x più veloce
+- **Generazione thumbnail nativa**: collassata in una singola chiamata `FlutterImageCompress`
+- **Pre-populate cache allegati** dopo l'upload per evitare il download di ritorno
+- **Prevenzione upload duplicati paralleli** dello stesso allegato
+- **Logging TIMING fase-per-fase** sul flusso send foto
+
+#### Firestore / Auth
+- **Cap snapshot Firestore iniziale** e batch delle update di read-receipt
+- **Eliminata cascata di retry** del token di autenticazione Firebase
+- **Fix timing** sul tracciamento upload completo
+
+### 🐛 Bug Fix
+- **Avvio lento dell'app** e **PDF condivisi trattati come URL**: corretti
+- **Bolla foto che lampeggiava vuota** nella transizione pending → sent: risolto
+
+### 🔧 Modifiche Tecniche
+- Aggiunta dipendenza `cryptography_flutter` per backend nativo
+- Refactor del pipeline di encryption/decryption per essere isolate-safe
+- Build number incrementato a 33
+
 ## [1.13.2] - 2026-01-18
 
 ### 🐛 Bug Fix

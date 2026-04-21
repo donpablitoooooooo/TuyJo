@@ -1,13 +1,19 @@
-TuyJo v1.13.2
+TuyJo v1.30.0
+
+PERFORMANCE:
+⚡ Invio foto fino a 3-5x più veloce con pipeline di upload parallela
+🔐 Backend di crittografia nativa (AES-GCM): cifratura/decifratura molto più rapida
+🧵 Crypto pesante spostato fuori dall'isolate principale: UI sempre fluida stile WhatsApp
+📜 Decifratura batch dei messaggi vecchi durante lo scroll infinito
+📸 Generazione thumbnail nativa con FlutterImageCompress (un solo passaggio)
+☁️ Cap snapshot Firestore iniziale e batch update ricevute di lettura
 
 BUG FIX:
-🔔 Risolto badge notifiche che non scompariva - Ora il badge e le notifiche si cancellano automaticamente quando apri l'app o leggi i messaggi
-🚫 Rimossa autorizzazione pubblicitaria AD_ID - TuyJo non traccia né mostra pubblicità
-
-MIGLIORAMENTI:
-✨ Pulizia automatica notifiche quando ritorni alla chat
-⚡ Migliore sincronizzazione tra messaggi letti e badge
-🔒 Privacy migliorata con rimozione permessi pubblicitari non necessari
+🐛 Risolto avvio lento dell'app e PDF condivisi trattati come URL
+🔁 Eliminata la cascata di retry del token di autenticazione Firebase
+🖼️ Fix bolla foto che lampeggiava vuota nella transizione pending → sent
+📥 Pre-popolamento cache allegati dopo l'upload (no doppio download)
+🚫 Prevenzione upload duplicati paralleli dello stesso allegato
 
 NOTE:
 📱 Compatibilità: Android 6.0+ (API 23) e iOS 15.0+
