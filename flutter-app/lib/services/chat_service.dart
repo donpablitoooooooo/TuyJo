@@ -26,6 +26,7 @@ class ChatService extends ChangeNotifier {
   bool _hasMoreMessages = true; // Flag per sapere se ci sono messaggi più vecchi da caricare
   bool _archiveFullySynced = false; // True solo dopo che il Firestore pagination tocca il fondo
   bool _isHydratingArchive = false; // Spinner MediaScreen durante il full sync
+  DocumentSnapshot? _oldestLoadedDoc; // Cursor per paginazione Firestore (robusto a tipi di created_at)
   bool _partnerIsTyping = false;
   Timer? _typingTimer;
 
@@ -139,28 +140,47 @@ class ChatService extends ChangeNotifier {
     }
   }
 
-  /// Recupera messaggi più vecchi direttamente da Firestore
-  /// Usato come fallback quando la cache locale è esaurita
-  /// Ritorna null in caso di errore (per distinguere da lista vuota)
+  /// Recupera messaggi più vecchi direttamente da Firestore usando un
+  /// cursor (startAfterDocument). È più robusto del vecchio approccio
+  /// `where('created_at', isLessThan: ...)` — quella query saltava i
+  /// messaggi con created_at salvato come Firestore Timestamp invece
+  /// che come stringa ISO, e restituiva 0 record facendo fallire il
+  /// sync archivio.
+  ///
+  /// Il parametro `beforeTimestamp` resta solo per backward compat ed è
+  /// ignorato; la posizione è tracciata da `_oldestLoadedDoc`.
+  /// Ritorna null in caso di errore (per distinguere da lista vuota).
   Future<List<Message>?> _fetchOlderMessagesFromFirestore(
     String familyChatId,
     DateTime beforeTimestamp,
     {int limit = 50}
   ) async {
+    if (_oldestLoadedDoc == null) {
+      if (kDebugMode) print('⚠️ No cursor yet, cannot paginate older messages');
+      return null;
+    }
+
     try {
-      final queryTimestamp = beforeTimestamp.toIso8601String();
-      if (kDebugMode) print('📡 Firestore query: created_at < "$queryTimestamp", limit: $limit');
+      if (kDebugMode) {
+        print('📡 Firestore query: startAfter ${_oldestLoadedDoc!.id.substring(0, 8)}, limit: $limit');
+      }
 
       final snapshot = await _firestore
           .collection('families')
           .doc(familyChatId)
           .collection('messages')
-          .where('created_at', isLessThan: queryTimestamp)
           .orderBy('created_at', descending: true)
+          .startAfterDocument(_oldestLoadedDoc!)
           .limit(limit)
           .get();
 
       if (kDebugMode) print('📡 Firestore returned ${snapshot.docs.length} older messages');
+
+      // Avanza il cursor: con orderBy desc, l'ultimo doc del batch è
+      // il più vecchio — è da lì che riparte la prossima pagina.
+      if (snapshot.docs.isNotEmpty) {
+        _oldestLoadedDoc = snapshot.docs.last;
+      }
 
       final List<Message> messages = [];
       for (final doc in snapshot.docs) {
@@ -397,6 +417,7 @@ class ChatService extends ChangeNotifier {
       _currentFamilyChatId = familyChatId;
       _hasMoreMessages = true; // Reset per nuova chat
       _archiveFullySynced = false; // Re-idrata cache per la nuova chat
+      _oldestLoadedDoc = null; // Reset cursor paginazione Firestore
 
       // 🐛 DEBUG: Ispeziona database prima di caricare
       if (kDebugMode) {
@@ -542,6 +563,17 @@ class ChatService extends ChangeNotifier {
           // più vecchi non caricati. Se il primo snapshot ha saturato il
           // limite, abilita la paginazione; altrimenti è tutta la chat.
           _hasMoreMessages = snapshot.docs.length >= initialLiveWindow;
+
+          // Cattura il documento più vecchio come cursor per il pagination.
+          // Con orderBy(created_at, asc) + limitToLast(N), docs è in ordine
+          // asc: docs.first è il più vecchio dei 100 live. Serve come
+          // punto di partenza per startAfterDocument sulle query future.
+          if (snapshot.docs.isNotEmpty) {
+            _oldestLoadedDoc = snapshot.docs.first;
+            if (kDebugMode) {
+              print('📌 Cursor initialized to oldest live doc: ${_oldestLoadedDoc!.id.substring(0, 8)}');
+            }
+          }
 
           // 🚀 AUTO-SYNC IN BACKGROUND: se ci sono messaggi più vecchi di
           // quelli nella finestra live, idratiamo tutto l'archivio in
