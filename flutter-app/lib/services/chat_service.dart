@@ -24,7 +24,8 @@ class ChatService extends ChangeNotifier {
   bool _isLoadingFromCache = false;
   bool _isLoadingOlderMessages = false;
   bool _hasMoreMessages = true; // Flag per sapere se ci sono messaggi più vecchi da caricare
-  bool _allMessagesLoadedFromCache = false; // One-shot per MediaScreen
+  bool _archiveFullySynced = false; // True solo dopo che il Firestore pagination tocca il fondo
+  bool _isHydratingArchive = false; // Spinner MediaScreen durante il full sync
   bool _partnerIsTyping = false;
   Timer? _typingTimer;
 
@@ -40,6 +41,7 @@ class ChatService extends ChangeNotifier {
   bool get isLoadingFromCache => _isLoadingFromCache;
   bool get isLoadingOlderMessages => _isLoadingOlderMessages;
   bool get hasMoreMessages => _hasMoreMessages;
+  bool get isHydratingArchive => _isHydratingArchive;
   bool get partnerIsTyping => _partnerIsTyping;
   EncryptionService get encryptionService => _encryptionService;
 
@@ -245,37 +247,116 @@ class ChatService extends ChangeNotifier {
     }
   }
 
-  /// Carica TUTTI i messaggi dalla cache SQLite in `_messages`.
+  /// Carica TUTTI i messaggi dell'archivio in `_messages`.
+  ///
   /// Pensato per la MediaScreen: la chat parte con una finestra limitata
-  /// per essere veloce, ma la galleria media ha bisogno dell'archivio
-  /// completo. È one-shot per sessione / famiglia — re-invocarlo è un
-  /// no-op finché non si cambia chat.
-  Future<void> loadAllFromCache() async {
-    if (_currentFamilyChatId == null) return;
-    if (_allMessagesLoadedFromCache) return;
+  /// per velocità, ma la galleria media ha bisogno dell'archivio completo.
+  ///
+  /// Procedura:
+  /// 1. Idrata dalla cache SQLite (istantaneo, già decrypted).
+  /// 2. Se `syncFromFirestore` è true e non abbiamo ancora toccato il fondo
+  ///    della cronologia, pagina Firestore scaricando e decriptando i
+  ///    messaggi più vecchi a batch di 100, salvandoli in cache man mano.
+  ///    Dopo il primo full sync la cache contiene tutto: sessioni successive
+  ///    sono istantanee.
+  ///
+  /// È one-shot per sessione/famiglia — reinvocarlo è un no-op finché
+  /// non cambia `_currentFamilyChatId`. Se `_currentFamilyChatId` non è
+  /// ancora stato impostato (MediaScreen aperta prima della ChatScreen),
+  /// puoi passare esplicitamente `familyChatId`.
+  Future<void> loadAllFromCache({
+    String? familyChatId,
+    bool syncFromFirestore = false,
+  }) async {
+    final chatId = familyChatId ?? _currentFamilyChatId;
+    if (chatId == null) {
+      if (kDebugMode) print('⚠️ [MEDIA] loadAllFromCache: no family chat id');
+      return;
+    }
+    if (_isHydratingArchive) return;
+    // Se vogliamo un full sync e l'abbiamo già fatto, skip.
+    // Se vogliamo solo cache e l'abbiamo già idratata almeno una volta, skip.
+    if (syncFromFirestore && _archiveFullySynced) return;
+
+    _isHydratingArchive = true;
+    notifyListeners();
 
     try {
-      final allCached = await _cacheService.loadAllMessages(_currentFamilyChatId!);
-      if (allCached.isEmpty) {
-        _allMessagesLoadedFromCache = true;
-        return;
-      }
+      // Step 1: cache SQLite (veloce, già decriptata)
+      final allCached = await _cacheService.loadAllMessages(chatId);
+      if (allCached.isNotEmpty) {
+        final existingIds = _messages.map((m) => m.id).toSet();
+        final newMessages = allCached.where((m) => !existingIds.contains(m.id)).toList();
 
-      final existingIds = _messages.map((m) => m.id).toSet();
-      final newMessages = allCached.where((m) => !existingIds.contains(m.id)).toList();
-
-      if (newMessages.isNotEmpty) {
-        _messages.addAll(newMessages);
-        _messages.sort((a, b) => b.timestamp.compareTo(a.timestamp));
-        notifyListeners();
-        if (kDebugMode) {
-          print('💾 [MEDIA] Hydrated ${newMessages.length} older messages from cache (total: ${_messages.length})');
+        if (newMessages.isNotEmpty) {
+          _messages.addAll(newMessages);
+          _messages.sort((a, b) => b.timestamp.compareTo(a.timestamp));
+          notifyListeners();
+          if (kDebugMode) {
+            print('💾 [MEDIA] Hydrated ${newMessages.length} from cache (total: ${_messages.length})');
+          }
         }
       }
 
-      _allMessagesLoadedFromCache = true;
+      // Step 2: pagina Firestore fino a esaurimento, persistendo in cache
+      if (syncFromFirestore) {
+        if (_messages.isEmpty) {
+          // _messages ancora vuoto (race col primo snapshot Firestore).
+          // NON settiamo _archiveFullySynced: la prossima chiamata
+          // (ritentata da MediaScreen o da startListening post-snapshot)
+          // farà il sync vero.
+          if (kDebugMode) print('⚠️ [MEDIA] _messages empty, deferring Firestore hydration');
+        } else {
+          const pageSize = 100;
+          while (_hasMoreMessages) {
+            final oldestTimestamp = _messages.last.timestamp;
+            final firestoreMessages = await _fetchOlderMessagesFromFirestore(
+              chatId,
+              oldestTimestamp,
+              limit: pageSize,
+            );
+
+            if (firestoreMessages == null) {
+              // errore di rete: interrompi senza marcare come sincronizzato
+              if (kDebugMode) print('⚠️ [MEDIA] Firestore page failed, stopping hydration');
+              return;
+            }
+
+            if (firestoreMessages.isEmpty) {
+              _hasMoreMessages = false;
+              break;
+            }
+
+            final existingIds = _messages.map((m) => m.id).toSet();
+            final newOnes = firestoreMessages.where((m) => !existingIds.contains(m.id)).toList();
+
+            if (newOnes.isEmpty) {
+              _hasMoreMessages = false;
+              break;
+            }
+
+            _messages.addAll(newOnes);
+            _messages.sort((a, b) => b.timestamp.compareTo(a.timestamp));
+            await _cacheService.saveMessages(newOnes, chatId);
+            notifyListeners();
+
+            if (kDebugMode) {
+              print('☁️ [MEDIA] Hydrated ${newOnes.length} from Firestore (total: ${_messages.length})');
+            }
+
+            if (firestoreMessages.length < pageSize) {
+              _hasMoreMessages = false;
+              break;
+            }
+          }
+          _archiveFullySynced = true;
+        }
+      }
     } catch (e) {
       if (kDebugMode) print('❌ Error in loadAllFromCache: $e');
+    } finally {
+      _isHydratingArchive = false;
+      notifyListeners();
     }
   }
 
@@ -315,7 +396,7 @@ class ChatService extends ChangeNotifier {
     if (_currentFamilyChatId != familyChatId) {
       _currentFamilyChatId = familyChatId;
       _hasMoreMessages = true; // Reset per nuova chat
-      _allMessagesLoadedFromCache = false; // Re-idrata cache per la nuova chat
+      _archiveFullySynced = false; // Re-idrata cache per la nuova chat
 
       // 🐛 DEBUG: Ispeziona database prima di caricare
       if (kDebugMode) {
@@ -461,6 +542,20 @@ class ChatService extends ChangeNotifier {
           // più vecchi non caricati. Se il primo snapshot ha saturato il
           // limite, abilita la paginazione; altrimenti è tutta la chat.
           _hasMoreMessages = snapshot.docs.length >= initialLiveWindow;
+
+          // 🚀 AUTO-SYNC IN BACKGROUND: se ci sono messaggi più vecchi di
+          // quelli nella finestra live, idratiamo tutto l'archivio in
+          // background (cache SQLite + paginazione Firestore). Sfrutta
+          // l'isolate del batch decrypt, quindi la UI resta fluida.
+          // La chat è subito usabile coi 100 messaggi recenti; nel
+          // frattempo la cache si riempie e sia lo scroll infinito sia
+          // la MediaScreen trovano tutto pronto.
+          if (_hasMoreMessages && !_archiveFullySynced) {
+            unawaited(loadAllFromCache(
+              familyChatId: familyChatId,
+              syncFromFirestore: true,
+            ));
+          }
 
         } else {
           // SNAPSHOTS SUCCESSIVI: Gestisci i nuovi messaggi normalmente
