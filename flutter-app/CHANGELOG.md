@@ -34,7 +34,7 @@ Tutte le modifiche notevoli a questo progetto saranno documentate in questo file
 ### 🔧 Modifiche Tecniche
 - Aggiunta dipendenza `cryptography_flutter` per backend nativo
 - Refactor del pipeline di encryption/decryption per essere isolate-safe
-- Build number incrementato a 34
+- Build number incrementato a 35 (TestFlight)
 
 ## [1.13.2] - 2026-01-18
 
