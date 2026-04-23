@@ -4,6 +4,36 @@ Lista task e miglioramenti futuri per l'app di messaggistica.
 
 ---
 
+## 🧹 Prima della prossima release NON-TestFlight (App Store produzione)
+
+### Rimuovere i log diagnostici `TuyJo.archive`
+**Aggiunti in 1.31.0+37** per capire perché il pagination archivio si blocca
+a 100 messaggi dopo update TestFlight. Usano `developer.log` che va su os_log
+(iOS) / logcat (Android): sono visibili anche in build release/TestFlight.
+
+Costo in produzione: basso (poche chiamate per pagina di 100 messaggi), ma
+comunque rumore non necessario e leggera pressione sul logger di sistema.
+
+**Da fare prima del prossimo invio in review App Store:**
+- `flutter-app/lib/services/chat_service.dart` → helper `_archiveLog()` e
+  tutte le sue call site. Opzioni:
+  1. Sostituire il corpo di `_archiveLog` con `return;` (no-op, ma il resto
+     del codice continua a costruire le stringhe inutilmente).
+  2. Rimpiazzare le chiamate a `_archiveLog(...)` con
+     `if (kDebugMode) print(...)`. Elimina anche il costo dell'interpolazione
+     in release.
+  3. Gating con `--dart-define=ARCHIVE_LOG=true` così si riaccendono quando
+     serve diagnosticare un altro problema.
+
+Preferita: opzione 2 (come era prima di 1.31.0+37).
+
+Grep per trovare tutto:
+```bash
+grep -n "_archiveLog\|TuyJo.archive\|dart:developer" flutter-app/lib/services/chat_service.dart
+```
+
+---
+
 ## 🚨 Priorità Alta
 
 ### 🌐 Niente spunta se offline
