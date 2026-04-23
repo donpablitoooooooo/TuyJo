@@ -1,4 +1,4 @@
-TuyJo v1.31.0
+TuyJo v1.32.0
 
 PRESTAZIONI:
 ⚡ Invio foto fino a 3-5x più veloce con pipeline di upload parallela
@@ -10,6 +10,7 @@ PRESTAZIONI:
 ☁️ Caricamento iniziale delle chat più veloce e ricevute di lettura raggruppate
 
 CORREZIONI:
+🗄️ Risolto un problema che, dopo l'aggiornamento da una versione precedente, poteva impedire di vedere più di 100 messaggi e parte dei file nella galleria
 🐛 Risolto avvio lento dell'app
 📄 Risolto problema con i PDF condivisi trattati come link
 🔁 Eliminata la cascata di retry del token di autenticazione
