@@ -15,21 +15,22 @@ Costo in produzione: basso (poche chiamate per pagina di 100 messaggi), ma
 comunque rumore non necessario e leggera pressione sul logger di sistema.
 
 **Da fare prima del prossimo invio in review App Store:**
-- `flutter-app/lib/services/chat_service.dart` → helper `_archiveLog()` e
-  tutte le sue call site. Opzioni:
-  1. Sostituire il corpo di `_archiveLog` con `return;` (no-op, ma il resto
-     del codice continua a costruire le stringhe inutilmente).
-  2. Rimpiazzare le chiamate a `_archiveLog(...)` con
-     `if (kDebugMode) print(...)`. Elimina anche il costo dell'interpolazione
-     in release.
-  3. Gating con `--dart-define=ARCHIVE_LOG=true` così si riaccendono quando
-     serve diagnosticare un altro problema.
 
-Preferita: opzione 2 (come era prima di 1.31.0+37).
+1. **Log diagnostici** (`chat_service.dart`):
+   - helper `_archiveLog()` + buffer `_archiveLogBuffer`
+   - getter `archiveLogBuffer` e `archiveDiagnostics`
+   - import `dart:developer`
+   - Rimpiazza le chiamate a `_archiveLog(...)` con `if (kDebugMode) print(...)`
+     (come era prima di 1.31.0+37).
+
+2. **Pannello debug in-app** (`media_screen.dart`):
+   - metodo `_showArchiveDebugSheet(...)`
+   - `GestureDetector(onLongPress: ...)` che avvolge `_buildTabSelector()`
+   - import `package:flutter/services.dart` (se non usato altrove)
 
 Grep per trovare tutto:
 ```bash
-grep -n "_archiveLog\|TuyJo.archive\|dart:developer" flutter-app/lib/services/chat_service.dart
+grep -n "_archiveLog\|archiveLogBuffer\|archiveDiagnostics\|_showArchiveDebugSheet\|TuyJo.archive\|dart:developer" flutter-app/lib/services/chat_service.dart flutter-app/lib/screens/media_screen.dart
 ```
 
 ---
