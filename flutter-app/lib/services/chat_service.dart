@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:async';
+import 'dart:developer' as developer;
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -31,6 +32,13 @@ class ChatService extends ChangeNotifier {
   Timer? _typingTimer;
 
   ChatService(this._encryptionService, this._notificationService);
+
+  /// Log visibile anche in build release/TestFlight (via os_log su iOS,
+  /// logcat su Android). Usa `developer.log` con un `name` fisso così
+  /// puoi filtrare su Console.app con `subsystem:TuyJo.archive`.
+  void _archiveLog(String msg) {
+    developer.log(msg, name: 'TuyJo.archive');
+  }
 
   // Setter per il device ID
   void setMyDeviceId(String deviceId) {
@@ -156,14 +164,12 @@ class ChatService extends ChangeNotifier {
     {int limit = 50}
   ) async {
     if (_oldestLoadedDoc == null) {
-      if (kDebugMode) print('⚠️ No cursor yet, cannot paginate older messages');
+      _archiveLog('fetchOlder: no cursor yet, cannot paginate');
       return null;
     }
 
     try {
-      if (kDebugMode) {
-        print('📡 Firestore query: startAfter ${_oldestLoadedDoc!.id.substring(0, 8)}, limit: $limit');
-      }
+      _archiveLog('fetchOlder: query startAfter=${_oldestLoadedDoc!.id.substring(0, 8)} limit=$limit');
 
       final snapshot = await _firestore
           .collection('families')
@@ -174,7 +180,7 @@ class ChatService extends ChangeNotifier {
           .limit(limit)
           .get();
 
-      if (kDebugMode) print('📡 Firestore returned ${snapshot.docs.length} older messages');
+      _archiveLog('fetchOlder: Firestore returned ${snapshot.docs.length} docs');
 
       // Avanza il cursor: con orderBy desc, l'ultimo doc del batch è
       // il più vecchio — è da lì che riparte la prossima pagina.
@@ -203,7 +209,7 @@ class ChatService extends ChangeNotifier {
       // Restituisci in ordine ASC (vecchio -> nuovo) per coerenza
       return messages.reversed.toList();
     } catch (e) {
-      if (kDebugMode) print('❌ Error fetching older messages from Firestore: $e');
+      _archiveLog('fetchOlder: ERROR $e');
       // Ritorna null per indicare errore (non "nessun messaggio")
       return null;
     }
@@ -290,13 +296,21 @@ class ChatService extends ChangeNotifier {
   }) async {
     final chatId = familyChatId ?? _currentFamilyChatId;
     if (chatId == null) {
-      if (kDebugMode) print('⚠️ [MEDIA] loadAllFromCache: no family chat id');
+      _archiveLog('loadAll: skip (no family chat id)');
       return;
     }
-    if (_isHydratingArchive) return;
-    // Se vogliamo un full sync e l'abbiamo già fatto, skip.
-    // Se vogliamo solo cache e l'abbiamo già idratata almeno una volta, skip.
-    if (syncFromFirestore && _archiveFullySynced) return;
+    if (_isHydratingArchive) {
+      _archiveLog('loadAll: skip (already hydrating)');
+      return;
+    }
+    if (syncFromFirestore && _archiveFullySynced) {
+      _archiveLog('loadAll: skip (already fully synced)');
+      return;
+    }
+
+    _archiveLog('loadAll: start syncFromFirestore=$syncFromFirestore '
+        'inMem=${_messages.length} hasMore=$_hasMoreMessages '
+        'cursor=${_oldestLoadedDoc?.id.substring(0, 8) ?? "null"}');
 
     _isHydratingArchive = true;
     notifyListeners();
@@ -312,24 +326,25 @@ class ChatService extends ChangeNotifier {
           _messages.addAll(newMessages);
           _messages.sort((a, b) => b.timestamp.compareTo(a.timestamp));
           notifyListeners();
-          if (kDebugMode) {
-            print('💾 [MEDIA] Hydrated ${newMessages.length} from cache (total: ${_messages.length})');
-          }
+          _archiveLog('loadAll: cache hydrated ${newMessages.length} (total ${_messages.length})');
+        } else {
+          _archiveLog('loadAll: cache had ${allCached.length} but nothing new');
         }
+      } else {
+        _archiveLog('loadAll: cache empty');
       }
 
       // Step 2: pagina Firestore fino a esaurimento, persistendo in cache
       if (syncFromFirestore) {
         if (_messages.isEmpty) {
-          // _messages ancora vuoto (race col primo snapshot Firestore).
-          // NON settiamo _archiveFullySynced: la prossima chiamata
-          // (ritentata da MediaScreen o da startListening post-snapshot)
-          // farà il sync vero.
-          if (kDebugMode) print('⚠️ [MEDIA] _messages empty, deferring Firestore hydration');
+          _archiveLog('loadAll: defer Firestore hydration, _messages empty');
         } else {
           const pageSize = 100;
+          int pageNum = 0;
           while (_hasMoreMessages) {
+            pageNum++;
             final oldestTimestamp = _messages.last.timestamp;
+            _archiveLog('loadAll: page#$pageNum request (inMem=${_messages.length})');
             final firestoreMessages = await _fetchOlderMessagesFromFirestore(
               chatId,
               oldestTimestamp,
@@ -337,12 +352,12 @@ class ChatService extends ChangeNotifier {
             );
 
             if (firestoreMessages == null) {
-              // errore di rete: interrompi senza marcare come sincronizzato
-              if (kDebugMode) print('⚠️ [MEDIA] Firestore page failed, stopping hydration');
+              _archiveLog('loadAll: page#$pageNum FAILED, stop hydration');
               return;
             }
 
             if (firestoreMessages.isEmpty) {
+              _archiveLog('loadAll: page#$pageNum empty, reached end of history');
               _hasMoreMessages = false;
               break;
             }
@@ -351,6 +366,7 @@ class ChatService extends ChangeNotifier {
             final newOnes = firestoreMessages.where((m) => !existingIds.contains(m.id)).toList();
 
             if (newOnes.isEmpty) {
+              _archiveLog('loadAll: page#$pageNum all duplicates, stop');
               _hasMoreMessages = false;
               break;
             }
@@ -360,20 +376,20 @@ class ChatService extends ChangeNotifier {
             await _cacheService.saveMessages(newOnes, chatId);
             notifyListeners();
 
-            if (kDebugMode) {
-              print('☁️ [MEDIA] Hydrated ${newOnes.length} from Firestore (total: ${_messages.length})');
-            }
+            _archiveLog('loadAll: page#$pageNum added ${newOnes.length} new (total ${_messages.length})');
 
             if (firestoreMessages.length < pageSize) {
+              _archiveLog('loadAll: page#$pageNum short (${firestoreMessages.length}/$pageSize), end');
               _hasMoreMessages = false;
               break;
             }
           }
           _archiveFullySynced = true;
+          _archiveLog('loadAll: DONE fullySynced total=${_messages.length}');
         }
       }
-    } catch (e) {
-      if (kDebugMode) print('❌ Error in loadAllFromCache: $e');
+    } catch (e, st) {
+      _archiveLog('loadAll: EXCEPTION $e\n$st');
     } finally {
       _isHydratingArchive = false;
       notifyListeners();
@@ -570,9 +586,10 @@ class ChatService extends ChangeNotifier {
           // punto di partenza per startAfterDocument sulle query future.
           if (snapshot.docs.isNotEmpty) {
             _oldestLoadedDoc = snapshot.docs.first;
-            if (kDebugMode) {
-              print('📌 Cursor initialized to oldest live doc: ${_oldestLoadedDoc!.id.substring(0, 8)}');
-            }
+            _archiveLog('firstSnap: cursor set ${_oldestLoadedDoc!.id.substring(0, 8)} '
+                'docs=${snapshot.docs.length} hasMore=$_hasMoreMessages');
+          } else {
+            _archiveLog('firstSnap: EMPTY, no cursor set');
           }
 
           // 🚀 AUTO-SYNC IN BACKGROUND: se ci sono messaggi più vecchi di
