@@ -33,11 +33,34 @@ class ChatService extends ChangeNotifier {
 
   ChatService(this._encryptionService, this._notificationService);
 
-  /// Log visibile anche in build release/TestFlight (via os_log su iOS,
-  /// logcat su Android). Usa `developer.log` con un `name` fisso così
-  /// puoi filtrare su Console.app con `subsystem:TuyJo.archive`.
+  /// Buffer circolare degli ultimi log dell'archivio (max 100).
+  /// Esposto alla UI per il pannello di debug — così gli utenti
+  /// TestFlight possono vedere lo stato senza Console.app.
+  final List<String> _archiveLogBuffer = [];
+  List<String> get archiveLogBuffer => List.unmodifiable(_archiveLogBuffer);
+
+  /// Snapshot dello stato corrente dell'idratazione archivio, da
+  /// visualizzare nel pannello debug.
+  Map<String, String> get archiveDiagnostics => {
+        'messagesInMemory': '${_messages.length}',
+        'hasMoreMessages': '$_hasMoreMessages',
+        'archiveFullySynced': '$_archiveFullySynced',
+        'isHydratingArchive': '$_isHydratingArchive',
+        'cursor': _oldestLoadedDoc?.id.substring(0, 8) ?? 'null',
+        'familyChatId':
+            _currentFamilyChatId?.substring(0, 10) ?? 'null',
+      };
+
+  /// Log visibile anche in build release/TestFlight: va sia su os_log
+  /// (Console.app) che su un buffer in-memory mostrato dal pannello
+  /// debug nella MediaScreen.
   void _archiveLog(String msg) {
     developer.log(msg, name: 'TuyJo.archive');
+    final ts = DateTime.now().toIso8601String().substring(11, 19);
+    _archiveLogBuffer.add('[$ts] $msg');
+    if (_archiveLogBuffer.length > 100) {
+      _archiveLogBuffer.removeAt(0);
+    }
   }
 
   // Setter per il device ID

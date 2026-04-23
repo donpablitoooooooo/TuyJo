@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart'; // Clipboard
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
 import 'package:open_filex/open_filex.dart';
@@ -168,8 +169,13 @@ class _MediaScreenState extends State<MediaScreen> {
           // Spazio per hamburger/ciliegie
           const SizedBox(height: 100),
 
-          // Tab selector solo icone
-          _buildTabSelector(),
+          // Tab selector solo icone (long-press apre il pannello di
+          // debug archivio — serve per diagnosticare "rimango fermo
+          // a 100 messaggi" senza Console.app)
+          GestureDetector(
+            onLongPress: () => _showArchiveDebugSheet(context),
+            child: _buildTabSelector(),
+          ),
 
           // Banner di caricamento archivio (primo sync Firestore)
           if (chatService.isHydratingArchive)
@@ -207,6 +213,151 @@ class _MediaScreenState extends State<MediaScreen> {
           ),
         ],
       ),
+    );
+  }
+
+  /// Pannello di debug archivio: mostra i diagnostics + gli ultimi log.
+  /// Si apre con long-press sulla barra delle tab. Permette di copiare
+  /// tutto negli appunti per incollare nel bug report.
+  void _showArchiveDebugSheet(BuildContext context) {
+    final chatService = Provider.of<ChatService>(context, listen: false);
+
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (ctx) {
+        return DraggableScrollableSheet(
+          initialChildSize: 0.8,
+          minChildSize: 0.4,
+          maxChildSize: 0.95,
+          expand: false,
+          builder: (ctx, scrollController) {
+            final diag = chatService.archiveDiagnostics;
+            final logs = chatService.archiveLogBuffer;
+            final dump = [
+              '=== DIAGNOSTICS ===',
+              ...diag.entries.map((e) => '${e.key}: ${e.value}'),
+              '',
+              '=== LOGS (${logs.length}) ===',
+              ...logs,
+            ].join('\n');
+
+            return Padding(
+              padding: const EdgeInsets.all(12),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Row(
+                    children: [
+                      const Expanded(
+                        child: Text(
+                          'Archive debug',
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                      TextButton.icon(
+                        icon: const Icon(Icons.copy, size: 16),
+                        label: const Text('Copia'),
+                        onPressed: () async {
+                          await Clipboard.setData(ClipboardData(text: dump));
+                          if (!ctx.mounted) return;
+                          ScaffoldMessenger.of(ctx).showSnackBar(
+                            const SnackBar(
+                              content: Text('Copiato negli appunti'),
+                              duration: Duration(seconds: 2),
+                            ),
+                          );
+                        },
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.close),
+                        onPressed: () => Navigator.of(ctx).pop(),
+                      ),
+                    ],
+                  ),
+                  const Divider(height: 1),
+                  Expanded(
+                    child: SingleChildScrollView(
+                      controller: scrollController,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          const Padding(
+                            padding: EdgeInsets.only(top: 8, bottom: 4),
+                            child: Text(
+                              'Diagnostics',
+                              style: TextStyle(fontWeight: FontWeight.w600),
+                            ),
+                          ),
+                          ...diag.entries.map(
+                            (e) => Padding(
+                              padding: const EdgeInsets.symmetric(vertical: 2),
+                              child: RichText(
+                                text: TextSpan(
+                                  style: const TextStyle(
+                                    fontFamily: 'monospace',
+                                    fontSize: 12,
+                                    color: Colors.black,
+                                  ),
+                                  children: [
+                                    TextSpan(
+                                      text: '${e.key}: ',
+                                      style: const TextStyle(
+                                        color: Colors.grey,
+                                      ),
+                                    ),
+                                    TextSpan(text: e.value),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ),
+                          const Padding(
+                            padding: EdgeInsets.only(top: 16, bottom: 4),
+                            child: Text(
+                              'Logs',
+                              style: TextStyle(fontWeight: FontWeight.w600),
+                            ),
+                          ),
+                          if (logs.isEmpty)
+                            const Text(
+                              '(nessun log ancora: apri e chiudi una chat)',
+                              style: TextStyle(
+                                color: Colors.grey,
+                                fontSize: 12,
+                              ),
+                            )
+                          else
+                            ...logs.reversed.map(
+                              (line) => Padding(
+                                padding:
+                                    const EdgeInsets.symmetric(vertical: 1),
+                                child: Text(
+                                  line,
+                                  style: const TextStyle(
+                                    fontFamily: 'monospace',
+                                    fontSize: 11,
+                                  ),
+                                ),
+                              ),
+                            ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            );
+          },
+        );
+      },
     );
   }
 
