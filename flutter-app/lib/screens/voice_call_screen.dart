@@ -364,7 +364,7 @@ class _VoiceCallScreenState extends State<VoiceCallScreen>
                         ? _formatDuration(_callDurationSeconds)
                         : l10n.voiceCallEnded,
                 style: TextStyle(
-                  color: Colors.white.withOpacity(0.7),
+                  color: Colors.white.withValues(alpha: 0.7),
                   fontSize: 16,
                   letterSpacing: 1.2,
                 ),
@@ -425,7 +425,7 @@ class _VoiceCallScreenState extends State<VoiceCallScreen>
             border: Border.all(
               color: _callState == CallState.connected
                   ? const Color(0xFF3BA8B0)
-                  : Colors.white.withOpacity(0.3),
+                  : Colors.white.withValues(alpha: 0.3),
               width: 4,
             ),
             boxShadow: [
@@ -433,7 +433,7 @@ class _VoiceCallScreenState extends State<VoiceCallScreen>
                 color: (_callState == CallState.connected
                         ? const Color(0xFF3BA8B0)
                         : Colors.white)
-                    .withOpacity(0.2),
+                    .withValues(alpha: 0.2),
                 blurRadius: 30,
                 spreadRadius: 5,
               ),
@@ -455,7 +455,7 @@ class _VoiceCallScreenState extends State<VoiceCallScreen>
 
   Widget _buildDefaultAvatar() {
     return Container(
-      color: const Color(0xFF3BA8B0).withOpacity(0.3),
+      color: const Color(0xFF3BA8B0).withValues(alpha: 0.3),
       child: const Icon(
         Icons.person,
         size: 80,
@@ -572,8 +572,8 @@ class _VoiceCallScreenState extends State<VoiceCallScreen>
             height: 60,
             decoration: BoxDecoration(
               color: isActive
-                  ? Colors.white.withOpacity(0.3)
-                  : Colors.white.withOpacity(0.1),
+                  ? Colors.white.withValues(alpha: 0.3)
+                  : Colors.white.withValues(alpha: 0.1),
               shape: BoxShape.circle,
             ),
             child: Icon(icon, color: Colors.white, size: 28),

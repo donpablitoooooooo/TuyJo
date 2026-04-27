@@ -54,7 +54,7 @@ class _CoupleSelfieScreenState extends State<CoupleSelfieScreen> {
                   shape: BoxShape.circle,
                   boxShadow: [
                     BoxShadow(
-                      color: Colors.black.withOpacity(0.1),
+                      color: Colors.black.withValues(alpha: 0.1),
                       blurRadius: 8,
                       offset: const Offset(0, 2),
                     ),
@@ -106,7 +106,7 @@ class _CoupleSelfieScreenState extends State<CoupleSelfieScreen> {
                           shape: BoxShape.circle,
                           boxShadow: [
                             BoxShadow(
-                              color: Colors.black.withOpacity(0.2),
+                              color: Colors.black.withValues(alpha: 0.2),
                               blurRadius: 20,
                               offset: const Offset(0, 8),
                             ),
@@ -177,7 +177,7 @@ class _CoupleSelfieScreenState extends State<CoupleSelfieScreen> {
           boxShadow: [
             BoxShadow(
               color: (onPressed != null ? const Color(0xFF3BA8B0) : Colors.grey)
-                  .withOpacity(0.3),
+                  .withValues(alpha: 0.3),
               blurRadius: 12,
               offset: const Offset(0, 6),
             ),

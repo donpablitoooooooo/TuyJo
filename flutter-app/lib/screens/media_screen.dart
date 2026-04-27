@@ -177,7 +177,7 @@ class _MediaScreenState extends State<MediaScreen> {
               margin: const EdgeInsets.only(top: 8, left: 16, right: 16),
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
               decoration: BoxDecoration(
-                color: MediaColors.tealLight.withOpacity(0.1),
+                color: MediaColors.tealLight.withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(8),
               ),
               child: Row(
@@ -223,7 +223,7 @@ class _MediaScreenState extends State<MediaScreen> {
         borderRadius: BorderRadius.circular(30),
         boxShadow: [
           BoxShadow(
-            color: MediaColors.tealLight.withOpacity(0.3),
+            color: MediaColors.tealLight.withValues(alpha: 0.3),
             blurRadius: 12,
             offset: const Offset(0, 4),
           ),
@@ -250,13 +250,13 @@ class _MediaScreenState extends State<MediaScreen> {
         width: 48,
         height: 48,
         decoration: BoxDecoration(
-          color: isSelected ? Colors.white : Colors.white.withOpacity(0.2),
+          color: isSelected ? Colors.white : Colors.white.withValues(alpha: 0.2),
           shape: BoxShape.circle,
-          border: isSelected ? null : Border.all(color: Colors.white.withOpacity(0.3)),
+          border: isSelected ? null : Border.all(color: Colors.white.withValues(alpha: 0.3)),
           boxShadow: isSelected
               ? [
                   BoxShadow(
-                    color: Colors.black.withOpacity(0.15),
+                    color: Colors.black.withValues(alpha: 0.15),
                     blurRadius: 4,
                     offset: const Offset(0, 2),
                   ),
@@ -356,7 +356,7 @@ class _MonthSeparator extends StatelessWidget {
                 borderRadius: BorderRadius.circular(16),
                 boxShadow: [
                   BoxShadow(
-                    color: const Color(0xFF3BA8B0).withOpacity(0.3),
+                    color: const Color(0xFF3BA8B0).withValues(alpha: 0.3),
                     blurRadius: 8,
                     offset: const Offset(0, 2),
                   ),
@@ -488,7 +488,7 @@ class _PhotoGridView extends StatelessWidget {
           Container(
             padding: const EdgeInsets.all(24),
             decoration: BoxDecoration(
-              color: MediaColors.tealLight.withOpacity(0.1),
+              color: MediaColors.tealLight.withValues(alpha: 0.1),
               shape: BoxShape.circle,
             ),
             child: Icon(icon, size: 48, color: MediaColors.tealLight),
@@ -601,7 +601,7 @@ class _PhotoGridItem extends StatelessWidget {
                   gradient: LinearGradient(
                     begin: Alignment.topCenter,
                     end: Alignment.bottomCenter,
-                    colors: [Colors.transparent, Colors.black.withOpacity(0.4)],
+                    colors: [Colors.transparent, Colors.black.withValues(alpha: 0.4)],
                   ),
                 ),
                 child: const Center(
@@ -615,7 +615,7 @@ class _PhotoGridItem extends StatelessWidget {
               child: Container(
                 padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                 decoration: BoxDecoration(
-                  color: badgeColor.withOpacity(0.9),
+                  color: badgeColor.withValues(alpha: 0.9),
                   borderRadius: BorderRadius.circular(6),
                 ),
                 child: Text(
@@ -716,7 +716,7 @@ class _LinkGridView extends StatelessWidget {
           Container(
             padding: const EdgeInsets.all(24),
             decoration: BoxDecoration(
-              color: MediaColors.tealLight.withOpacity(0.1),
+              color: MediaColors.tealLight.withValues(alpha: 0.1),
               shape: BoxShape.circle,
             ),
             child: Icon(icon, size: 48, color: MediaColors.tealLight),
@@ -797,10 +797,10 @@ class _LinkGridItem extends StatelessWidget {
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: accentColor.withOpacity(0.3), width: 1.5),
+          border: Border.all(color: accentColor.withValues(alpha: 0.3), width: 1.5),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.06),
+              color: Colors.black.withValues(alpha: 0.06),
               blurRadius: 6,
               offset: const Offset(0, 2),
             ),
@@ -824,7 +824,7 @@ class _LinkGridItem extends StatelessWidget {
                     if (snapshot.connectionState == ConnectionState.waiting) {
                       return Container(
                         height: 100,
-                        color: accentColor.withOpacity(0.1),
+                        color: accentColor.withValues(alpha: 0.1),
                         child: Center(
                           child: CircularProgressIndicator(
                             strokeWidth: 2,
@@ -845,7 +845,7 @@ class _LinkGridItem extends StatelessWidget {
                     // Fallback: icona link se non c'è thumbnail
                     return Container(
                       height: 80,
-                      color: accentColor.withOpacity(0.1),
+                      color: accentColor.withValues(alpha: 0.1),
                       child: Center(
                         child: Icon(Icons.link_rounded, color: accentColor, size: 32),
                       ),
@@ -859,7 +859,7 @@ class _LinkGridItem extends StatelessWidget {
                 borderRadius: const BorderRadius.vertical(top: Radius.circular(11)),
                 child: Container(
                   height: 60,
-                  color: accentColor.withOpacity(0.1),
+                  color: accentColor.withValues(alpha: 0.1),
                   child: Center(
                     child: Icon(Icons.link_rounded, color: accentColor, size: 28),
                   ),
@@ -996,7 +996,7 @@ class _DocumentListView extends StatelessWidget {
           Container(
             padding: const EdgeInsets.all(24),
             decoration: BoxDecoration(
-              color: MediaColors.tealLight.withOpacity(0.1),
+              color: MediaColors.tealLight.withValues(alpha: 0.1),
               shape: BoxShape.circle,
             ),
             child: Icon(icon, size: 48, color: MediaColors.tealLight),
@@ -1062,10 +1062,10 @@ class _DocumentListItem extends StatelessWidget {
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: accentColor.withOpacity(0.3), width: 1.5),
+          border: Border.all(color: accentColor.withValues(alpha: 0.3), width: 1.5),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.04),
+              color: Colors.black.withValues(alpha: 0.04),
               blurRadius: 4,
               offset: const Offset(0, 2),
             ),
@@ -1078,9 +1078,9 @@ class _DocumentListItem extends StatelessWidget {
               width: 44,
               height: 44,
               decoration: BoxDecoration(
-                color: accentColor.withOpacity(0.1),
+                color: accentColor.withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(10),
-                border: Border.all(color: accentColor.withOpacity(0.3)),
+                border: Border.all(color: accentColor.withValues(alpha: 0.3)),
               ),
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
@@ -1119,7 +1119,7 @@ class _DocumentListItem extends StatelessWidget {
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
                         decoration: BoxDecoration(
-                          color: accentColor.withOpacity(0.1),
+                          color: accentColor.withValues(alpha: 0.1),
                           borderRadius: BorderRadius.circular(4),
                         ),
                         child: Text(
@@ -1148,7 +1148,7 @@ class _DocumentListItem extends StatelessWidget {
               child: Container(
                 padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
-                  color: accentColor.withOpacity(0.1),
+                  color: accentColor.withValues(alpha: 0.1),
                   shape: BoxShape.circle,
                 ),
                 child: Icon(platformShareIcon, color: accentColor, size: 18),

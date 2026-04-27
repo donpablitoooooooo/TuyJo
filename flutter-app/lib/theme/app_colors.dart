@@ -27,8 +27,8 @@ class AppColors {
   static const Color iconCircleOnGradient = Color(0x33FFFFFF); // ~20% bianco
 
   // Ombre
-  static Color shadowSoft = Colors.black.withOpacity(0.06);
-  static Color shadowTeal = const Color(0xFF3BA8B0).withOpacity(0.18);
+  static Color shadowSoft = Colors.black.withValues(alpha: 0.06);
+  static Color shadowTeal = const Color(0xFF3BA8B0).withValues(alpha: 0.18);
 
   // Gradients
   static const LinearGradient tealVertical = LinearGradient(

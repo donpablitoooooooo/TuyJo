@@ -180,10 +180,10 @@ class _PdfViewerScreenState extends State<PdfViewerScreen> {
                         margin: const EdgeInsets.symmetric(horizontal: 32, vertical: 24),
                         padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 24),
                         decoration: BoxDecoration(
-                          color: Colors.white.withOpacity(0.15),
+                          color: Colors.white.withValues(alpha: 0.15),
                           borderRadius: BorderRadius.circular(16),
                           border: Border.all(
-                            color: Colors.white.withOpacity(0.2),
+                            color: Colors.white.withValues(alpha: 0.2),
                             width: 1,
                           ),
                         ),

@@ -1440,7 +1440,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                   width: 44,
                   height: 4,
                   decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.45),
+                    color: Colors.white.withValues(alpha: 0.45),
                     borderRadius: BorderRadius.circular(2),
                   ),
                 ),
@@ -1609,7 +1609,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
         child: Container(
           padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 24),
           decoration: BoxDecoration(
-            color: isSelected ? Colors.white.withOpacity(0.2) : Colors.transparent,
+            color: isSelected ? Colors.white.withValues(alpha: 0.2) : Colors.transparent,
             borderRadius: BorderRadius.circular(8),
           ),
           child: Row(
@@ -1781,33 +1781,33 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                         weekendTextStyle: const TextStyle(color: Colors.white70),
                         outsideTextStyle: const TextStyle(color: Colors.white30),
                         selectedDecoration: BoxDecoration(
-                          color: Colors.white.withOpacity(0.9),
+                          color: Colors.white.withValues(alpha: 0.9),
                           shape: BoxShape.circle,
                         ),
                         selectedTextStyle: const TextStyle(color: Color(0xFF3BA8B0), fontWeight: FontWeight.bold),
                         todayDecoration: BoxDecoration(
-                          color: Colors.white.withOpacity(0.3),
+                          color: Colors.white.withValues(alpha: 0.3),
                           shape: BoxShape.circle,
                         ),
                         todayTextStyle: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
                         rangeStartDecoration: BoxDecoration(
-                          color: Colors.white.withOpacity(0.9),
+                          color: Colors.white.withValues(alpha: 0.9),
                           shape: BoxShape.circle,
                         ),
                         rangeStartTextStyle: const TextStyle(color: Color(0xFF3BA8B0), fontWeight: FontWeight.bold),
                         rangeEndDecoration: BoxDecoration(
-                          color: Colors.white.withOpacity(0.9),
+                          color: Colors.white.withValues(alpha: 0.9),
                           shape: BoxShape.circle,
                         ),
                         rangeEndTextStyle: const TextStyle(color: Color(0xFF3BA8B0), fontWeight: FontWeight.bold),
-                        rangeHighlightColor: Colors.white.withOpacity(0.2),
+                        rangeHighlightColor: Colors.white.withValues(alpha: 0.2),
                         withinRangeDecoration: BoxDecoration(
-                          color: Colors.white.withOpacity(0.15),
+                          color: Colors.white.withValues(alpha: 0.15),
                           shape: BoxShape.circle,
                         ),
                         withinRangeTextStyle: const TextStyle(color: Colors.white),
                         markerDecoration: BoxDecoration(
-                          color: Colors.white.withOpacity(0.8),
+                          color: Colors.white.withValues(alpha: 0.8),
                           shape: BoxShape.circle,
                         ),
                         markersAlignment: Alignment.bottomCenter,
@@ -1873,7 +1873,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                         borderRadius: BorderRadius.circular(16),
                         boxShadow: [
                           BoxShadow(
-                            color: Colors.black.withOpacity(0.1),
+                            color: Colors.black.withValues(alpha: 0.1),
                             blurRadius: 10,
                             offset: const Offset(0, 4),
                           ),
@@ -2035,7 +2035,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                                         Padding(
                                           padding: const EdgeInsets.fromLTRB(24, 8, 24, 16),
                                           child: Material(
-                                            color: Colors.white.withOpacity(0.15),
+                                            color: Colors.white.withValues(alpha: 0.15),
                                             borderRadius: BorderRadius.circular(12),
                                             child: InkWell(
                                               onTap: () => Navigator.pop(ctx, {
@@ -2044,7 +2044,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                                                 'minute': pickerMinute,
                                               }),
                                               borderRadius: BorderRadius.circular(12),
-                                              splashColor: Colors.white.withOpacity(0.2),
+                                              splashColor: Colors.white.withValues(alpha: 0.2),
                                               child: Padding(
                                                 padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
                                                 child: Center(child: Text(l10n.todoConfirm, style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w500, letterSpacing: 0.3))),
@@ -2158,7 +2158,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                                                         ),
                                                         boxShadow: [
                                                           BoxShadow(
-                                                            color: const Color(0xFF3BA8B0).withOpacity(0.3),
+                                                            color: const Color(0xFF3BA8B0).withValues(alpha: 0.3),
                                                             blurRadius: 8,
                                                             offset: const Offset(0, 2),
                                                           ),
@@ -2187,7 +2187,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                                                                   Icon(
                                                                     Icons.notifications_active_outlined,
                                                                     size: 12,
-                                                                    color: Colors.white.withOpacity(0.9),
+                                                                    color: Colors.white.withValues(alpha: 0.9),
                                                                   ),
                                                                   const SizedBox(width: 4),
                                                                   Text(
@@ -2196,7 +2196,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                                                                         : l10n.alertShortHours(selectedReminderHours!),
                                                                     style: TextStyle(
                                                                       fontSize: 12,
-                                                                      color: Colors.white.withOpacity(0.9),
+                                                                      color: Colors.white.withValues(alpha: 0.9),
                                                                     ),
                                                                   ),
                                                                 ],
@@ -3294,7 +3294,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                                 child: Text(
                                   _replyToMessage!.decryptedContent ?? '',
                                   style: TextStyle(
-                                    color: replyToMyMessage ? Colors.white.withOpacity(0.85) : Colors.grey[600],
+                                    color: replyToMyMessage ? Colors.white.withValues(alpha: 0.85) : Colors.grey[600],
                                     fontSize: 13,
                                   ),
                                   maxLines: 1,
@@ -3564,8 +3564,8 @@ class _AttachmentOption extends StatelessWidget {
       color: Colors.transparent,
       child: InkWell(
         onTap: onTap,
-        splashColor: Colors.white.withOpacity(0.1),
-        highlightColor: Colors.white.withOpacity(0.05),
+        splashColor: Colors.white.withValues(alpha: 0.1),
+        highlightColor: Colors.white.withValues(alpha: 0.05),
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
           child: Row(
@@ -3593,7 +3593,7 @@ class _AttachmentOption extends StatelessWidget {
               ),
               Icon(
                 Icons.chevron_right,
-                color: Colors.white.withOpacity(0.7),
+                color: Colors.white.withValues(alpha: 0.7),
                 size: 22,
               ),
             ],
@@ -3856,7 +3856,7 @@ class _TodoDatePreview extends StatelessWidget {
         ),
         boxShadow: [
           BoxShadow(
-            color: const Color(0xFF3BA8B0).withOpacity(0.3),
+            color: const Color(0xFF3BA8B0).withValues(alpha: 0.3),
             blurRadius: 8,
             offset: const Offset(0, 2),
           ),
@@ -3869,7 +3869,7 @@ class _TodoDatePreview extends StatelessWidget {
             rangeStart != null && rangeEnd != null
                 ? Icons.date_range
                 : Icons.calendar_today_outlined,
-            color: Colors.white.withOpacity(0.9),
+            color: Colors.white.withValues(alpha: 0.9),
             size: 14,
           ),
           const SizedBox(width: 8),
@@ -3892,14 +3892,14 @@ class _TodoDatePreview extends StatelessWidget {
                     Icon(
                       Icons.notifications_outlined,
                       size: 14,
-                      color: Colors.white.withOpacity(0.9),
+                      color: Colors.white.withValues(alpha: 0.9),
                     ),
                     const SizedBox(width: 4),
                     Text(
                       _formatReminder(context, reminderHours!),
                       style: TextStyle(
                         fontSize: 12,
-                        color: Colors.white.withOpacity(0.9),
+                        color: Colors.white.withValues(alpha: 0.9),
                       ),
                     ),
                   ],
@@ -3913,7 +3913,7 @@ class _TodoDatePreview extends StatelessWidget {
             child: Container(
               padding: const EdgeInsets.all(4),
               decoration: BoxDecoration(
-                color: Colors.red.withOpacity(0.1),
+                color: Colors.red.withValues(alpha: 0.1),
                 shape: BoxShape.circle,
               ),
               child: const Icon(
@@ -4181,7 +4181,7 @@ class _MessageBubble extends StatelessWidget {
                 child: Container(
                   width: 200,
                   height: 200,
-                  color: Colors.white.withOpacity(0.1),
+                  color: Colors.white.withValues(alpha: 0.1),
                   child: const Center(
                     child: SizedBox(
                       width: 28, height: 28,
@@ -4442,8 +4442,8 @@ class _MessageBubble extends StatelessWidget {
                   onTap: () {
                     // Future: show message details or reactions
                   },
-                  splashColor: Colors.white.withOpacity(0.2),
-                  highlightColor: Colors.white.withOpacity(0.1),
+                  splashColor: Colors.white.withValues(alpha: 0.2),
+                  highlightColor: Colors.white.withValues(alpha: 0.1),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
@@ -4495,7 +4495,7 @@ class _MessageBubble extends StatelessWidget {
                                     child: Text(
                                       messageObject!.replyToText!,
                                       style: TextStyle(
-                                        color: isMe ? Colors.white.withOpacity(0.85) : Colors.black54,
+                                        color: isMe ? Colors.white.withValues(alpha: 0.85) : Colors.black54,
                                         fontSize: 12,
                                       ),
                                       maxLines: 1,
@@ -4524,7 +4524,7 @@ class _MessageBubble extends StatelessWidget {
                                 Text(
                                   l10n.messageDeleted,
                                   style: TextStyle(
-                                    color: isMe ? Colors.white.withOpacity(0.7) : Colors.black54,
+                                    color: isMe ? Colors.white.withValues(alpha: 0.7) : Colors.black54,
                                     fontSize: 15,
                                     height: 1.4,
                                     fontStyle: FontStyle.italic,
@@ -4545,7 +4545,7 @@ class _MessageBubble extends StatelessWidget {
                                   style: TextStyle(
                                     fontSize: 11,
                                     color: isMe
-                                        ? Colors.white.withOpacity(0.8)
+                                        ? Colors.white.withValues(alpha: 0.8)
                                         : Colors.black54,
                                   ),
                                 ),
@@ -4557,7 +4557,7 @@ class _MessageBubble extends StatelessWidget {
                                     size: 14,
                                     color: read
                                         ? Colors.blue[300]
-                                        : Colors.white.withOpacity(0.8),
+                                        : Colors.white.withValues(alpha: 0.8),
                                   ),
                                 ],
                               ],
@@ -4621,7 +4621,7 @@ class _DateSeparator extends StatelessWidget {
                 borderRadius: BorderRadius.circular(16),
                 boxShadow: [
                   BoxShadow(
-                    color: const Color(0xFF3BA8B0).withOpacity(0.3),
+                    color: const Color(0xFF3BA8B0).withValues(alpha: 0.3),
                     blurRadius: 8,
                     offset: const Offset(0, 2),
                   ),

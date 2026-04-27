@@ -49,7 +49,7 @@ class ReactionPicker extends StatelessWidget {
                 width: 44,
                 height: 4,
                 decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.45),
+                  color: Colors.white.withValues(alpha: 0.45),
                   borderRadius: BorderRadius.circular(2),
                 ),
               ),
@@ -157,7 +157,7 @@ class ReactionPicker extends StatelessWidget {
           onReactionSelected?.call(type);
         },
         borderRadius: BorderRadius.circular(40),
-        splashColor: Colors.white.withOpacity(0.2),
+        splashColor: Colors.white.withValues(alpha: 0.2),
         child: Padding(
           padding: const EdgeInsets.all(12.0),
           child: ReactionIcon(
@@ -186,12 +186,12 @@ class ReactionPicker extends StatelessWidget {
             onActionSelected?.call(actionType);
           },
           borderRadius: BorderRadius.circular(14),
-          splashColor: Colors.white.withOpacity(0.15),
-          highlightColor: Colors.white.withOpacity(0.08),
+          splashColor: Colors.white.withValues(alpha: 0.15),
+          highlightColor: Colors.white.withValues(alpha: 0.08),
           child: Container(
             decoration: BoxDecoration(
               border: Border.all(
-                color: Colors.white.withOpacity(0.28),
+                color: Colors.white.withValues(alpha: 0.28),
                 width: 1,
               ),
               borderRadius: BorderRadius.circular(14),
@@ -268,7 +268,7 @@ class ReactionPicker extends StatelessWidget {
                   child: Text(
                     DateFormat('dd/MM/yyyy').format(message.dueDate!),
                     style: TextStyle(
-                      color: Colors.white.withOpacity(0.8),
+                      color: Colors.white.withValues(alpha: 0.8),
                       fontSize: 12,
                     ),
                   ),
@@ -288,7 +288,7 @@ class ReactionPicker extends StatelessWidget {
         width: 40,
         height: 40,
         decoration: BoxDecoration(
-          color: Colors.white.withOpacity(0.2),
+          color: Colors.white.withValues(alpha: 0.2),
           borderRadius: BorderRadius.circular(6),
         ),
         child: const Icon(
@@ -305,7 +305,7 @@ class ReactionPicker extends StatelessWidget {
         width: 40,
         height: 40,
         decoration: BoxDecoration(
-          color: Colors.white.withOpacity(0.2),
+          color: Colors.white.withValues(alpha: 0.2),
           borderRadius: BorderRadius.circular(6),
         ),
         child: const Icon(
@@ -335,7 +335,7 @@ class ReactionPicker extends StatelessWidget {
               return Container(
                 width: 40,
                 height: 40,
-                color: Colors.white.withOpacity(0.2),
+                color: Colors.white.withValues(alpha: 0.2),
                 child: const Center(
                   child: SizedBox(
                     width: 16,
@@ -353,7 +353,7 @@ class ReactionPicker extends StatelessWidget {
               return Container(
                 width: 40,
                 height: 40,
-                color: Colors.white.withOpacity(0.2),
+                color: Colors.white.withValues(alpha: 0.2),
                 child: const Icon(Icons.image, color: Colors.white, size: 20),
               );
             }
@@ -374,7 +374,7 @@ class ReactionPicker extends StatelessWidget {
       width: 40,
       height: 40,
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.2),
+        color: Colors.white.withValues(alpha: 0.2),
         borderRadius: BorderRadius.circular(6),
       ),
       child: const Icon(

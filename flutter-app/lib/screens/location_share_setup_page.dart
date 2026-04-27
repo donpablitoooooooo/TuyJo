@@ -219,7 +219,7 @@ class _LocationShareSetupPageState extends State<LocationShareSetupPage>
                       color: Colors.white,
                       shadows: [
                         Shadow(
-                          color: Colors.black.withOpacity(0.2),
+                          color: Colors.black.withValues(alpha: 0.2),
                           blurRadius: 20,
                         ),
                       ],
@@ -311,7 +311,7 @@ class _LocationShareSetupPageState extends State<LocationShareSetupPage>
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
             decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.15),
+              color: Colors.white.withValues(alpha: 0.15),
               borderRadius: BorderRadius.circular(20),
             ),
             child: Text(
@@ -345,9 +345,9 @@ class _LocationShareSetupPageState extends State<LocationShareSetupPage>
           const SizedBox(height: 12),
           Container(
             decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.1),
+              color: Colors.white.withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: Colors.white.withOpacity(0.2)),
+              border: Border.all(color: Colors.white.withValues(alpha: 0.2)),
             ),
             child: Row(
               children: [
@@ -388,9 +388,9 @@ class _LocationShareSetupPageState extends State<LocationShareSetupPage>
           const SizedBox(height: 12),
           Container(
             decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.1),
+              color: Colors.white.withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: Colors.white.withOpacity(0.2)),
+              border: Border.all(color: Colors.white.withValues(alpha: 0.2)),
             ),
             child: Row(
               children: [
@@ -415,7 +415,7 @@ class _LocationShareSetupPageState extends State<LocationShareSetupPage>
                 ? l10n.locationShareModeLiveDesc
                 : l10n.locationShareModeStaticDesc,
             style: TextStyle(
-              color: Colors.white.withOpacity(0.6),
+              color: Colors.white.withValues(alpha: 0.6),
               fontSize: 12,
               fontWeight: FontWeight.w300,
             ),
@@ -439,7 +439,7 @@ class _LocationShareSetupPageState extends State<LocationShareSetupPage>
           duration: const Duration(milliseconds: 200),
           padding: const EdgeInsets.symmetric(vertical: 14),
           decoration: BoxDecoration(
-            color: selected ? Colors.white.withOpacity(0.25) : Colors.transparent,
+            color: selected ? Colors.white.withValues(alpha: 0.25) : Colors.transparent,
             borderRadius: BorderRadius.horizontal(
               left: isLeft ? const Radius.circular(15) : Radius.zero,
               right: isLeft ? Radius.zero : const Radius.circular(15),

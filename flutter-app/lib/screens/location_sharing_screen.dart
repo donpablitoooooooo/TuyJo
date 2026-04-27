@@ -616,7 +616,7 @@ class _LocationSharingScreenState extends State<LocationSharingScreen> {
           Text(
             'N',
             style: TextStyle(
-              color: Colors.white.withOpacity(0.7),
+              color: Colors.white.withValues(alpha: 0.7),
               fontSize: 24,
               fontWeight: FontWeight.bold,
               letterSpacing: 2.0,
@@ -637,7 +637,7 @@ class _LocationSharingScreenState extends State<LocationSharingScreen> {
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
                     border: Border.all(
-                      color: Colors.white.withOpacity(0.3),
+                      color: Colors.white.withValues(alpha: 0.3),
                       width: 2,
                     ),
                   ),
@@ -648,7 +648,7 @@ class _LocationSharingScreenState extends State<LocationSharingScreen> {
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
                     border: Border.all(
-                      color: Colors.white.withOpacity(0.4),
+                      color: Colors.white.withValues(alpha: 0.4),
                       width: 2,
                     ),
                   ),
@@ -668,7 +668,7 @@ class _LocationSharingScreenState extends State<LocationSharingScreen> {
                         color: Colors.white,
                         shadows: [
                           Shadow(
-                            color: Colors.black.withOpacity(0.3),
+                            color: Colors.black.withValues(alpha: 0.3),
                             blurRadius: 10,
                           ),
                         ],
@@ -680,7 +680,7 @@ class _LocationSharingScreenState extends State<LocationSharingScreen> {
                   Icon(
                     Icons.navigation,
                     size: 60,
-                    color: Colors.white.withOpacity(0.3),
+                    color: Colors.white.withValues(alpha: 0.3),
                   ),
               ],
             ),
@@ -724,7 +724,7 @@ class _LocationSharingScreenState extends State<LocationSharingScreen> {
                     color: Colors.white,
                     shadows: [
                       Shadow(
-                        color: Colors.black.withOpacity(0.3),
+                        color: Colors.black.withValues(alpha: 0.3),
                         blurRadius: 10,
                       ),
                     ],
@@ -734,7 +734,7 @@ class _LocationSharingScreenState extends State<LocationSharingScreen> {
             : Icon(
                 Icons.navigation,
                 size: 280,
-                color: Colors.white.withOpacity(0.5),
+                color: Colors.white.withValues(alpha: 0.5),
               ),
       ),
     );
@@ -746,10 +746,10 @@ class _LocationSharingScreenState extends State<LocationSharingScreen> {
       margin: EdgeInsets.symmetric(horizontal: 32),
       padding: EdgeInsets.symmetric(vertical: 24, horizontal: 32),
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.15),
+        color: Colors.white.withValues(alpha: 0.15),
         borderRadius: BorderRadius.circular(24),
         border: Border.all(
-          color: Colors.white.withOpacity(0.2),
+          color: Colors.white.withValues(alpha: 0.2),
           width: 1,
         ),
       ),
@@ -817,7 +817,7 @@ class _LocationSharingScreenState extends State<LocationSharingScreen> {
           decoration: BoxDecoration(
             shape: BoxShape.circle,
             border: Border.all(
-              color: Colors.white.withOpacity(0.5),
+              color: Colors.white.withValues(alpha: 0.5),
               width: 2,
             ),
           ),
@@ -829,7 +829,7 @@ class _LocationSharingScreenState extends State<LocationSharingScreen> {
           decoration: BoxDecoration(
             shape: BoxShape.circle,
             border: Border.all(
-              color: Colors.white.withOpacity(0.7),
+              color: Colors.white.withValues(alpha: 0.7),
               width: 2,
             ),
           ),
