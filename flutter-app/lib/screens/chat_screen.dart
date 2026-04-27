@@ -1475,7 +1475,6 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
               _AttachmentOption(
                 icon: Icons.photo_library,
                 label: l10n.chatAttachmentPhotoFromGallery,
-                color: Colors.blue,
                 onTap: () async {
                   Navigator.pop(context);
                   if (_isDemoMode()) { _showDemoFeatureSnackBar(l10n); return; }
@@ -1500,7 +1499,6 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
               _AttachmentOption(
                 icon: Icons.camera_alt,
                 label: l10n.chatAttachmentTakePhoto,
-                color: Colors.purple,
                 onTap: () async {
                   Navigator.pop(context);
                   if (_isDemoMode()) { _showDemoFeatureSnackBar(l10n); return; }
@@ -1525,7 +1523,6 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
               _AttachmentOption(
                 icon: Icons.insert_drive_file,
                 label: l10n.chatAttachmentDocument,
-                color: Colors.green,
                 onTap: () async {
                   Navigator.pop(context);
                   if (_isDemoMode()) { _showDemoFeatureSnackBar(l10n); return; }
@@ -1540,7 +1537,6 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
               _AttachmentOption(
                 icon: Icons.location_on,
                 label: l10n.locationShareButton,
-                color: Colors.orange,
                 onTap: () {
                   Navigator.pop(context);
                   if (_isDemoMode()) { _showDemoFeatureSnackBar(l10n); return; }
@@ -3554,14 +3550,11 @@ class _DemoMessage {
 class _AttachmentOption extends StatelessWidget {
   final IconData icon;
   final String label;
-  // ignore: unused_element_parameter
-  final Color color;
   final VoidCallback onTap;
 
   const _AttachmentOption({
     required this.icon,
     required this.label,
-    required this.color,
     required this.onTap,
   });
 
