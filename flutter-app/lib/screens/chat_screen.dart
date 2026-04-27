@@ -31,6 +31,7 @@ import '../widgets/attachment_widgets.dart';
 import '../widgets/permission_denied_dialog.dart';
 import '../widgets/reaction_picker.dart';
 import '../widgets/reaction_overlay.dart';
+import '../theme/app_colors.dart';
 import 'chat_screen_dismissible.dart';
 import 'pdf_viewer_screen.dart';
 import 'location_sharing_screen.dart';
@@ -1424,42 +1425,51 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
         borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
         child: Container(
           decoration: const BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topCenter,
-              end: Alignment.bottomCenter,
-              colors: [Color(0xFF3BA8B0), Color(0xFF145A60)],
-            ),
+            gradient: AppColors.tealVertical,
           ),
           child: Padding(
             padding: EdgeInsets.only(
-              bottom: MediaQuery.of(context).padding.bottom,
+              bottom: MediaQuery.of(context).padding.bottom + 8,
             ),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                // Header con X
+                // Maniglia
+                Container(
+                  margin: const EdgeInsets.only(top: 10, bottom: 6),
+                  width: 44,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.45),
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+                // Header con X + titolo allineato a sinistra
                 Padding(
-                  padding: const EdgeInsets.only(left: 8, top: 8),
+                  padding: const EdgeInsets.fromLTRB(8, 4, 16, 8),
                   child: Row(
                     children: [
                       IconButton(
                         onPressed: () => Navigator.pop(context),
-                        icon: const Icon(Icons.close, color: Colors.white, size: 28),
+                        icon: const Icon(Icons.close, color: Colors.white, size: 26),
                       ),
-                      Expanded(
-                        child: Text(
-                          l10n.chatAttachmentPickerTitle,
-                          style: const TextStyle(
-                            fontSize: 20,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.white,
-                          ),
-                          textAlign: TextAlign.center,
+                      Text(
+                        l10n.chatAttachmentPickerTitle,
+                        style: const TextStyle(
+                          fontSize: 17,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.white,
+                          letterSpacing: 0.1,
                         ),
                       ),
-                      const SizedBox(width: 48), // Spacer per centrare il titolo
                     ],
                   ),
+                ),
+                // Divisore
+                Container(
+                  margin: const EdgeInsets.symmetric(horizontal: 24),
+                  height: 1,
+                  color: AppColors.dividerOnGradient,
                 ),
                 const SizedBox(height: 8),
               _AttachmentOption(
@@ -3231,22 +3241,12 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
             ),
           Container(
             padding: EdgeInsets.fromLTRB(
-              8,
               12,
-              8,
+              12,
+              12,
               12 + MediaQuery.of(context).padding.bottom,
             ),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withOpacity(0.05),
-                  spreadRadius: 1,
-                  blurRadius: 10,
-                  offset: const Offset(0, -2),
-                ),
-              ],
-            ),
+            color: Colors.transparent,
             child: Column(
                 children: [
                   // Preview reply (messaggio a cui si sta rispondendo)
@@ -3413,56 +3413,83 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                   Row(
                     crossAxisAlignment: CrossAxisAlignment.center,
                     children: [
-                      IconButton(
-                        onPressed: _editingMessageId != null
-                            ? null // Disabilita l'aggiunta di nuovi allegati durante la modifica
-                            : _showAttachmentPicker,
-                        icon: const Icon(Icons.add_circle_outline),
-                        color: _selectedAttachments.isNotEmpty
-                            ? const Color(0xFF3BA8B0)
-                            : Colors.grey[600],
-                        tooltip: l10n.chatAttachmentsTooltip,
-                        iconSize: 28,
-                      ),
-                      const SizedBox(width: 4),
                       Expanded(
-                    child: Container(
-                      decoration: BoxDecoration(
-                        color: Colors.grey[100],
-                        borderRadius: BorderRadius.circular(24),
-                      ),
-                      child: TextField(
-                        controller: _messageController,
-                        focusNode: _messageFocusNode,
-                        decoration: InputDecoration(
-                          hintText: _selectedTodoDate != null
-                              ? l10n.chatTodoPlaceholder
-                              : l10n.chatWritePlaceholder,
-                          hintStyle: TextStyle(color: Colors.grey[500]),
-                          border: InputBorder.none,
-                          contentPadding: const EdgeInsets.symmetric(
-                            horizontal: 20,
-                            vertical: 12,
+                        child: Container(
+                          decoration: BoxDecoration(
+                            color: AppColors.bgSurface,
+                            borderRadius: BorderRadius.circular(28),
+                            boxShadow: [
+                              BoxShadow(
+                                color: AppColors.shadowSoft,
+                                blurRadius: 12,
+                                offset: const Offset(0, 2),
+                              ),
+                            ],
                           ),
-                          suffixIcon: IconButton(
-                            icon: Icon(
-                              _selectedTodoDate != null
-                                  ? Icons.calendar_month
-                                  : Icons.calendar_month_outlined,
-                              color: _selectedTodoDate != null
-                                  ? const Color(0xFF3BA8B0)
-                                  : Colors.grey[600],
-                            ),
-                            onPressed: _showDateTimePicker,
-                            tooltip: l10n.chatSetDateTimeTooltip,
+                          child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.center,
+                            children: [
+                              IconButton(
+                                onPressed: _editingMessageId != null
+                                    ? null
+                                    : _showAttachmentPicker,
+                                icon: const Icon(Icons.add_circle_outline),
+                                color: _selectedAttachments.isNotEmpty
+                                    ? AppColors.tealLight
+                                    : AppColors.textSecondary,
+                                tooltip: l10n.chatAttachmentsTooltip,
+                                iconSize: 26,
+                                padding: const EdgeInsets.symmetric(horizontal: 12),
+                                constraints: const BoxConstraints(minWidth: 44, minHeight: 44),
+                              ),
+                              Expanded(
+                                child: TextField(
+                                  controller: _messageController,
+                                  focusNode: _messageFocusNode,
+                                  style: const TextStyle(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w400,
+                                    color: AppColors.textPrimary,
+                                  ),
+                                  decoration: InputDecoration(
+                                    hintText: _selectedTodoDate != null
+                                        ? l10n.chatTodoPlaceholder
+                                        : l10n.chatWritePlaceholder,
+                                    hintStyle: const TextStyle(
+                                      color: AppColors.textHintOnSurface,
+                                      fontWeight: FontWeight.w400,
+                                    ),
+                                    border: InputBorder.none,
+                                    isDense: true,
+                                    contentPadding: const EdgeInsets.symmetric(
+                                      horizontal: 4,
+                                      vertical: 14,
+                                    ),
+                                  ),
+                                  maxLines: null,
+                                  textCapitalization: TextCapitalization.sentences,
+                                  onSubmitted: (_) => _sendMessage(),
+                                ),
+                              ),
+                              IconButton(
+                                icon: Icon(
+                                  _selectedTodoDate != null
+                                      ? Icons.calendar_month
+                                      : Icons.calendar_month_outlined,
+                                  color: _selectedTodoDate != null
+                                      ? AppColors.tealLight
+                                      : AppColors.textSecondary,
+                                ),
+                                onPressed: _showDateTimePicker,
+                                tooltip: l10n.chatSetDateTimeTooltip,
+                                iconSize: 24,
+                                padding: const EdgeInsets.symmetric(horizontal: 12),
+                                constraints: const BoxConstraints(minWidth: 44, minHeight: 44),
+                              ),
+                            ],
                           ),
                         ),
-                        maxLines: null,
-                        textCapitalization: TextCapitalization.sentences,
-                        onSubmitted: (_) => _sendMessage(),
                       ),
-                    ),
-                  ),
                   const SizedBox(width: 8),
                   AnimatedScale(
                     scale: _canSend ? 1.0 : 0.8,
@@ -3470,14 +3497,11 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                     curve: Curves.easeOutBack,
                     child: AnimatedContainer(
                       duration: const Duration(milliseconds: 200),
+                      width: 48,
+                      height: 48,
                       decoration: BoxDecoration(
                         gradient: _canSend
-                            ? const LinearGradient(
-                                colors: [
-                                  Color(0xFF3BA8B0),
-                                  Color(0xFF145A60),
-                                ],
-                              )
+                            ? AppColors.tealVertical
                             : LinearGradient(
                                 colors: [
                                   Colors.grey[300]!,
@@ -3488,9 +3512,9 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                         boxShadow: _canSend
                             ? [
                                 BoxShadow(
-                                  color: const Color(0xFF3BA8B0).withOpacity(0.4),
-                                  blurRadius: 8,
-                                  offset: const Offset(0, 2),
+                                  color: AppColors.shadowTeal,
+                                  blurRadius: 12,
+                                  offset: const Offset(0, 3),
                                 ),
                               ]
                             : [],
@@ -3500,6 +3524,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                         icon: const Icon(Icons.send_rounded),
                         color: Colors.white,
                         iconSize: 22,
+                        padding: EdgeInsets.zero,
                       ),
                     ),
                       ),
@@ -3529,6 +3554,7 @@ class _DemoMessage {
 class _AttachmentOption extends StatelessWidget {
   final IconData icon;
   final String label;
+  // ignore: unused_element_parameter
   final Color color;
   final VoidCallback onTap;
 
@@ -3541,38 +3567,44 @@ class _AttachmentOption extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return InkWell(
-      onTap: onTap,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-        child: Row(
-          children: [
-            Container(
-              width: 56,
-              height: 56,
-              decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.2),
-                shape: BoxShape.circle,
-                border: Border.all(
-                  color: Colors.white.withOpacity(0.3),
-                  width: 1,
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        splashColor: Colors.white.withOpacity(0.1),
+        highlightColor: Colors.white.withOpacity(0.05),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+          child: Row(
+            children: [
+              Container(
+                width: 48,
+                height: 48,
+                decoration: const BoxDecoration(
+                  color: AppColors.iconCircleOnGradient,
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(icon, color: Colors.white, size: 24),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Text(
+                  label,
+                  style: const TextStyle(
+                    fontSize: 17,
+                    fontWeight: FontWeight.w500,
+                    color: Colors.white,
+                    letterSpacing: 0.1,
+                  ),
                 ),
               ),
-              child: Icon(icon, color: Colors.white, size: 28),
-            ),
-            const SizedBox(width: 16),
-            Expanded(
-              child: Text(
-                label,
-                style: const TextStyle(
-                  fontSize: 17,
-                  fontWeight: FontWeight.w500,
-                  color: Colors.white,
-                ),
+              Icon(
+                Icons.chevron_right,
+                color: Colors.white.withOpacity(0.7),
+                size: 22,
               ),
-            ),
-            const Icon(Icons.chevron_right, color: Colors.white70, size: 24),
-          ],
+            ],
+          ),
         ),
       ),
     );
@@ -4393,10 +4425,10 @@ class _MessageBubble extends StatelessWidget {
               boxShadow: [
                 BoxShadow(
                   color: isMe
-                      ? const Color(0xFF3BA8B0).withOpacity(0.3)
-                      : Colors.black.withOpacity(0.08),
-                  blurRadius: 8,
-                  offset: const Offset(0, 2),
+                      ? AppColors.shadowTeal
+                      : AppColors.shadowSoft,
+                  blurRadius: 14,
+                  offset: const Offset(0, 4),
                 ),
               ],
             ),

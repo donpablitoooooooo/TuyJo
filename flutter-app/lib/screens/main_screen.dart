@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../services/pairing_service.dart';
 import '../services/couple_selfie_service.dart';
 import '../services/notification_service.dart';
+import '../theme/app_colors.dart';
 import '../widgets/permission_denied_dialog.dart';
 import 'chat_screen.dart';
 import 'media_screen.dart';
@@ -159,14 +160,7 @@ class _MainScreenState extends State<MainScreen> {
       drawer: Drawer(
         child: Container(
           decoration: const BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topCenter,
-              end: Alignment.bottomCenter,
-              colors: [
-                Color(0xFF3BA8B0),
-                Color(0xFF145A60),
-              ],
-            ),
+            gradient: AppColors.tealVertical,
           ),
           child: ListView(
             padding: EdgeInsets.zero,
@@ -252,18 +246,18 @@ class _MainScreenState extends State<MainScreen> {
             child: Builder(
               builder: (context) => Container(
                 decoration: BoxDecoration(
-                  color: Colors.white,
+                  color: AppColors.bgSurface,
                   shape: BoxShape.circle,
                   boxShadow: [
                     BoxShadow(
-                      color: Colors.black.withOpacity(0.1),
-                      blurRadius: 8,
-                      offset: const Offset(0, 2),
+                      color: AppColors.shadowSoft,
+                      blurRadius: 12,
+                      offset: const Offset(0, 3),
                     ),
                   ],
                 ),
                 child: IconButton(
-                  icon: const Icon(Icons.menu, color: Color(0xFF3BA8B0)),
+                  icon: const Icon(Icons.menu, color: AppColors.tealLight),
                   onPressed: () {
                     FocusScope.of(context).unfocus();
                     Scaffold.of(context).openDrawer();
@@ -292,18 +286,18 @@ class _MainScreenState extends State<MainScreen> {
                         height: 48,
                         margin: const EdgeInsets.only(right: 10),
                         decoration: BoxDecoration(
-                          color: Colors.white,
+                          color: AppColors.bgSurface,
                           shape: BoxShape.circle,
                           boxShadow: [
                             BoxShadow(
-                              color: Colors.black.withOpacity(0.1),
-                              blurRadius: 8,
-                              offset: const Offset(0, 2),
+                              color: AppColors.shadowSoft,
+                              blurRadius: 12,
+                              offset: const Offset(0, 3),
                             ),
                           ],
                         ),
                         child: IconButton(
-                          icon: const Icon(Icons.call, color: Color(0xFF3BA8B0)),
+                          icon: const Icon(Icons.call, color: AppColors.tealLight),
                           iconSize: 22,
                           padding: EdgeInsets.zero,
                           onPressed: () {
@@ -333,13 +327,13 @@ class _MainScreenState extends State<MainScreen> {
                         width: 48,
                         height: 48,
                         decoration: BoxDecoration(
-                          color: Colors.white,
+                          color: AppColors.bgSurface,
                           shape: BoxShape.circle,
                           boxShadow: [
                             BoxShadow(
-                              color: Colors.black.withOpacity(0.1),
-                              blurRadius: 8,
-                              offset: const Offset(0, 2),
+                              color: AppColors.shadowSoft,
+                              blurRadius: 12,
+                              offset: const Offset(0, 3),
                             ),
                           ],
                         ),
