@@ -3488,13 +3488,13 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                       ),
                   const SizedBox(width: 8),
                   AnimatedScale(
-                    scale: _canSend ? 1.0 : 0.8,
+                    scale: _canSend ? 1.0 : 0.85,
                     duration: const Duration(milliseconds: 200),
                     curve: Curves.easeOutBack,
                     child: AnimatedContainer(
                       duration: const Duration(milliseconds: 200),
-                      width: 48,
-                      height: 48,
+                      width: 52,
+                      height: 52,
                       decoration: BoxDecoration(
                         gradient: _canSend
                             ? AppColors.tealVertical
@@ -3519,8 +3519,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                         onPressed: _canSend ? _sendMessage : null,
                         icon: const Icon(Icons.send_rounded),
                         color: Colors.white,
-                        iconSize: 22,
-                        padding: EdgeInsets.zero,
+                        iconSize: 26,
                       ),
                     ),
                       ),

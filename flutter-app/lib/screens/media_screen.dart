@@ -162,7 +162,6 @@ class _MediaScreenState extends State<MediaScreen> {
     final documentItems = _getDocumentItems(messages);
 
     return Scaffold(
-      backgroundColor: Colors.grey[50],
       body: Column(
         children: [
           // Spazio per hamburger/ciliegie

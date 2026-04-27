@@ -244,25 +244,12 @@ class _MainScreenState extends State<MainScreen> {
             top: 48,
             left: 16,
             child: Builder(
-              builder: (context) => Container(
-                decoration: BoxDecoration(
-                  color: AppColors.bgSurface,
-                  shape: BoxShape.circle,
-                  boxShadow: [
-                    BoxShadow(
-                      color: AppColors.shadowSoft,
-                      blurRadius: 12,
-                      offset: const Offset(0, 3),
-                    ),
-                  ],
-                ),
-                child: IconButton(
-                  icon: const Icon(Icons.menu, color: AppColors.tealLight),
-                  onPressed: () {
-                    FocusScope.of(context).unfocus();
-                    Scaffold.of(context).openDrawer();
-                  },
-                ),
+              builder: (context) => IconButton(
+                icon: const Icon(Icons.menu, color: AppColors.tealDeep, size: 28),
+                onPressed: () {
+                  FocusScope.of(context).unfocus();
+                  Scaffold.of(context).openDrawer();
+                },
               ),
             ),
           ),
@@ -281,25 +268,10 @@ class _MainScreenState extends State<MainScreen> {
                   children: [
                     // Icona chiamata vocale (solo se paired e su tab Chat)
                     if (isPaired && _selectedIndex == 0)
-                      Container(
-                        width: 48,
-                        height: 48,
-                        margin: const EdgeInsets.only(right: 10),
-                        decoration: BoxDecoration(
-                          color: AppColors.bgSurface,
-                          shape: BoxShape.circle,
-                          boxShadow: [
-                            BoxShadow(
-                              color: AppColors.shadowSoft,
-                              blurRadius: 12,
-                              offset: const Offset(0, 3),
-                            ),
-                          ],
-                        ),
+                      Padding(
+                        padding: const EdgeInsets.only(right: 6),
                         child: IconButton(
-                          icon: const Icon(Icons.call, color: AppColors.tealLight),
-                          iconSize: 22,
-                          padding: EdgeInsets.zero,
+                          icon: const Icon(Icons.call, color: AppColors.tealDeep, size: 26),
                           onPressed: () {
                             Navigator.push(
                               context,
@@ -311,7 +283,7 @@ class _MainScreenState extends State<MainScreen> {
                         ),
                       ),
 
-                    // Couple selfie / pairing status
+                    // Couple selfie / pairing status (senza cerchio bianco)
                     GestureDetector(
                       onTap: isPaired
                           ? () {
@@ -323,20 +295,9 @@ class _MainScreenState extends State<MainScreen> {
                               );
                             }
                           : null,
-                      child: Container(
-                        width: 48,
-                        height: 48,
-                        decoration: BoxDecoration(
-                          color: AppColors.bgSurface,
-                          shape: BoxShape.circle,
-                          boxShadow: [
-                            BoxShadow(
-                              color: AppColors.shadowSoft,
-                              blurRadius: 12,
-                              offset: const Offset(0, 3),
-                            ),
-                          ],
-                        ),
+                      child: SizedBox(
+                        width: 44,
+                        height: 44,
                         child: ClipOval(
                           child: isPaired && hasSelfie && cachedSelfieBytes != null
                               ? Image.memory(
@@ -345,16 +306,16 @@ class _MainScreenState extends State<MainScreen> {
                                   errorBuilder: (context, error, stackTrace) {
                                     return Image.asset(
                                       'assets/logo_teal.png',
-                                      width: 48,
-                                      height: 48,
+                                      width: 44,
+                                      height: 44,
                                       fit: BoxFit.cover,
                                     );
                                   },
                                 )
                               : Image.asset(
                                   isPaired ? 'assets/logo_teal.png' : 'assets/logo_grey.png',
-                                  width: 48,
-                                  height: 48,
+                                  width: 44,
+                                  height: 44,
                                   fit: BoxFit.cover,
                                 ),
                         ),
