@@ -24,6 +24,9 @@ class ChatService extends ChangeNotifier {
   bool _isLoadingFromCache = false;
   bool _isLoadingOlderMessages = false;
   bool _hasMoreMessages = true; // Flag per sapere se ci sono messaggi più vecchi da caricare
+  bool _archiveFullySynced = false; // True solo dopo che il Firestore pagination tocca il fondo
+  bool _isHydratingArchive = false; // Spinner MediaScreen durante il full sync
+  DocumentSnapshot? _oldestLoadedDoc; // Cursor per paginazione Firestore (robusto a tipi di created_at)
   bool _partnerIsTyping = false;
   Timer? _typingTimer;
 
@@ -39,6 +42,7 @@ class ChatService extends ChangeNotifier {
   bool get isLoadingFromCache => _isLoadingFromCache;
   bool get isLoadingOlderMessages => _isLoadingOlderMessages;
   bool get hasMoreMessages => _hasMoreMessages;
+  bool get isHydratingArchive => _isHydratingArchive;
   bool get partnerIsTyping => _partnerIsTyping;
   EncryptionService get encryptionService => _encryptionService;
 
@@ -136,28 +140,45 @@ class ChatService extends ChangeNotifier {
     }
   }
 
-  /// Recupera messaggi più vecchi direttamente da Firestore
-  /// Usato come fallback quando la cache locale è esaurita
-  /// Ritorna null in caso di errore (per distinguere da lista vuota)
+  /// Recupera messaggi più vecchi direttamente da Firestore usando un
+  /// cursor (startAfterDocument). È più robusto del vecchio approccio
+  /// `where('created_at', isLessThan: ...)` — quella query saltava i
+  /// messaggi con created_at salvato come Firestore Timestamp invece
+  /// che come stringa ISO, e restituiva 0 record facendo fallire il
+  /// sync archivio.
+  ///
+  /// Il parametro `beforeTimestamp` resta solo per backward compat ed è
+  /// ignorato; la posizione è tracciata da `_oldestLoadedDoc`.
+  /// Ritorna null in caso di errore (per distinguere da lista vuota).
   Future<List<Message>?> _fetchOlderMessagesFromFirestore(
     String familyChatId,
     DateTime beforeTimestamp,
     {int limit = 50}
   ) async {
+    if (_oldestLoadedDoc == null) {
+      if (kDebugMode) print('fetchOlder: no cursor yet, cannot paginate');
+      return null;
+    }
+
     try {
-      final queryTimestamp = beforeTimestamp.toIso8601String();
-      if (kDebugMode) print('📡 Firestore query: created_at < "$queryTimestamp", limit: $limit');
+      if (kDebugMode) print('fetchOlder: query startAfter=${_oldestLoadedDoc!.id.substring(0, 8)} limit=$limit');
 
       final snapshot = await _firestore
           .collection('families')
           .doc(familyChatId)
           .collection('messages')
-          .where('created_at', isLessThan: queryTimestamp)
           .orderBy('created_at', descending: true)
+          .startAfterDocument(_oldestLoadedDoc!)
           .limit(limit)
           .get();
 
-      if (kDebugMode) print('📡 Firestore returned ${snapshot.docs.length} older messages');
+      if (kDebugMode) print('fetchOlder: Firestore returned ${snapshot.docs.length} docs');
+
+      // Avanza il cursor: con orderBy desc, l'ultimo doc del batch è
+      // il più vecchio — è da lì che riparte la prossima pagina.
+      if (snapshot.docs.isNotEmpty) {
+        _oldestLoadedDoc = snapshot.docs.last;
+      }
 
       final List<Message> messages = [];
       for (final doc in snapshot.docs) {
@@ -180,7 +201,7 @@ class ChatService extends ChangeNotifier {
       // Restituisci in ordine ASC (vecchio -> nuovo) per coerenza
       return messages.reversed.toList();
     } catch (e) {
-      if (kDebugMode) print('❌ Error fetching older messages from Firestore: $e');
+      if (kDebugMode) print('fetchOlder: ERROR $e');
       // Ritorna null per indicare errore (non "nessun messaggio")
       return null;
     }
@@ -244,6 +265,129 @@ class ChatService extends ChangeNotifier {
     }
   }
 
+  /// Carica TUTTI i messaggi dell'archivio in `_messages`.
+  ///
+  /// Pensato per la MediaScreen: la chat parte con una finestra limitata
+  /// per velocità, ma la galleria media ha bisogno dell'archivio completo.
+  ///
+  /// Procedura:
+  /// 1. Idrata dalla cache SQLite (istantaneo, già decrypted).
+  /// 2. Se `syncFromFirestore` è true e non abbiamo ancora toccato il fondo
+  ///    della cronologia, pagina Firestore scaricando e decriptando i
+  ///    messaggi più vecchi a batch di 100, salvandoli in cache man mano.
+  ///    Dopo il primo full sync la cache contiene tutto: sessioni successive
+  ///    sono istantanee.
+  ///
+  /// È one-shot per sessione/famiglia — reinvocarlo è un no-op finché
+  /// non cambia `_currentFamilyChatId`. Se `_currentFamilyChatId` non è
+  /// ancora stato impostato (MediaScreen aperta prima della ChatScreen),
+  /// puoi passare esplicitamente `familyChatId`.
+  Future<void> loadAllFromCache({
+    String? familyChatId,
+    bool syncFromFirestore = false,
+  }) async {
+    final chatId = familyChatId ?? _currentFamilyChatId;
+    if (chatId == null) {
+      if (kDebugMode) print('loadAll: skip (no family chat id)');
+      return;
+    }
+    if (_isHydratingArchive) {
+      if (kDebugMode) print('loadAll: skip (already hydrating)');
+      return;
+    }
+    if (syncFromFirestore && _archiveFullySynced) {
+      if (kDebugMode) print('loadAll: skip (already fully synced)');
+      return;
+    }
+
+    if (kDebugMode) print('loadAll: start syncFromFirestore=$syncFromFirestore '
+        'inMem=${_messages.length} hasMore=$_hasMoreMessages '
+        'cursor=${_oldestLoadedDoc?.id.substring(0, 8) ?? "null"}');
+
+    _isHydratingArchive = true;
+    notifyListeners();
+
+    try {
+      // Step 1: cache SQLite (veloce, già decriptata)
+      final allCached = await _cacheService.loadAllMessages(chatId);
+      if (allCached.isNotEmpty) {
+        final existingIds = _messages.map((m) => m.id).toSet();
+        final newMessages = allCached.where((m) => !existingIds.contains(m.id)).toList();
+
+        if (newMessages.isNotEmpty) {
+          _messages.addAll(newMessages);
+          _messages.sort((a, b) => b.timestamp.compareTo(a.timestamp));
+          notifyListeners();
+          if (kDebugMode) print('loadAll: cache hydrated ${newMessages.length} (total ${_messages.length})');
+        } else {
+          if (kDebugMode) print('loadAll: cache had ${allCached.length} but nothing new');
+        }
+      } else {
+        if (kDebugMode) print('loadAll: cache empty');
+      }
+
+      // Step 2: pagina Firestore fino a esaurimento, persistendo in cache
+      if (syncFromFirestore) {
+        if (_messages.isEmpty) {
+          if (kDebugMode) print('loadAll: defer Firestore hydration, _messages empty');
+        } else {
+          const pageSize = 100;
+          int pageNum = 0;
+          while (_hasMoreMessages) {
+            pageNum++;
+            final oldestTimestamp = _messages.last.timestamp;
+            if (kDebugMode) print('loadAll: page#$pageNum request (inMem=${_messages.length})');
+            final firestoreMessages = await _fetchOlderMessagesFromFirestore(
+              chatId,
+              oldestTimestamp,
+              limit: pageSize,
+            );
+
+            if (firestoreMessages == null) {
+              if (kDebugMode) print('loadAll: page#$pageNum FAILED, stop hydration');
+              return;
+            }
+
+            if (firestoreMessages.isEmpty) {
+              if (kDebugMode) print('loadAll: page#$pageNum empty, reached end of history');
+              _hasMoreMessages = false;
+              break;
+            }
+
+            final existingIds = _messages.map((m) => m.id).toSet();
+            final newOnes = firestoreMessages.where((m) => !existingIds.contains(m.id)).toList();
+
+            if (newOnes.isEmpty) {
+              if (kDebugMode) print('loadAll: page#$pageNum all duplicates, stop');
+              _hasMoreMessages = false;
+              break;
+            }
+
+            _messages.addAll(newOnes);
+            _messages.sort((a, b) => b.timestamp.compareTo(a.timestamp));
+            await _cacheService.saveMessages(newOnes, chatId);
+            notifyListeners();
+
+            if (kDebugMode) print('loadAll: page#$pageNum added ${newOnes.length} new (total ${_messages.length})');
+
+            if (firestoreMessages.length < pageSize) {
+              if (kDebugMode) print('loadAll: page#$pageNum short (${firestoreMessages.length}/$pageSize), end');
+              _hasMoreMessages = false;
+              break;
+            }
+          }
+          _archiveFullySynced = true;
+          if (kDebugMode) print('loadAll: DONE fullySynced total=${_messages.length}');
+        }
+      }
+    } catch (e, st) {
+      if (kDebugMode) print('loadAll: EXCEPTION $e\n$st');
+    } finally {
+      _isHydratingArchive = false;
+      notifyListeners();
+    }
+  }
+
   /// Aggiorna il timestamp di un messaggio reminder quando diventa visibile
   /// Questo fa sì che il reminder appaia sempre "fresco" in cima alla chat
   Future<void> _updateReminderTimestamp(String messageId, String familyChatId) async {
@@ -280,6 +424,8 @@ class ChatService extends ChangeNotifier {
     if (_currentFamilyChatId != familyChatId) {
       _currentFamilyChatId = familyChatId;
       _hasMoreMessages = true; // Reset per nuova chat
+      _archiveFullySynced = false; // Re-idrata cache per la nuova chat
+      _oldestLoadedDoc = null; // Reset cursor paginazione Firestore
 
       // 🐛 DEBUG: Ispeziona database prima di caricare
       if (kDebugMode) {
@@ -425,6 +571,32 @@ class ChatService extends ChangeNotifier {
           // più vecchi non caricati. Se il primo snapshot ha saturato il
           // limite, abilita la paginazione; altrimenti è tutta la chat.
           _hasMoreMessages = snapshot.docs.length >= initialLiveWindow;
+
+          // Cattura il documento più vecchio come cursor per il pagination.
+          // Con orderBy(created_at, asc) + limitToLast(N), docs è in ordine
+          // asc: docs.first è il più vecchio dei 100 live. Serve come
+          // punto di partenza per startAfterDocument sulle query future.
+          if (snapshot.docs.isNotEmpty) {
+            _oldestLoadedDoc = snapshot.docs.first;
+            if (kDebugMode) print('firstSnap: cursor set ${_oldestLoadedDoc!.id.substring(0, 8)} '
+                'docs=${snapshot.docs.length} hasMore=$_hasMoreMessages');
+          } else {
+            if (kDebugMode) print('firstSnap: EMPTY, no cursor set');
+          }
+
+          // 🚀 AUTO-SYNC IN BACKGROUND: se ci sono messaggi più vecchi di
+          // quelli nella finestra live, idratiamo tutto l'archivio in
+          // background (cache SQLite + paginazione Firestore). Sfrutta
+          // l'isolate del batch decrypt, quindi la UI resta fluida.
+          // La chat è subito usabile coi 100 messaggi recenti; nel
+          // frattempo la cache si riempie e sia lo scroll infinito sia
+          // la MediaScreen trovano tutto pronto.
+          if (_hasMoreMessages && !_archiveFullySynced) {
+            unawaited(loadAllFromCache(
+              familyChatId: familyChatId,
+              syncFromFirestore: true,
+            ));
+          }
 
         } else {
           // SNAPSHOTS SUCCESSIVI: Gestisci i nuovi messaggi normalmente

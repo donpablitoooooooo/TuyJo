@@ -2,6 +2,42 @@
 
 Tutte le modifiche notevoli a questo progetto saranno documentate in questo file.
 
+## [1.32.0] - 2026-04-23
+
+### ⚡ Performance
+
+#### Crittografia
+- **Backend nativo AES-GCM**: switch a `cryptography_flutter` per usare AES-GCM nativo su iOS/Android
+- **Crypto fuori dal main isolate**: cifratura/decifratura pesante spostata in isolate dedicato per UI fluida stile WhatsApp
+- **Decrypt batch dei messaggi vecchi** durante lo scroll infinito per ridurre i jank
+
+#### Invio foto e allegati
+- **Pipeline upload parallela**: invio foto 3-5x più veloce
+- **Generazione thumbnail nativa**: collassata in una singola chiamata `FlutterImageCompress`
+- **Pre-populate cache allegati** dopo l'upload per evitare il download di ritorno
+- **Prevenzione upload duplicati paralleli** dello stesso allegato
+
+#### Firestore / Auth
+- **Cap snapshot Firestore iniziale** e batch delle update di read-receipt
+- **Eliminata cascata di retry** del token di autenticazione Firebase
+- **Fix timing** sul tracciamento upload completo
+
+#### Chat e Media
+- **Scroll infinito messaggi storici**: la chat parte veloce con gli ultimi 100 messaggi; scrollando in alto si caricano progressivamente quelli più vecchi. Spinner in cima durante il caricamento.
+- **Archivio completo in background**: al primo avvio di una chat lunga, idratazione completa dei messaggi storici (cache SQLite + paginazione Firestore via cursor `startAfterDocument`), senza bloccare la UI.
+- **Galleria media completa**: foto, link e documenti di tutta la cronologia sono visibili nella sezione Media, non solo degli ultimi 100 messaggi.
+
+### 🐛 Bug Fix
+- **Fix critico migration SQLite**: dopo aggiornamento da versione precedente, la migration del database falliva con `duplicate column name: deleted` se la colonna era già stata creata in una release precedente. Conseguenza: la galleria Media e lo scroll storico restavano bloccati a 100 messaggi. Ora tutte le `ALTER TABLE ADD COLUMN` sono idempotenti (check via `PRAGMA table_info`).
+- **Avvio lento dell'app** e **PDF condivisi trattati come URL**: corretti
+- **Bolla foto che lampeggiava vuota** nella transizione pending → sent: risolto
+
+### 🔧 Modifiche Tecniche
+- Aggiunta dipendenza `cryptography_flutter` per backend nativo
+- Refactor del pipeline di encryption/decryption per essere isolate-safe
+- Pagination Firestore cursor-based (robusto a tipi misti di `created_at`)
+- Helper `_addColumnIfMissing` per migration SQLite safe su upgrade
+
 ## [1.13.2] - 2026-01-18
 
 ### 🐛 Bug Fix

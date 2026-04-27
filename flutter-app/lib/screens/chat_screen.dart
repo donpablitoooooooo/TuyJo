@@ -122,8 +122,29 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
 
     });
 
+    // 📜 Infinite scroll: carica messaggi più vecchi quando l'utente
+    // scrolla verso il top. Con reverse: true, il top visivo corrisponde
+    // al maxScrollExtent del controller.
+    _scrollController.addListener(_onScroll);
+
     // 📤 CONDIVISIONE: Listen per file condivisi da altre app
     _initSharedFiles();
+  }
+
+  /// Trigger per caricare la pagina successiva di messaggi storici.
+  /// Con reverse: true la UI è capovolta: pixels=0 è il messaggio più
+  /// nuovo, maxScrollExtent è quello più vecchio. Quando siamo entro
+  /// 300px dal top carichiamo la pagina successiva.
+  void _onScroll() {
+    if (!_scrollController.hasClients) return;
+    final position = _scrollController.position;
+    if (position.maxScrollExtent - position.pixels > 300) return;
+
+    final chatService = Provider.of<ChatService>(context, listen: false);
+    if (chatService.isLoadingOlderMessages) return;
+    if (!chatService.hasMoreMessages) return;
+
+    chatService.loadOlderMessages();
   }
 
   /// Inizializza listener per file condivisi da altre app
@@ -3043,9 +3064,27 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                 : ListView.builder(
                           controller: _scrollController,
                           padding: const EdgeInsets.fromLTRB(12, 60, 12, 2),
-                          itemCount: visibleMessages.length + _pendingLocalMessages.length,
+                          itemCount: visibleMessages.length
+                              + _pendingLocalMessages.length
+                              + (chatService.isLoadingOlderMessages ? 1 : 0),
                           reverse: true,
                           itemBuilder: (context, index) {
+                            // Con reverse: true l'ultimo index è il top visivo:
+                            // mostra lì lo spinner mentre carichiamo la pagina
+                            // successiva di messaggi storici.
+                            if (chatService.isLoadingOlderMessages &&
+                                index == visibleMessages.length + _pendingLocalMessages.length) {
+                              return const Padding(
+                                padding: EdgeInsets.symmetric(vertical: 16),
+                                child: Center(
+                                  child: SizedBox(
+                                    width: 22,
+                                    height: 22,
+                                    child: CircularProgressIndicator(strokeWidth: 2),
+                                  ),
+                                ),
+                              );
+                            }
                             // Pending messages appaiono in fondo (index 0..N-1 in lista reversed)
                             final pendingCount = _pendingLocalMessages.length;
                             if (index < pendingCount) {

@@ -1,0 +1,23 @@
+TuyJo v1.32.0
+
+PERFORMANCE:
+⚡ Photo sending up to 3-5x faster with a parallel upload pipeline
+🔐 New native encryption backend (AES-GCM): much faster encrypt/decrypt
+🧵 Heavy crypto moved off the main thread: smooth WhatsApp-grade UI
+📜 Instant chat open: we load the latest messages and fetch older ones only when you scroll up
+🖼️ Fuller Media section: photos, links and documents from the whole archive are visible as soon as you open the gallery
+📸 Optimized image thumbnail generation with a single native pass
+☁️ Faster initial chat load and batched read receipts
+
+BUG FIXES:
+🗄️ Fixed an issue where, after updating from a previous version, users could get stuck seeing only 100 messages and part of the files in the gallery
+🐛 Fixed slow app startup
+📄 Fixed shared PDFs being treated as links
+🔁 Removed auth-token retry cascade
+🖼️ Fixed photo bubble flashing empty while sending
+📥 Sent photos are no longer re-downloaded unnecessarily
+🚫 Prevented duplicate parallel uploads of the same attachment
+
+NOTES:
+📱 Compatibility: Android 6.0+ and iOS 15.0+
+🔐 End-to-end encryption guaranteed

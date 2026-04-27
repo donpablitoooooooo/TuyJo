@@ -53,9 +53,27 @@ class _MediaScreenState extends State<MediaScreen> {
     _attachmentService = AttachmentService(encryptionService: chatService.encryptionService);
 
     final userId = await pairingService.getMyUserId();
-    setState(() {
-      _currentUserId = userId;
-    });
+    final familyChatId = await pairingService.getFamilyChatId();
+    if (mounted) {
+      setState(() {
+        _currentUserId = userId;
+      });
+    }
+
+    // La chat parte con una finestra di 100 messaggi per velocità.
+    // La galleria ha bisogno dell'archivio completo: (1) idrata dalla
+    // cache SQLite locale (istantaneo) e (2) se la cache è parziale,
+    // sincronizza da Firestore paginando. Dopo il primo full sync la
+    // cache contiene tutto e le sessioni successive sono istantanee.
+    // Passiamo familyChatId esplicito perché con IndexedStack questo
+    // initState può girare prima che ChatScreen abbia chiamato
+    // startListening().
+    if (familyChatId != null) {
+      await chatService.loadAllFromCache(
+        familyChatId: familyChatId,
+        syncFromFirestore: true,
+      );
+    }
   }
 
   /// Ottiene foto e video dai messaggi (più recenti prima)
@@ -152,6 +170,36 @@ class _MediaScreenState extends State<MediaScreen> {
 
           // Tab selector solo icone
           _buildTabSelector(),
+
+          // Banner di caricamento archivio (primo sync Firestore)
+          if (chatService.isHydratingArchive)
+            Container(
+              margin: const EdgeInsets.only(top: 8, left: 16, right: 16),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              decoration: BoxDecoration(
+                color: MediaColors.tealLight.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Row(
+                children: [
+                  SizedBox(
+                    width: 14,
+                    height: 14,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: MediaColors.tealLight,
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  const Expanded(
+                    child: Text(
+                      'Carico archivio completo…',
+                      style: TextStyle(fontSize: 12, color: MediaColors.tealDark),
+                    ),
+                  ),
+                ],
+              ),
+            ),
 
           // Content area (MonthSeparator ha già padding top)
           Expanded(

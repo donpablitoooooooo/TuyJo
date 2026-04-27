@@ -87,29 +87,51 @@ class MessageCacheService {
     // Usiamo ricerca LIKE invece (vedi metodo searchMessages)
   }
 
+  /// Verifica se una colonna esiste già in una tabella.
+  /// Serve a rendere le migration idempotenti: se un utente ha una
+  /// versione intermedia del DB in cui la colonna è già stata creata
+  /// (per esempio perché una vecchia release ne aveva modificato
+  /// l'`onCreate` senza bumpare la versione), l'ALTER TABLE classico
+  /// crasha con "duplicate column name". Con questo check skippiamo.
+  Future<bool> _columnExists(Database db, String table, String column) async {
+    final result = await db.rawQuery("PRAGMA table_info('$table')");
+    return result.any((row) => row['name'] == column);
+  }
+
+  /// Aggiunge una colonna solo se non esiste già.
+  Future<void> _addColumnIfMissing(
+    Database db,
+    String table,
+    String column,
+    String typeAndDefault,
+  ) async {
+    if (await _columnExists(db, table, column)) return;
+    await db.execute('ALTER TABLE $table ADD COLUMN $column $typeAndDefault');
+  }
+
   /// Migra il database da una versione precedente
   Future<void> _upgradeDatabase(Database db, int oldVersion, int newVersion) async {
     if (oldVersion < 2) {
       // Aggiungi colonne per stato messaggio (delivered, read, read_at)
-      await db.execute('ALTER TABLE $_messagesTable ADD COLUMN delivered INTEGER DEFAULT 0');
-      await db.execute('ALTER TABLE $_messagesTable ADD COLUMN read INTEGER DEFAULT 0');
-      await db.execute('ALTER TABLE $_messagesTable ADD COLUMN read_at INTEGER');
+      await _addColumnIfMissing(db, _messagesTable, 'delivered', 'INTEGER DEFAULT 0');
+      await _addColumnIfMissing(db, _messagesTable, 'read', 'INTEGER DEFAULT 0');
+      await _addColumnIfMissing(db, _messagesTable, 'read_at', 'INTEGER');
     }
     if (oldVersion < 3) {
       // Aggiungi colonna is_reminder per distinguere todo da reminder
-      await db.execute('ALTER TABLE $_messagesTable ADD COLUMN is_reminder INTEGER DEFAULT 0');
+      await _addColumnIfMissing(db, _messagesTable, 'is_reminder', 'INTEGER DEFAULT 0');
     }
     if (oldVersion < 4) {
       // Aggiungi colonna attachments_json per salvare allegati come JSON
-      await db.execute('ALTER TABLE $_messagesTable ADD COLUMN attachments_json TEXT');
+      await _addColumnIfMissing(db, _messagesTable, 'attachments_json', 'TEXT');
     }
     if (oldVersion < 5) {
       // Aggiungi colonna reaction_json per salvare reactions come JSON
-      await db.execute('ALTER TABLE $_messagesTable ADD COLUMN reaction_json TEXT');
+      await _addColumnIfMissing(db, _messagesTable, 'reaction_json', 'TEXT');
     }
     if (oldVersion < 6) {
       // Aggiungi colonna deleted per tracciare messaggi eliminati
-      await db.execute('ALTER TABLE $_messagesTable ADD COLUMN deleted INTEGER DEFAULT 0');
+      await _addColumnIfMissing(db, _messagesTable, 'deleted', 'INTEGER DEFAULT 0');
     }
   }
 
@@ -269,6 +291,22 @@ class MessageCacheService {
 
     // Inverti l'ordine per avere dal più vecchio al più recente
     return maps.reversed.map((map) => _messageFromMap(map)).toList();
+  }
+
+  /// Carica TUTTI i messaggi dalla cache (DESC: più recenti prima).
+  /// Usato dalla MediaScreen per mostrare l'archivio completo senza
+  /// costringere l'utente a paginare tutta la chat.
+  Future<List<Message>> loadAllMessages(String familyChatId) async {
+    final db = await _getDatabase();
+
+    final List<Map<String, dynamic>> maps = await db.query(
+      _messagesTable,
+      where: 'family_chat_id = ?',
+      whereArgs: [familyChatId],
+      orderBy: 'timestamp DESC',
+    );
+
+    return maps.map((map) => _messageFromMap(map)).toList();
   }
 
   /// Carica messaggi più vecchi di un certo timestamp (per infinite scroll)
