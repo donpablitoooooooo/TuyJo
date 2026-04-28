@@ -4,7 +4,6 @@ import 'package:provider/provider.dart';
 import '../services/pairing_service.dart';
 import '../services/couple_selfie_service.dart';
 import '../services/notification_service.dart';
-import '../theme/app_colors.dart';
 import '../widgets/permission_denied_dialog.dart';
 import 'chat_screen.dart';
 import 'media_screen.dart';
@@ -160,7 +159,14 @@ class _MainScreenState extends State<MainScreen> {
       drawer: Drawer(
         child: Container(
           decoration: const BoxDecoration(
-            gradient: AppColors.tealVertical,
+            gradient: LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: [
+                Color(0xFF3BA8B0),
+                Color(0xFF145A60),
+              ],
+            ),
           ),
           child: ListView(
             padding: EdgeInsets.zero,
@@ -244,12 +250,25 @@ class _MainScreenState extends State<MainScreen> {
             top: 48,
             left: 16,
             child: Builder(
-              builder: (context) => IconButton(
-                icon: const Icon(Icons.menu, color: AppColors.tealDeep, size: 28),
-                onPressed: () {
-                  FocusScope.of(context).unfocus();
-                  Scaffold.of(context).openDrawer();
-                },
+              builder: (context) => Container(
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  shape: BoxShape.circle,
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.1),
+                      blurRadius: 8,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
+                ),
+                child: IconButton(
+                  icon: const Icon(Icons.menu, color: Color(0xFF3BA8B0)),
+                  onPressed: () {
+                    FocusScope.of(context).unfocus();
+                    Scaffold.of(context).openDrawer();
+                  },
+                ),
               ),
             ),
           ),
@@ -268,10 +287,25 @@ class _MainScreenState extends State<MainScreen> {
                   children: [
                     // Icona chiamata vocale (solo se paired e su tab Chat)
                     if (isPaired && _selectedIndex == 0)
-                      Padding(
-                        padding: const EdgeInsets.only(right: 6),
+                      Container(
+                        width: 48,
+                        height: 48,
+                        margin: const EdgeInsets.only(right: 10),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          shape: BoxShape.circle,
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withValues(alpha: 0.1),
+                              blurRadius: 8,
+                              offset: const Offset(0, 2),
+                            ),
+                          ],
+                        ),
                         child: IconButton(
-                          icon: const Icon(Icons.call, color: AppColors.tealDeep, size: 26),
+                          icon: const Icon(Icons.call, color: Color(0xFF3BA8B0)),
+                          iconSize: 22,
+                          padding: EdgeInsets.zero,
                           onPressed: () {
                             Navigator.push(
                               context,
@@ -283,7 +317,7 @@ class _MainScreenState extends State<MainScreen> {
                         ),
                       ),
 
-                    // Couple selfie / pairing status (senza cerchio bianco)
+                    // Couple selfie / pairing status
                     GestureDetector(
                       onTap: isPaired
                           ? () {
@@ -295,9 +329,20 @@ class _MainScreenState extends State<MainScreen> {
                               );
                             }
                           : null,
-                      child: SizedBox(
-                        width: 44,
-                        height: 44,
+                      child: Container(
+                        width: 48,
+                        height: 48,
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          shape: BoxShape.circle,
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withValues(alpha: 0.1),
+                              blurRadius: 8,
+                              offset: const Offset(0, 2),
+                            ),
+                          ],
+                        ),
                         child: ClipOval(
                           child: isPaired && hasSelfie && cachedSelfieBytes != null
                               ? Image.memory(
@@ -306,16 +351,16 @@ class _MainScreenState extends State<MainScreen> {
                                   errorBuilder: (context, error, stackTrace) {
                                     return Image.asset(
                                       'assets/logo_teal.png',
-                                      width: 44,
-                                      height: 44,
+                                      width: 48,
+                                      height: 48,
                                       fit: BoxFit.cover,
                                     );
                                   },
                                 )
                               : Image.asset(
                                   isPaired ? 'assets/logo_teal.png' : 'assets/logo_grey.png',
-                                  width: 44,
-                                  height: 44,
+                                  width: 48,
+                                  height: 48,
                                   fit: BoxFit.cover,
                                 ),
                         ),

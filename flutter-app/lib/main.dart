@@ -8,7 +8,6 @@ import 'package:cryptography_flutter/cryptography_flutter.dart';
 import 'screens/main_screen.dart';
 import 'screens/voice_call_screen.dart';
 import 'services/auth_service.dart';
-import 'theme/app_colors.dart';
 import 'services/chat_service.dart';
 import 'services/encryption_service.dart';
 import 'services/notification_service.dart';
@@ -184,34 +183,16 @@ class MyApp extends StatelessWidget {
         ],
         theme: ThemeData(
           colorScheme: ColorScheme.fromSeed(
-            seedColor: AppColors.tealLight,
-            primary: AppColors.tealLight,
-            secondary: AppColors.tealDeep,
-            surface: AppColors.bgSurface,
+            seedColor: const Color(0xFF3BA8B0),
+            primary: const Color(0xFF3BA8B0),
+            secondary: const Color(0xFF145A60),
           ),
           useMaterial3: true,
-          scaffoldBackgroundColor: AppColors.bgCanvas,
+          scaffoldBackgroundColor: Colors.white,
           appBarTheme: const AppBarTheme(
-            backgroundColor: AppColors.bgCanvas,
-            foregroundColor: AppColors.tealLight,
+            backgroundColor: Colors.white,
+            foregroundColor: Color(0xFF3BA8B0),
             elevation: 0,
-          ),
-          textTheme: const TextTheme(
-            displayLarge: TextStyle(fontWeight: FontWeight.w600, color: AppColors.textPrimary),
-            displayMedium: TextStyle(fontWeight: FontWeight.w600, color: AppColors.textPrimary),
-            displaySmall: TextStyle(fontWeight: FontWeight.w600, color: AppColors.textPrimary),
-            headlineLarge: TextStyle(fontWeight: FontWeight.w600, color: AppColors.textPrimary),
-            headlineMedium: TextStyle(fontWeight: FontWeight.w600, color: AppColors.textPrimary),
-            headlineSmall: TextStyle(fontWeight: FontWeight.w600, color: AppColors.textPrimary),
-            titleLarge: TextStyle(fontWeight: FontWeight.w600, color: AppColors.textPrimary),
-            titleMedium: TextStyle(fontWeight: FontWeight.w600, color: AppColors.textPrimary),
-            titleSmall: TextStyle(fontWeight: FontWeight.w500, color: AppColors.textPrimary),
-            bodyLarge: TextStyle(fontWeight: FontWeight.w400, color: AppColors.textPrimary),
-            bodyMedium: TextStyle(fontWeight: FontWeight.w400, color: AppColors.textPrimary),
-            bodySmall: TextStyle(fontWeight: FontWeight.w400, color: AppColors.textSecondary),
-            labelLarge: TextStyle(fontWeight: FontWeight.w500, color: AppColors.textPrimary),
-            labelMedium: TextStyle(fontWeight: FontWeight.w500, color: AppColors.textPrimary),
-            labelSmall: TextStyle(fontWeight: FontWeight.w500, color: AppColors.textSecondary),
           ),
         ),
         home: const AuthWrapper(),

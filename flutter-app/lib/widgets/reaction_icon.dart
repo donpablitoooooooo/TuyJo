@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import '../theme/app_colors.dart';
 
 /// Widget per disegnare una reaction custom con stile minimal
 /// Tondino teal con icona bianca al centro - stile coordinato con l'app
@@ -22,15 +21,15 @@ class ReactionIcon extends StatelessWidget {
       height: size,
       decoration: BoxDecoration(
         shape: BoxShape.circle,
-        color: AppColors.tealDeep,
-        border: Border.all(
-          color: Colors.white.withValues(alpha: 0.18),
-          width: 1,
+        gradient: const LinearGradient(
+          colors: [Color(0xFF3BA8B0), Color(0xFF145A60)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
         ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.18),
-            blurRadius: 8,
+            color: const Color(0xFF3BA8B0).withValues(alpha: 0.3),
+            blurRadius: 6,
             offset: const Offset(0, 3),
           ),
         ],
@@ -38,7 +37,7 @@ class ReactionIcon extends StatelessWidget {
       child: Icon(
         iconData,
         color: Colors.white,
-        size: size * 0.5,
+        size: size * 0.55,
       ),
     );
   }

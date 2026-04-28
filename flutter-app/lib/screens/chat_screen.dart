@@ -31,7 +31,6 @@ import '../widgets/attachment_widgets.dart';
 import '../widgets/permission_denied_dialog.dart';
 import '../widgets/reaction_picker.dart';
 import '../widgets/reaction_overlay.dart';
-import '../theme/app_colors.dart';
 import 'chat_screen_dismissible.dart';
 import 'pdf_viewer_screen.dart';
 import 'location_sharing_screen.dart';
@@ -1425,56 +1424,48 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
         borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
         child: Container(
           decoration: const BoxDecoration(
-            gradient: AppColors.tealVertical,
+            gradient: LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: [Color(0xFF3BA8B0), Color(0xFF145A60)],
+            ),
           ),
           child: Padding(
             padding: EdgeInsets.only(
-              bottom: MediaQuery.of(context).padding.bottom + 8,
+              bottom: MediaQuery.of(context).padding.bottom,
             ),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                // Maniglia
-                Container(
-                  margin: const EdgeInsets.only(top: 10, bottom: 6),
-                  width: 44,
-                  height: 4,
-                  decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.45),
-                    borderRadius: BorderRadius.circular(2),
-                  ),
-                ),
-                // Header con X + titolo allineato a sinistra
+                // Header con X
                 Padding(
-                  padding: const EdgeInsets.fromLTRB(8, 4, 16, 8),
+                  padding: const EdgeInsets.only(left: 8, top: 8),
                   child: Row(
                     children: [
                       IconButton(
                         onPressed: () => Navigator.pop(context),
-                        icon: const Icon(Icons.close, color: Colors.white, size: 26),
+                        icon: const Icon(Icons.close, color: Colors.white, size: 28),
                       ),
-                      Text(
-                        l10n.chatAttachmentPickerTitle,
-                        style: const TextStyle(
-                          fontSize: 17,
-                          fontWeight: FontWeight.w600,
-                          color: Colors.white,
-                          letterSpacing: 0.1,
+                      Expanded(
+                        child: Text(
+                          l10n.chatAttachmentPickerTitle,
+                          style: const TextStyle(
+                            fontSize: 20,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.white,
+                          ),
+                          textAlign: TextAlign.center,
                         ),
                       ),
+                      const SizedBox(width: 48), // Spacer per centrare il titolo
                     ],
                   ),
-                ),
-                // Divisore
-                Container(
-                  margin: const EdgeInsets.symmetric(horizontal: 24),
-                  height: 1,
-                  color: AppColors.dividerOnGradient,
                 ),
                 const SizedBox(height: 8),
               _AttachmentOption(
                 icon: Icons.photo_library,
                 label: l10n.chatAttachmentPhotoFromGallery,
+                color: Colors.blue,
                 onTap: () async {
                   Navigator.pop(context);
                   if (_isDemoMode()) { _showDemoFeatureSnackBar(l10n); return; }
@@ -1499,6 +1490,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
               _AttachmentOption(
                 icon: Icons.camera_alt,
                 label: l10n.chatAttachmentTakePhoto,
+                color: Colors.purple,
                 onTap: () async {
                   Navigator.pop(context);
                   if (_isDemoMode()) { _showDemoFeatureSnackBar(l10n); return; }
@@ -1523,6 +1515,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
               _AttachmentOption(
                 icon: Icons.insert_drive_file,
                 label: l10n.chatAttachmentDocument,
+                color: Colors.green,
                 onTap: () async {
                   Navigator.pop(context);
                   if (_isDemoMode()) { _showDemoFeatureSnackBar(l10n); return; }
@@ -1537,6 +1530,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
               _AttachmentOption(
                 icon: Icons.location_on,
                 label: l10n.locationShareButton,
+                color: Colors.orange,
                 onTap: () {
                   Navigator.pop(context);
                   if (_isDemoMode()) { _showDemoFeatureSnackBar(l10n); return; }
@@ -3237,12 +3231,22 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
             ),
           Container(
             padding: EdgeInsets.fromLTRB(
+              8,
               12,
-              12,
-              12,
+              8,
               12 + MediaQuery.of(context).padding.bottom,
             ),
-            color: Colors.transparent,
+            decoration: BoxDecoration(
+              color: Colors.white,
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.05),
+                  spreadRadius: 1,
+                  blurRadius: 10,
+                  offset: const Offset(0, -2),
+                ),
+              ],
+            ),
             child: Column(
                 children: [
                   // Preview reply (messaggio a cui si sta rispondendo)
@@ -3409,95 +3413,71 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                   Row(
                     crossAxisAlignment: CrossAxisAlignment.center,
                     children: [
+                      IconButton(
+                        onPressed: _editingMessageId != null
+                            ? null // Disabilita l'aggiunta di nuovi allegati durante la modifica
+                            : _showAttachmentPicker,
+                        icon: const Icon(Icons.add_circle_outline),
+                        color: _selectedAttachments.isNotEmpty
+                            ? const Color(0xFF3BA8B0)
+                            : Colors.grey[600],
+                        tooltip: l10n.chatAttachmentsTooltip,
+                        iconSize: 28,
+                      ),
+                      const SizedBox(width: 4),
                       Expanded(
-                        child: Container(
-                          decoration: BoxDecoration(
-                            color: AppColors.bgSurface,
-                            borderRadius: BorderRadius.circular(28),
-                            boxShadow: [
-                              BoxShadow(
-                                color: AppColors.shadowSoft,
-                                blurRadius: 12,
-                                offset: const Offset(0, 2),
-                              ),
-                            ],
+                    child: Container(
+                      decoration: BoxDecoration(
+                        color: Colors.grey[100],
+                        borderRadius: BorderRadius.circular(24),
+                      ),
+                      child: TextField(
+                        controller: _messageController,
+                        focusNode: _messageFocusNode,
+                        decoration: InputDecoration(
+                          hintText: _selectedTodoDate != null
+                              ? l10n.chatTodoPlaceholder
+                              : l10n.chatWritePlaceholder,
+                          hintStyle: TextStyle(color: Colors.grey[500]),
+                          border: InputBorder.none,
+                          contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 20,
+                            vertical: 12,
                           ),
-                          child: Row(
-                            crossAxisAlignment: CrossAxisAlignment.center,
-                            children: [
-                              IconButton(
-                                onPressed: _editingMessageId != null
-                                    ? null
-                                    : _showAttachmentPicker,
-                                icon: const Icon(Icons.add_circle_outline),
-                                color: _selectedAttachments.isNotEmpty
-                                    ? AppColors.tealLight
-                                    : AppColors.textSecondary,
-                                tooltip: l10n.chatAttachmentsTooltip,
-                                iconSize: 26,
-                                padding: const EdgeInsets.symmetric(horizontal: 12),
-                                constraints: const BoxConstraints(minWidth: 44, minHeight: 44),
-                              ),
-                              Expanded(
-                                child: TextField(
-                                  controller: _messageController,
-                                  focusNode: _messageFocusNode,
-                                  style: const TextStyle(
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.w400,
-                                    color: AppColors.textPrimary,
-                                  ),
-                                  decoration: InputDecoration(
-                                    hintText: _selectedTodoDate != null
-                                        ? l10n.chatTodoPlaceholder
-                                        : l10n.chatWritePlaceholder,
-                                    hintStyle: const TextStyle(
-                                      color: AppColors.textHintOnSurface,
-                                      fontWeight: FontWeight.w400,
-                                    ),
-                                    border: InputBorder.none,
-                                    isDense: true,
-                                    contentPadding: const EdgeInsets.symmetric(
-                                      horizontal: 4,
-                                      vertical: 14,
-                                    ),
-                                  ),
-                                  maxLines: null,
-                                  textCapitalization: TextCapitalization.sentences,
-                                  onSubmitted: (_) => _sendMessage(),
-                                ),
-                              ),
-                              IconButton(
-                                icon: Icon(
-                                  _selectedTodoDate != null
-                                      ? Icons.calendar_month
-                                      : Icons.calendar_month_outlined,
-                                  color: _selectedTodoDate != null
-                                      ? AppColors.tealLight
-                                      : AppColors.textSecondary,
-                                ),
-                                onPressed: _showDateTimePicker,
-                                tooltip: l10n.chatSetDateTimeTooltip,
-                                iconSize: 24,
-                                padding: const EdgeInsets.symmetric(horizontal: 12),
-                                constraints: const BoxConstraints(minWidth: 44, minHeight: 44),
-                              ),
-                            ],
+                          suffixIcon: IconButton(
+                            icon: Icon(
+                              _selectedTodoDate != null
+                                  ? Icons.calendar_month
+                                  : Icons.calendar_month_outlined,
+                              color: _selectedTodoDate != null
+                                  ? const Color(0xFF3BA8B0)
+                                  : Colors.grey[600],
+                            ),
+                            onPressed: _showDateTimePicker,
+                            tooltip: l10n.chatSetDateTimeTooltip,
                           ),
                         ),
+                        maxLines: null,
+                        textCapitalization: TextCapitalization.sentences,
+                        onSubmitted: (_) => _sendMessage(),
                       ),
+                    ),
+                  ),
                   const SizedBox(width: 8),
                   AnimatedScale(
-                    scale: _canSend ? 1.0 : 0.85,
+                    scale: _canSend ? 1.0 : 0.8,
                     duration: const Duration(milliseconds: 200),
                     curve: Curves.easeOutBack,
                     child: AnimatedContainer(
                       duration: const Duration(milliseconds: 200),
-                      width: 52,
-                      height: 52,
                       decoration: BoxDecoration(
                         gradient: _canSend
-                            ? AppColors.tealVertical
+                            ? const LinearGradient(
+                                colors: [
+                                  Color(0xFF3BA8B0),
+                                  Color(0xFF145A60),
+                                ],
+                              )
                             : LinearGradient(
                                 colors: [
                                   Colors.grey[300]!,
@@ -3508,9 +3488,9 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                         boxShadow: _canSend
                             ? [
                                 BoxShadow(
-                                  color: AppColors.shadowTeal,
-                                  blurRadius: 12,
-                                  offset: const Offset(0, 3),
+                                  color: const Color(0xFF3BA8B0).withValues(alpha: 0.4),
+                                  blurRadius: 8,
+                                  offset: const Offset(0, 2),
                                 ),
                               ]
                             : [],
@@ -3519,7 +3499,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                         onPressed: _canSend ? _sendMessage : null,
                         icon: const Icon(Icons.send_rounded),
                         color: Colors.white,
-                        iconSize: 26,
+                        iconSize: 22,
                       ),
                     ),
                       ),
@@ -3549,54 +3529,50 @@ class _DemoMessage {
 class _AttachmentOption extends StatelessWidget {
   final IconData icon;
   final String label;
+  final Color color;
   final VoidCallback onTap;
 
   const _AttachmentOption({
     required this.icon,
     required this.label,
+    required this.color,
     required this.onTap,
   });
 
   @override
   Widget build(BuildContext context) {
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: onTap,
-        splashColor: Colors.white.withValues(alpha: 0.1),
-        highlightColor: Colors.white.withValues(alpha: 0.05),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-          child: Row(
-            children: [
-              Container(
-                width: 48,
-                height: 48,
-                decoration: const BoxDecoration(
-                  color: AppColors.iconCircleOnGradient,
-                  shape: BoxShape.circle,
-                ),
-                child: Icon(icon, color: Colors.white, size: 24),
-              ),
-              const SizedBox(width: 16),
-              Expanded(
-                child: Text(
-                  label,
-                  style: const TextStyle(
-                    fontSize: 17,
-                    fontWeight: FontWeight.w500,
-                    color: Colors.white,
-                    letterSpacing: 0.1,
-                  ),
+    return InkWell(
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+        child: Row(
+          children: [
+            Container(
+              width: 56,
+              height: 56,
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: 0.2),
+                shape: BoxShape.circle,
+                border: Border.all(
+                  color: Colors.white.withValues(alpha: 0.3),
+                  width: 1,
                 ),
               ),
-              Icon(
-                Icons.chevron_right,
-                color: Colors.white.withValues(alpha: 0.7),
-                size: 22,
+              child: Icon(icon, color: Colors.white, size: 28),
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Text(
+                label,
+                style: const TextStyle(
+                  fontSize: 17,
+                  fontWeight: FontWeight.w500,
+                  color: Colors.white,
+                ),
               ),
-            ],
-          ),
+            ),
+            const Icon(Icons.chevron_right, color: Colors.white70, size: 24),
+          ],
         ),
       ),
     );
@@ -4417,10 +4393,10 @@ class _MessageBubble extends StatelessWidget {
               boxShadow: [
                 BoxShadow(
                   color: isMe
-                      ? AppColors.shadowTeal
-                      : AppColors.shadowSoft,
-                  blurRadius: 14,
-                  offset: const Offset(0, 4),
+                      ? const Color(0xFF3BA8B0).withValues(alpha: 0.3)
+                      : Colors.black.withValues(alpha: 0.08),
+                  blurRadius: 8,
+                  offset: const Offset(0, 2),
                 ),
               ],
             ),

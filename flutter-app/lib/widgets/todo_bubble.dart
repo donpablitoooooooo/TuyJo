@@ -9,7 +9,6 @@ import '../services/attachment_service.dart';
 import 'attachment_widgets.dart';
 import 'reaction_picker.dart';
 import 'reaction_overlay.dart';
-import '../theme/app_colors.dart';
 
 /// Widget riutilizzabile per le bubble TODO
 /// Utilizzato in chat_screen per visualizzare i messaggi TODO
@@ -164,10 +163,10 @@ class TodoMessageBubble extends StatelessWidget {
                 boxShadow: [
                   BoxShadow(
                     color: isMe
-                        ? AppColors.shadowTeal
-                        : AppColors.shadowSoft,
-                    blurRadius: 14,
-                    offset: const Offset(0, 4),
+                        ? const Color(0xFF3BA8B0).withValues(alpha: 0.3)
+                        : Colors.black.withValues(alpha: 0.08),
+                    blurRadius: 8,
+                    offset: const Offset(0, 2),
                   ),
                 ],
               ),

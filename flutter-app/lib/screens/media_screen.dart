@@ -11,18 +11,18 @@ import '../services/chat_service.dart';
 import '../services/pairing_service.dart';
 import '../services/attachment_service.dart';
 import '../models/message.dart';
-import '../theme/app_colors.dart';
 import 'pdf_viewer_screen.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:share_plus/share_plus.dart';
 import '../widgets/attachment_widgets.dart';
 
-// Colori (stile modale allegati) — alias dei token globali AppColors
+// Colori (stile modale allegati)
 class MediaColors {
-  static const Color tealLight = AppColors.tealLight;
-  static const Color tealDark = AppColors.tealDeep;
-  static const Color mine = AppColors.tealLight;
-  static const Color theirs = Color(0xFF9E9E9E);
+  static const Color tealLight = Color(0xFF3BA8B0);
+  static const Color tealDark = Color(0xFF145A60);
+  // Colori mio/tuo
+  static const Color mine = Color(0xFF3BA8B0);         // Teal per "mio"
+  static const Color theirs = Color(0xFF9E9E9E);       // Grigio per "tuo"
 }
 
 /// Icona share platform-specific (iOS usa ios_share, Android usa share)
@@ -162,6 +162,7 @@ class _MediaScreenState extends State<MediaScreen> {
     final documentItems = _getDocumentItems(messages);
 
     return Scaffold(
+      backgroundColor: Colors.grey[50],
       body: Column(
         children: [
           // Spazio per hamburger/ciliegie

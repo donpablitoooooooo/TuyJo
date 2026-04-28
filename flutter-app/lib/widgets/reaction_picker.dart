@@ -5,7 +5,6 @@ import 'package:private_messaging/generated/l10n/app_localizations.dart';
 import '../models/message.dart';
 import '../services/attachment_service.dart';
 import 'reaction_icon.dart';
-import '../theme/app_colors.dart';
 
 /// Bottom sheet per selezionare una reaction o azione
 /// Reactions (icone): LOVE, OK, SHIT (solo visive)
@@ -34,7 +33,11 @@ class ReactionPicker extends StatelessWidget {
       borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
       child: Container(
         decoration: const BoxDecoration(
-          gradient: AppColors.tealVertical,
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [Color(0xFF3BA8B0), Color(0xFF145A60)],
+          ),
         ),
         child: Padding(
           padding: EdgeInsets.only(
@@ -43,25 +46,15 @@ class ReactionPicker extends StatelessWidget {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              // Maniglia
-              Container(
-                margin: const EdgeInsets.only(top: 10, bottom: 6),
-                width: 44,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.45),
-                  borderRadius: BorderRadius.circular(2),
-                ),
-              ),
               // Header con preview del messaggio
               Padding(
-                padding: const EdgeInsets.only(left: 8, top: 4, right: 16, bottom: 16),
+                padding: const EdgeInsets.only(left: 8, top: 8, right: 16, bottom: 16),
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     IconButton(
                       onPressed: () => Navigator.pop(context),
-                      icon: const Icon(Icons.close, color: Colors.white, size: 26),
+                      icon: const Icon(Icons.close, color: Colors.white, size: 28),
                     ),
                     Expanded(
                       child: _buildMessagePreview(),
@@ -84,12 +77,7 @@ class ReactionPicker extends StatelessWidget {
                     ],
                   ),
                 ),
-                const SizedBox(height: 8),
-                Container(
-                  margin: const EdgeInsets.fromLTRB(24, 12, 24, 8),
-                  height: 1,
-                  color: AppColors.dividerOnGradient,
-                ),
+                const SizedBox(height: 16),
               ],
 
               // Actions (testi con effetti logici)
@@ -170,45 +158,33 @@ class ReactionPicker extends StatelessWidget {
   }
 
   Widget _buildActionButton(String actionType, String label, IconData icon, BuildContext context) {
-    final bool isDelete = actionType == 'delete';
-    final Color foreground = isDelete
-        ? const Color(0xFFFFB4A8) // rosa salmone tenue per Delete (matcha lo screenshot)
-        : Colors.white;
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 4),
       child: Material(
-        color: Colors.transparent,
-        borderRadius: BorderRadius.circular(14),
+        color: Colors.white.withValues(alpha: 0.15),
+        borderRadius: BorderRadius.circular(12),
         child: InkWell(
           onTap: () {
             FocusScope.of(context).unfocus();
             Navigator.pop(context);
             onActionSelected?.call(actionType);
           },
-          borderRadius: BorderRadius.circular(14),
-          splashColor: Colors.white.withValues(alpha: 0.15),
-          highlightColor: Colors.white.withValues(alpha: 0.08),
-          child: Container(
-            decoration: BoxDecoration(
-              border: Border.all(
-                color: Colors.white.withValues(alpha: 0.28),
-                width: 1,
-              ),
-              borderRadius: BorderRadius.circular(14),
-            ),
+          borderRadius: BorderRadius.circular(12),
+          splashColor: Colors.white.withValues(alpha: 0.2),
+          child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
             child: Row(
               children: [
-                Icon(icon, color: foreground, size: 22),
-                const SizedBox(width: 14),
+                Icon(icon, color: Colors.white, size: 24),
+                const SizedBox(width: 12),
                 Expanded(
                   child: Text(
                     label,
-                    style: TextStyle(
-                      color: foreground,
+                    style: const TextStyle(
+                      color: Colors.white,
                       fontSize: 16,
                       fontWeight: FontWeight.w500,
-                      letterSpacing: 0.2,
+                      letterSpacing: 0.3,
                     ),
                   ),
                 ),
