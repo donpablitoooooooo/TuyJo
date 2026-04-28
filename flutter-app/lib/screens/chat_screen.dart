@@ -1731,6 +1731,207 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
               : (dayToShowTodos != null
                   ? _getTodosForDayInCalendar(dayToShowTodos!)
                   : <Message>[]);
+          // Funzione condivisa: apri il modale orario/alert.
+          // Se closeOnConfirm=true (default), il calendario si chiude e ritorna
+          // il risultato. Se false, aggiorna solo lo state locale (orario/alert)
+          // e il calendario resta aperto (usato dal box riepilogo dinamico).
+          Future<void> openTimeAlertPicker({bool closeOnConfirm = true}) async {
+            final bubbleText = (_messageController.text.trim().isNotEmpty)
+                ? _messageController.text.trim()
+                : l10n.todoNewTodo;
+
+            int? alertHours = selectedReminderHours ?? 2;
+            // Se in modifica, usa l'orario originale del todo
+            int pickerHour = (isEditing && _selectedTodoDate != null) ? _selectedTodoDate!.hour : 10;
+            int pickerMinute = (isEditing && _selectedTodoDate != null) ? _selectedTodoDate!.minute : 0;
+
+            final pickerResult = await showModalBottomSheet<Map<String, dynamic>?>(
+              context: context,
+              isScrollControlled: true,
+              backgroundColor: Colors.transparent,
+              builder: (ctx) => StatefulBuilder(
+                builder: (ctx, setAlertState) => Container(
+                  height: MediaQuery.of(ctx).size.height * 0.7,
+                  decoration: const BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                      colors: [Color(0xFF3BA8B0), Color(0xFF145A60)],
+                    ),
+                    borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+                  ),
+                  child: SafeArea(
+                    child: Column(
+                      children: [
+                        // Testo della bubble in testa al modale
+                        Padding(
+                          padding: const EdgeInsets.only(top: 20, left: 24, right: 24, bottom: 8),
+                          child: Text(
+                            bubbleText,
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 18,
+                              fontWeight: FontWeight.w600,
+                            ),
+                            textAlign: TextAlign.center,
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                        // Data
+                        Padding(
+                          padding: const EdgeInsets.only(bottom: 12),
+                          child: Text(
+                            (rangeStart != null && rangeEnd != null)
+                                ? _formatDateRange(rangeStart!, rangeEnd!)
+                                : (dayToShowTodos != null
+                                    ? _formatTodoDate(dayToShowTodos!, includeTime: false)
+                                    : ''),
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 28,
+                              fontWeight: FontWeight.bold,
+                            ),
+                            textAlign: TextAlign.center,
+                          ),
+                        ),
+                        // Orario e Alert affiancati
+                        Expanded(
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 16),
+                            child: Row(
+                              crossAxisAlignment: CrossAxisAlignment.center,
+                              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                              children: [
+                                Column(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    Text(l10n.timePickerLabel, style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
+                                    const SizedBox(height: 12),
+                                    Row(
+                                      mainAxisAlignment: MainAxisAlignment.center,
+                                      children: [
+                                        SizedBox(
+                                          width: 70, height: 240,
+                                          child: CupertinoPicker(
+                                            scrollController: FixedExtentScrollController(initialItem: pickerHour),
+                                            itemExtent: 50,
+                                            onSelectedItemChanged: (i) => pickerHour = i,
+                                            children: List.generate(24, (i) => Center(child: Text(i.toString().padLeft(2, '0'), style: const TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.w500)))),
+                                          ),
+                                        ),
+                                        const Padding(padding: EdgeInsets.symmetric(horizontal: 4), child: Text(':', style: TextStyle(color: Colors.white, fontSize: 28, fontWeight: FontWeight.bold))),
+                                        SizedBox(
+                                          width: 70, height: 240,
+                                          child: CupertinoPicker(
+                                            scrollController: FixedExtentScrollController(initialItem: pickerMinute),
+                                            itemExtent: 50,
+                                            onSelectedItemChanged: (i) => pickerMinute = i,
+                                            children: List.generate(60, (i) => Center(child: Text(i.toString().padLeft(2, '0'), style: const TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.w500)))),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(width: 20),
+                                Column(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    Text(l10n.alertPickerLabel, style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
+                                    const SizedBox(height: 12),
+                                    SizedBox(
+                                      width: 160, height: 240,
+                                      child: CupertinoPicker(
+                                        scrollController: FixedExtentScrollController(
+                                          initialItem: () {
+                                            final opts = [null, 1, 2, 8, 24, 48];
+                                            final idx = opts.indexOf(alertHours);
+                                            return idx == -1 ? 1 : idx;
+                                          }(),
+                                        ),
+                                        itemExtent: 50,
+                                        onSelectedItemChanged: (i) {
+                                          const opts = [null, 1, 2, 8, 24, 48];
+                                          setAlertState(() => alertHours = opts[i]);
+                                        },
+                                        children: [
+                                          Center(child: Text(l10n.alertNone, style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.w500))),
+                                          Center(child: Text(l10n.alert1HourBefore, style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.w500))),
+                                          Center(child: Text(l10n.alert2HoursBefore, style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.w500))),
+                                          Center(child: Text(l10n.alert8HoursBefore, style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.w500))),
+                                          Center(child: Text(l10n.alert1DayBefore, style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.w500))),
+                                          Center(child: Text(l10n.alert2DaysBefore, style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.w500))),
+                                        ],
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                        // Bottone conferma nel modale orario/alert
+                        Padding(
+                          padding: const EdgeInsets.fromLTRB(24, 8, 24, 16),
+                          child: Material(
+                            color: Colors.white.withValues(alpha: 0.15),
+                            borderRadius: BorderRadius.circular(12),
+                            child: InkWell(
+                              onTap: () => Navigator.pop(ctx, {
+                                'alertHours': alertHours,
+                                'hour': pickerHour,
+                                'minute': pickerMinute,
+                              }),
+                              borderRadius: BorderRadius.circular(12),
+                              splashColor: Colors.white.withValues(alpha: 0.2),
+                              child: Padding(
+                                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+                                child: Center(child: Text(l10n.todoConfirm, style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w500, letterSpacing: 0.3))),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            );
+
+            if (pickerResult != null) {
+              if (closeOnConfirm) {
+                // Comportamento legacy: chiudi calendar e ritorna il risultato
+                if (rangeStart != null && rangeEnd != null) {
+                  Navigator.pop(context, {
+                    'isRange': true,
+                    'rangeStart': rangeStart,
+                    'rangeEnd': rangeEnd,
+                    'reminderHours': pickerResult['alertHours'],
+                  });
+                } else if (rangeStart != null) {
+                  final dueDate = DateTime(
+                    selectedDate.year, selectedDate.month, selectedDate.day,
+                    pickerResult['hour'] ?? 10, pickerResult['minute'] ?? 0,
+                  );
+                  Navigator.pop(context, {
+                    'isRange': false,
+                    'date': dueDate,
+                    'reminderHours': pickerResult['alertHours'],
+                  });
+                }
+              } else {
+                // Nuovo: aggiorna solo state locale, calendar resta aperto
+                setModalState(() {
+                  selectedDate = DateTime(
+                    selectedDate.year, selectedDate.month, selectedDate.day,
+                    pickerResult['hour'] ?? 10, pickerResult['minute'] ?? 0,
+                  );
+                  selectedReminderHours = pickerResult['alertHours'];
+                });
+              }
+            }
+          }
 
           return DismissiblePane(
             onDismissed: () => Navigator.pop(context),
@@ -1991,207 +2192,6 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                             return true;
                           }).toList();
 
-                          // Funzione condivisa: apri il modale orario/alert.
-                          // Se closeOnConfirm=true (default), il calendario si chiude e ritorna
-                          // il risultato. Se false, aggiorna solo lo state locale (orario/alert)
-                          // e il calendario resta aperto (usato dal box riepilogo dinamico).
-                          Future<void> openTimeAlertPicker({bool closeOnConfirm = true}) async {
-                            final bubbleText = hasText
-                                ? _messageController.text.trim()
-                                : l10n.todoNewTodo;
-
-                            int? alertHours = selectedReminderHours ?? 2;
-                            // Se in modifica, usa l'orario originale del todo
-                            int pickerHour = (isEditing && _selectedTodoDate != null) ? _selectedTodoDate!.hour : 10;
-                            int pickerMinute = (isEditing && _selectedTodoDate != null) ? _selectedTodoDate!.minute : 0;
-
-                            final pickerResult = await showModalBottomSheet<Map<String, dynamic>?>(
-                              context: innerContext,
-                              isScrollControlled: true,
-                              backgroundColor: Colors.transparent,
-                              builder: (ctx) => StatefulBuilder(
-                                builder: (ctx, setAlertState) => Container(
-                                  height: MediaQuery.of(ctx).size.height * 0.7,
-                                  decoration: const BoxDecoration(
-                                    gradient: LinearGradient(
-                                      begin: Alignment.topCenter,
-                                      end: Alignment.bottomCenter,
-                                      colors: [Color(0xFF3BA8B0), Color(0xFF145A60)],
-                                    ),
-                                    borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-                                  ),
-                                  child: SafeArea(
-                                    child: Column(
-                                      children: [
-                                        // Testo della bubble in testa al modale
-                                        Padding(
-                                          padding: const EdgeInsets.only(top: 20, left: 24, right: 24, bottom: 8),
-                                          child: Text(
-                                            bubbleText,
-                                            style: const TextStyle(
-                                              color: Colors.white,
-                                              fontSize: 18,
-                                              fontWeight: FontWeight.w600,
-                                            ),
-                                            textAlign: TextAlign.center,
-                                            maxLines: 2,
-                                            overflow: TextOverflow.ellipsis,
-                                          ),
-                                        ),
-                                        // Data
-                                        Padding(
-                                          padding: const EdgeInsets.only(bottom: 12),
-                                          child: Text(
-                                            (rangeStart != null && rangeEnd != null)
-                                                ? _formatDateRange(rangeStart!, rangeEnd!)
-                                                : (dayToShowTodos != null
-                                                    ? _formatTodoDate(dayToShowTodos!, includeTime: false)
-                                                    : ''),
-                                            style: const TextStyle(
-                                              color: Colors.white,
-                                              fontSize: 28,
-                                              fontWeight: FontWeight.bold,
-                                            ),
-                                            textAlign: TextAlign.center,
-                                          ),
-                                        ),
-                                        // Orario e Alert affiancati
-                                        Expanded(
-                                          child: Padding(
-                                            padding: const EdgeInsets.symmetric(horizontal: 16),
-                                            child: Row(
-                                              crossAxisAlignment: CrossAxisAlignment.center,
-                                              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                                              children: [
-                                                Column(
-                                                  mainAxisAlignment: MainAxisAlignment.center,
-                                                  children: [
-                                                    Text(l10n.timePickerLabel, style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
-                                                    const SizedBox(height: 12),
-                                                    Row(
-                                                      mainAxisAlignment: MainAxisAlignment.center,
-                                                      children: [
-                                                        SizedBox(
-                                                          width: 70, height: 240,
-                                                          child: CupertinoPicker(
-                                                            scrollController: FixedExtentScrollController(initialItem: pickerHour),
-                                                            itemExtent: 50,
-                                                            onSelectedItemChanged: (i) => pickerHour = i,
-                                                            children: List.generate(24, (i) => Center(child: Text(i.toString().padLeft(2, '0'), style: const TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.w500)))),
-                                                          ),
-                                                        ),
-                                                        const Padding(padding: EdgeInsets.symmetric(horizontal: 4), child: Text(':', style: TextStyle(color: Colors.white, fontSize: 28, fontWeight: FontWeight.bold))),
-                                                        SizedBox(
-                                                          width: 70, height: 240,
-                                                          child: CupertinoPicker(
-                                                            scrollController: FixedExtentScrollController(initialItem: pickerMinute),
-                                                            itemExtent: 50,
-                                                            onSelectedItemChanged: (i) => pickerMinute = i,
-                                                            children: List.generate(60, (i) => Center(child: Text(i.toString().padLeft(2, '0'), style: const TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.w500)))),
-                                                          ),
-                                                        ),
-                                                      ],
-                                                    ),
-                                                  ],
-                                                ),
-                                                const SizedBox(width: 20),
-                                                Column(
-                                                  mainAxisAlignment: MainAxisAlignment.center,
-                                                  children: [
-                                                    Text(l10n.alertPickerLabel, style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
-                                                    const SizedBox(height: 12),
-                                                    SizedBox(
-                                                      width: 160, height: 240,
-                                                      child: CupertinoPicker(
-                                                        scrollController: FixedExtentScrollController(
-                                                          initialItem: () {
-                                                            final opts = [null, 1, 2, 8, 24, 48];
-                                                            final idx = opts.indexOf(alertHours);
-                                                            return idx == -1 ? 1 : idx;
-                                                          }(),
-                                                        ),
-                                                        itemExtent: 50,
-                                                        onSelectedItemChanged: (i) {
-                                                          const opts = [null, 1, 2, 8, 24, 48];
-                                                          setAlertState(() => alertHours = opts[i]);
-                                                        },
-                                                        children: [
-                                                          Center(child: Text(l10n.alertNone, style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.w500))),
-                                                          Center(child: Text(l10n.alert1HourBefore, style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.w500))),
-                                                          Center(child: Text(l10n.alert2HoursBefore, style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.w500))),
-                                                          Center(child: Text(l10n.alert8HoursBefore, style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.w500))),
-                                                          Center(child: Text(l10n.alert1DayBefore, style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.w500))),
-                                                          Center(child: Text(l10n.alert2DaysBefore, style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.w500))),
-                                                        ],
-                                                      ),
-                                                    ),
-                                                  ],
-                                                ),
-                                              ],
-                                            ),
-                                          ),
-                                        ),
-                                        // Bottone conferma nel modale orario/alert
-                                        Padding(
-                                          padding: const EdgeInsets.fromLTRB(24, 8, 24, 16),
-                                          child: Material(
-                                            color: Colors.white.withValues(alpha: 0.15),
-                                            borderRadius: BorderRadius.circular(12),
-                                            child: InkWell(
-                                              onTap: () => Navigator.pop(ctx, {
-                                                'alertHours': alertHours,
-                                                'hour': pickerHour,
-                                                'minute': pickerMinute,
-                                              }),
-                                              borderRadius: BorderRadius.circular(12),
-                                              splashColor: Colors.white.withValues(alpha: 0.2),
-                                              child: Padding(
-                                                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-                                                child: Center(child: Text(l10n.todoConfirm, style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w500, letterSpacing: 0.3))),
-                                              ),
-                                            ),
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            );
-
-                            if (pickerResult != null) {
-                              if (closeOnConfirm) {
-                                // Comportamento legacy: chiudi calendar e ritorna il risultato
-                                if (rangeStart != null && rangeEnd != null) {
-                                  Navigator.pop(innerContext, {
-                                    'isRange': true,
-                                    'rangeStart': rangeStart,
-                                    'rangeEnd': rangeEnd,
-                                    'reminderHours': pickerResult['alertHours'],
-                                  });
-                                } else if (rangeStart != null) {
-                                  final dueDate = DateTime(
-                                    selectedDate.year, selectedDate.month, selectedDate.day,
-                                    pickerResult['hour'] ?? 10, pickerResult['minute'] ?? 0,
-                                  );
-                                  Navigator.pop(innerContext, {
-                                    'isRange': false,
-                                    'date': dueDate,
-                                    'reminderHours': pickerResult['alertHours'],
-                                  });
-                                }
-                              } else {
-                                // Nuovo: aggiorna solo state locale, calendar resta aperto
-                                setModalState(() {
-                                  selectedDate = DateTime(
-                                    selectedDate.year, selectedDate.month, selectedDate.day,
-                                    pickerResult['hour'] ?? 10, pickerResult['minute'] ?? 0,
-                                  );
-                                  selectedReminderHours = pickerResult['alertHours'];
-                                });
-                              }
-                            }
-                          }
 
                           return Column(
                             children: [
