@@ -1715,7 +1715,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     DateTime selectedDate = initialDate.isBefore(now) ? now : initialDate;
     DateTime? rangeStart = isEditing ? _selectedRangeStart : null;
     DateTime? rangeEnd = isEditing ? _selectedRangeEnd : null;
-    int? selectedReminderHours = _selectedReminderHours; // Mantieni l'alert precedente
+    int? selectedReminderHours = _selectedReminderHours ?? (isEditing ? null : 2); // Default 2h per nuovi todo
     DateTime? dayToShowTodos = isEditing ? _selectedTodoDate : null; // Giorno selezionato per mostrare i todo
     final chatService = Provider.of<ChatService>(context, listen: false);
 
@@ -1746,17 +1746,116 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
               child: SafeArea(
                 child: Column(
                   children: [
-                    // Header with close button
+                    // Header con X di chiusura in alto a SINISTRA, leggermente sotto
                     Padding(
-                      padding: const EdgeInsets.only(right: 8, top: 8),
+                      padding: const EdgeInsets.only(left: 8, top: 16),
                       child: Align(
-                        alignment: Alignment.topRight,
+                        alignment: Alignment.topLeft,
                         child: IconButton(
                           icon: const Icon(Icons.close, color: Colors.white, size: 28),
-                          onPressed: () => Navigator.pop(context),
+                          onPressed: () {
+                            // Chiudi e salva la selezione corrente come risultato.
+                            // Se non c'è data → result null (nessuna modifica).
+                            if (rangeStart != null && rangeEnd != null) {
+                              Navigator.pop(context, {
+                                'isRange': true,
+                                'rangeStart': rangeStart,
+                                'rangeEnd': rangeEnd,
+                                'reminderHours': selectedReminderHours,
+                              });
+                            } else if (dayToShowTodos != null || rangeStart != null) {
+                              final base = dayToShowTodos ?? rangeStart!;
+                              final dt = DateTime(
+                                base.year, base.month, base.day,
+                                selectedDate.hour == 0 ? 10 : selectedDate.hour,
+                                selectedDate.minute,
+                              );
+                              Navigator.pop(context, {
+                                'isRange': false,
+                                'date': dt,
+                                'reminderHours': selectedReminderHours,
+                              });
+                            } else {
+                              Navigator.pop(context);
+                            }
+                          },
                         ),
                       ),
                     ),
+
+                    // Box riepilogo dinamico (compare se data selezionata)
+                    if (dayToShowTodos != null || rangeStart != null)
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+                        child: Material(
+                          color: Colors.transparent,
+                          child: InkWell(
+                            borderRadius: BorderRadius.circular(14),
+                            onTap: () => openTimeAlertPicker(closeOnConfirm: false),
+                            child: Container(
+                              padding: const EdgeInsets.fromLTRB(14, 12, 8, 12),
+                              decoration: BoxDecoration(
+                                color: Colors.white.withValues(alpha: 0.18),
+                                borderRadius: BorderRadius.circular(14),
+                                border: Border.all(color: Colors.white.withValues(alpha: 0.25)),
+                              ),
+                              child: Row(
+                                children: [
+                                  const Icon(Icons.calendar_today_outlined, color: Colors.white, size: 18),
+                                  const SizedBox(width: 8),
+                                  Flexible(
+                                    child: Text(
+                                      (rangeStart != null && rangeEnd != null)
+                                          ? _formatDateRange(rangeStart!, rangeEnd!)
+                                          : _formatTodoDate(
+                                              DateTime(
+                                                (dayToShowTodos ?? rangeStart!).year,
+                                                (dayToShowTodos ?? rangeStart!).month,
+                                                (dayToShowTodos ?? rangeStart!).day,
+                                                selectedDate.hour == 0 ? 10 : selectedDate.hour,
+                                                selectedDate.minute,
+                                              ),
+                                              includeTime: rangeEnd == null,
+                                            ),
+                                      style: const TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.w600),
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ),
+                                  if (selectedReminderHours != null) ...[
+                                    const SizedBox(width: 12),
+                                    const Icon(Icons.notifications_outlined, color: Colors.white, size: 18),
+                                    const SizedBox(width: 4),
+                                    Text(
+                                      selectedReminderHours! >= 24
+                                          ? l10n.alertShortDays(selectedReminderHours! ~/ 24)
+                                          : l10n.alertShortHours(selectedReminderHours!),
+                                      style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w600),
+                                    ),
+                                  ],
+                                  const Spacer(),
+                                  // X rossa: azzera la data, calendar resta aperto
+                                  IconButton(
+                                    icon: const Icon(Icons.close, color: Color(0xFFFF6B6B), size: 22),
+                                    padding: EdgeInsets.zero,
+                                    constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                                    onPressed: () {
+                                      setModalState(() {
+                                        dayToShowTodos = null;
+                                        rangeStart = null;
+                                        rangeEnd = null;
+                                        selectedReminderHours = null;
+                                        // riporta selectedDate al "domani" così il calendario si aggiorna
+                                        final tomorrow = DateTime.now().add(const Duration(days: 1));
+                                        selectedDate = DateTime(tomorrow.year, tomorrow.month, tomorrow.day);
+                                      });
+                                    },
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
 
                     // Calendario (senza altezza fissa, si adatta al contenuto)
                     Padding(
@@ -1829,6 +1928,8 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                           rangeStart = selectedDay;
                           rangeEnd = null;
                           selectedDate = selectedDay;
+                          // Default alert 2h se non già impostato
+                          selectedReminderHours ??= 2;
                         });
                       },
                       onDayLongPressed: (selectedDay, focusedDay) {
@@ -1851,6 +1952,8 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                             rangeEnd = null;
                             selectedDate = selectedDay;
                           }
+                          // Default alert 2h se non già impostato
+                          selectedReminderHours ??= 2;
                         });
                       },
                     ),
@@ -1888,13 +1991,16 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                             return true;
                           }).toList();
 
-                          // Funzione condivisa: apri il modale orario/alert e chiudi il calendario
-                          Future<void> openTimeAlertPicker() async {
+                          // Funzione condivisa: apri il modale orario/alert.
+                          // Se closeOnConfirm=true (default), il calendario si chiude e ritorna
+                          // il risultato. Se false, aggiorna solo lo state locale (orario/alert)
+                          // e il calendario resta aperto (usato dal box riepilogo dinamico).
+                          Future<void> openTimeAlertPicker({bool closeOnConfirm = true}) async {
                             final bubbleText = hasText
                                 ? _messageController.text.trim()
                                 : l10n.todoNewTodo;
 
-                            int? alertHours = selectedReminderHours ?? 1;
+                            int? alertHours = selectedReminderHours ?? 2;
                             // Se in modifica, usa l'orario originale del todo
                             int pickerHour = (isEditing && _selectedTodoDate != null) ? _selectedTodoDate!.hour : 10;
                             int pickerMinute = (isEditing && _selectedTodoDate != null) ? _selectedTodoDate!.minute : 0;
@@ -2054,22 +2160,34 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                             );
 
                             if (pickerResult != null) {
-                              if (rangeStart != null && rangeEnd != null) {
-                                Navigator.pop(innerContext, {
-                                  'isRange': true,
-                                  'rangeStart': rangeStart,
-                                  'rangeEnd': rangeEnd,
-                                  'reminderHours': pickerResult['alertHours'],
-                                });
-                              } else if (rangeStart != null) {
-                                final dueDate = DateTime(
-                                  selectedDate.year, selectedDate.month, selectedDate.day,
-                                  pickerResult['hour'] ?? 10, pickerResult['minute'] ?? 0,
-                                );
-                                Navigator.pop(innerContext, {
-                                  'isRange': false,
-                                  'date': dueDate,
-                                  'reminderHours': pickerResult['alertHours'],
+                              if (closeOnConfirm) {
+                                // Comportamento legacy: chiudi calendar e ritorna il risultato
+                                if (rangeStart != null && rangeEnd != null) {
+                                  Navigator.pop(innerContext, {
+                                    'isRange': true,
+                                    'rangeStart': rangeStart,
+                                    'rangeEnd': rangeEnd,
+                                    'reminderHours': pickerResult['alertHours'],
+                                  });
+                                } else if (rangeStart != null) {
+                                  final dueDate = DateTime(
+                                    selectedDate.year, selectedDate.month, selectedDate.day,
+                                    pickerResult['hour'] ?? 10, pickerResult['minute'] ?? 0,
+                                  );
+                                  Navigator.pop(innerContext, {
+                                    'isRange': false,
+                                    'date': dueDate,
+                                    'reminderHours': pickerResult['alertHours'],
+                                  });
+                                }
+                              } else {
+                                // Nuovo: aggiorna solo state locale, calendar resta aperto
+                                setModalState(() {
+                                  selectedDate = DateTime(
+                                    selectedDate.year, selectedDate.month, selectedDate.day,
+                                    pickerResult['hour'] ?? 10, pickerResult['minute'] ?? 0,
+                                  );
+                                  selectedReminderHours = pickerResult['alertHours'];
                                 });
                               }
                             }
