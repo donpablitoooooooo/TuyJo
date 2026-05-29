@@ -28,7 +28,7 @@ class ReactionIcon extends StatelessWidget {
         ),
         boxShadow: [
           BoxShadow(
-            color: const Color(0xFF3BA8B0).withOpacity(0.3),
+            color: const Color(0xFF3BA8B0).withValues(alpha: 0.3),
             blurRadius: 6,
             offset: const Offset(0, 3),
           ),

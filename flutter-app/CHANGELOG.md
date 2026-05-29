@@ -2,6 +2,24 @@
 
 Tutte le modifiche notevoli a questo progetto saranno documentate in questo file.
 
+## [1.33.0] - 2026-05-29
+
+### ✨ Nuova interfaccia calendario (todo)
+Il selettore di data/ora per i todo passa da modale a tutto schermo a **overlay inline** nella chat:
+- **Non copre più la barra di input**: puoi continuare a scrivere e leggere il testo del todo mentre scegli il giorno.
+- **Consapevole della tastiera**: aprendo la tastiera l'overlay si nasconde, richiudendola riappare nello stesso stato.
+- **Invio in un solo passo**: premendo "invia" la selezione (data + ora + alert) viene applicata al messaggio e l'overlay si chiude.
+- **Box riepilogo dinamico** in alto: mostra giorno/intervallo, ora e alert; tap per modificare ora/alert inline, ✕ rossa per azzerare la data tenendo il calendario aperto.
+- Pulsante di chiusura ✕ spostato in alto a sinistra (coerente con le schermate media) e **alert predefinito a 2 ore** prima per i nuovi todo.
+
+### 🧹 Pulizia tecnica
+- Rimossi gli **screen QR pairing legacy** ormai inutilizzati (codice morto).
+- Migrazione `withOpacity()` → `withValues(alpha:)` su tutto il codice (deprecazione Flutter 3.27+).
+
+### 📝 Note
+- Include tutte le migliorie di prestazioni e i fix della 1.32.0 (sotto), tra cui lo **scroll infinito dei messaggi** e il **fix del limite a 100 messaggi**.
+- Annullato il restyle grafico sperimentale: mantenuto il design visivo originale.
+
 ## [1.32.0] - 2026-04-23
 
 ### ⚡ Performance

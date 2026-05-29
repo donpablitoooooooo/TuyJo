@@ -206,7 +206,7 @@ class _MainScreenState extends State<MainScreen> {
                 leading: const Icon(Icons.chat_bubble, color: Colors.white),
                 title: Text(AppLocalizations.of(context)!.navChat, style: const TextStyle(color: Colors.white)),
                 selected: _selectedIndex == 0,
-                selectedTileColor: Colors.white.withOpacity(0.2),
+                selectedTileColor: Colors.white.withValues(alpha: 0.2),
                 onTap: () {
                   _onItemTapped(0);
                   Navigator.pop(context);
@@ -217,7 +217,7 @@ class _MainScreenState extends State<MainScreen> {
                 leading: const Icon(Icons.perm_media, color: Colors.white),
                 title: Text(AppLocalizations.of(context)!.navMedia, style: const TextStyle(color: Colors.white)),
                 selected: _selectedIndex == 1,
-                selectedTileColor: Colors.white.withOpacity(0.2),
+                selectedTileColor: Colors.white.withValues(alpha: 0.2),
                 onTap: () {
                   _onItemTapped(1);
                   Navigator.pop(context);
@@ -228,7 +228,7 @@ class _MainScreenState extends State<MainScreen> {
                 leading: const Icon(Icons.settings, color: Colors.white),
                 title: Text(AppLocalizations.of(context)!.settings, style: const TextStyle(color: Colors.white)),
                 selected: _selectedIndex == 2,
-                selectedTileColor: Colors.white.withOpacity(0.2),
+                selectedTileColor: Colors.white.withValues(alpha: 0.2),
                 onTap: () {
                   _onItemTapped(2);
                   Navigator.pop(context);
@@ -256,7 +256,7 @@ class _MainScreenState extends State<MainScreen> {
                   shape: BoxShape.circle,
                   boxShadow: [
                     BoxShadow(
-                      color: Colors.black.withOpacity(0.1),
+                      color: Colors.black.withValues(alpha: 0.1),
                       blurRadius: 8,
                       offset: const Offset(0, 2),
                     ),
@@ -296,7 +296,7 @@ class _MainScreenState extends State<MainScreen> {
                           shape: BoxShape.circle,
                           boxShadow: [
                             BoxShadow(
-                              color: Colors.black.withOpacity(0.1),
+                              color: Colors.black.withValues(alpha: 0.1),
                               blurRadius: 8,
                               offset: const Offset(0, 2),
                             ),
@@ -337,7 +337,7 @@ class _MainScreenState extends State<MainScreen> {
                           shape: BoxShape.circle,
                           boxShadow: [
                             BoxShadow(
-                              color: Colors.black.withOpacity(0.1),
+                              color: Colors.black.withValues(alpha: 0.1),
                               blurRadius: 8,
                               offset: const Offset(0, 2),
                             ),

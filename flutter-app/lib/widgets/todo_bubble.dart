@@ -163,8 +163,8 @@ class TodoMessageBubble extends StatelessWidget {
                 boxShadow: [
                   BoxShadow(
                     color: isMe
-                        ? const Color(0xFF3BA8B0).withOpacity(0.3)
-                        : Colors.black.withOpacity(0.08),
+                        ? const Color(0xFF3BA8B0).withValues(alpha: 0.3)
+                        : Colors.black.withValues(alpha: 0.08),
                     blurRadius: 8,
                     offset: const Offset(0, 2),
                   ),
@@ -201,7 +201,7 @@ class TodoMessageBubble extends StatelessWidget {
                             Text(
                               l10n.messageDeleted,
                               style: TextStyle(
-                                color: isMe ? Colors.white.withOpacity(0.7) : Colors.black54,
+                                color: isMe ? Colors.white.withValues(alpha: 0.7) : Colors.black54,
                                 fontSize: 15,
                                 height: 1.4,
                                 fontStyle: FontStyle.italic,
@@ -266,7 +266,7 @@ class TodoMessageBubble extends StatelessWidget {
                                       : Icons.calendar_today_outlined, // Calendario per evento
                                   size: 14,
                                   color: isMe
-                                      ? Colors.white.withOpacity(0.9)
+                                      ? Colors.white.withValues(alpha: 0.9)
                                       : Colors.black54,
                                 ),
                                 const SizedBox(width: 4),
@@ -276,7 +276,7 @@ class TodoMessageBubble extends StatelessWidget {
                                     style: TextStyle(
                                       fontSize: 12,
                                       color: isMe
-                                          ? Colors.white.withOpacity(0.9)
+                                          ? Colors.white.withValues(alpha: 0.9)
                                           : Colors.black54,
                                     ),
                                   ),
@@ -288,7 +288,7 @@ class TodoMessageBubble extends StatelessWidget {
                                     Icons.notifications_active_outlined,
                                     size: 12,
                                     color: isMe
-                                        ? Colors.white.withOpacity(0.9)
+                                        ? Colors.white.withValues(alpha: 0.9)
                                         : Colors.black54,
                                   ),
                                   const SizedBox(width: 2),
@@ -297,7 +297,7 @@ class TodoMessageBubble extends StatelessWidget {
                                     style: TextStyle(
                                       fontSize: 12,
                                       color: isMe
-                                          ? Colors.white.withOpacity(0.9)
+                                          ? Colors.white.withValues(alpha: 0.9)
                                           : Colors.black54,
                                     ),
                                   ),
@@ -316,7 +316,7 @@ class TodoMessageBubble extends StatelessWidget {
                                 style: TextStyle(
                                   fontSize: 11,
                                   color: isMe
-                                      ? Colors.white.withOpacity(0.8)
+                                      ? Colors.white.withValues(alpha: 0.8)
                                       : Colors.black54,
                                 ),
                               ),
@@ -328,7 +328,7 @@ class TodoMessageBubble extends StatelessWidget {
                                   size: 14,
                                   color: (message.read ?? false)
                                       ? Colors.blue[300]
-                                      : Colors.white.withOpacity(0.8),
+                                      : Colors.white.withValues(alpha: 0.8),
                                 ),
                               ],
                               if (isCompleted) ...[
@@ -337,7 +337,7 @@ class TodoMessageBubble extends StatelessWidget {
                                   Icons.check_circle,
                                   size: 12,
                                   color: isMe
-                                      ? Colors.white.withOpacity(0.8)
+                                      ? Colors.white.withValues(alpha: 0.8)
                                       : Colors.green,
                                 ),
                               ],

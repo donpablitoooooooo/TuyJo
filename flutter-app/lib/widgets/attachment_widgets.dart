@@ -137,7 +137,7 @@ class _AttachmentImageState extends State<AttachmentImage> {
               return Container(
                 width: 200,
                 height: 200,
-                color: widget.isMe ? Colors.white.withOpacity(0.1) : Colors.grey[200],
+                color: widget.isMe ? Colors.white.withValues(alpha: 0.1) : Colors.grey[200],
                 child: const Center(child: CircularProgressIndicator()),
               );
             }
@@ -185,7 +185,7 @@ class AttachmentVideo extends StatelessWidget {
         height: 200,
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(12),
-          color: isMe ? Colors.white.withOpacity(0.1) : Colors.grey[200],
+          color: isMe ? Colors.white.withValues(alpha: 0.1) : Colors.grey[200],
         ),
         child: Stack(
           alignment: Alignment.center,
@@ -194,7 +194,7 @@ class AttachmentVideo extends StatelessWidget {
               width: 50,
               height: 50,
               decoration: BoxDecoration(
-                color: Colors.black.withOpacity(0.5),
+                color: Colors.black.withValues(alpha: 0.5),
                 shape: BoxShape.circle,
               ),
               child: const Icon(
@@ -209,7 +209,7 @@ class AttachmentVideo extends StatelessWidget {
               child: Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                 decoration: BoxDecoration(
-                  color: Colors.black.withOpacity(0.6),
+                  color: Colors.black.withValues(alpha: 0.6),
                   borderRadius: BorderRadius.circular(4),
                 ),
                 child: Row(
@@ -342,7 +342,7 @@ class _AttachmentDocumentState extends State<AttachmentDocument> {
         padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(12),
-          color: widget.isMe ? Colors.white.withOpacity(0.1) : Colors.grey[200],
+          color: widget.isMe ? Colors.white.withValues(alpha: 0.1) : Colors.grey[200],
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
@@ -351,7 +351,7 @@ class _AttachmentDocumentState extends State<AttachmentDocument> {
               width: 40,
               height: 40,
               decoration: BoxDecoration(
-                color: widget.isMe ? Colors.white.withOpacity(0.2) : Colors.grey[300],
+                color: widget.isMe ? Colors.white.withValues(alpha: 0.2) : Colors.grey[300],
                 borderRadius: BorderRadius.circular(8),
               ),
               child: (_isDownloading || widget.attachment.url.isEmpty || !widget.attachment.url.startsWith('http'))
@@ -566,10 +566,10 @@ class _FullscreenImageViewerState extends State<FullscreenImageViewer> {
                         margin: const EdgeInsets.symmetric(horizontal: 32, vertical: 24),
                         padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 24),
                         decoration: BoxDecoration(
-                          color: Colors.white.withOpacity(0.15),
+                          color: Colors.white.withValues(alpha: 0.15),
                           borderRadius: BorderRadius.circular(16),
                           border: Border.all(
-                            color: Colors.white.withOpacity(0.2),
+                            color: Colors.white.withValues(alpha: 0.2),
                             width: 1,
                           ),
                         ),

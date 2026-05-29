@@ -288,7 +288,7 @@ class _PairingWizardScreenState extends State<PairingWizardScreen> {
                                         borderRadius: BorderRadius.circular(16),
                                         boxShadow: [
                                           BoxShadow(
-                                            color: Colors.black.withOpacity(0.05),
+                                            color: Colors.black.withValues(alpha: 0.05),
                                             blurRadius: 8,
                                             offset: const Offset(0, 2),
                                           ),
@@ -314,7 +314,7 @@ class _PairingWizardScreenState extends State<PairingWizardScreen> {
                                   Container(
                                     padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
                                     decoration: BoxDecoration(
-                                      color: const Color(0xFF3BA8B0).withOpacity(0.1),
+                                      color: const Color(0xFF3BA8B0).withValues(alpha: 0.1),
                                       borderRadius: BorderRadius.circular(12),
                                       border: Border.all(
                                         color: const Color(0xFF3BA8B0),
@@ -361,7 +361,7 @@ class _PairingWizardScreenState extends State<PairingWizardScreen> {
                                         borderRadius: BorderRadius.circular(12),
                                         boxShadow: [
                                           BoxShadow(
-                                            color: const Color(0xFF3BA8B0).withOpacity(0.3),
+                                            color: const Color(0xFF3BA8B0).withValues(alpha: 0.3),
                                             blurRadius: 8,
                                             offset: const Offset(0, 4),
                                           ),
@@ -405,7 +405,7 @@ class _PairingWizardScreenState extends State<PairingWizardScreen> {
                                   Container(
                                     padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
                                     decoration: BoxDecoration(
-                                      color: const Color(0xFF3BA8B0).withOpacity(0.1),
+                                      color: const Color(0xFF3BA8B0).withValues(alpha: 0.1),
                                       borderRadius: BorderRadius.circular(12),
                                       border: Border.all(
                                         color: const Color(0xFF3BA8B0),
@@ -439,7 +439,7 @@ class _PairingWizardScreenState extends State<PairingWizardScreen> {
                                 borderRadius: BorderRadius.circular(16),
                                 boxShadow: [
                                   BoxShadow(
-                                    color: Colors.black.withOpacity(0.1),
+                                    color: Colors.black.withValues(alpha: 0.1),
                                     blurRadius: 12,
                                     offset: const Offset(0, 4),
                                   ),
@@ -475,7 +475,7 @@ class _PairingWizardScreenState extends State<PairingWizardScreen> {
                                         borderRadius: BorderRadius.circular(12),
                                         boxShadow: [
                                           BoxShadow(
-                                            color: const Color(0xFF3BA8B0).withOpacity(0.3),
+                                            color: const Color(0xFF3BA8B0).withValues(alpha: 0.3),
                                             blurRadius: 8,
                                             offset: const Offset(0, 4),
                                           ),
@@ -542,7 +542,7 @@ class _PairingWizardScreenState extends State<PairingWizardScreen> {
                     shape: BoxShape.circle,
                     boxShadow: [
                       BoxShadow(
-                        color: Colors.black.withOpacity(0.1),
+                        color: Colors.black.withValues(alpha: 0.1),
                         blurRadius: 8,
                         offset: const Offset(0, 2),
                       ),
@@ -575,7 +575,7 @@ class _PairingWizardScreenState extends State<PairingWizardScreen> {
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.1),
+            color: Colors.black.withValues(alpha: 0.1),
             blurRadius: 12,
             offset: const Offset(0, 4),
           ),
@@ -656,7 +656,7 @@ class _PairingWizardScreenState extends State<PairingWizardScreen> {
                   shape: BoxShape.circle,
                   boxShadow: [
                     BoxShadow(
-                      color: Colors.black.withOpacity(0.3),
+                      color: Colors.black.withValues(alpha: 0.3),
                       blurRadius: 8,
                       offset: const Offset(0, 2),
                     ),
@@ -684,7 +684,7 @@ class _PairingWizardScreenState extends State<PairingWizardScreen> {
                   shape: BoxShape.circle,
                   boxShadow: [
                     BoxShadow(
-                      color: Colors.black.withOpacity(0.3),
+                      color: Colors.black.withValues(alpha: 0.3),
                       blurRadius: 8,
                       offset: const Offset(0, 2),
                     ),
@@ -723,7 +723,7 @@ class _PairingWizardScreenState extends State<PairingWizardScreen> {
                   borderRadius: BorderRadius.circular(16),
                   boxShadow: [
                     BoxShadow(
-                      color: Colors.black.withOpacity(0.2),
+                      color: Colors.black.withValues(alpha: 0.2),
                       blurRadius: 12,
                       offset: const Offset(0, 4),
                     ),
@@ -754,7 +754,7 @@ class _PairingWizardScreenState extends State<PairingWizardScreen> {
                   borderRadius: BorderRadius.circular(16),
                   boxShadow: [
                     BoxShadow(
-                      color: Colors.black.withOpacity(0.3),
+                      color: Colors.black.withValues(alpha: 0.3),
                       blurRadius: 12,
                       offset: const Offset(0, 4),
                     ),
@@ -766,7 +766,7 @@ class _PairingWizardScreenState extends State<PairingWizardScreen> {
             // Processing overlay
             if (_isProcessingQR)
               Container(
-                color: Colors.black.withOpacity(0.8),
+                color: Colors.black.withValues(alpha: 0.8),
                 child: Center(
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
