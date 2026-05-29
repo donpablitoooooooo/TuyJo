@@ -1,4 +1,10 @@
-TuyJo v1.32.0
+TuyJo v1.33.0
+
+NOVITÀ:
+🗓️ Nuovo calendario per i promemoria: ora si apre come pannello integrato nella chat e non copre più la barra di scrittura — puoi scrivere il testo mentre scegli il giorno
+⌨️ Si adatta alla tastiera: si nasconde quando scrivi e riappare quando hai finito
+✅ Imposti data, ora e avviso e invii in un solo tocco
+🔔 Avviso predefinito 2 ore prima per i nuovi promemoria, con riepilogo sempre visibile e modificabile al volo
 
 PRESTAZIONI:
 ⚡ Invio foto fino a 3-5x più veloce con pipeline di upload parallela
@@ -6,17 +12,13 @@ PRESTAZIONI:
 🧵 Operazioni crittografiche pesanti spostate fuori dal thread principale: interfaccia sempre fluida stile WhatsApp
 📜 Apertura chat istantanea: carichiamo gli ultimi messaggi e aggiungiamo i più vecchi solo quando scorri verso l'alto
 🖼️ Sezione Media più completa: foto, link e documenti dell'intero archivio visibili appena apri la galleria
-📸 Generazione anteprime immagini ottimizzata con un singolo passaggio nativo
-☁️ Caricamento iniziale delle chat più veloce e ricevute di lettura raggruppate
 
 CORREZIONI:
 🗄️ Risolto un problema che, dopo l'aggiornamento da una versione precedente, poteva impedire di vedere più di 100 messaggi e parte dei file nella galleria
 🐛 Risolto avvio lento dell'app
 📄 Risolto problema con i PDF condivisi trattati come link
-🔁 Eliminata la cascata di retry del token di autenticazione
 🖼️ Risolto lampeggio della bolla foto durante l'invio
 📥 Le foto inviate non vengono più riscaricate inutilmente
-🚫 Prevenuti upload duplicati dello stesso allegato
 
 NOTE:
 📱 Compatibilità: Android 6.0+ e iOS 15.0+
