@@ -11,21 +11,21 @@ import 'package:image/image.dart' as img;
 RSAPublicKey _decodePublicKeyStatic(String publicKeyStr) {
   final bytes = base64Decode(publicKeyStr);
   final topLevelSeq = ASN1Parser(bytes).nextObject() as ASN1Sequence;
-  final bitString = topLevelSeq.elements![1] as ASN1BitString;
+  final bitString = topLevelSeq.elements[1] as ASN1BitString;
   final keySequenceBytes = bitString.valueBytes().sublist(1);
   final publicKeySeq = ASN1Parser(keySequenceBytes).nextObject() as ASN1Sequence;
-  final modulus = (publicKeySeq.elements![0] as ASN1Integer).valueAsBigInteger!;
-  final exponent = (publicKeySeq.elements![1] as ASN1Integer).valueAsBigInteger!;
+  final modulus = (publicKeySeq.elements[0] as ASN1Integer).valueAsBigInteger;
+  final exponent = (publicKeySeq.elements[1] as ASN1Integer).valueAsBigInteger;
   return RSAPublicKey(modulus, exponent);
 }
 
 RSAPrivateKey _decodePrivateKeyStatic(String privateKeyStr) {
   final bytes = base64Decode(privateKeyStr);
   final privateKeySeq = ASN1Parser(bytes).nextObject() as ASN1Sequence;
-  final modulus = (privateKeySeq.elements![1] as ASN1Integer).valueAsBigInteger!;
-  final privateExponent = (privateKeySeq.elements![3] as ASN1Integer).valueAsBigInteger!;
-  final p = (privateKeySeq.elements![4] as ASN1Integer).valueAsBigInteger!;
-  final q = (privateKeySeq.elements![5] as ASN1Integer).valueAsBigInteger!;
+  final modulus = (privateKeySeq.elements[1] as ASN1Integer).valueAsBigInteger;
+  final privateExponent = (privateKeySeq.elements[3] as ASN1Integer).valueAsBigInteger;
+  final p = (privateKeySeq.elements[4] as ASN1Integer).valueAsBigInteger;
+  final q = (privateKeySeq.elements[5] as ASN1Integer).valueAsBigInteger;
   return RSAPrivateKey(modulus, privateExponent, p, q);
 }
 

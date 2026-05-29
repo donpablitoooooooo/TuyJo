@@ -12,7 +12,6 @@ import 'services/chat_service.dart';
 import 'services/encryption_service.dart';
 import 'services/notification_service.dart';
 import 'services/pairing_service.dart';
-import 'services/message_cache_service.dart';
 import 'services/couple_selfie_service.dart';
 import 'services/attachment_service.dart';
 import 'services/location_service.dart';

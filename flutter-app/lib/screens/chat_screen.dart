@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'dart:io';
-import 'dart:typed_data';
 import 'package:path/path.dart' as path;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -9,8 +8,6 @@ import 'package:flutter/services.dart';
 import 'package:flutter/gestures.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
-import 'package:open_filex/open_filex.dart';
-import 'package:path_provider/path_provider.dart';
 import 'package:flutter_linkify/flutter_linkify.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:table_calendar/table_calendar.dart';
@@ -31,8 +28,6 @@ import '../widgets/attachment_widgets.dart';
 import '../widgets/permission_denied_dialog.dart';
 import '../widgets/reaction_picker.dart';
 import '../widgets/reaction_overlay.dart';
-import 'chat_screen_dismissible.dart';
-import 'pdf_viewer_screen.dart';
 import 'location_sharing_screen.dart';
 
 class ChatScreen extends StatefulWidget {
@@ -456,7 +451,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
         );
 
         if (kDebugMode) {
-          print('✅ ${uploadedAttachments?.length ?? 0} attachments uploaded');
+          print('✅ ${uploadedAttachments.length} attachments uploaded');
         }
       } catch (e) {
         if (kDebugMode) print('❌ Error uploading attachments: $e');
@@ -1568,83 +1563,6 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     );
   }
 
-  /// Costruisce un'opzione per il menu di selezione alert
-  Widget _buildAlertOption(BuildContext context, int? hours, String label) {
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: () => Navigator.pop(context, hours),
-        child: Container(
-          padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 24),
-          child: Row(
-            children: [
-              Icon(
-                hours == null ? Icons.notifications_off : Icons.notifications_outlined,
-                color: Colors.white,
-                size: 24,
-              ),
-              const SizedBox(width: 16),
-              Text(
-                label,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 16,
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  /// Costruisce un'opzione per il menu di selezione alert con stato selezionato (inline version)
-  Widget _buildAlertOptionInline(
-    BuildContext context,
-    int? hours,
-    String label,
-    int? currentSelection,
-    Function(int?) onSelect,
-  ) {
-    final isSelected = hours == currentSelection;
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: () => onSelect(hours),
-        child: Container(
-          padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 24),
-          decoration: BoxDecoration(
-            color: isSelected ? Colors.white.withValues(alpha: 0.2) : Colors.transparent,
-            borderRadius: BorderRadius.circular(8),
-          ),
-          child: Row(
-            children: [
-              Icon(
-                hours == null ? Icons.notifications_off : Icons.notifications_outlined,
-                color: Colors.white,
-                size: 24,
-              ),
-              const SizedBox(width: 16),
-              Expanded(
-                child: Text(
-                  label,
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 16,
-                    fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
-                  ),
-                ),
-              ),
-              if (isSelected)
-                const Icon(Icons.check, color: Colors.white, size: 24),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
   /// Recupera i todo per un giorno specifico per mostrare i marker nel calendario
   List<Message> _getTodosForDayInCalendar(DateTime day) {
     final chatService = Provider.of<ChatService>(context, listen: false);
@@ -1677,38 +1595,6 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     }).toList();
   }
 
-  /// Recupera i todo per un range di date
-  List<Message> _getTodosForRange(DateTime rangeStart, DateTime rangeEnd) {
-    final chatService = Provider.of<ChatService>(context, listen: false);
-    final normalizedStart = DateTime(rangeStart.year, rangeStart.month, rangeStart.day);
-    final normalizedEnd = DateTime(rangeEnd.year, rangeEnd.month, rangeEnd.day);
-
-    return chatService.messages.where((message) {
-      if (message.messageType != 'todo') return false;
-      if (message.dueDate == null) return false;
-      if (message.isReminder == true) return false; // Escludi gli alert
-
-      final todoDay = DateTime(
-        message.dueDate!.year,
-        message.dueDate!.month,
-        message.dueDate!.day,
-      );
-
-      // Check if todo is in the selected range
-      if (message.rangeEnd != null) {
-        final todoRangeEnd = DateTime(
-          message.rangeEnd!.year,
-          message.rangeEnd!.month,
-          message.rangeEnd!.day,
-        );
-        // Include todo if it overlaps with selected range
-        return !(todoRangeEnd.isBefore(normalizedStart) || todoDay.isAfter(normalizedEnd));
-      } else {
-        // Single day todo: check if it's within the selected range
-        return !todoDay.isBefore(normalizedStart) && !todoDay.isAfter(normalizedEnd);
-      }
-    }).toList();
-  }
 
 
   // ─── Calendar overlay (inline, non-modale) ─────────────────────────────────
@@ -2945,8 +2831,6 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                               // Formatta la data del TODO
                               String? formattedDate;
                               if (message.dueDate != null) {
-                                final l10n = AppLocalizations.of(context)!;
-
                                 if (message.rangeEnd != null) {
                                   // È un range: formatta in modo intelligente
                                   formattedDate = _formatDateRange(message.dueDate!, message.rangeEnd!);
@@ -3610,7 +3494,6 @@ class _TodoDatePreview extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final l10n = AppLocalizations.of(context)!;
     String dateText;
     if (rangeStart != null && rangeEnd != null) {
       dateText = _formatRange(rangeStart!, rangeEnd!);

@@ -1,10 +1,8 @@
 import 'dart:async';
 import 'dart:convert';
-import 'dart:math';
 import 'package:flutter/foundation.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:geolocator/geolocator.dart';
-import 'package:permission_handler/permission_handler.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:crypto/crypto.dart';
@@ -29,7 +27,6 @@ class LocationService extends ChangeNotifier {
   // Stream subscriptions
   StreamSubscription<Position>? _positionStreamSubscription;
   StreamSubscription<QuerySnapshot<Map<String, dynamic>>>? _partnerLocationSubscription;
-  StreamSubscription<DocumentSnapshot<Map<String, dynamic>>>? _myLocationSubscription; // Listener per rilevare stop esterno
 
   // State
   LocationShare? _myLocation;
@@ -248,7 +245,7 @@ class LocationService extends ChangeNotifier {
       if (!hasPermission) return null;
 
       final position = await Geolocator.getCurrentPosition(
-        desiredAccuracy: LocationAccuracy.high,
+        locationSettings: const LocationSettings(accuracy: LocationAccuracy.high),
       );
 
       if (kDebugMode) {

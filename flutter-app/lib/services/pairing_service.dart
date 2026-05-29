@@ -354,11 +354,11 @@ class PairingService extends ChangeNotifier {
           if (myDocList.isNotEmpty) {
             final myDoc = myDocList.first;
             final myDocData = myDoc.data();
-            final myDocPartnerKey = myDocData?['partner_public_key'] as String?;
-            final myDocPublicKey = myDocData?['my_public_key'] as String?;
+            final myDocPartnerKey = myDocData['partner_public_key'] as String?;
+            final myDocPublicKey = myDocData['my_public_key'] as String?;
 
             // Controlla se il partner ha richiesto la cancellazione della cache
-            final deleteCacheRequested = myDocData?['delete_cache_requested'] as bool?;
+            final deleteCacheRequested = myDocData['delete_cache_requested'] as bool?;
             if (deleteCacheRequested == true) {
               if (kDebugMode) print('🗑️ [PAIRING] Partner requested cache deletion, cleaning up...');
 
@@ -400,8 +400,8 @@ class PairingService extends ChangeNotifier {
             if (partnerDocs.isNotEmpty) {
               final partnerDoc = partnerDocs.first;
               final partnerDocData = partnerDoc.data();
-              final partnerDocPartnerKey = partnerDocData?['partner_public_key'] as String?;
-              final partnerDocPublicKey = partnerDocData?['my_public_key'] as String?;
+              final partnerDocPartnerKey = partnerDocData['partner_public_key'] as String?;
+              final partnerDocPublicKey = partnerDocData['my_public_key'] as String?;
 
               if (kDebugMode) {
                 print('   Verifico chiavi incrociate:');

@@ -102,7 +102,6 @@ class TodoMessageBubble extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
-    final bool isPastDue = message.dueDate != null && message.dueDate!.isBefore(DateTime.now());
 
     return Padding(
       padding: const EdgeInsets.only(bottom: 12, left: 8, right: 8),

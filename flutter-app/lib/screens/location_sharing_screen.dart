@@ -5,14 +5,11 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:crypto/crypto.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import 'package:flutter_compass/flutter_compass.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:private_messaging/generated/l10n/app_localizations.dart';
-import '../models/message.dart';
-import '../services/chat_service.dart';
 import '../services/encryption_service.dart';
 import '../services/location_service.dart';
 import '../services/pairing_service.dart';
@@ -43,7 +40,6 @@ class _LocationSharingScreenState extends State<LocationSharingScreen> {
   StreamSubscription<CompassEvent>? _compassSubscription;
   Timer? _compassRetryTimer;
   Timer? _positionUpdateTimer; // Timer per aggiornare la posizione
-  int _compassRetryCount = 0;
   Position? _myPosition; // Posizione corrente dell'utente (locale, non condivisa)
 
   @override
@@ -258,8 +254,6 @@ class _LocationSharingScreenState extends State<LocationSharingScreen> {
       _compassRetryTimer = null;
     } else {
       // Stream non disponibile, riprova ogni secondo
-      _compassRetryCount++;
-
       if (_compassRetryTimer == null) {
         _compassRetryTimer = Timer.periodic(Duration(seconds: 1), (timer) {
           if (!mounted) {
@@ -295,13 +289,11 @@ class _LocationSharingScreenState extends State<LocationSharingScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final l10n = AppLocalizations.of(context)!;
     final locationService = Provider.of<LocationService>(context);
     final partnerLocation = locationService.partnerLocation;
     final myLocation = locationService.myLocation;
 
     // Condivisione attiva fino a: stop manuale o scadenza temporale
-    final bool hasStopAction = false; // Lo stop è gestito dalla chat (action message)
     final bool isExpired = locationService.sharingExpiresAt != null &&
         DateTime.now().isAfter(locationService.sharingExpiresAt!);
 
