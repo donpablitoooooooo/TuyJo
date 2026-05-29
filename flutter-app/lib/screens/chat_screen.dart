@@ -1838,11 +1838,10 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
         ),
       ),
       child: Column(
-        mainAxisSize: MainAxisSize.min,
         children: [
-          // Header con X di chiusura in alto a sinistra
+          // Header con X di chiusura (sx) e + per aggiungere un todo (dx)
           Padding(
-            padding: const EdgeInsets.only(left: 8, top: 12, right: 4),
+            padding: const EdgeInsets.only(left: 8, top: 12, right: 8),
             child: Row(
               children: [
                 IconButton(
@@ -1850,6 +1849,10 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                   onPressed: _calOverlayCloseAndApply,
                 ),
                 const Spacer(),
+                IconButton(
+                  icon: const Icon(Icons.add, color: Colors.white, size: 28),
+                  onPressed: _calOverlayAddTodo,
+                ),
               ],
             ),
           ),
@@ -2006,8 +2009,73 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
             ),
           ),
           const SizedBox(height: 8),
+          // Fase 1: todo del giorno selezionato, con le stesse bolle della chat
+          Expanded(child: _buildCalendarDayTodos(context)),
         ],
       ),
+    );
+  }
+
+  /// Fase 1: il "+" riusa il flusso esistente — applica la data selezionata,
+  /// chiude il calendario e porta il focus sulla barra per scrivere il todo.
+  /// (Fase 3: aprirà la scheda di creazione in stile Apple.)
+  void _calOverlayAddTodo() {
+    _calOverlayApply();
+    setState(() => _calOverlayOpen = false);
+    _messageFocusNode.canRequestFocus = true;
+    _messageFocusNode.requestFocus();
+  }
+
+  /// Lista dei todo del giorno selezionato, mostrati con le stesse bolle
+  /// della pagina chat (TodoMessageBubble).
+  Widget _buildCalendarDayTodos(BuildContext context) {
+    final chatService = Provider.of<ChatService>(context, listen: false);
+    final day = _calOverlayDayToShow ?? DateTime.now();
+    final todos = _getTodosForDayInCalendar(day);
+
+    return Container(
+      color: Theme.of(context).scaffoldBackgroundColor,
+      child: todos.isEmpty
+          ? const Center(
+              child: Padding(
+                padding: EdgeInsets.all(24),
+                child: Text(
+                  'Nessun todo per questo giorno',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(color: Colors.grey),
+                ),
+              ),
+            )
+          : ListView.builder(
+              padding: const EdgeInsets.fromLTRB(12, 12, 12, 12),
+              itemCount: todos.length,
+              itemBuilder: (context, i) {
+                final message = todos[i];
+                final isMe = message.senderId == _myDeviceId;
+                final isTodoCompleted = message.action?.type == 'complete' ||
+                    chatService.messages.any((m) =>
+                        m.messageType == 'todo_completed' &&
+                        m.originalTodoId == message.id);
+                String? formattedDate;
+                if (message.dueDate != null) {
+                  formattedDate = message.rangeEnd != null
+                      ? _formatDateRange(message.dueDate!, message.rangeEnd!)
+                      : _formatTodoDate(message.dueDate!, includeTime: true);
+                }
+                return TodoMessageBubble(
+                  key: ValueKey('cal_${message.id}'),
+                  message: message,
+                  isMe: isMe,
+                  isCompleted: isTodoCompleted,
+                  onReact: (reactionType) => _addReaction(message.id, reactionType),
+                  onAction: (actionType) => _addAction(message.id, actionType, message),
+                  formattedDate: formattedDate,
+                  attachmentService: _attachmentService,
+                  senderId: message.senderId,
+                  currentUserId: _myDeviceId,
+                );
+              },
+            ),
     );
   }
 
@@ -2742,7 +2810,9 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
         child: Column(
         children: [
           Expanded(
-            child: isDemoMode
+            child: _calOverlayOpen
+                ? _buildCalendarOverlay(context)
+                : isDemoMode
                 ? _buildDemoMessageList()
                 : visibleMessages.isEmpty && _pendingLocalMessages.isEmpty
                 ? Center(
@@ -2918,10 +2988,8 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                 ],
               ),
             ),
-          // Calendar overlay inline (sopra input bar). Si nasconde
-          // quando la tastiera è aperta, ricompare alla chiusura.
-          if (_calOverlayOpen && MediaQuery.of(context).viewInsets.bottom == 0)
-            _buildCalendarOverlay(context),
+          // Calendar overlay inline rimosso: ora la vista calendario
+          // sostituisce l'area messaggi quando _calOverlayOpen è true.
           Container(
             padding: EdgeInsets.fromLTRB(
               8,
