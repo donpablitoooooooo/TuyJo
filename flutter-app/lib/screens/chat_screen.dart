@@ -1845,21 +1845,51 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                 ],
               ),
             ),
-            // Calendario verticale continuo (custom, niente frecce)
+            // Calendario a tutta altezza con il pannello todo che galleggia sopra
             Expanded(
-              flex: 3,
-              child: VerticalCalendar(
-                selectedDay: selectedDay,
-                onDaySelected: (day) {
-                  setState(() => _calOverlayDayToShow = day);
+              child: LayoutBuilder(
+                builder: (context, constraints) {
+                  final panelHeight = constraints.maxHeight * 0.42;
+                  return Stack(
+                    children: [
+                      Positioned.fill(
+                        child: VerticalCalendar(
+                          selectedDay: selectedDay,
+                          onDaySelected: (day) {
+                            setState(() => _calOverlayDayToShow = day);
+                          },
+                          hasEvents: (day) =>
+                              _getTodosForDayInCalendar(day).isNotEmpty,
+                        ),
+                      ),
+                      Positioned(
+                        left: 0,
+                        right: 0,
+                        bottom: 0,
+                        height: panelHeight,
+                        child: Container(
+                          margin: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+                          clipBehavior: Clip.antiAlias,
+                          decoration: BoxDecoration(
+                            color: Theme.of(context)
+                                .scaffoldBackgroundColor
+                                .withValues(alpha: 0.9),
+                            borderRadius: BorderRadius.circular(20),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withValues(alpha: 0.18),
+                                blurRadius: 12,
+                                offset: const Offset(0, 4),
+                              ),
+                            ],
+                          ),
+                          child: _buildCalendarDayTodos(context),
+                        ),
+                      ),
+                    ],
+                  );
                 },
-                hasEvents: (day) => _getTodosForDayInCalendar(day).isNotEmpty,
               ),
-            ),
-            // Todo del giorno selezionato, con le stesse bolle della chat
-            Expanded(
-              flex: 2,
-              child: _buildCalendarDayTodos(context),
             ),
           ],
         ),
@@ -1917,9 +1947,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     final day = _calOverlayDayToShow ?? DateTime.now();
     final todos = _getTodosForDayInCalendar(day);
 
-    return Container(
-      color: Theme.of(context).scaffoldBackgroundColor,
-      child: todos.isEmpty
+    return todos.isEmpty
           ? const Center(
               child: Padding(
                 padding: EdgeInsets.all(24),
@@ -1959,8 +1987,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                   currentUserId: _myDeviceId,
                 );
               },
-            ),
-    );
+            );
   }
 
 
