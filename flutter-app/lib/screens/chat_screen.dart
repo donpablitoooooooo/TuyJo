@@ -10,7 +10,9 @@ import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
 import 'package:flutter_linkify/flutter_linkify.dart';
 import 'package:url_launcher/url_launcher.dart';
-import 'package:table_calendar/table_calendar.dart';
+import '../widgets/vertical_calendar.dart';
+import '../widgets/todo_creation_sheet.dart';
+import '../state/ui_state.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:private_messaging/generated/l10n/app_localizations.dart';
 import '../services/pairing_service.dart';
@@ -1618,6 +1620,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       _calOverlayRangeEnd = isEditing ? _selectedRangeEnd : null;
       _calOverlayReminderHours = _selectedReminderHours ?? (isEditing ? null : 2);
     });
+    calendarViewOpen.value = true;
   }
 
   /// Applica lo stato dell'overlay ai field "applicati al messaggio".
@@ -1812,23 +1815,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
 
   /// Widget overlay calendario inline. Vive sopra l'input bar nello Scaffold.
   Widget _buildCalendarOverlay(BuildContext context) {
-    final l10n = AppLocalizations.of(context)!;
-    final hasDate = _calOverlayDayToShow != null || _calOverlayRangeStart != null;
-    final base = _calOverlayDayToShow ?? _calOverlayRangeStart;
-
-    final summaryDateText = (_calOverlayRangeStart != null && _calOverlayRangeEnd != null)
-        ? _formatDateRange(_calOverlayRangeStart!, _calOverlayRangeEnd!)
-        : (base != null
-            ? _formatTodoDate(
-                DateTime(
-                  base.year, base.month, base.day,
-                  _calOverlaySelected.hour == 0 ? 10 : _calOverlaySelected.hour,
-                  _calOverlaySelected.minute,
-                ),
-                includeTime: _calOverlayRangeEnd == null,
-              )
-            : '');
-
+    final selectedDay = _calOverlayDayToShow ?? DateTime.now();
     return Container(
       decoration: const BoxDecoration(
         gradient: LinearGradient(
@@ -1837,193 +1824,90 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
           colors: [Color(0xFF3BA8B0), Color(0xFF145A60)],
         ),
       ),
-      child: Column(
-        children: [
-          // Header con X di chiusura (sx) e + per aggiungere un todo (dx)
-          Padding(
-            padding: const EdgeInsets.only(left: 8, top: 12, right: 8),
-            child: Row(
-              children: [
-                IconButton(
-                  icon: const Icon(Icons.close, color: Colors.white, size: 26),
-                  onPressed: _calOverlayCloseAndApply,
-                ),
-                const Spacer(),
-                IconButton(
-                  icon: const Icon(Icons.add, color: Colors.white, size: 28),
-                  onPressed: _calOverlayAddTodo,
-                ),
-              ],
-            ),
-          ),
-
-          // Box riepilogo dinamico
-          if (hasDate)
+      child: SafeArea(
+        bottom: false,
+        child: Column(
+          children: [
+            // Header: X (chiudi, sx) + "+" (aggiungi todo, dx)
             Padding(
-              padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
-              child: Material(
-                color: Colors.transparent,
-                child: InkWell(
-                  borderRadius: BorderRadius.circular(14),
-                  onTap: _calOpenTimeAlertPickerInline,
-                  child: Container(
-                    padding: const EdgeInsets.fromLTRB(14, 10, 8, 10),
-                    decoration: BoxDecoration(
-                      color: Colors.white.withValues(alpha: 0.18),
-                      borderRadius: BorderRadius.circular(14),
-                      border: Border.all(color: Colors.white.withValues(alpha: 0.25)),
-                    ),
-                    child: Row(
-                      children: [
-                        const Icon(Icons.calendar_today_outlined, color: Colors.white, size: 18),
-                        const SizedBox(width: 8),
-                        Flexible(
-                          child: Text(
-                            summaryDateText,
-                            style: const TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.w600),
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-                        if (_calOverlayReminderHours != null) ...[
-                          const SizedBox(width: 12),
-                          const Icon(Icons.notifications_outlined, color: Colors.white, size: 18),
-                          const SizedBox(width: 4),
-                          Text(
-                            _calOverlayReminderHours! >= 24
-                                ? l10n.alertShortDays(_calOverlayReminderHours! ~/ 24)
-                                : l10n.alertShortHours(_calOverlayReminderHours!),
-                            style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w600),
-                          ),
-                        ],
-                        const Spacer(),
-                        IconButton(
-                          icon: const Icon(Icons.close, color: Color(0xFFFF6B6B), size: 22),
-                          padding: EdgeInsets.zero,
-                          constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
-                          onPressed: _calOverlayClearDate,
-                        ),
-                      ],
-                    ),
+              padding: const EdgeInsets.only(left: 8, top: 4, right: 8),
+              child: Row(
+                children: [
+                  IconButton(
+                    icon: const Icon(Icons.close, color: Colors.white, size: 26),
+                    onPressed: _calOverlayClose,
                   ),
-                ),
+                  const Spacer(),
+                  IconButton(
+                    icon: const Icon(Icons.add, color: Colors.white, size: 28),
+                    onPressed: _calOverlayAddTodo,
+                  ),
+                ],
               ),
             ),
-
-          // Calendario
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 12),
-            child: TableCalendar(
-              locale: Localizations.localeOf(context).toString(),
-              firstDay: DateTime.now().subtract(const Duration(days: 1)),
-              lastDay: DateTime.now().add(const Duration(days: 365)),
-              focusedDay: _calOverlayFocused,
-              rangeStartDay: _calOverlayRangeStart,
-              rangeEndDay: _calOverlayRangeEnd,
-              rangeSelectionMode: RangeSelectionMode.toggledOff,
-              eventLoader: _getTodosForDayInCalendar,
-              calendarStyle: CalendarStyle(
-                defaultTextStyle: const TextStyle(color: Colors.white),
-                weekendTextStyle: const TextStyle(color: Colors.white70),
-                outsideTextStyle: const TextStyle(color: Colors.white30),
-                selectedDecoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.9),
-                  shape: BoxShape.circle,
-                ),
-                selectedTextStyle: const TextStyle(color: Color(0xFF3BA8B0), fontWeight: FontWeight.bold),
-                todayDecoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.3),
-                  shape: BoxShape.circle,
-                ),
-                todayTextStyle: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
-                rangeStartDecoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.9),
-                  shape: BoxShape.circle,
-                ),
-                rangeStartTextStyle: const TextStyle(color: Color(0xFF3BA8B0), fontWeight: FontWeight.bold),
-                rangeEndDecoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.9),
-                  shape: BoxShape.circle,
-                ),
-                rangeEndTextStyle: const TextStyle(color: Color(0xFF3BA8B0), fontWeight: FontWeight.bold),
-                rangeHighlightColor: Colors.white.withValues(alpha: 0.2),
-                withinRangeDecoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.15),
-                  shape: BoxShape.circle,
-                ),
-                withinRangeTextStyle: const TextStyle(color: Colors.white),
-                markerDecoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.8),
-                  shape: BoxShape.circle,
-                ),
-                markersAlignment: Alignment.bottomCenter,
-                markersMaxCount: 3,
+            // Calendario verticale continuo (custom, niente frecce)
+            Expanded(
+              flex: 3,
+              child: VerticalCalendar(
+                selectedDay: selectedDay,
+                onDaySelected: (day) {
+                  setState(() => _calOverlayDayToShow = day);
+                },
+                hasEvents: (day) => _getTodosForDayInCalendar(day).isNotEmpty,
               ),
-              headerStyle: HeaderStyle(
-                formatButtonVisible: false,
-                titleCentered: true,
-                titleTextStyle: const TextStyle(color: Colors.white, fontSize: 17, fontWeight: FontWeight.bold),
-                leftChevronIcon: const Icon(Icons.chevron_left, color: Colors.white),
-                rightChevronIcon: const Icon(Icons.chevron_right, color: Colors.white),
-              ),
-              daysOfWeekStyle: const DaysOfWeekStyle(
-                weekdayStyle: TextStyle(color: Colors.white70, fontWeight: FontWeight.bold),
-                weekendStyle: TextStyle(color: Colors.white70, fontWeight: FontWeight.bold),
-              ),
-              onPageChanged: (focusedDay) {
-                setState(() => _calOverlayFocused = focusedDay);
-              },
-              onDaySelected: (selectedDay, focusedDay) {
-                setState(() {
-                  _calOverlayDayToShow = selectedDay;
-                  _calOverlayRangeStart = selectedDay;
-                  _calOverlayRangeEnd = null;
-                  _calOverlayFocused = focusedDay;
-                  _calOverlaySelected = DateTime(
-                    selectedDay.year, selectedDay.month, selectedDay.day,
-                    _calOverlaySelected.hour == 0 ? 10 : _calOverlaySelected.hour,
-                    _calOverlaySelected.minute,
-                  );
-                  _calOverlayReminderHours ??= 2;
-                });
-              },
-              onDayLongPressed: (selectedDay, focusedDay) {
-                setState(() {
-                  if (_calOverlayRangeStart != null) {
-                    if (selectedDay.isAfter(_calOverlayRangeStart!) ||
-                        selectedDay.isAtSameMomentAs(_calOverlayRangeStart!)) {
-                      _calOverlayRangeEnd = selectedDay;
-                    } else {
-                      _calOverlayRangeEnd = _calOverlayRangeStart;
-                      _calOverlayRangeStart = selectedDay;
-                    }
-                    _calOverlayDayToShow = selectedDay;
-                  } else {
-                    _calOverlayDayToShow = selectedDay;
-                    _calOverlayRangeStart = selectedDay;
-                    _calOverlayRangeEnd = null;
-                  }
-                  _calOverlayFocused = focusedDay;
-                  _calOverlayReminderHours ??= 2;
-                });
-              },
             ),
-          ),
-          const SizedBox(height: 8),
-          // Fase 1: todo del giorno selezionato, con le stesse bolle della chat
-          Expanded(child: _buildCalendarDayTodos(context)),
-        ],
+            // Todo del giorno selezionato, con le stesse bolle della chat
+            Expanded(
+              flex: 2,
+              child: _buildCalendarDayTodos(context),
+            ),
+          ],
+        ),
       ),
     );
   }
 
-  /// Fase 1: il "+" riusa il flusso esistente — applica la data selezionata,
-  /// chiude il calendario e porta il focus sulla barra per scrivere il todo.
-  /// (Fase 3: aprirà la scheda di creazione in stile Apple.)
-  void _calOverlayAddTodo() {
-    _calOverlayApply();
+  /// Chiude la vista calendario senza creare nulla.
+  void _calOverlayClose() {
     setState(() => _calOverlayOpen = false);
+    calendarViewOpen.value = false;
     _messageFocusNode.canRequestFocus = true;
-    _messageFocusNode.requestFocus();
+  }
+
+  /// "+" : apre la scheda di creazione todo in stile Apple sul giorno selezionato.
+  void _calOverlayAddTodo() {
+    final day = _calOverlayDayToShow ?? DateTime.now();
+    _showTodoCreationSheet(initialDay: day);
+  }
+
+  /// Mostra la scheda di creazione e, al salvataggio, crea+invia il todo
+  /// riusando il percorso di invio esistente (cifratura E2E + Firestore).
+  Future<void> _showTodoCreationSheet({required DateTime initialDay}) async {
+    final result = await showModalBottomSheet<Map<String, dynamic>>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => TodoCreationSheet(initialDay: initialDay),
+    );
+    if (result == null) return;
+
+    final title = result['title'] as String;
+    final start = result['start'] as DateTime;
+    final end = result['end'] as DateTime?;
+    final alertHours = result['alertHours'] as int?;
+
+    _messageController.text = title;
+    setState(() {
+      _selectedTodoDate = start;
+      _isRangeSelection = end != null;
+      _selectedRangeStart = end != null ? start : null;
+      _selectedRangeEnd = end;
+      _selectedReminderHours = alertHours;
+      _calOverlayOpen = false; // evita il re-apply dell'overlay in _sendMessage
+    });
+    calendarViewOpen.value = false;
+    _messageFocusNode.canRequestFocus = true;
+    _sendMessage();
   }
 
   /// Lista dei todo del giorno selezionato, mostrati con le stesse bolle
@@ -2313,6 +2197,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     if (_calOverlayOpen) {
       _calOverlayApply();
       setState(() => _calOverlayOpen = false);
+      calendarViewOpen.value = false;
     }
 
     // Log diagnostico incondizionato all'entrata del metodo
