@@ -1,428 +1,359 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Tuijo - App de Mensajería Cifrada para Parejas</title>
-    <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-            line-height: 1.6;
-            color: #333;
-            background: linear-gradient(135deg, #3BA8B0 0%, #145A60 100%);
-            min-height: 100vh;
-        }
-
-        .container {
-            max-width: 900px;
-            margin: 0 auto;
-            padding: 20px;
-        }
-
-        .lang-selector {
-            position: fixed;
-            top: 20px;
-            right: 20px;
-            background: rgba(255,255,255,0.95);
-            padding: 10px 15px;
-            border-radius: 25px;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
-            z-index: 1000;
-        }
-
-        .lang-selector a {
-            margin: 0 8px;
-            text-decoration: none;
-            color: #3BA8B0;
-            font-weight: 600;
-            font-size: 0.9em;
-        }
-
-        .lang-selector a:hover {
-            color: #145A60;
-        }
-
-        .lang-selector a.active {
-            color: #145A60;
-            border-bottom: 2px solid #145A60;
-        }
-
-        header {
-            text-align: center;
-            padding: 40px 20px 20px;
-            color: white;
-        }
-
-        header .header-title {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 20px;
-            margin-bottom: 20px;
-        }
-
-        header .logo {
-            width: 80px;
-            height: 80px;
-        }
-
-        header h1 {
-            font-size: 3em;
-            margin: 0;
-            text-shadow: 2px 2px 4px rgba(0,0,0,0.2);
-        }
-
-        header p {
-            font-size: 1.3em;
-            opacity: 0.95;
-        }
-
-        .content {
-            background: white;
-            border-radius: 20px;
-            padding: 40px;
-            margin: 20px 0;
-            box-shadow: 0 10px 40px rgba(0,0,0,0.2);
-        }
-
-        h2 {
-            color: #3BA8B0;
-            margin: 30px 0 20px 0;
-            font-size: 2em;
-            border-bottom: 3px solid #3BA8B0;
-            padding-bottom: 10px;
-        }
-
-        h2:first-child {
-            margin-top: 0;
-        }
-
-        h3 {
-            color: #145A60;
-            margin: 25px 0 15px 0;
-            font-size: 1.4em;
-        }
-
-        .feature-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-            gap: 20px;
-            margin: 30px 0;
-        }
-
-        .feature-card {
-            background: linear-gradient(135deg, #3BA8B015 0%, #145A6015 100%);
-            padding: 25px;
-            border-radius: 15px;
-            border-left: 4px solid #3BA8B0;
-        }
-
-        .feature-card h3 {
-            margin-top: 0;
-            display: flex;
-            align-items: center;
-            gap: 10px;
-        }
-
-        .emoji {
-            font-size: 1.5em;
-        }
-
-        .step-list {
-            background: #f8f9fa;
-            border-radius: 10px;
-            padding: 20px 20px 20px 40px;
-            margin: 20px 0;
-        }
-
-        .step-list li {
-            margin: 15px 0;
-            padding-left: 10px;
-        }
-
-        .highlight-box {
-            background: linear-gradient(135deg, #3BA8B0 0%, #145A60 100%);
-            color: white;
-            padding: 25px;
-            border-radius: 15px;
-            margin: 25px 0;
-        }
-
-        .highlight-box h3 {
-            color: white;
-            margin-top: 0;
-        }
-
-        ul {
-            margin-left: 20px;
-            margin-bottom: 20px;
-        }
-
-        ul li {
-            margin: 10px 0;
-        }
-
-        .tech-stack {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 10px;
-            margin: 20px 0;
-        }
-
-        .tech-badge {
-            background: #3BA8B0;
-            color: white;
-            padding: 8px 15px;
-            border-radius: 20px;
-            font-size: 0.9em;
-            font-weight: 500;
-        }
-
-        footer {
-            text-align: center;
-            color: white;
-            padding: 40px 20px;
-            font-size: 0.9em;
-        }
-
-        @media (max-width: 768px) {
-            header .header-title {
-                gap: 15px;
-            }
-
-            header .logo {
-                width: 60px;
-                height: 60px;
-            }
-
-            header h1 {
-                font-size: 2em;
-            }
-
-            header p {
-                font-size: 1.1em;
-            }
-
-            .content {
-                padding: 25px;
-            }
-
-            h2 {
-                font-size: 1.6em;
-            }
-
-            .lang-selector {
-                top: 10px;
-                right: 10px;
-                padding: 8px 12px;
-            }
-
-            .lang-selector a {
-                margin: 0 5px;
-                font-size: 0.85em;
-            }
-        }
-    </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Tuijo — Solo tú y yo. Mensajería privada y cifrada para parejas</title>
+<meta name="description" content="Tuijo es la app de mensajería cifrada de extremo a extremo hecha solo para parejas. Chat, llamadas, ubicación en directo y recordatorios compartidos. Ni nosotros podemos leeros.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700;12..96,800&family=Hanken+Grotesk:wght@400;500;600;700&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet">
+<link rel="icon" type="image/png" href="assets/icon-1024.png">
+<link rel="stylesheet" href="styles.css">
 </head>
 <body>
-    <div class="lang-selector">
+
+<!-- ============== NAV ============== -->
+<nav class="nav">
+  <div class="wrap nav-inner">
+    <a class="brand" href="#top">
+      <img src="assets/cherries.png" alt="Tuijo">
+      <span class="word">Tuijo</span>
+    </a>
+    <div class="nav-links">
+      <a class="link" href="#features">Funciones</a>
+      <a class="link" href="#security">Seguridad</a>
+      <a class="link" href="#how">Cómo funciona</a>
+      <a class="link" href="#faq">FAQ</a>
+    </div>
+    <div class="nav-actions">
+      <div class="lang">
+        <a href="index.html">IT</a>
         <a href="en.html">EN</a>
         <a href="es.html" class="active">ES</a>
         <a href="ca.html">CA</a>
-        <a href="index.html">IT</a>
+      </div>
+      <a href="#download" class="btn btn-cherry">Descargar</a>
     </div>
+  </div>
+</nav>
 
-    <div class="container">
-        <header>
-            <div class="header-title">
-                <img src="logo.png" alt="Tuijo Logo" class="logo">
-                <h1>Tuijo</h1>
-            </div>
-            <p>Tú y yo en catalán - Tu app de mensajería privada y cifrada para parejas</p>
-            <div class="download-buttons" style="display: flex; justify-content: center; gap: 15px; margin-top: 20px; flex-wrap: wrap;">
-                <a href="https://play.google.com/store/apps/details?id=com.privatemessaging.private_messaging" target="_blank" rel="noopener noreferrer">
-                    <img src="google-play-badge-es.svg" alt="Consíguelo en Google Play" style="height: 55px;">
-                </a>
-                <a href="https://apps.apple.com/es/app/tuijo/id6757800731" target="_blank" rel="noopener noreferrer">
-                    <img src="https://toolbox.marketingtools.apple.com/api/badges/download-on-the-app-store/black/es-es?size=250x83" alt="Descargar en el App Store" style="height: 55px;">
-                </a>
-            </div>
-        </header>
+<a id="top"></a>
 
-        <div class="content">
-            <h2>¿Qué es Tuijo?</h2>
-            <p>
-                <strong>Tuijo</strong> es una app de mensajería completamente privada y segura,
-                diseñada exclusivamente para parejas. Gracias al cifrado end-to-end avanzado
-                (RSA-2048 + AES-256), solo tú y tu pareja pueden leer vuestros mensajes.
-                ¡Ni siquiera nosotros podemos acceder a ellos!
-            </p>
+<!-- ============== HERO ============== -->
+<header class="hero">
+  <div class="wrap hero-grid">
+    <div class="hero-copy">
+      <span class="eyebrow reveal">Tu i jo · Tú y yo</span>
+      <h1 class="reveal d1">Solo <span class="serif-em">tú y yo.</span><br>Todo lo demás, fuera.</h1>
+      <p class="hero-sub reveal d2">Mensajería privada pensada para dos — <strong>sin cuenta ni registro</strong>. Cada palabra, foto y ubicación está cifrada de extremo a extremo. Ni nosotros podemos leeros.</p>
 
-            <h2>✨ Funcionalidades Principales</h2>
+      <div class="store-badges reveal d3" id="download">
+        <a href="https://apps.apple.com/es/app/tuijo/id6757800731" target="_blank" rel="noopener noreferrer">
+          <img src="https://toolbox.marketingtools.apple.com/api/badges/download-on-the-app-store/black/es-es?size=250x83" alt="Descárgalo en el App Store">
+        </a>
+        <a href="https://play.google.com/store/apps/details?id=com.privatemessaging.private_messaging" target="_blank" rel="noopener noreferrer">
+          <img src="assets/google-play-es.svg" alt="Disponible en Google Play">
+        </a>
+      </div>
 
-            <div class="feature-grid">
-                <div class="feature-card">
-                    <h3><span class="emoji">💬</span> Chat Seguro</h3>
-                    <p>Mensajes cifrados end-to-end, confirmaciones de lectura, indicador "escribiendo" y mucho más.</p>
-                </div>
-
-                <div class="feature-card">
-                    <h3><span class="emoji">📍</span> Ubicación Cifrada</h3>
-                    <p>Comparte tu ubicación GPS en tiempo real con coordenadas cifradas AES-256. Navegación interactiva con brújula.</p>
-                </div>
-
-                <div class="feature-card">
-                    <h3><span class="emoji">📞</span> Llamadas de Voz</h3>
-                    <p>Llamadas de audio peer-to-peer vía WebRTC. CallKit nativo en iOS, notificaciones en Android.</p>
-                </div>
-
-                <div class="feature-card">
-                    <h3><span class="emoji">📎</span> Adjuntos Protegidos</h3>
-                    <p>Envía fotos, vídeos y documentos completamente cifrados con visor integrado.</p>
-                </div>
-
-                <div class="feature-card">
-                    <h3><span class="emoji">📅</span> TODOs y Recordatorios</h3>
-                    <p>Crea recordatorios compartidos con notificaciones automáticas y calendario integrado en el chat.</p>
-                </div>
-
-                <div class="feature-card">
-                    <h3><span class="emoji">🌍</span> Multilenguaje</h3>
-                    <p>Interfaz completamente localizada en 4 idiomas: Italiano, Inglés, Español y Catalán.</p>
-                </div>
-
-                <div class="feature-card">
-                    <h3><span class="emoji">💑</span> Selfie de Pareja</h3>
-                    <p>Una foto de perfil compartida que se sincroniza automáticamente entre vuestros dispositivos.</p>
-                </div>
-
-                <div class="feature-card">
-                    <h3><span class="emoji">🖼️</span> Galería Multimedia</h3>
-                    <p>Fotos, enlaces y documentos organizados en pestañas con cuadrícula estilo Pinterest para enlaces.</p>
-                </div>
-
-                <div class="feature-card">
-                    <h3><span class="emoji">🔗</span> Vista Previa de Enlaces</h3>
-                    <p>Pega un enlace y la app extrae automáticamente título, descripción e imagen de vista previa.</p>
-                </div>
-
-                <div class="feature-card">
-                    <h3><span class="emoji">📤</span> Compartir Externo</h3>
-                    <p>Comparte fotos, vídeos, documentos y enlaces directamente desde otras apps mediante Share Extension.</p>
-                </div>
-            </div>
-
-            <div class="highlight-box">
-                <h3>🔐 Máxima Seguridad</h3>
-                <p>
-                    Tu privacidad es nuestra prioridad. Utilizamos doble cifrado con RSA-2048 para
-                    el intercambio de claves y AES-256 para los mensajes. Cada mensaje tiene una clave única y
-                    nadie, ni siquiera el servidor, puede leer tu contenido.
-                </p>
-            </div>
-
-            <h2>🚀 ¿Cómo Funciona?</h2>
-
-            <h3>1. Emparejamiento Inicial (Código QR)</h3>
-            <ol class="step-list">
-                <li><strong>Dispositivo A</strong> genera sus claves criptográficas y muestra un código QR</li>
-                <li><strong>Dispositivo B</strong> escanea el código QR e importa la clave pública de A</li>
-                <li><strong>Dispositivo B</strong> muestra su código QR con su propia clave pública</li>
-                <li><strong>Dispositivo A</strong> escanea el código QR de B y completa el emparejamiento</li>
-                <li>¡Ambos dispositivos están ahora conectados de forma segura! 🎉</li>
-            </ol>
-
-            <h3>2. Envío de Mensajes Cifrados</h3>
-            <ol class="step-list">
-                <li>Escribe tu mensaje en la app</li>
-                <li>La app genera una clave AES-256 aleatoria única para ese mensaje</li>
-                <li>El mensaje se cifra con AES-256</li>
-                <li>La clave AES se cifra DOS veces:
-                    <ul>
-                        <li>Una con tu clave pública (para ti)</li>
-                        <li>Una con la clave pública de tu pareja (para él/ella)</li>
-                    </ul>
-                </li>
-                <li>El mensaje cifrado y las claves se guardan en la nube</li>
-                <li>¡Solo tú y tu pareja pueden descifrar y leer el mensaje!</li>
-            </ol>
-
-            <h3>3. TODOs con Recordatorios Automáticos</h3>
-            <ol class="step-list">
-                <li>Crea un TODO con fecha y hora desde la app</li>
-                <li>La app envía automáticamente un recordatorio programado</li>
-                <li>1 hora antes del evento, ambos recibiréis una notificación</li>
-                <li>¡Completa el TODO con una simple pulsación larga!</li>
-            </ol>
-
-            <h3>4. Compartir Ubicación en Tiempo Real</h3>
-            <ol class="step-list">
-                <li>Toca el botón 📍 en el chat para empezar</li>
-                <li>Elige la duración: 1 hora u 8 horas de compartir</li>
-                <li>Tu pareja recibe el mensaje y ve tu ubicación en vivo</li>
-                <li>Pantalla radar interactiva con flecha apuntando hacia ti</li>
-                <li>Distancia en tiempo real (metros/km) y dirección con brújula</li>
-                <li>¡La sesión expira automáticamente, ningún dato permanece en los servidores!</li>
-            </ol>
-
-            <h2>💪 ¿Por Qué Elegir Tuijo?</h2>
-
-            <ul>
-                <li><strong>Privacidad Total:</strong> Cifrado end-to-end con arquitectura zero-knowledge</li>
-                <li><strong>Encuentra a tu Pareja:</strong> Compartir ubicación GPS con navegación en tiempo real</li>
-                <li><strong>Rápida:</strong> Caché local para carga instantánea (< 100ms)</li>
-                <li><strong>Completa:</strong> Chat, adjuntos, TODOs, calendario, ubicación y notificaciones</li>
-                <li><strong>Moderna:</strong> Diseño limpio con tema turquesa y animaciones fluidas</li>
-                <li><strong>Fiable:</strong> Backend serverless en Firebase, siempre disponible</li>
-                <li><strong>Solo para Vosotros:</strong> Diseñada específicamente para parejas, no para grupos</li>
-            </ul>
-
-            <div class="highlight-box">
-                <h3>🎯 Versión Actual: 1.24.0</h3>
-                <p>
-                    <strong>Novedades de Febrero 2026:</strong><br>
-                    • 📞 Llamadas de voz peer-to-peer vía WebRTC con CallKit nativo<br>
-                    • 🔐 Coordenadas GPS cifradas con AES-256 por sesión en la ubicación compartida<br>
-                    • 📍 Coordenadas iniciales en el mensaje cifrado para navegación instantánea<br>
-                    • 🗺️ Página de configuración de ubicación a pantalla completa con modo en vivo/estático<br>
-                    • 🔒 Cero datos GPS en texto plano en el servidor
-                </p>
-            </div>
-
-            <h2>🛠️ Tecnología</h2>
-            <div class="tech-stack">
-                <span class="tech-badge">Flutter 3.x</span>
-                <span class="tech-badge">Firebase</span>
-                <span class="tech-badge">RSA-2048</span>
-                <span class="tech-badge">AES-256</span>
-                <span class="tech-badge">Firestore</span>
-                <span class="tech-badge">Cloud Storage</span>
-                <span class="tech-badge">SQLite</span>
-                <span class="tech-badge">WebRTC</span>
-                <span class="tech-badge">Material Design 3</span>
-            </div>
-
-            <h2>📱 Disponibilidad</h2>
-            <p>
-                Tuijo está disponible para <a href="https://apps.apple.com/es/app/tuijo/id6757800731" target="_blank" rel="noopener noreferrer" style="color: #3BA8B0; font-weight: bold; text-decoration: none;">iOS</a> y <a href="https://play.google.com/store/apps/details?id=com.privatemessaging.private_messaging" target="_blank" rel="noopener noreferrer" style="color: #3BA8B0; font-weight: bold; text-decoration: none;">Android</a>.
-                La app está diseñada para funcionar perfectamente en smartphones modernos con
-                una interfaz optimizada para dispositivos móviles.
-            </p>
+      <div class="hero-trust reveal d4">
+        <div class="trust-item">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2 4 5v6c0 5 3.5 8 8 11 4.5-3 8-6 8-11V5l-8-3Z"/></svg>
+          RSA-2048 + AES-256
         </div>
-
-        <footer>
-            <p>💜 Tuijo - Vuestro espacio privado, seguro y compartido</p>
-            <p style="margin-top: 10px;">
-                <a href="privacy-es.html" style="color: white; text-decoration: underline;">Política de Privacidad</a>
-            </p>
-            <p style="margin-top: 5px; opacity: 0.8;">Versión 1.24.0 - Febrero 2026</p>
-        </footer>
+        <div class="trust-item">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="10" width="16" height="11" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg>
+          Las claves no salen del móvil
+        </div>
+        <div class="trust-item">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 12h20M12 2v20"/><circle cx="12" cy="12" r="10"/></svg>
+          Zero-knowledge
+        </div>
+      </div>
     </div>
+
+    <!-- Phone mockup -->
+    <div class="phone-stage reveal d2">
+      <div class="phone-glow"></div>
+      <div class="phone">
+        <div class="notch"></div>
+        <div class="phone-screen">
+          <div class="app-topbar">
+            <div class="float-btn" title="Menú">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M3 12h18M3 6h18M3 18h18"/></svg>
+            </div>
+            <div class="right">
+              <div class="float-btn" title="Llamada">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.13.96.36 1.9.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.91.34 1.85.57 2.81.7A2 2 0 0 1 22 16.92Z"/></svg>
+              </div>
+              <div class="float-selfie" title="Selfie de pareja"><img src="assets/icon-1024.png" alt=""></div>
+            </div>
+          </div>
+
+          <div class="chat-body">
+            <div class="date-sep">
+              <span class="ln"></span>
+              <span class="pill"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M4 2v20M4 4h12l-2 3 2 3H4"/></svg> Hoy</span>
+              <span class="ln r"></span>
+            </div>
+            <div class="bubble them">¡Acabo de terminar! 💚 ¿dónde estás?<div class="meta"><span class="t">21:04</span></div></div>
+            <div class="bubble me">¡Casi llego! Te mando mi ubicación<div class="meta"><span class="t">21:04</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="m5 12 4 4L17 8M9 16l8-8"/></svg></div></div>
+            <div class="loc-card">
+              <div class="loc-map"><span class="ping"></span></div>
+              <div class="loc-meta">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 10c0 6-9 12-9 12s-9-6-9-12a9 9 0 0 1 18 0Z"/><circle cx="12" cy="10" r="3"/></svg>
+                <div><b>Ubicación en directo · 320 m</b><span>compartida 1 hora · cifrada AES-256</span></div>
+              </div>
+            </div>
+            <div class="bubble them">¡Te veo! 😍 te espero en el bar<div class="meta"><span class="t">21:05</span></div></div>
+            <div class="typing"><i></i><i></i><i></i></div>
+            <div class="bubble me">Dos minutos y llego 🍒<div class="meta"><span class="t">21:06</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="m5 12 4 4L17 8M9 16l8-8"/></svg></div></div>
+          </div>
+
+          <div class="chat-input">
+            <span class="plus"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="10"/><path d="M12 8v8M8 12h8"/></svg></span>
+            <div class="field"><span>Escribe un mensaje…</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg></div>
+            <div class="send"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M3.4 20.4 21 12 3.4 3.6 3 10l12 2-12 2 .4 6.4Z"/></svg></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</header>
+
+<!-- ============== MARQUEE ============== -->
+<div class="strip" aria-hidden="true">
+  <div class="marquee">
+    <span>De extremo a extremo</span><span>Solo para dos</span><span>Llamadas de voz</span><span>Ubicación en directo</span><span>Recordatorios compartidos</span><span>Privado para siempre</span>
+    <span>De extremo a extremo</span><span>Solo para dos</span><span>Llamadas de voz</span><span>Ubicación en directo</span><span>Recordatorios compartidos</span><span>Privado para siempre</span>
+  </div>
+</div>
+
+<!-- ============== FEATURES ============== -->
+<section class="section" id="features">
+  <div class="wrap">
+    <div class="section-head reveal">
+      <span class="eyebrow">Todo lo que necesitan dos</span>
+      <h2>Una sola app para <span class="serif-em">vuestra historia.</span></h2>
+      <p>Chat, llamadas, ubicación, recordatorios y recuerdos. Todo en un único espacio privado, sincronizado entre vuestros dos móviles.</p>
+    </div>
+
+    <div class="pair-banner reveal">
+      <div class="pb-copy">
+        <span class="eyebrow on-dark">List@s en 10 segundos</span>
+        <h3>Escanea el QR y los móviles quedan <span class="serif-em">emparejados.</span></h3>
+        <p>Sin números de teléfono ni correos. Un móvil muestra el código QR, el otro lo escanea: en segundos los dos dispositivos quedan conectados de forma segura, solo entre vosotros.</p>
+        <div class="pair-steps">
+          <span class="ps"><span class="n">1</span> Muestra el QR</span>
+          <span class="ps"><span class="n">2</span> Escanea</span>
+          <span class="ps"><span class="n">3</span> Emparejados 🍒</span>
+        </div>
+      </div>
+      <div class="qr-wrap">
+        <span class="corner tl"></span><span class="corner tr"></span><span class="corner bl"></span><span class="corner br"></span>
+        <img class="qr" src="assets/qr.svg" alt="Código QR de emparejamiento">
+        <img class="qr-cherry" src="assets/cherries.png" alt="">
+        <span class="scan"></span>
+      </div>
+    </div>
+
+    <div class="bento">
+      <div class="card feature-big reveal">
+        <div>
+          <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5Z"/></svg></div>
+          <h3>Chats que solo vosotros podéis leer</h3>
+          <p>Cada mensaje se cifra dos veces, con una clave única. Confirmaciones de lectura, indicador "escribiendo" y entrega instantánea.</p>
+        </div>
+        <div class="lockwall">
+          <i>🔒 Doble cifrado</i><i>✓✓ Confirmación de lectura</i><i>⚡ Tiempo real</i><i>📎 Adjuntos protegidos</i>
+        </div>
+      </div>
+
+      <div class="card col-3 accent reveal d1">
+        <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 10c0 6-9 12-9 12s-9-6-9-12a9 9 0 0 1 18 0Z"/><circle cx="12" cy="10" r="3"/></svg></div>
+        <h3>Ubicación en directo, cifrada</h3>
+        <p>Comparte el GPS en tiempo real durante 1 u 8 horas. Coordenadas cifradas AES-256, brújula interactiva y distancia al metro.</p>
+      </div>
+
+      <div class="card col-3 reveal">
+        <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.13.96.36 1.9.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.91.34 1.85.57 2.81.7A2 2 0 0 1 22 16.92Z"/></svg></div>
+        <h3>Llamadas de voz P2P</h3>
+        <p>Audio peer-to-peer por WebRTC, sin servidores de por medio. Pantalla de llamada nativa en iOS y Android.</p>
+      </div>
+
+      <div class="card col-2 reveal d1">
+        <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/><path d="m9 16 2 2 4-4"/></svg></div>
+        <h3>Recordatorios compartidos</h3>
+        <p>TODOs con fecha y hora. Aviso automático para ambos una hora antes.</p>
+      </div>
+
+      <div class="card col-2 reveal d2">
+        <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-5-5L5 21"/></svg></div>
+        <h3>Galería de recuerdos</h3>
+        <p>Fotos, enlaces y documentos en una galería ordenada, con cuadrícula estilo Pinterest.</p>
+      </div>
+
+      <div class="card col-2 reveal d3">
+        <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16v16H4z" opacity="0"/><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M5 5l2 2M17 17l2 2M19 5l-2 2M7 17l-2 2"/></svg></div>
+        <h3>Selfie de pareja</h3>
+        <p>Una foto de perfil compartida, sincronizada en ambos móviles.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============== SECURITY / HOW ============== -->
+<section class="section how" id="security">
+  <div class="wrap">
+    <div class="section-head reveal">
+      <span class="eyebrow on-dark">La privacidad no es opcional</span>
+      <h2>Diseñada para no <span class="serif-em">poder espiar.</span></h2>
+      <p>Tuijo es zero-knowledge por diseño. Las claves privadas se quedan en tu móvil y nunca pasan por nuestros servidores. Aunque quisiéramos, no podríamos leer ni una línea.</p>
+    </div>
+
+    <div class="steps" id="how">
+      <div class="step reveal">
+        <div class="num">01 · EMPAREJAMIENTO</div>
+        <h3>Os conectáis con un QR</h3>
+        <p>Intercambiáis solo las claves públicas escaneando un QR. Las claves privadas nunca salen de los dispositivos.</p>
+      </div>
+      <div class="step reveal d1">
+        <div class="num">02 · CIFRADO</div>
+        <h3>Doble clave por mensaje</h3>
+        <p>Cada mensaje genera una clave AES-256 de un solo uso, cifrada luego con la clave pública de ambos.</p>
+      </div>
+      <div class="step reveal d2">
+        <div class="num">03 · ENTREGA</div>
+        <h3>En el servidor, solo ruido</h3>
+        <p>Por la nube solo viajan datos cifrados. Solo vuestros dos móviles pueden descifrarlos y leerlos.</p>
+      </div>
+    </div>
+
+    <div class="lockrow reveal">
+      <div class="keyvis"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="10" width="16" height="11" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg></div>
+      <div class="kt">
+        <b>La ubicación también va cifrada</b>
+        <span>Las coordenadas GPS se cifran con una clave AES-256 por sesión. Ningún dato en claro toca jamás los servidores, y la sesión se autodestruye al caducar.</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============== COUPLES ============== -->
+<section class="section">
+  <div class="wrap couples-grid">
+    <div class="couples-copy reveal">
+      <span class="eyebrow">Hecha para dos, no para la multitud</span>
+      <h2>Sin grupos.<br>Sin extraños.<br><span class="serif-em">Solo vosotros.</span></h2>
+      <p>Tuijo no es otra chat abarrotada. Es un espacio íntimo para una sola persona: la adecuada. Conectas un móvil con el otro, y ya está. Un rincón del mundo que os pertenece solo a vosotros dos.</p>
+    </div>
+    <div class="quote-card reveal d1">
+      <div class="mark">“</div>
+      <blockquote>Por fin un lugar donde hablamos solo nosotros, sin notificaciones de nadie más. Se ha convertido en nuestra línea directa.</blockquote>
+      <div class="by">
+        <div class="ava"></div>
+        <div><b>Giulia &amp; Marco</b><span>juntos desde hace 3 años</span></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============== FAQ ============== -->
+<section class="section" id="faq" style="padding-top:0;">
+  <div class="wrap">
+    <div class="section-head center reveal">
+      <span class="eyebrow">Dudas legítimas</span>
+      <h2>Preguntas <span class="serif-em">frecuentes</span></h2>
+    </div>
+    <div class="faq-list">
+      <details class="faq reveal" open>
+        <summary>¿Puede Tuijo leer nuestros mensajes? <span class="pl"></span></summary>
+        <p>No. Los mensajes están cifrados de extremo a extremo con RSA-2048 y AES-256. Las claves privadas se quedan en tu dispositivo y nunca llegan a nuestros servidores. Por la nube solo viajan datos cifrados, ilegibles para cualquiera salvo tú y tu pareja.</p>
+      </details>
+      <details class="faq reveal">
+        <summary>¿Cómo nos conectamos mi pareja y yo? <span class="pl"></span></summary>
+        <p>Con un simple código QR. Un móvil muestra el código, el otro lo escanea, e intercambian solo las claves públicas. En segundos los dos dispositivos quedan conectados de forma segura.</p>
+      </details>
+      <details class="faq reveal">
+        <summary>¿La ubicación compartida es realmente privada? <span class="pl"></span></summary>
+        <p>Sí. Las coordenadas GPS se cifran con una clave AES-256 dedicada a la sesión. Nunca se guarda ninguna ubicación en claro en el servidor y la compartición se detiene sola al llegar al límite que elijas (1 u 8 horas).</p>
+      </details>
+      <details class="faq reveal">
+        <summary>¿En qué dispositivos funciona? <span class="pl"></span></summary>
+        <p>Tuijo está disponible en iPhone (App Store) y Android (Google Play), con interfaz en italiano, inglés, español y catalán.</p>
+      </details>
+      <details class="faq reveal">
+        <summary>¿Cuánto cuesta? <span class="pl"></span></summary>
+        <p>Descarga Tuijo desde las tiendas y empieza enseguida tu conversación privada. Consulta las páginas de las tiendas para los detalles actualizados de disponibilidad y precios.</p>
+      </details>
+    </div>
+  </div>
+</section>
+
+<!-- ============== FINAL CTA ============== -->
+<section class="cta">
+  <div class="wrap">
+    <div class="cta-card reveal">
+      <img class="cherry-bg l" src="assets/cherries-white.png" alt="">
+      <img class="cherry-bg r" src="assets/cherries-white.png" alt="">
+      <span class="eyebrow on-dark" style="justify-content:center;">¿List@s para empezar?</span>
+      <h2>Vuestro espacio privado<br>os está <span class="serif-em">esperando.</span></h2>
+      <p>Descarga Tuijo, conecta tu móvil con el de tu pareja y empezad a hablar solo vosotros dos.</p>
+      <div class="store-badges" style="margin-top:34px;">
+        <a href="https://apps.apple.com/es/app/tuijo/id6757800731" target="_blank" rel="noopener noreferrer">
+          <img src="https://toolbox.marketingtools.apple.com/api/badges/download-on-the-app-store/black/es-es?size=250x83" alt="Descárgalo en el App Store">
+        </a>
+        <a href="https://play.google.com/store/apps/details?id=com.privatemessaging.private_messaging" target="_blank" rel="noopener noreferrer">
+          <img src="assets/google-play-es.svg" alt="Disponible en Google Play">
+        </a>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============== FOOTER ============== -->
+<footer class="foot">
+  <div class="wrap">
+    <div class="foot-top">
+      <div class="foot-brand">
+        <a class="brand" href="#top">
+          <img src="assets/cherries.png" alt="Tuijo" style="width:32px;">
+          <span class="word">Tuijo</span>
+        </a>
+        <p>Tu y yo — tú y yo. La mensajería privada y cifrada hecha solo para parejas.</p>
+      </div>
+      <div class="foot-cols">
+        <div class="foot-col">
+          <h4>App</h4>
+          <a href="#features">Funciones</a>
+          <a href="#security">Seguridad</a>
+          <a href="#how">Cómo funciona</a>
+          <a href="#faq">FAQ</a>
+        </div>
+        <div class="foot-col">
+          <h4>Descargar</h4>
+          <a href="https://apps.apple.com/es/app/tuijo/id6757800731" target="_blank" rel="noopener noreferrer">App Store</a>
+          <a href="https://play.google.com/store/apps/details?id=com.privatemessaging.private_messaging" target="_blank" rel="noopener noreferrer">Google Play</a>
+        </div>
+        <div class="foot-col">
+          <h4>Legal</h4>
+          <a href="privacy-es.html">Política de privacidad</a>
+          <a href="mailto:support@tuyjo.com">Soporte</a>
+        </div>
+      </div>
+    </div>
+    <div class="foot-bottom">
+      <span>© <span id="year">2026</span> Tuijo · Todos los derechos reservados</span>
+      <span>Hecho con 🍒 para quienes están bien de dos</span>
+    </div>
+  </div>
+</footer>
+
+<template id="__bundler_thumbnail">
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect width="100" height="100" fill="#145A60"/><text x="50" y="60" font-size="34" text-anchor="middle" fill="#fff" font-family="sans-serif" font-weight="bold">🍒</text></svg>
+</template>
+
+<script src="app.js"></script>
 </body>
 </html>
