@@ -1868,7 +1868,8 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                         bottom: 0,
                         height: panelHeight,
                         child: Container(
-                          margin: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+                          margin: EdgeInsets.fromLTRB(
+                              12, 0, 12, 12 + MediaQuery.of(context).padding.bottom),
                           clipBehavior: Clip.antiAlias,
                           decoration: BoxDecoration(
                             color: Theme.of(context)
@@ -1917,7 +1918,11 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (ctx) => TodoCreationSheet(initialDay: initialDay),
+      builder: (ctx) => TodoCreationSheet(
+        initialDay: initialDay,
+        initialTitle: _messageController.text.trim(),
+        attachmentCount: _selectedAttachments.length,
+      ),
     );
     if (result == null) return;
 
@@ -2874,8 +2879,8 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                           },
                         ),
           ),
-          // 💬 Indicatore "Sta scrivendo..."
-          if (chatService.partnerIsTyping)
+          // 💬 Indicatore "Sta scrivendo..." (nascosto in vista calendario)
+          if (!_calOverlayOpen && chatService.partnerIsTyping)
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
               child: Row(
@@ -2900,9 +2905,9 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                 ],
               ),
             ),
-          // Calendar overlay inline rimosso: ora la vista calendario
-          // sostituisce l'area messaggi quando _calOverlayOpen è true.
-          Container(
+          // Barra di input: nascosta quando la vista calendario è aperta
+          if (!_calOverlayOpen)
+            Container(
             padding: EdgeInsets.fromLTRB(
               8,
               12,

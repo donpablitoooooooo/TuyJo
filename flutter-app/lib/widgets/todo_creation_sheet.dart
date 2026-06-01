@@ -9,7 +9,14 @@ import 'package:intl/intl.dart';
 /// con il percorso di invio esistente (cifratura E2E + Firestore).
 class TodoCreationSheet extends StatefulWidget {
   final DateTime initialDay;
-  const TodoCreationSheet({super.key, required this.initialDay});
+  final String initialTitle;
+  final int attachmentCount;
+  const TodoCreationSheet({
+    super.key,
+    required this.initialDay,
+    this.initialTitle = '',
+    this.attachmentCount = 0,
+  });
 
   @override
   State<TodoCreationSheet> createState() => _TodoCreationSheetState();
@@ -38,6 +45,7 @@ class _TodoCreationSheetState extends State<TodoCreationSheet> {
     final d = widget.initialDay;
     _start = DateTime(d.year, d.month, d.day, 10, 0);
     _end = _start.add(const Duration(hours: 1));
+    _titleController.text = widget.initialTitle;
   }
 
   @override
@@ -124,13 +132,31 @@ class _TodoCreationSheetState extends State<TodoCreationSheet> {
                 _buildCard([
                   TextField(
                     controller: _titleController,
-                    autofocus: true,
+                    autofocus: widget.initialTitle.isEmpty,
                     decoration: const InputDecoration(
                       hintText: 'Nome todo',
                       border: InputBorder.none,
                     ),
                     style: const TextStyle(fontSize: 18),
                   ),
+                  if (widget.attachmentCount > 0) ...[
+                    const Divider(height: 1),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 10),
+                      child: Row(
+                        children: [
+                          const Icon(Icons.attach_file, size: 18, color: Colors.grey),
+                          const SizedBox(width: 8),
+                          Text(
+                            widget.attachmentCount == 1
+                                ? '1 allegato'
+                                : '${widget.attachmentCount} allegati',
+                            style: const TextStyle(color: Colors.black54),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
                 ]),
                 _buildCard([
                   _buildDateTimeRow('Inizio', _start, isEnd: false),
