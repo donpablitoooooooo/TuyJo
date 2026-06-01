@@ -80,6 +80,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   DateTime? _calOverlayRangeEnd;
   int? _calOverlayReminderHours;
   List<File> _selectedAttachments = []; // Lista di file selezionati da inviare
+  final ValueNotifier<int> _attachmentCountVN = ValueNotifier<int>(0); // conteggio per la scheda todo
   bool _isUploadingAttachments = false; // Stato di upload allegati
   Set<String> _iosSharedFiles = {}; // Traccia i file temporanei copiati su iOS per pulizia
   String? _editingMessageId; // ID del messaggio che stiamo modificando (null = nuovo messaggio)
@@ -1484,6 +1485,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                       setState(() {
                         _selectedAttachments.addAll(files);
                       });
+                      _attachmentCountVN.value = _selectedAttachments.length;
                     }
                   } on AttachmentPermissionDeniedException {
                     if (mounted) {
@@ -1509,6 +1511,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                       setState(() {
                         _selectedAttachments.add(file);
                       });
+                      _attachmentCountVN.value = _selectedAttachments.length;
                     }
                   } on AttachmentPermissionDeniedException {
                     if (mounted) {
@@ -1533,6 +1536,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                     setState(() {
                       _selectedAttachments.add(file);
                     });
+                    _attachmentCountVN.value = _selectedAttachments.length;
                   }
                 },
               ),
@@ -1914,6 +1918,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   /// Mostra la scheda di creazione e, al salvataggio, crea+invia il todo
   /// riusando il percorso di invio esistente (cifratura E2E + Firestore).
   Future<void> _showTodoCreationSheet({required DateTime initialDay}) async {
+    _attachmentCountVN.value = _selectedAttachments.length;
     final result = await showModalBottomSheet<Map<String, dynamic>>(
       context: context,
       isScrollControlled: true,
@@ -1921,7 +1926,8 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       builder: (ctx) => TodoCreationSheet(
         initialDay: initialDay,
         initialTitle: _messageController.text.trim(),
-        attachmentCount: _selectedAttachments.length,
+        attachmentCount: _attachmentCountVN,
+        onAddAttachments: _showAttachmentPicker,
       ),
     );
     if (result == null) return;

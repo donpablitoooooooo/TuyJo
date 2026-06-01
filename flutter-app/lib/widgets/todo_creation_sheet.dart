@@ -10,12 +10,14 @@ import 'package:intl/intl.dart';
 class TodoCreationSheet extends StatefulWidget {
   final DateTime initialDay;
   final String initialTitle;
-  final int attachmentCount;
+  final ValueListenable<int>? attachmentCount;
+  final VoidCallback? onAddAttachments;
   const TodoCreationSheet({
     super.key,
     required this.initialDay,
     this.initialTitle = '',
-    this.attachmentCount = 0,
+    this.attachmentCount,
+    this.onAddAttachments,
   });
 
   @override
@@ -130,33 +132,47 @@ class _TodoCreationSheetState extends State<TodoCreationSheet> {
               children: [
                 _buildHeader(),
                 _buildCard([
-                  TextField(
-                    controller: _titleController,
-                    autofocus: widget.initialTitle.isEmpty,
-                    decoration: const InputDecoration(
-                      hintText: 'Nome todo',
-                      border: InputBorder.none,
-                    ),
-                    style: const TextStyle(fontSize: 18),
-                  ),
-                  if (widget.attachmentCount > 0) ...[
-                    const Divider(height: 1),
-                    Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 10),
-                      child: Row(
-                        children: [
-                          const Icon(Icons.attach_file, size: 18, color: Colors.grey),
-                          const SizedBox(width: 8),
-                          Text(
-                            widget.attachmentCount == 1
-                                ? '1 allegato'
-                                : '${widget.attachmentCount} allegati',
-                            style: const TextStyle(color: Colors.black54),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: TextField(
+                          controller: _titleController,
+                          autofocus: widget.initialTitle.isEmpty,
+                          decoration: const InputDecoration(
+                            hintText: 'Nome todo',
+                            border: InputBorder.none,
                           ),
-                        ],
+                          style: const TextStyle(fontSize: 18),
+                        ),
                       ),
+                      if (widget.onAddAttachments != null)
+                        IconButton(
+                          icon: const Icon(Icons.add_circle_outline, color: _teal),
+                          tooltip: 'Aggiungi allegato',
+                          onPressed: widget.onAddAttachments,
+                        ),
+                    ],
+                  ),
+                  if (widget.attachmentCount != null)
+                    ValueListenableBuilder<int>(
+                      valueListenable: widget.attachmentCount!,
+                      builder: (context, count, _) {
+                        if (count == 0) return const SizedBox.shrink();
+                        return Padding(
+                          padding: const EdgeInsets.only(bottom: 10),
+                          child: Row(
+                            children: [
+                              const Icon(Icons.attach_file, size: 18, color: Colors.grey),
+                              const SizedBox(width: 8),
+                              Text(
+                                count == 1 ? '1 allegato' : '$count allegati',
+                                style: const TextStyle(color: Colors.black54),
+                              ),
+                            ],
+                          ),
+                        );
+                      },
                     ),
-                  ],
                 ]),
                 _buildCard([
                   _buildDateTimeRow('Inizio', _start, isEnd: false),
