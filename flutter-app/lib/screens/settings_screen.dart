@@ -307,7 +307,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
+      builder: (dialogContext) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         title: Row(
           children: [
@@ -344,7 +344,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           TextButton(
             onPressed: () {
               keyController.dispose();
-              Navigator.pop(context);
+              Navigator.pop(dialogContext);
             },
             child: Text(l10n.cancel),
           ),
@@ -352,7 +352,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
             onPressed: () async {
               final key = keyController.text.trim();
               keyController.dispose();
-              Navigator.pop(context);
+              Navigator.pop(dialogContext);
 
               final l10n2 = AppLocalizations.of(context)!;
               if (key.isEmpty) {
@@ -408,6 +408,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
                 // Vai al wizard di pairing
                 await Future.delayed(const Duration(seconds: 1));
+                if (!mounted) return;
                 _startPairingWizard();
               } catch (e) {
                 if (!mounted) return;
