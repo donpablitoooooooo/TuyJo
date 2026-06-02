@@ -434,7 +434,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
         ],
       ),
     );
-    keyController.dispose();
+    // NB: non dispose() del controller qui — showDialog si completa quando si
+    // chiama Navigator.pop, prima della fine dell'animazione di chiusura, e il
+    // TextField si ricostruirebbe durante il fade con un controller distrutto
+    // (crash _dependents.isEmpty). Il controller verrà raccolto dal GC.
   }
 
   Future<void> _startPairingWizard() async {
