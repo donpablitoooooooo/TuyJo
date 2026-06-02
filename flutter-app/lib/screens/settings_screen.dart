@@ -301,11 +301,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
   }
 
-  void _showRestoreDialog() {
+  Future<void> _showRestoreDialog() async {
     final keyController = TextEditingController();
     final l10n = AppLocalizations.of(context)!;
 
-    showDialog(
+    await showDialog<void>(
       context: context,
       builder: (dialogContext) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
@@ -316,7 +316,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
             Text(l10n.settingsRestoreDialogTitle),
           ],
         ),
-        content: Column(
+        content: SingleChildScrollView(
+          child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -339,19 +340,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
               maxLines: 4,
             ),
           ],
-        ),
+        )),
         actions: [
           TextButton(
-            onPressed: () {
-              keyController.dispose();
-              Navigator.pop(dialogContext);
-            },
+            onPressed: () => Navigator.pop(dialogContext),
             child: Text(l10n.cancel),
           ),
           TextButton(
             onPressed: () async {
               final key = keyController.text.trim();
-              keyController.dispose();
               Navigator.pop(dialogContext);
 
               final l10n2 = AppLocalizations.of(context)!;
@@ -437,6 +434,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
         ],
       ),
     );
+    keyController.dispose();
   }
 
   Future<void> _startPairingWizard() async {
