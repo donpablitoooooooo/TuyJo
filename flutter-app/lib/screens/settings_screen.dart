@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
@@ -54,7 +55,23 @@ class _SettingsScreenState extends State<SettingsScreen> {
         return;
       }
 
-      await Clipboard.setData(ClipboardData(text: privateKey));
+      // Backup "completo": se accoppiato includi anche la chiave pubblica del
+      // partner (e così l'ID famiglia è ricostruibile), così il ripristino può
+      // riconnettere senza rifare il pairing. Se non accoppiato, esporta la
+      // sola chiave privata come prima.
+      final partnerKey = await _storage.read(key: 'partner_public_key');
+      final String backupText;
+      if (partnerKey != null) {
+        backupText = base64Encode(utf8.encode(jsonEncode({
+          'v': 1,
+          'priv': privateKey,
+          'partner': partnerKey,
+        })));
+      } else {
+        backupText = privateKey;
+      }
+
+      await Clipboard.setData(ClipboardData(text: backupText));
 
       if (!mounted) return;
       final l10n = AppLocalizations.of(context)!;
@@ -348,8 +365,23 @@ class _SettingsScreenState extends State<SettingsScreen> {
           ),
           TextButton(
             onPressed: () async {
-              final key = keyController.text.trim();
+              final raw = keyController.text.trim();
               Navigator.pop(dialogContext);
+
+              // Il backup può essere un "bundle" completo
+              // base64(json{priv, partner}) → riconnessione diretta, oppure la
+              // sola chiave privata (vecchio formato) → pairing QR.
+              String key = raw;
+              String? partnerKey;
+              try {
+                final obj = jsonDecode(utf8.decode(base64Decode(raw)));
+                if (obj is Map && obj['priv'] is String) {
+                  key = obj['priv'] as String;
+                  partnerKey = obj['partner'] as String?;
+                }
+              } catch (_) {
+                // non è un bundle: chiave privata grezza
+              }
 
               final l10n2 = AppLocalizations.of(context)!;
               if (key.isEmpty) {
@@ -403,10 +435,16 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   ),
                 );
 
-                // Vai al wizard di pairing
-                await Future.delayed(const Duration(seconds: 1));
-                if (!mounted) return;
-                _startPairingWizard();
+                if (partnerKey != null) {
+                  // Backup completo: riconnetti direttamente, senza pairing QR.
+                  // La UI passa automaticamente alla chat via Provider.
+                  await pairingService.restorePairing(partnerKey);
+                } else {
+                  // Vecchio backup (solo chiave privata): vai al wizard QR.
+                  await Future.delayed(const Duration(seconds: 1));
+                  if (!mounted) return;
+                  _startPairingWizard();
+                }
               } catch (e) {
                 if (!mounted) return;
                 final l10n4 = AppLocalizations.of(context)!;
@@ -717,6 +755,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 onPressed: _copyPrivateKey,
                 icon: Icons.backup,
                 label: AppLocalizations.of(context)!.settingsBackupKeyButton,
+              ),
+              const SizedBox(height: 12),
+              // Rifai pairing / collega il nuovo dispositivo del partner
+              // (es. se il partner ha perso la chiave).
+              _OutlineButton(
+                onPressed: _showNewPairingDialog,
+                icon: Icons.qr_code,
+                label: AppLocalizations.of(context)!.settingsNewPairingButton,
               ),
             ] else ...[
               // Unpaired: scelta Nuovo vs Ripristino

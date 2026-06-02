@@ -268,6 +268,46 @@ class PairingService extends ChangeNotifier {
     await _storage.write(key: 'rsa_public_key', value: publicKey);
   }
 
+  /// Ripristino diretto da backup completo: imposta la chiave pubblica del
+  /// partner, segna come accoppiato, riscrive il documento utente su Firestore
+  /// e fa ripartire il listener — senza pairing QR. La UI passa alla chat via
+  /// Provider (notifyListeners). Richiede che rsa_public_key sia già salvata.
+  Future<bool> restorePairing(String partnerPublicKey) async {
+    try {
+      await _storage.write(key: 'partner_public_key', value: partnerPublicKey);
+      _partnerPublicKey = partnerPublicKey;
+      _isPaired = true;
+      _familyWasComplete = true;
+
+      final myUserId = await getMyUserId();
+      final myPublicKey = await _storage.read(key: 'rsa_public_key');
+      final familyChatId = await getFamilyChatId();
+
+      if (myUserId != null && myPublicKey != null && familyChatId != null) {
+        await _firestore
+            .collection('families')
+            .doc(familyChatId)
+            .collection('users')
+            .doc(myUserId)
+            .set({
+          'paired_at': FieldValue.serverTimestamp(),
+          'my_public_key': myPublicKey,
+          'partner_public_key': partnerPublicKey,
+        });
+        if (kDebugMode) {
+          print('✅ [PAIRING] restorePairing OK, family: ${familyChatId.substring(0, 10)}...');
+        }
+      }
+
+      notifyListeners();
+      _startBackgroundUnpairListener();
+      return true;
+    } catch (e) {
+      if (kDebugMode) print('❌ [PAIRING] restorePairing failed: $e');
+      return false;
+    }
+  }
+
   /// Alias per resetPairing (per compatibilità)
   Future<void> clearPairing() async {
     await resetPairing();
