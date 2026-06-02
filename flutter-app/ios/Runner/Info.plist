@@ -32,6 +32,7 @@
 		<string>remote-notification</string>
 		<string>voip</string>
 		<string>audio</string>
+		<string>location</string>
 	</array>
 	<key>UILaunchStoryboardName</key>
 	<string>LaunchScreen</string>
@@ -53,6 +54,8 @@
 	<string>To make voice calls with your partner</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string>To share your location with your partner</string>
+	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
+	<string>To keep sharing your location with your partner while the app is in the background</string>
 	<key>UISupportsDocumentBrowser</key>
 	<true/>
 	<key>LSSupportsOpeningDocumentsInPlace</key>

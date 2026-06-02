@@ -161,7 +161,7 @@ class _LocationShareSetupPageState extends State<LocationShareSetupPage>
     }
 
     // 3) Avvia GPS sharing
-    await locationService.startSharingLocation(_selectedDuration, sessionId: sessionId);
+    await locationService.startSharingLocation(_selectedDuration, sessionId: sessionId, mode: _selectedMode);
 
     if (!mounted) return;
 

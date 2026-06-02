@@ -3,6 +3,9 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:geolocator/geolocator.dart';
+import 'package:geolocator_android/geolocator_android.dart';
+import 'package:geolocator_apple/geolocator_apple.dart';
+import 'package:permission_handler/permission_handler.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:crypto/crypto.dart';
@@ -262,7 +265,51 @@ class LocationService extends ChangeNotifier {
 
   /// Inizia a condividere la posizione per una durata specificata
   /// duration: Duration.hours(1) o Duration.hours(8)
-  Future<bool> startSharingLocation(Duration duration, {String? sessionId}) async {
+  /// Costruisce le impostazioni di posizione. Quando [background] è true
+  /// (modalità "Sto arrivando") abilita il foreground service su Android e gli
+  /// aggiornamenti in background su iOS, così la posizione continua anche con
+  /// l'app in background o lo schermo spento.
+  LocationSettings _buildLocationSettings({required bool background}) {
+    if (defaultTargetPlatform == TargetPlatform.android) {
+      return AndroidSettings(
+        accuracy: LocationAccuracy.high,
+        distanceFilter: 10,
+        foregroundNotificationConfig: background
+            ? const ForegroundNotificationConfig(
+                notificationTitle: 'TuyJo',
+                notificationText: 'Stai condividendo la posizione',
+                enableWakeLock: true,
+              )
+            : null,
+      );
+    }
+    if (defaultTargetPlatform == TargetPlatform.iOS) {
+      return AppleSettings(
+        accuracy: LocationAccuracy.high,
+        distanceFilter: 10,
+        allowBackgroundLocationUpdates: background,
+        showBackgroundLocationIndicator: background,
+        pauseLocationUpdatesAutomatically: false,
+      );
+    }
+    return const LocationSettings(
+      accuracy: LocationAccuracy.high,
+      distanceFilter: 10,
+    );
+  }
+
+  /// Richiede (best-effort) il permesso di posizione "sempre"/background.
+  /// Non blocca la condivisione se negato: in tal caso funziona solo in foreground.
+  Future<void> _ensureBackgroundLocationPermission() async {
+    try {
+      final status = await Permission.locationAlways.request();
+      if (kDebugMode) print('🌍 [LOCATION] Background permission: $status');
+    } catch (e) {
+      if (kDebugMode) print('⚠️ [LOCATION] Background permission request failed: $e');
+    }
+  }
+
+  Future<bool> startSharingLocation(Duration duration, {String? sessionId, String mode = 'live'}) async {
     // Se sessionId è fornito, prepareSession() è già stato chiamato e il messaggio
     // è già su Firestore. Non resettare lo stato se qualcosa fallisce.
     final hasPreparedSession = sessionId != null;
@@ -274,6 +321,12 @@ class LocationService extends ChangeNotifier {
       if (!hasPermission) {
         if (kDebugMode) print('❌ [LOCATION] Cannot start sharing: no permission');
         return false;
+      }
+
+      // Modalità "Sto arrivando": chiedi anche il permesso background (best-effort).
+      final bool background = mode == 'live';
+      if (background) {
+        await _ensureBackgroundLocationPermission();
       }
 
       if (kDebugMode) print('✅ [LOCATION] Permissions OK, checking pairing...');
@@ -318,10 +371,7 @@ class LocationService extends ChangeNotifier {
         }
         // Avvia comunque lo stream: quando il GPS diventa disponibile, aggiornerà
         _positionStreamSubscription = Geolocator.getPositionStream(
-          locationSettings: const LocationSettings(
-            accuracy: LocationAccuracy.high,
-            distanceFilter: 10,
-          ),
+          locationSettings: _buildLocationSettings(background: background),
         ).listen((Position position) {
           _updateMyLocationToFirestore(position, myUserId, familyChatId);
         });
@@ -336,10 +386,7 @@ class LocationService extends ChangeNotifier {
 
       // Avvia stream di posizione per aggiornamenti continui
       _positionStreamSubscription = Geolocator.getPositionStream(
-        locationSettings: const LocationSettings(
-          accuracy: LocationAccuracy.high,
-          distanceFilter: 10,
-        ),
+        locationSettings: _buildLocationSettings(background: background),
       ).listen((Position position) {
         _updateMyLocationToFirestore(position, myUserId, familyChatId);
       });
