@@ -1,5 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:share_plus/share_plus.dart';
 import '../services/backup_service.dart';
 
 /// Menu di scelta del backup delle chiavi.
@@ -45,6 +47,17 @@ class _BackupChoiceScreenState extends State<BackupChoiceScreen> {
     final s = _selected;
     if (s == null) return;
     await _backup.setStrategy(s);
+    // Backup manuale: mostra la condivisione SOPRA questa pagina, prima di
+    // chiudere (così la modale appare sopra le opzioni, non su Impostazioni).
+    if (s == BackupStrategy.manual) {
+      final priv =
+          await const FlutterSecureStorage().read(key: 'rsa_private_key');
+      if (priv != null) {
+        await SharePlus.instance.share(
+          ShareParams(text: priv, subject: 'TuyJo — backup della chiave'),
+        );
+      }
+    }
     if (!mounted) return;
     Navigator.pop(context, s);
   }

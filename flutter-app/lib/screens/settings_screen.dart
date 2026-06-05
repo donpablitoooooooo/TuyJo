@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:share_plus/share_plus.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:private_messaging/generated/l10n/app_localizations.dart';
 import '../services/pairing_service.dart';
@@ -499,16 +498,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
       ),
     );
     if (strategy == null || !mounted) return;
-    // Backup manuale: apri la condivisione della chiave privata.
-    if (strategy == BackupStrategy.manual) {
-      final priv = await _storage.read(key: 'rsa_private_key');
-      if (priv != null) {
-        await SharePlus.instance.share(
-          ShareParams(text: priv, subject: 'TuyJo — backup della chiave'),
-        );
-      }
-      if (!mounted) return;
-    }
     await Navigator.push(
       context,
       MaterialPageRoute(builder: (_) => const PairingWizardScreen()),
