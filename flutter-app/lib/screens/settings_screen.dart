@@ -9,6 +9,7 @@ import '../services/pairing_service.dart';
 import '../services/encryption_service.dart';
 import '../services/chat_service.dart';
 import '../services/notification_service.dart';
+import '../services/backup_service.dart';
 import '../services/couple_selfie_service.dart';
 import 'pairing_wizard_screen.dart';
 import 'backup_choice_screen.dart';
@@ -487,6 +488,22 @@ class _SettingsScreenState extends State<SettingsScreen> {
     if (mounted) setState(() {});
   }
 
+  /// Flusso "Nuovo pairing": 1) scelta backup obbligatoria (full page) →
+  /// 2) scambio QR.
+  Future<void> _startNewPairingFlow() async {
+    final strategy = await Navigator.push<BackupStrategy>(
+      context,
+      MaterialPageRoute(
+        builder: (_) => const BackupChoiceScreen(mandatory: true),
+      ),
+    );
+    if (strategy == null || !mounted) return;
+    await Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => const PairingWizardScreen()),
+    );
+  }
+
   Future<void> _startPairingWizard() async {
     await Navigator.push(
       context,
@@ -769,7 +786,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
               // Rifai pairing / collega il nuovo dispositivo del partner
               // (es. se il partner ha perso la chiave).
               _OutlineButton(
-                onPressed: _showNewPairingDialog,
+                onPressed: _startNewPairingFlow,
                 icon: Icons.qr_code,
                 label: AppLocalizations.of(context)!.settingsNewPairingButton,
               ),
@@ -787,7 +804,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
               ),
               const SizedBox(height: 16),
               _PurpleButton(
-                onPressed: _showNewPairingDialog,
+                onPressed: _startNewPairingFlow,
                 icon: Icons.favorite,
                 label: AppLocalizations.of(context)!.settingsNewPairingButton,
               ),
