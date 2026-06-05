@@ -9,14 +9,20 @@ import android.util.Log
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
+import com.google.android.gms.auth.blockstore.Blockstore
+import com.google.android.gms.auth.blockstore.BlockstoreClient
+import com.google.android.gms.auth.blockstore.StoreBytesData
+import com.google.android.gms.auth.blockstore.RetrieveBytesRequest
 import java.io.File
 import java.io.FileOutputStream
 
 class MainActivity: FlutterActivity() {
     private val CHANNEL = "com.privatemessaging.tuyjo/shared_media"
     private val TONE_CHANNEL = "com.privatemessaging.tuyjo/tone_generator"
+    private val BLOCKSTORE_CHANNEL = "com.privatemessaging.tuyjo/blockstore"
     private var methodChannel: MethodChannel? = null
     private var toneChannel: MethodChannel? = null
+    private var blockstoreChannel: MethodChannel? = null
     private var toneGenerator: ToneGenerator? = null
     private var initialMediaPaths: List<String>? = null
     private var initialSharedText: String? = null
@@ -78,6 +84,46 @@ class MainActivity: FlutterActivity() {
             }
         }
         Log.d(TAG, "✅ ToneGenerator Channel configured")
+
+        // Block Store channel: backup delle chiavi nel cloud dell'account Google
+        blockstoreChannel = MethodChannel(flutterEngine.dartExecutor.binaryMessenger, BLOCKSTORE_CHANNEL)
+        blockstoreChannel?.setMethodCallHandler { call, result ->
+            val client = Blockstore.getClient(this)
+            when (call.method) {
+                "store" -> {
+                    val json = call.argument<String>("json")
+                    if (json == null) {
+                        result.error("ARG", "json is null", null)
+                    } else {
+                        val data = StoreBytesData.Builder()
+                            .setBytes(json.toByteArray(Charsets.UTF_8))
+                            .setShouldBackupToCloud(true)
+                            .build()
+                        client.storeBytes(data)
+                            .addOnSuccessListener { result.success(true) }
+                            .addOnFailureListener { e -> result.error("STORE_FAILED", e.message, null) }
+                    }
+                }
+                "retrieve" -> {
+                    val request = RetrieveBytesRequest.Builder()
+                        .setKeys(listOf(BlockstoreClient.DEFAULT_BYTES_DATA_KEY))
+                        .build()
+                    client.retrieveBytes(request)
+                        .addOnSuccessListener { response ->
+                            val entry = response.blockstoreDataMap[BlockstoreClient.DEFAULT_BYTES_DATA_KEY]
+                            val bytes = entry?.bytes
+                            if (bytes == null || bytes.isEmpty()) {
+                                result.success(null)
+                            } else {
+                                result.success(String(bytes, Charsets.UTF_8))
+                            }
+                        }
+                        .addOnFailureListener { e -> result.error("RETRIEVE_FAILED", e.message, null) }
+                }
+                else -> result.notImplemented()
+            }
+        }
+        Log.d(TAG, "✅ Block Store Channel configured")
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {

@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:crypto/crypto.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'backup_service.dart';
 
 /// Servizio per gestire il pairing tra dispositivi tramite RSA public keys
 /// Architettura RSA-only: ogni dispositivo condivide solo la propria chiave pubblica
@@ -199,6 +200,9 @@ class PairingService extends ChangeNotifier {
       // Avvia il listener per monitorare lo stato della famiglia
       _startBackgroundUnpairListener();
 
+      // Aggiorna il backup cloud (se attivo) con la chiave del partner.
+      BackupService().cloudBackupNow();
+
       return true;
     } catch (e) {
       if (kDebugMode) print('Error importing partner public key: $e');
@@ -301,6 +305,7 @@ class PairingService extends ChangeNotifier {
 
       notifyListeners();
       _startBackgroundUnpairListener();
+      BackupService().cloudBackupNow();
       return true;
     } catch (e) {
       if (kDebugMode) print('❌ [PAIRING] restorePairing failed: $e');

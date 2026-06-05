@@ -86,4 +86,5 @@ dependencies {
     implementation 'com.google.firebase:firebase-messaging'
     // Analytics rimosso - non usato e causa problemi con AD_ID permission
     coreLibraryDesugaring 'com.android.tools:desugar_jdk_libs:2.1.4'
+    implementation 'com.google.android.gms:play-services-auth-blockstore:16.4.0'
 }
