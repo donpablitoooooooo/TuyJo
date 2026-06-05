@@ -11,6 +11,7 @@ import '../services/chat_service.dart';
 import '../services/notification_service.dart';
 import '../services/couple_selfie_service.dart';
 import 'pairing_wizard_screen.dart';
+import 'backup_choice_screen.dart';
 import 'couple_selfie_screen.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
@@ -478,6 +479,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
     // (crash _dependents.isEmpty). Il controller verrà raccolto dal GC.
   }
 
+  Future<void> _showBackupChoice() async {
+    await Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => const BackupChoiceScreen()),
+    );
+    if (mounted) setState(() {});
+  }
+
   Future<void> _startPairingWizard() async {
     await Navigator.push(
       context,
@@ -764,6 +773,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 icon: Icons.qr_code,
                 label: AppLocalizations.of(context)!.settingsNewPairingButton,
               ),
+              const SizedBox(height: 12),
+              _OutlineButton(
+                onPressed: _showBackupChoice,
+                icon: Icons.cloud,
+                label: 'Backup e sicurezza',
+              ),
             ] else ...[
               // Unpaired: scelta Nuovo vs Ripristino
               Text(
@@ -781,6 +796,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 onPressed: _showRestoreDialog,
                 icon: Icons.restore,
                 label: AppLocalizations.of(context)!.settingsRestoreFromBackupButton,
+              ),
+              const SizedBox(height: 12),
+              _OutlineButton(
+                onPressed: _showBackupChoice,
+                icon: Icons.cloud,
+                label: 'Backup e sicurezza',
               ),
             ],
           ],
