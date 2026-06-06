@@ -855,7 +855,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
             if (snapshot.hasData) {
               return Center(
                 child: Text(
-                  'TuyJo v${snapshot.data!.version} (${snapshot.data!.buildNumber})',
+                  'Tuijo v${snapshot.data!.version} (${snapshot.data!.buildNumber})',
                   style: TextStyle(
                     fontSize: 12,
                     color: Colors.grey[400],

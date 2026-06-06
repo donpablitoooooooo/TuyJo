@@ -56,7 +56,7 @@ Future<void> _showCallKitIncoming(Map<String, dynamic> data) async {
     final params = CallKitParams(
       id: uuid,
       nameCaller: 'Partner',
-      handle: 'TuyJo',
+      handle: 'Tuijo',
       type: 0, // 0 = audio call
       duration: 30000, // 30 secondi timeout
       textAccept: 'Accept',

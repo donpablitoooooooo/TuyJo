@@ -276,7 +276,7 @@ class LocationService extends ChangeNotifier {
         distanceFilter: 10,
         foregroundNotificationConfig: background
             ? const ForegroundNotificationConfig(
-                notificationTitle: 'TuyJo',
+                notificationTitle: 'Tuijo',
                 notificationText: 'Stai condividendo la posizione',
                 enableWakeLock: true,
               )

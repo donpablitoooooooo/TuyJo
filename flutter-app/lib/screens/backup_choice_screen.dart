@@ -6,12 +6,12 @@ import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
 import '../services/backup_service.dart';
 
-/// Menu di scelta del backup del CERTIFICATO (la chiave privata che serve a
-/// decifrare i messaggi). Stile coerente con la pagina QR successiva.
+/// Pagina "Backup del certificato": scelta di come custodire il certificato (la
+/// chiave privata che serve a decifrare i messaggi). Stile coerente col wizard QR.
 ///
-/// Al nuovo pairing è un passo OBBLIGATORIO ([mandatory] true): niente è
-/// preselezionato e "Avanti" si attiva solo dopo aver scelto. Da Impostazioni
-/// mostra la scelta corrente. Restituisce la [BackupStrategy] via pop.
+/// Al nuovo pairing è OBBLIGATORIA ([mandatory] true): niente preselezionato e
+/// "Avanti" si attiva solo dopo aver scelto (per "Manuale" solo dopo aver
+/// condiviso/salvato il file). Restituisce la [BackupStrategy] via pop.
 class BackupChoiceScreen extends StatefulWidget {
   final bool mandatory;
   const BackupChoiceScreen({super.key, this.mandatory = false});
@@ -26,8 +26,9 @@ class _BackupChoiceScreenState extends State<BackupChoiceScreen> {
 
   final BackupService _backup = BackupService();
   BackupStrategy? _selected;
+  bool _manualShared = false;
   final TextEditingController _filename =
-      TextEditingController(text: 'TuyJo-certificato.txt');
+      TextEditingController(text: 'Tuijo-certificato.txt');
 
   @override
   void initState() {
@@ -50,15 +51,20 @@ class _BackupChoiceScreenState extends State<BackupChoiceScreen> {
       defaultTargetPlatform == TargetPlatform.macOS;
   String get _cloudName => _isApple ? 'iCloud' : 'Google';
 
+  /// Avanti abilitato: per "Manuale" serve aver prima salvato/condiviso il file.
+  bool get _canProceed {
+    final s = _selected;
+    if (s == null) return false;
+    if (s == BackupStrategy.manual) return _manualShared;
+    return true;
+  }
+
   void _select(BackupStrategy s) => setState(() => _selected = s);
 
   Future<void> _confirm() async {
     final s = _selected;
     if (s == null) return;
     await _backup.setStrategy(s);
-    if (s == BackupStrategy.manual) {
-      await _shareCertificateFile();
-    }
     if (!mounted) return;
     Navigator.pop(context, s);
   }
@@ -67,7 +73,7 @@ class _BackupChoiceScreenState extends State<BackupChoiceScreen> {
     final priv = await const FlutterSecureStorage().read(key: 'rsa_private_key');
     if (priv == null) return;
     var name = _filename.text.trim();
-    if (name.isEmpty) name = 'TuyJo-certificato.txt';
+    if (name.isEmpty) name = 'Tuijo-certificato.txt';
     if (!name.contains('.')) name = '$name.txt';
     final dir = await getTemporaryDirectory();
     final file = File('${dir.path}/$name');
@@ -75,9 +81,10 @@ class _BackupChoiceScreenState extends State<BackupChoiceScreen> {
     await SharePlus.instance.share(
       ShareParams(
         files: [XFile(file.path)],
-        subject: 'TuyJo — certificato (backup)',
+        subject: 'Tuijo — certificato (backup)',
       ),
     );
+    if (mounted) setState(() => _manualShared = true);
   }
 
   @override
@@ -109,10 +116,10 @@ class _BackupChoiceScreenState extends State<BackupChoiceScreen> {
                         )
                       else
                         const SizedBox(width: 12),
-                      Expanded(
+                      const Expanded(
                         child: Text(
-                          'Scegli il tipo di backup',
-                          style: const TextStyle(
+                          'Backup del certificato',
+                          style: TextStyle(
                             color: Colors.white,
                             fontSize: 22,
                             fontWeight: FontWeight.bold,
@@ -127,9 +134,9 @@ class _BackupChoiceScreenState extends State<BackupChoiceScreen> {
                     padding: const EdgeInsets.all(16),
                     children: [
                       const Text(
-                        'Il backup è del tuo certificato — la chiave che serve a '
-                        'decifrare i messaggi, NON dei messaggi. Senza il '
-                        'certificato nessuno potrà più leggere le chat.',
+                        'Il certificato è la chiave che serve a decifrare i '
+                        'messaggi. Il backup salva il certificato, non i '
+                        'messaggi: senza, nessuno potrà più leggere le chat.',
                         style: TextStyle(color: Colors.white70, fontSize: 14),
                       ),
                       const SizedBox(height: 16),
@@ -147,8 +154,8 @@ class _BackupChoiceScreenState extends State<BackupChoiceScreen> {
                         icon: Icons.vpn_key,
                         title: 'Manuale',
                         subtitle:
-                            'Salvi tu il file del certificato (ti si apre la '
-                            'condivisione). Per ripristinare lo importi.',
+                            'Salvi tu il file del certificato dove preferisci. '
+                            'Per ripristinare lo importi.',
                         color: _tealDark,
                       ),
                       if (_selected == BackupStrategy.manual) _filenameCard(),
@@ -171,7 +178,7 @@ class _BackupChoiceScreenState extends State<BackupChoiceScreen> {
                     width: double.infinity,
                     height: 54,
                     child: ElevatedButton(
-                      onPressed: _selected == null ? null : _confirm,
+                      onPressed: _canProceed ? _confirm : null,
                       style: ElevatedButton.styleFrom(
                         backgroundColor: Colors.white,
                         foregroundColor: _tealDark,
@@ -217,6 +224,35 @@ class _BackupChoiceScreenState extends State<BackupChoiceScreen> {
               ),
               style: const TextStyle(fontWeight: FontWeight.w600),
             ),
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                Expanded(
+                  child: ElevatedButton.icon(
+                    onPressed: _shareCertificateFile,
+                    icon: const Icon(Icons.ios_share, size: 18),
+                    label: Text(
+                      _manualShared
+                          ? 'Condividi di nuovo'
+                          : 'Salva / Condividi il file',
+                    ),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: _teal,
+                      foregroundColor: Colors.white,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                  ),
+                ),
+                if (_manualShared)
+                  const Padding(
+                    padding: EdgeInsets.only(left: 8),
+                    child: Icon(Icons.check_circle, color: Colors.green),
+                  ),
+              ],
+            ),
+            const SizedBox(height: 6),
             const Text(
               'Lo salvi dove preferisci (Drive, File, ecc.). Tienilo al sicuro: '
               'chi ha questo file può decifrare le vostre chat.',

@@ -191,7 +191,7 @@ class _MainScreenState extends State<MainScreen> {
                       ),
                       const SizedBox(width: 8),
                       const Text(
-                        'TuyJo',
+                        'Tuijo',
                         style: TextStyle(
                           color: Colors.white,
                           fontSize: 28,
