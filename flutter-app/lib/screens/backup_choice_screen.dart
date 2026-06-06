@@ -7,11 +7,8 @@ import 'package:share_plus/share_plus.dart';
 import '../services/backup_service.dart';
 
 /// Pagina "Backup del certificato": scelta di come custodire il certificato (la
-/// chiave privata che serve a decifrare i messaggi). Stile coerente col wizard QR.
-///
-/// Al nuovo pairing è OBBLIGATORIA ([mandatory] true): niente preselezionato e
-/// "Avanti" si attiva solo dopo aver scelto (per "Manuale" solo dopo aver
-/// condiviso/salvato il file). Restituisce la [BackupStrategy] via pop.
+/// chiave privata che serve a decifrare i messaggi). Riusa lo stile del wizard
+/// QR (box bianchi radius 16 + ombra, bottoni a gradiente teal).
 class BackupChoiceScreen extends StatefulWidget {
   final bool mandatory;
   const BackupChoiceScreen({super.key, this.mandatory = false});
@@ -23,6 +20,7 @@ class BackupChoiceScreen extends StatefulWidget {
 class _BackupChoiceScreenState extends State<BackupChoiceScreen> {
   static const Color _teal = Color(0xFF3BA8B0);
   static const Color _tealDark = Color(0xFF145A60);
+  static const Color _ink = Color(0xFF2d3436);
 
   final BackupService _backup = BackupService();
   BackupStrategy? _selected;
@@ -51,7 +49,6 @@ class _BackupChoiceScreenState extends State<BackupChoiceScreen> {
       defaultTargetPlatform == TargetPlatform.macOS;
   String get _cloudName => _isApple ? 'iCloud' : 'Google';
 
-  /// Avanti abilitato: per "Manuale" serve aver prima salvato/condiviso il file.
   bool get _canProceed {
     final s = _selected;
     if (s == null) return false;
@@ -104,7 +101,6 @@ class _BackupChoiceScreenState extends State<BackupChoiceScreen> {
           child: SafeArea(
             child: Column(
               children: [
-                // Header
                 Padding(
                   padding: const EdgeInsets.fromLTRB(8, 8, 16, 0),
                   child: Row(
@@ -157,8 +153,8 @@ class _BackupChoiceScreenState extends State<BackupChoiceScreen> {
                             'Salvi tu il file del certificato dove preferisci. '
                             'Per ripristinare lo importi.',
                         color: _tealDark,
+                        expanded: _manualExtra(),
                       ),
-                      if (_selected == BackupStrategy.manual) _filenameCard(),
                       _option(
                         strategy: BackupStrategy.none,
                         icon: Icons.block,
@@ -171,29 +167,12 @@ class _BackupChoiceScreenState extends State<BackupChoiceScreen> {
                     ],
                   ),
                 ),
-                // Avanti
                 Padding(
                   padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
-                  child: SizedBox(
-                    width: double.infinity,
-                    height: 54,
-                    child: ElevatedButton(
-                      onPressed: _canProceed ? _confirm : null,
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.white,
-                        foregroundColor: _tealDark,
-                        disabledBackgroundColor: Colors.white24,
-                        disabledForegroundColor: Colors.white60,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(16),
-                        ),
-                      ),
-                      child: const Text(
-                        'Avanti',
-                        style:
-                            TextStyle(fontSize: 17, fontWeight: FontWeight.bold),
-                      ),
-                    ),
+                  child: _gradientButton(
+                    icon: Icons.arrow_forward,
+                    label: 'Avanti',
+                    onTap: _canProceed ? _confirm : null,
                   ),
                 ),
               ],
@@ -204,61 +183,70 @@ class _BackupChoiceScreenState extends State<BackupChoiceScreen> {
     );
   }
 
-  Widget _filenameCard() {
-    return Card(
-      margin: const EdgeInsets.only(bottom: 12),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text('Nome del file',
-                style: TextStyle(fontSize: 12, color: Colors.grey)),
-            TextField(
-              controller: _filename,
-              decoration: const InputDecoration(
-                isDense: true,
-                border: InputBorder.none,
-                prefixIcon: Icon(Icons.description_outlined, color: _teal),
+  // ── Box bianco stile wizard (radius 16 + ombra) ──────────────────────────
+  BoxDecoration _cardDecoration({Color? border}) => BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: border != null ? Border.all(color: border, width: 2) : null,
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.1),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      );
+
+  // ── Bottone a gradiente stile wizard ─────────────────────────────────────
+  Widget _gradientButton({
+    required IconData icon,
+    required String label,
+    required VoidCallback? onTap,
+  }) {
+    final enabled = onTap != null;
+    return SizedBox(
+      width: double.infinity,
+      child: Container(
+        decoration: BoxDecoration(
+          gradient: enabled
+              ? const LinearGradient(colors: [_teal, _tealDark])
+              : null,
+          color: enabled ? null : Colors.white24,
+          borderRadius: BorderRadius.circular(12),
+          boxShadow: enabled
+              ? [
+                  BoxShadow(
+                    color: _teal.withValues(alpha: 0.3),
+                    blurRadius: 8,
+                    offset: const Offset(0, 4),
+                  ),
+                ]
+              : null,
+        ),
+        child: Material(
+          color: Colors.transparent,
+          child: InkWell(
+            borderRadius: BorderRadius.circular(12),
+            onTap: onTap,
+            child: Container(
+              padding: const EdgeInsets.symmetric(vertical: 16),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(icon, color: enabled ? Colors.white : Colors.white60),
+                  const SizedBox(width: 12),
+                  Text(
+                    label,
+                    style: TextStyle(
+                      color: enabled ? Colors.white : Colors.white60,
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
               ),
-              style: const TextStyle(fontWeight: FontWeight.w600),
             ),
-            const SizedBox(height: 8),
-            Row(
-              children: [
-                Expanded(
-                  child: ElevatedButton.icon(
-                    onPressed: _shareCertificateFile,
-                    icon: const Icon(Icons.ios_share, size: 18),
-                    label: Text(
-                      _manualShared
-                          ? 'Condividi di nuovo'
-                          : 'Salva / Condividi il file',
-                    ),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: _teal,
-                      foregroundColor: Colors.white,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                    ),
-                  ),
-                ),
-                if (_manualShared)
-                  const Padding(
-                    padding: EdgeInsets.only(left: 8),
-                    child: Icon(Icons.check_circle, color: Colors.green),
-                  ),
-              ],
-            ),
-            const SizedBox(height: 6),
-            const Text(
-              'Lo salvi dove preferisci (Drive, File, ecc.). Tienilo al sicuro: '
-              'chi ha questo file può decifrare le vostre chat.',
-              style: TextStyle(fontSize: 12, color: Colors.grey),
-            ),
-          ],
+          ),
         ),
       ),
     );
@@ -270,28 +258,108 @@ class _BackupChoiceScreenState extends State<BackupChoiceScreen> {
     required String title,
     required String subtitle,
     required Color color,
+    Widget? expanded,
   }) {
     final selected = _selected == strategy;
-    return Card(
+    return Container(
       margin: const EdgeInsets.only(bottom: 12),
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(14),
-        side: BorderSide(
-          color: selected ? color : Colors.transparent,
-          width: 2,
-        ),
+      decoration: _cardDecoration(border: selected ? color : null),
+      child: Column(
+        children: [
+          Material(
+            color: Colors.transparent,
+            child: InkWell(
+              borderRadius: BorderRadius.circular(16),
+              onTap: () => _select(strategy),
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Row(
+                  children: [
+                    Icon(icon, color: color, size: 30),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            title,
+                            style: const TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                              color: _ink,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            subtitle,
+                            style: TextStyle(
+                              fontSize: 13,
+                              color: Colors.grey.shade600,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    if (selected)
+                      Icon(Icons.check_circle, color: color),
+                  ],
+                ),
+              ),
+            ),
+          ),
+          if (selected && expanded != null)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+              child: expanded,
+            ),
+        ],
       ),
-      child: ListTile(
-        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-        leading: Icon(icon, color: color, size: 30),
-        title: Text(title, style: const TextStyle(fontWeight: FontWeight.bold)),
-        subtitle: Padding(
-          padding: const EdgeInsets.only(top: 4),
-          child: Text(subtitle),
+    );
+  }
+
+  Widget _manualExtra() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Divider(height: 1),
+        const SizedBox(height: 8),
+        const Text('Nome del file',
+            style: TextStyle(fontSize: 12, color: Colors.grey)),
+        TextField(
+          controller: _filename,
+          decoration: const InputDecoration(
+            isDense: true,
+            border: InputBorder.none,
+            prefixIcon: Icon(Icons.description_outlined, color: _teal),
+          ),
+          style: const TextStyle(fontWeight: FontWeight.w600, color: _ink),
         ),
-        trailing: selected ? Icon(Icons.check_circle, color: color) : null,
-        onTap: () => _select(strategy),
-      ),
+        const SizedBox(height: 10),
+        Row(
+          children: [
+            Expanded(
+              child: _gradientButton(
+                icon: _manualShared ? Icons.check : Icons.ios_share,
+                label: _manualShared
+                    ? 'Condividi di nuovo'
+                    : 'Salva / Condividi il file',
+                onTap: _shareCertificateFile,
+              ),
+            ),
+            if (_manualShared)
+              const Padding(
+                padding: EdgeInsets.only(left: 8),
+                child: Icon(Icons.check_circle, color: Colors.green),
+              ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        Text(
+          'Lo salvi dove preferisci (Drive, File, ecc.). Tienilo al sicuro: '
+          'chi ha questo file può decifrare le vostre chat.',
+          style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+        ),
+      ],
     );
   }
 }
