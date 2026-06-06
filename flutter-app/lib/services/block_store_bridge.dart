@@ -32,4 +32,19 @@ class BlockStoreBridge {
       return null;
     }
   }
+
+  /// Cancella il blob dal Block Store (copia locale + cloud). True se ok.
+  /// Va chiamato quando l'utente NON vuole il backup cloud (es. sceglie
+  /// "Manuale"), altrimenti un blob residuo verrebbe ripristinato a ogni
+  /// reinstallazione — il Block Store sopravvive alla disinstallazione.
+  static Future<bool> clear() async {
+    if (!isSupported) return false;
+    try {
+      final ok = await _channel.invokeMethod<bool>('clear');
+      return ok ?? false;
+    } catch (e) {
+      if (kDebugMode) print('⚠️ [BLOCKSTORE] clear failed: $e');
+      return false;
+    }
+  }
 }

@@ -31,6 +31,13 @@ class BackupService {
     await _storage.write(key: _prefKey, value: strategy.name);
     if (strategy == BackupStrategy.cloud) {
       await cloudBackupNow();
+    } else {
+      // Manuale: il certificato NON deve stare nel cloud. Cancella eventuali
+      // backup Block Store residui (es. lasciati da una scelta "cloud"
+      // precedente): il Block Store sopravvive alla disinstallazione e a
+      // android:allowBackup="false", quindi senza questa pulizia le chiavi
+      // verrebbero ripristinate da sole a ogni reinstallazione.
+      await BlockStoreBridge.clear();
     }
   }
 
@@ -47,13 +54,18 @@ class BackupService {
     if (priv == null) return; // niente da salvare ancora
     final pub = await _storage.read(key: _kPub);
     final partner = await _storage.read(key: _kPartner);
-    final json = jsonEncode({'priv': priv, 'pub': pub, 'partner': partner});
+    // Il marker 'strategy':'cloud' identifica un blob scritto volontariamente
+    // come backup cloud. cloudRestoreIfNeeded ripristina SOLO i blob con questo
+    // marker, così i residui di vecchi test non riportano su le chiavi.
+    final json = jsonEncode(
+        {'v': 1, 'strategy': 'cloud', 'priv': priv, 'pub': pub, 'partner': partner});
     final ok = await BlockStoreBridge.store(json);
     if (kDebugMode) print('☁️ [BACKUP] cloudBackupNow stored=$ok');
   }
 
   /// All'avvio: se le chiavi mancano in locale, prova a recuperarle dal cloud
-  /// (Block Store). Ritorna true se ha ripristinato la chiave privata.
+  /// (Block Store) SOLO se il blob è un backup cloud volontario (marker
+  /// 'strategy':'cloud'). Ritorna true se ha ripristinato la chiave privata.
   Future<bool> cloudRestoreIfNeeded() async {
     final existing = await _storage.read(key: _kPriv);
     if (existing != null) return false; // già presenti in locale
@@ -61,6 +73,16 @@ class BackupService {
     if (json == null) return false;
     try {
       final obj = jsonDecode(json) as Map<String, dynamic>;
+      // Ripristina SOLO i blob marcati come backup cloud. Un blob senza marker
+      // è un residuo (vecchio formato o vecchio test): non ripristinarlo e
+      // cancellalo, così non riappare a ogni reinstallazione.
+      if (obj['strategy'] != 'cloud') {
+        if (kDebugMode) {
+          print('☁️ [BACKUP] Block Store blob senza marker cloud: ignoro e pulisco');
+        }
+        await BlockStoreBridge.clear();
+        return false;
+      }
       final priv = obj['priv'] as String?;
       if (priv == null) return false;
       await _storage.write(key: _kPriv, value: priv);

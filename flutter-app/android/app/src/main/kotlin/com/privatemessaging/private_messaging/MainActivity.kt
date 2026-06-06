@@ -13,6 +13,7 @@ import com.google.android.gms.auth.blockstore.Blockstore
 import com.google.android.gms.auth.blockstore.BlockstoreClient
 import com.google.android.gms.auth.blockstore.StoreBytesData
 import com.google.android.gms.auth.blockstore.RetrieveBytesRequest
+import com.google.android.gms.auth.blockstore.DeleteBytesRequest
 import java.io.File
 import java.io.FileOutputStream
 
@@ -119,6 +120,14 @@ class MainActivity: FlutterActivity() {
                             }
                         }
                         .addOnFailureListener { e -> result.error("RETRIEVE_FAILED", e.message, null) }
+                }
+                "clear" -> {
+                    val request = DeleteBytesRequest.Builder()
+                        .setDeleteAll(true)
+                        .build()
+                    client.deleteBytes(request)
+                        .addOnSuccessListener { deleted -> result.success(deleted) }
+                        .addOnFailureListener { e -> result.error("CLEAR_FAILED", e.message, null) }
                 }
                 else -> result.notImplemented()
             }
