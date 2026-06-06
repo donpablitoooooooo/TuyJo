@@ -155,15 +155,6 @@ class _BackupChoiceScreenState extends State<BackupChoiceScreen> {
                         color: _tealDark,
                         expanded: _manualExtra(),
                       ),
-                      _option(
-                        strategy: BackupStrategy.none,
-                        icon: Icons.block,
-                        title: 'Nessuno',
-                        subtitle:
-                            'Niente backup. Se perdi il telefono non potrai più '
-                            'leggere i messaggi.',
-                        color: Colors.red,
-                      ),
                     ],
                   ),
                 ),

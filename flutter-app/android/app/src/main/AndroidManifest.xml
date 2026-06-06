@@ -74,7 +74,9 @@
         android:label="Tuijo"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher"
-        android:allowTaskReparenting="false">
+        android:allowTaskReparenting="false"
+        android:allowBackup="false"
+        android:dataExtractionRules="@xml/data_extraction_rules">
 
         <activity
             android:name=".MainActivity"

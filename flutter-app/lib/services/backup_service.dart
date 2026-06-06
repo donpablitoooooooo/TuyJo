@@ -7,8 +7,7 @@ import 'block_store_bridge.dart';
 /// - [cloud]  : chiavi sincronizzate nel cloud dell'account (iCloud Keychain su
 ///              iOS, Block Store su Android) → cambio telefono automatico.
 /// - [manual] : l'utente custodisce la chiave (copia/condividi) e la reimporta.
-/// - [none]   : solo locale; se perde il telefono perde tutto.
-enum BackupStrategy { cloud, manual, none }
+enum BackupStrategy { cloud, manual }
 
 /// Gestisce la preferenza di backup. Nelle fasi successive applicherà la
 /// strategia ai 3 item identità (rsa_private_key, rsa_public_key,
