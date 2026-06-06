@@ -1,4 +1,6 @@
 import 'dart:convert';
+import 'dart:io';
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
@@ -320,11 +322,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
   }
 
-  Future<void> _showRestoreDialog() async {
-    final keyController = TextEditingController();
+  /// Ripristino: carica il file del certificato (la chiave privata salvata col
+  /// backup) e poi rifai il pairing QR per riprendere la chiave del partner.
+  /// Se il file è un bundle completo (priv + partner) riconnette direttamente.
+  Future<void> _startRestoreFlow() async {
     final l10n = AppLocalizations.of(context)!;
 
-    await showDialog<void>(
+    // Passo 1 — spiega i due passaggi: carica il certificato, poi rifai il pair.
+    final proceed = await showDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
@@ -332,152 +337,139 @@ class _SettingsScreenState extends State<SettingsScreen> {
           children: [
             const Icon(Icons.restore, color: Color(0xFF3BA8B0)),
             const SizedBox(width: 12),
-            Text(l10n.settingsRestoreDialogTitle),
+            Expanded(child: Text(l10n.settingsRestoreDialogTitle)),
           ],
         ),
-        content: SingleChildScrollView(
-          child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(l10n.settingsRestoreDialogPrompt),
-            const SizedBox(height: 16),
-            TextField(
-              controller: keyController,
-              decoration: InputDecoration(
-                hintText: l10n.settingsRestoreKeyHint,
-                filled: true,
-                fillColor: Colors.grey[50],
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                focusedBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  borderSide: const BorderSide(color: Color(0xFF3BA8B0), width: 2),
-                ),
-              ),
-              maxLines: 4,
-            ),
-          ],
-        )),
+        content: const Text(
+          'Per ripristinare:\n'
+          '1) carichi il file del certificato salvato col backup;\n'
+          '2) rifai il pairing con il partner tramite QR.\n\n'
+          'Il certificato è la chiave che decifra i messaggi: senza, le chat '
+          'non sono leggibili.',
+        ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(dialogContext),
+            onPressed: () => Navigator.pop(dialogContext, false),
             child: Text(l10n.cancel),
           ),
           TextButton(
-            onPressed: () async {
-              final raw = keyController.text.trim();
-              Navigator.pop(dialogContext);
-
-              // Il backup può essere un "bundle" completo
-              // base64(json{priv, partner}) → riconnessione diretta, oppure la
-              // sola chiave privata (vecchio formato) → pairing QR.
-              String key = raw;
-              String? partnerKey;
-              try {
-                final obj = jsonDecode(utf8.decode(base64Decode(raw)));
-                if (obj is Map && obj['priv'] is String) {
-                  key = obj['priv'] as String;
-                  partnerKey = obj['partner'] as String?;
-                }
-              } catch (_) {
-                // non è un bundle: chiave privata grezza
-              }
-
-              final l10n2 = AppLocalizations.of(context)!;
-              if (key.isEmpty) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Row(
-                      children: [
-                        const Icon(Icons.warning_amber, color: Colors.white),
-                        const SizedBox(width: 12),
-                        Expanded(child: Text(l10n2.settingsRestoreEmptyKeyError)),
-                      ],
-                    ),
-                    backgroundColor: Colors.orange[700],
-                    behavior: SnackBarBehavior.floating,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                  ),
-                );
-                return;
-              }
-
-              // Ripristina la chiave
-              setState(() => _isLoading = true);
-              try {
-                final encryptionService = Provider.of<EncryptionService>(context, listen: false);
-                final pairingService = Provider.of<PairingService>(context, listen: false);
-
-                encryptionService.loadPrivateKey(key);
-                final publicKey = await encryptionService.deriveAndSavePublicKey();
-
-                if (publicKey == null) {
-                  throw Exception('Impossibile derivare la chiave pubblica');
-                }
-
-                await _storage.write(key: 'rsa_private_key', value: key);
-                await pairingService.saveMyPublicKey(publicKey);
-
-                if (!mounted) return;
-                final l10n3 = AppLocalizations.of(context)!;
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Row(
-                      children: [
-                        const Icon(Icons.check_circle, color: Colors.white),
-                        const SizedBox(width: 12),
-                        Expanded(child: Text(l10n3.settingsRestoreSuccess)),
-                      ],
-                    ),
-                    backgroundColor: Colors.green[600],
-                    behavior: SnackBarBehavior.floating,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                  ),
-                );
-
-                if (partnerKey != null) {
-                  // Backup completo: riconnetti direttamente, senza pairing QR.
-                  // La UI passa automaticamente alla chat via Provider.
-                  await pairingService.restorePairing(partnerKey);
-                } else {
-                  // Vecchio backup (solo chiave privata): vai al wizard QR.
-                  await Future.delayed(const Duration(seconds: 1));
-                  if (!mounted) return;
-                  _startPairingWizard();
-                }
-              } catch (e) {
-                if (!mounted) return;
-                final l10n4 = AppLocalizations.of(context)!;
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Row(
-                      children: [
-                        const Icon(Icons.error, color: Colors.white),
-                        const SizedBox(width: 12),
-                        Expanded(child: Text(l10n4.error(e.toString()))),
-                      ],
-                    ),
-                    backgroundColor: Colors.red[600],
-                    behavior: SnackBarBehavior.floating,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                  ),
-                );
-              } finally {
-                setState(() => _isLoading = false);
-              }
-            },
+            onPressed: () => Navigator.pop(dialogContext, true),
             style: TextButton.styleFrom(foregroundColor: const Color(0xFF3BA8B0)),
-            child: Text(l10n.settingsRestoreButton),
+            child: const Text('Carica certificato'),
           ),
         ],
       ),
     );
-    // NB: non dispose() del controller qui — showDialog si completa quando si
-    // chiama Navigator.pop, prima della fine dell'animazione di chiusura, e il
-    // TextField si ricostruirebbe durante il fade con un controller distrutto
-    // (crash _dependents.isEmpty). Il controller verrà raccolto dal GC.
+
+    if (proceed != true || !mounted) return;
+
+    // Passo 2 — scegli il file del certificato dal dispositivo.
+    String raw;
+    try {
+      final result = await FilePicker.platform.pickFiles(withData: true);
+      if (result == null || result.files.isEmpty) return; // annullato
+      final picked = result.files.first;
+      if (picked.bytes != null) {
+        raw = utf8.decode(picked.bytes!).trim();
+      } else if (picked.path != null) {
+        raw = (await File(picked.path!).readAsString()).trim();
+      } else {
+        throw Exception('File non leggibile');
+      }
+    } catch (e) {
+      if (!mounted) return;
+      _showRestoreError(AppLocalizations.of(context)!.error(e.toString()));
+      return;
+    }
+
+    // Il certificato può essere un bundle completo base64(json{priv, partner})
+    // → riconnessione diretta, oppure la sola chiave privata → pairing QR.
+    String key = raw;
+    String? partnerKey;
+    try {
+      final obj = jsonDecode(utf8.decode(base64Decode(raw)));
+      if (obj is Map && obj['priv'] is String) {
+        key = obj['priv'] as String;
+        partnerKey = obj['partner'] as String?;
+      }
+    } catch (_) {
+      // non è un bundle: chiave privata grezza
+    }
+
+    if (!mounted) return;
+    if (key.isEmpty) {
+      _showRestoreError(
+          AppLocalizations.of(context)!.settingsRestoreEmptyKeyError);
+      return;
+    }
+
+    setState(() => _isLoading = true);
+    try {
+      final encryptionService =
+          Provider.of<EncryptionService>(context, listen: false);
+      final pairingService =
+          Provider.of<PairingService>(context, listen: false);
+
+      encryptionService.loadPrivateKey(key);
+      final publicKey = await encryptionService.deriveAndSavePublicKey();
+      if (publicKey == null) {
+        throw Exception('Impossibile derivare la chiave pubblica');
+      }
+
+      await _storage.write(key: 'rsa_private_key', value: key);
+      await pairingService.saveMyPublicKey(publicKey);
+
+      if (!mounted) return;
+      final l10nOk = AppLocalizations.of(context)!;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Row(
+            children: [
+              const Icon(Icons.check_circle, color: Colors.white),
+              const SizedBox(width: 12),
+              Expanded(child: Text(l10nOk.settingsRestoreSuccess)),
+            ],
+          ),
+          backgroundColor: Colors.green[600],
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        ),
+      );
+
+      if (partnerKey != null) {
+        // Backup completo: riconnetti direttamente, senza pairing QR.
+        // La UI passa automaticamente alla chat via Provider.
+        await pairingService.restorePairing(partnerKey);
+      } else {
+        // Solo chiave privata: rifai il pairing QR per riprendere la chiave
+        // del partner.
+        await Future.delayed(const Duration(milliseconds: 600));
+        if (!mounted) return;
+        _startPairingWizard();
+      }
+    } catch (e) {
+      if (!mounted) return;
+      _showRestoreError(AppLocalizations.of(context)!.error(e.toString()));
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  void _showRestoreError(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Row(
+          children: [
+            const Icon(Icons.error, color: Colors.white),
+            const SizedBox(width: 12),
+            Expanded(child: Text(message)),
+          ],
+        ),
+        backgroundColor: Colors.red[600],
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      ),
+    );
   }
 
   Future<void> _showBackupChoice() async {
@@ -810,7 +802,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
               ),
               const SizedBox(height: 12),
               _OutlineButton(
-                onPressed: _showRestoreDialog,
+                onPressed: _startRestoreFlow,
                 icon: Icons.restore,
                 label: AppLocalizations.of(context)!.settingsRestoreFromBackupButton,
               ),
