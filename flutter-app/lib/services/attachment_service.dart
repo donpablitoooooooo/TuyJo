@@ -1,5 +1,4 @@
 import 'dart:io';
-import 'dart:typed_data';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:firebase_storage/firebase_storage.dart';
@@ -11,7 +10,6 @@ import 'package:flutter_image_compress/flutter_image_compress.dart';
 import '../models/message.dart';
 import 'encryption_service.dart';
 import 'attachment_cache_service.dart';
-import 'crypto_isolate.dart';
 
 /// Eccezione lanciata quando un permesso necessario per un allegato è negato
 class AttachmentPermissionDeniedException implements Exception {
@@ -489,7 +487,7 @@ class AttachmentService {
       }
 
       // 🔓 Registra questa richiesta come pendente
-      final completer = _cacheService.registerPendingRequest(attachment.id, isThumbnail: useThumbnail);
+      _cacheService.registerPendingRequest(attachment.id, isThumbnail: useThumbnail);
 
       // Se richiesta thumbnail ma non esiste, usa full image
       final url = (useThumbnail && attachment.thumbnailUrl != null)

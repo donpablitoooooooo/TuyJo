@@ -12,10 +12,10 @@ import 'services/chat_service.dart';
 import 'services/encryption_service.dart';
 import 'services/notification_service.dart';
 import 'services/pairing_service.dart';
-import 'services/message_cache_service.dart';
 import 'services/couple_selfie_service.dart';
 import 'services/attachment_service.dart';
 import 'services/location_service.dart';
+import 'services/backup_service.dart';
 import 'package:private_messaging/generated/l10n/app_localizations.dart';
 
 void main() async {
@@ -36,6 +36,10 @@ void main() async {
   await Firebase.initializeApp();
   final firebaseDuration = DateTime.now().difference(firebaseStart);
   print('⏱️ [STARTUP] Firebase initialized in ${firebaseDuration.inMilliseconds}ms');
+
+  // ☁️ Ripristino automatico chiavi dal cloud (Android Block Store) se mancano
+  // in locale (es. telefono nuovo con strategia "cloud"). No-op se già presenti.
+  await BackupService().cloudRestoreIfNeeded();
 
   // 🔐 ANONYMOUS FIREBASE AUTH (non bloccante).
   // Serve SOLO a dare un token valido al Firebase Storage SDK così non fa

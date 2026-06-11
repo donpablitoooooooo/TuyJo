@@ -53,6 +53,7 @@
     <!-- Permessi per localizzazione -->
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION"/>
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION"/>
+    <uses-permission android:name="android.permission.ACCESS_BACKGROUND_LOCATION"/>
     <!-- Per servizio foreground -->
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE"/>
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_LOCATION"/>
@@ -73,7 +74,9 @@
         android:label="Tuijo"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher"
-        android:allowTaskReparenting="false">
+        android:allowTaskReparenting="false"
+        android:allowBackup="false"
+        android:dataExtractionRules="@xml/data_extraction_rules">
 
         <activity
             android:name=".MainActivity"

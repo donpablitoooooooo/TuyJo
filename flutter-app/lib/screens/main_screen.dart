@@ -3,6 +3,7 @@ import 'package:private_messaging/generated/l10n/app_localizations.dart';
 import 'package:provider/provider.dart';
 import '../services/pairing_service.dart';
 import '../services/couple_selfie_service.dart';
+import '../state/ui_state.dart';
 import '../services/notification_service.dart';
 import '../widgets/permission_denied_dialog.dart';
 import 'chat_screen.dart';
@@ -190,7 +191,7 @@ class _MainScreenState extends State<MainScreen> {
                       ),
                       const SizedBox(width: 8),
                       const Text(
-                        'TuyJo',
+                        'Tuijo',
                         style: TextStyle(
                           color: Colors.white,
                           fontSize: 28,
@@ -238,7 +239,9 @@ class _MainScreenState extends State<MainScreen> {
           ),
         ),
       ),
-      body: Stack(
+      body: ValueListenableBuilder<bool>(
+        valueListenable: calendarViewOpen,
+        builder: (context, calOpen, _) => Stack(
         children: [
           // Main content
           IndexedStack(
@@ -246,7 +249,7 @@ class _MainScreenState extends State<MainScreen> {
             children: screens,
           ),
           // Floating hamburger menu (top left)
-          Positioned(
+          if (!calOpen) Positioned(
             top: 48,
             left: 16,
             child: Builder(
@@ -273,7 +276,7 @@ class _MainScreenState extends State<MainScreen> {
             ),
           ),
           // Floating voice call button + couple selfie (top right)
-          Positioned(
+          if (!calOpen) Positioned(
             top: 48,
             right: 16,
             child: Consumer2<PairingService, CoupleSelfieService>(
@@ -372,6 +375,7 @@ class _MainScreenState extends State<MainScreen> {
             ),
           ),
         ],
+      ),
       ),
     );
   }

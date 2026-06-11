@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'dart:io';
-import 'dart:typed_data';
 import 'package:path/path.dart' as path;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -9,11 +8,11 @@ import 'package:flutter/services.dart';
 import 'package:flutter/gestures.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
-import 'package:open_filex/open_filex.dart';
-import 'package:path_provider/path_provider.dart';
 import 'package:flutter_linkify/flutter_linkify.dart';
 import 'package:url_launcher/url_launcher.dart';
-import 'package:table_calendar/table_calendar.dart';
+import '../widgets/vertical_calendar.dart';
+import '../widgets/todo_creation_sheet.dart';
+import '../state/ui_state.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:private_messaging/generated/l10n/app_localizations.dart';
 import '../services/pairing_service.dart';
@@ -31,8 +30,6 @@ import '../widgets/attachment_widgets.dart';
 import '../widgets/permission_denied_dialog.dart';
 import '../widgets/reaction_picker.dart';
 import '../widgets/reaction_overlay.dart';
-import 'chat_screen_dismissible.dart';
-import 'pdf_viewer_screen.dart';
 import 'location_sharing_screen.dart';
 
 class ChatScreen extends StatefulWidget {
@@ -83,6 +80,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   DateTime? _calOverlayRangeEnd;
   int? _calOverlayReminderHours;
   List<File> _selectedAttachments = []; // Lista di file selezionati da inviare
+  final ValueNotifier<int> _attachmentCountVN = ValueNotifier<int>(0); // conteggio per la scheda todo
   bool _isUploadingAttachments = false; // Stato di upload allegati
   Set<String> _iosSharedFiles = {}; // Traccia i file temporanei copiati su iOS per pulizia
   String? _editingMessageId; // ID del messaggio che stiamo modificando (null = nuovo messaggio)
@@ -456,7 +454,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
         );
 
         if (kDebugMode) {
-          print('✅ ${uploadedAttachments?.length ?? 0} attachments uploaded');
+          print('✅ ${uploadedAttachments.length} attachments uploaded');
         }
       } catch (e) {
         if (kDebugMode) print('❌ Error uploading attachments: $e');
@@ -1487,6 +1485,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                       setState(() {
                         _selectedAttachments.addAll(files);
                       });
+                      _attachmentCountVN.value = _selectedAttachments.length;
                     }
                   } on AttachmentPermissionDeniedException {
                     if (mounted) {
@@ -1512,6 +1511,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                       setState(() {
                         _selectedAttachments.add(file);
                       });
+                      _attachmentCountVN.value = _selectedAttachments.length;
                     }
                   } on AttachmentPermissionDeniedException {
                     if (mounted) {
@@ -1536,6 +1536,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                     setState(() {
                       _selectedAttachments.add(file);
                     });
+                    _attachmentCountVN.value = _selectedAttachments.length;
                   }
                 },
               ),
@@ -1564,83 +1565,6 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       context,
       MaterialPageRoute(
         builder: (context) => const LocationShareSetupPage(),
-      ),
-    );
-  }
-
-  /// Costruisce un'opzione per il menu di selezione alert
-  Widget _buildAlertOption(BuildContext context, int? hours, String label) {
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: () => Navigator.pop(context, hours),
-        child: Container(
-          padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 24),
-          child: Row(
-            children: [
-              Icon(
-                hours == null ? Icons.notifications_off : Icons.notifications_outlined,
-                color: Colors.white,
-                size: 24,
-              ),
-              const SizedBox(width: 16),
-              Text(
-                label,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 16,
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  /// Costruisce un'opzione per il menu di selezione alert con stato selezionato (inline version)
-  Widget _buildAlertOptionInline(
-    BuildContext context,
-    int? hours,
-    String label,
-    int? currentSelection,
-    Function(int?) onSelect,
-  ) {
-    final isSelected = hours == currentSelection;
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: () => onSelect(hours),
-        child: Container(
-          padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 24),
-          decoration: BoxDecoration(
-            color: isSelected ? Colors.white.withValues(alpha: 0.2) : Colors.transparent,
-            borderRadius: BorderRadius.circular(8),
-          ),
-          child: Row(
-            children: [
-              Icon(
-                hours == null ? Icons.notifications_off : Icons.notifications_outlined,
-                color: Colors.white,
-                size: 24,
-              ),
-              const SizedBox(width: 16),
-              Expanded(
-                child: Text(
-                  label,
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 16,
-                    fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
-                  ),
-                ),
-              ),
-              if (isSelected)
-                const Icon(Icons.check, color: Colors.white, size: 24),
-            ],
-          ),
-        ),
       ),
     );
   }
@@ -1677,38 +1601,6 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     }).toList();
   }
 
-  /// Recupera i todo per un range di date
-  List<Message> _getTodosForRange(DateTime rangeStart, DateTime rangeEnd) {
-    final chatService = Provider.of<ChatService>(context, listen: false);
-    final normalizedStart = DateTime(rangeStart.year, rangeStart.month, rangeStart.day);
-    final normalizedEnd = DateTime(rangeEnd.year, rangeEnd.month, rangeEnd.day);
-
-    return chatService.messages.where((message) {
-      if (message.messageType != 'todo') return false;
-      if (message.dueDate == null) return false;
-      if (message.isReminder == true) return false; // Escludi gli alert
-
-      final todoDay = DateTime(
-        message.dueDate!.year,
-        message.dueDate!.month,
-        message.dueDate!.day,
-      );
-
-      // Check if todo is in the selected range
-      if (message.rangeEnd != null) {
-        final todoRangeEnd = DateTime(
-          message.rangeEnd!.year,
-          message.rangeEnd!.month,
-          message.rangeEnd!.day,
-        );
-        // Include todo if it overlaps with selected range
-        return !(todoRangeEnd.isBefore(normalizedStart) || todoDay.isAfter(normalizedEnd));
-      } else {
-        // Single day todo: check if it's within the selected range
-        return !todoDay.isBefore(normalizedStart) && !todoDay.isAfter(normalizedEnd);
-      }
-    }).toList();
-  }
 
 
   // ─── Calendar overlay (inline, non-modale) ─────────────────────────────────
@@ -1732,6 +1624,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       _calOverlayRangeEnd = isEditing ? _selectedRangeEnd : null;
       _calOverlayReminderHours = _selectedReminderHours ?? (isEditing ? null : 2);
     });
+    calendarViewOpen.value = true;
   }
 
   /// Applica lo stato dell'overlay ai field "applicati al messaggio".
@@ -1926,23 +1819,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
 
   /// Widget overlay calendario inline. Vive sopra l'input bar nello Scaffold.
   Widget _buildCalendarOverlay(BuildContext context) {
-    final l10n = AppLocalizations.of(context)!;
-    final hasDate = _calOverlayDayToShow != null || _calOverlayRangeStart != null;
-    final base = _calOverlayDayToShow ?? _calOverlayRangeStart;
-
-    final summaryDateText = (_calOverlayRangeStart != null && _calOverlayRangeEnd != null)
-        ? _formatDateRange(_calOverlayRangeStart!, _calOverlayRangeEnd!)
-        : (base != null
-            ? _formatTodoDate(
-                DateTime(
-                  base.year, base.month, base.day,
-                  _calOverlaySelected.hour == 0 ? 10 : _calOverlaySelected.hour,
-                  _calOverlaySelected.minute,
-                ),
-                includeTime: _calOverlayRangeEnd == null,
-              )
-            : '');
-
+    final selectedDay = _calOverlayDayToShow ?? DateTime.now();
     return Container(
       decoration: const BoxDecoration(
         gradient: LinearGradient(
@@ -1951,178 +1828,177 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
           colors: [Color(0xFF3BA8B0), Color(0xFF145A60)],
         ),
       ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          // Header con X di chiusura in alto a sinistra
-          Padding(
-            padding: const EdgeInsets.only(left: 8, top: 12, right: 4),
-            child: Row(
-              children: [
-                IconButton(
-                  icon: const Icon(Icons.close, color: Colors.white, size: 26),
-                  onPressed: _calOverlayCloseAndApply,
-                ),
-                const Spacer(),
-              ],
-            ),
-          ),
-
-          // Box riepilogo dinamico
-          if (hasDate)
+      child: SafeArea(
+        bottom: false,
+        child: Column(
+          children: [
+            // Header: X (chiudi, sx) + "+" (aggiungi todo, dx)
             Padding(
-              padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
-              child: Material(
-                color: Colors.transparent,
-                child: InkWell(
-                  borderRadius: BorderRadius.circular(14),
-                  onTap: _calOpenTimeAlertPickerInline,
-                  child: Container(
-                    padding: const EdgeInsets.fromLTRB(14, 10, 8, 10),
-                    decoration: BoxDecoration(
-                      color: Colors.white.withValues(alpha: 0.18),
-                      borderRadius: BorderRadius.circular(14),
-                      border: Border.all(color: Colors.white.withValues(alpha: 0.25)),
-                    ),
-                    child: Row(
-                      children: [
-                        const Icon(Icons.calendar_today_outlined, color: Colors.white, size: 18),
-                        const SizedBox(width: 8),
-                        Flexible(
-                          child: Text(
-                            summaryDateText,
-                            style: const TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.w600),
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-                        if (_calOverlayReminderHours != null) ...[
-                          const SizedBox(width: 12),
-                          const Icon(Icons.notifications_outlined, color: Colors.white, size: 18),
-                          const SizedBox(width: 4),
-                          Text(
-                            _calOverlayReminderHours! >= 24
-                                ? l10n.alertShortDays(_calOverlayReminderHours! ~/ 24)
-                                : l10n.alertShortHours(_calOverlayReminderHours!),
-                            style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w600),
-                          ),
-                        ],
-                        const Spacer(),
-                        IconButton(
-                          icon: const Icon(Icons.close, color: Color(0xFFFF6B6B), size: 22),
-                          padding: EdgeInsets.zero,
-                          constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
-                          onPressed: _calOverlayClearDate,
-                        ),
-                      ],
-                    ),
+              padding: const EdgeInsets.only(left: 8, top: 4, right: 8),
+              child: Row(
+                children: [
+                  IconButton(
+                    icon: const Icon(Icons.close, color: Colors.white, size: 26),
+                    onPressed: _calOverlayClose,
                   ),
-                ),
+                  const Spacer(),
+                  IconButton(
+                    icon: const Icon(Icons.add, color: Colors.white, size: 28),
+                    onPressed: _calOverlayAddTodo,
+                  ),
+                ],
               ),
             ),
-
-          // Calendario
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 12),
-            child: TableCalendar(
-              locale: Localizations.localeOf(context).toString(),
-              firstDay: DateTime.now().subtract(const Duration(days: 1)),
-              lastDay: DateTime.now().add(const Duration(days: 365)),
-              focusedDay: _calOverlayFocused,
-              rangeStartDay: _calOverlayRangeStart,
-              rangeEndDay: _calOverlayRangeEnd,
-              rangeSelectionMode: RangeSelectionMode.toggledOff,
-              eventLoader: _getTodosForDayInCalendar,
-              calendarStyle: CalendarStyle(
-                defaultTextStyle: const TextStyle(color: Colors.white),
-                weekendTextStyle: const TextStyle(color: Colors.white70),
-                outsideTextStyle: const TextStyle(color: Colors.white30),
-                selectedDecoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.9),
-                  shape: BoxShape.circle,
-                ),
-                selectedTextStyle: const TextStyle(color: Color(0xFF3BA8B0), fontWeight: FontWeight.bold),
-                todayDecoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.3),
-                  shape: BoxShape.circle,
-                ),
-                todayTextStyle: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
-                rangeStartDecoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.9),
-                  shape: BoxShape.circle,
-                ),
-                rangeStartTextStyle: const TextStyle(color: Color(0xFF3BA8B0), fontWeight: FontWeight.bold),
-                rangeEndDecoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.9),
-                  shape: BoxShape.circle,
-                ),
-                rangeEndTextStyle: const TextStyle(color: Color(0xFF3BA8B0), fontWeight: FontWeight.bold),
-                rangeHighlightColor: Colors.white.withValues(alpha: 0.2),
-                withinRangeDecoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.15),
-                  shape: BoxShape.circle,
-                ),
-                withinRangeTextStyle: const TextStyle(color: Colors.white),
-                markerDecoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.8),
-                  shape: BoxShape.circle,
-                ),
-                markersAlignment: Alignment.bottomCenter,
-                markersMaxCount: 3,
-              ),
-              headerStyle: HeaderStyle(
-                formatButtonVisible: false,
-                titleCentered: true,
-                titleTextStyle: const TextStyle(color: Colors.white, fontSize: 17, fontWeight: FontWeight.bold),
-                leftChevronIcon: const Icon(Icons.chevron_left, color: Colors.white),
-                rightChevronIcon: const Icon(Icons.chevron_right, color: Colors.white),
-              ),
-              daysOfWeekStyle: const DaysOfWeekStyle(
-                weekdayStyle: TextStyle(color: Colors.white70, fontWeight: FontWeight.bold),
-                weekendStyle: TextStyle(color: Colors.white70, fontWeight: FontWeight.bold),
-              ),
-              onPageChanged: (focusedDay) {
-                setState(() => _calOverlayFocused = focusedDay);
-              },
-              onDaySelected: (selectedDay, focusedDay) {
-                setState(() {
-                  _calOverlayDayToShow = selectedDay;
-                  _calOverlayRangeStart = selectedDay;
-                  _calOverlayRangeEnd = null;
-                  _calOverlayFocused = focusedDay;
-                  _calOverlaySelected = DateTime(
-                    selectedDay.year, selectedDay.month, selectedDay.day,
-                    _calOverlaySelected.hour == 0 ? 10 : _calOverlaySelected.hour,
-                    _calOverlaySelected.minute,
+            // Calendario a tutta altezza con il pannello todo che galleggia sopra
+            Expanded(
+              child: LayoutBuilder(
+                builder: (context, constraints) {
+                  final panelHeight = constraints.maxHeight * 0.42;
+                  return Stack(
+                    children: [
+                      Positioned.fill(
+                        child: VerticalCalendar(
+                          selectedDay: selectedDay,
+                          onDaySelected: (day) {
+                            setState(() => _calOverlayDayToShow = day);
+                          },
+                          hasEvents: (day) =>
+                              _getTodosForDayInCalendar(day).isNotEmpty,
+                        ),
+                      ),
+                      Positioned(
+                        left: 0,
+                        right: 0,
+                        bottom: 0,
+                        height: panelHeight,
+                        child: Container(
+                          margin: EdgeInsets.fromLTRB(
+                              12, 0, 12, 12 + MediaQuery.of(context).padding.bottom),
+                          clipBehavior: Clip.antiAlias,
+                          decoration: BoxDecoration(
+                            color: Theme.of(context)
+                                .scaffoldBackgroundColor
+                                .withValues(alpha: 0.9),
+                            borderRadius: BorderRadius.circular(20),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withValues(alpha: 0.18),
+                                blurRadius: 12,
+                                offset: const Offset(0, 4),
+                              ),
+                            ],
+                          ),
+                          child: _buildCalendarDayTodos(context),
+                        ),
+                      ),
+                    ],
                   );
-                  _calOverlayReminderHours ??= 2;
-                });
-              },
-              onDayLongPressed: (selectedDay, focusedDay) {
-                setState(() {
-                  if (_calOverlayRangeStart != null) {
-                    if (selectedDay.isAfter(_calOverlayRangeStart!) ||
-                        selectedDay.isAtSameMomentAs(_calOverlayRangeStart!)) {
-                      _calOverlayRangeEnd = selectedDay;
-                    } else {
-                      _calOverlayRangeEnd = _calOverlayRangeStart;
-                      _calOverlayRangeStart = selectedDay;
-                    }
-                    _calOverlayDayToShow = selectedDay;
-                  } else {
-                    _calOverlayDayToShow = selectedDay;
-                    _calOverlayRangeStart = selectedDay;
-                    _calOverlayRangeEnd = null;
-                  }
-                  _calOverlayFocused = focusedDay;
-                  _calOverlayReminderHours ??= 2;
-                });
-              },
+                },
+              ),
             ),
-          ),
-          const SizedBox(height: 8),
-        ],
+          ],
+        ),
       ),
     );
+  }
+
+  /// Chiude la vista calendario senza creare nulla.
+  void _calOverlayClose() {
+    setState(() => _calOverlayOpen = false);
+    calendarViewOpen.value = false;
+    _messageFocusNode.canRequestFocus = true;
+  }
+
+  /// "+" : apre la scheda di creazione todo in stile Apple sul giorno selezionato.
+  void _calOverlayAddTodo() {
+    final day = _calOverlayDayToShow ?? DateTime.now();
+    _showTodoCreationSheet(initialDay: day);
+  }
+
+  /// Mostra la scheda di creazione e, al salvataggio, crea+invia il todo
+  /// riusando il percorso di invio esistente (cifratura E2E + Firestore).
+  Future<void> _showTodoCreationSheet({required DateTime initialDay}) async {
+    _attachmentCountVN.value = _selectedAttachments.length;
+    final result = await showModalBottomSheet<Map<String, dynamic>>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => TodoCreationSheet(
+        initialDay: initialDay,
+        initialTitle: _messageController.text.trim(),
+        attachmentCount: _attachmentCountVN,
+        onAddAttachments: _showAttachmentPicker,
+      ),
+    );
+    if (result == null) return;
+
+    final title = result['title'] as String;
+    final start = result['start'] as DateTime;
+    final end = result['end'] as DateTime?;
+    final alertHours = result['alertHours'] as int?;
+
+    _messageController.text = title;
+    setState(() {
+      _selectedTodoDate = start;
+      _isRangeSelection = end != null;
+      _selectedRangeStart = end != null ? start : null;
+      _selectedRangeEnd = end;
+      _selectedReminderHours = alertHours;
+      _calOverlayOpen = false; // evita il re-apply dell'overlay in _sendMessage
+    });
+    calendarViewOpen.value = false;
+    _messageFocusNode.canRequestFocus = true;
+    _sendMessage();
+  }
+
+  /// Lista dei todo del giorno selezionato, mostrati con le stesse bolle
+  /// della pagina chat (TodoMessageBubble).
+  Widget _buildCalendarDayTodos(BuildContext context) {
+    final chatService = Provider.of<ChatService>(context, listen: false);
+    final day = _calOverlayDayToShow ?? DateTime.now();
+    final todos = _getTodosForDayInCalendar(day);
+
+    return todos.isEmpty
+          ? const Center(
+              child: Padding(
+                padding: EdgeInsets.all(24),
+                child: Text(
+                  'Nessun todo per questo giorno',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(color: Colors.grey),
+                ),
+              ),
+            )
+          : ListView.builder(
+              padding: const EdgeInsets.fromLTRB(12, 12, 12, 12),
+              itemCount: todos.length,
+              itemBuilder: (context, i) {
+                final message = todos[i];
+                final isMe = message.senderId == _myDeviceId;
+                final isTodoCompleted = message.action?.type == 'complete' ||
+                    chatService.messages.any((m) =>
+                        m.messageType == 'todo_completed' &&
+                        m.originalTodoId == message.id);
+                String? formattedDate;
+                if (message.dueDate != null) {
+                  formattedDate = message.rangeEnd != null
+                      ? _formatDateRange(message.dueDate!, message.rangeEnd!)
+                      : _formatTodoDate(message.dueDate!, includeTime: true);
+                }
+                return TodoMessageBubble(
+                  key: ValueKey('cal_${message.id}'),
+                  message: message,
+                  isMe: isMe,
+                  isCompleted: isTodoCompleted,
+                  onReact: (reactionType) => _addReaction(message.id, reactionType),
+                  onAction: (actionType) => _addAction(message.id, actionType, message),
+                  formattedDate: formattedDate,
+                  attachmentService: _attachmentService,
+                  senderId: message.senderId,
+                  currentUserId: _myDeviceId,
+                );
+              },
+            );
   }
 
 
@@ -2359,6 +2235,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     if (_calOverlayOpen) {
       _calOverlayApply();
       setState(() => _calOverlayOpen = false);
+      calendarViewOpen.value = false;
     }
 
     // Log diagnostico incondizionato all'entrata del metodo
@@ -2856,7 +2733,9 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
         child: Column(
         children: [
           Expanded(
-            child: isDemoMode
+            child: _calOverlayOpen
+                ? _buildCalendarOverlay(context)
+                : isDemoMode
                 ? _buildDemoMessageList()
                 : visibleMessages.isEmpty && _pendingLocalMessages.isEmpty
                 ? Center(
@@ -2945,8 +2824,6 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                               // Formatta la data del TODO
                               String? formattedDate;
                               if (message.dueDate != null) {
-                                final l10n = AppLocalizations.of(context)!;
-
                                 if (message.rangeEnd != null) {
                                   // È un range: formatta in modo intelligente
                                   formattedDate = _formatDateRange(message.dueDate!, message.rangeEnd!);
@@ -3008,8 +2885,8 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                           },
                         ),
           ),
-          // 💬 Indicatore "Sta scrivendo..."
-          if (chatService.partnerIsTyping)
+          // 💬 Indicatore "Sta scrivendo..." (nascosto in vista calendario)
+          if (!_calOverlayOpen && chatService.partnerIsTyping)
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
               child: Row(
@@ -3034,11 +2911,9 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                 ],
               ),
             ),
-          // Calendar overlay inline (sopra input bar). Si nasconde
-          // quando la tastiera è aperta, ricompare alla chiusura.
-          if (_calOverlayOpen && MediaQuery.of(context).viewInsets.bottom == 0)
-            _buildCalendarOverlay(context),
-          Container(
+          // Barra di input: nascosta quando la vista calendario è aperta
+          if (!_calOverlayOpen)
+            Container(
             padding: EdgeInsets.fromLTRB(
               8,
               12,
@@ -3610,7 +3485,6 @@ class _TodoDatePreview extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final l10n = AppLocalizations.of(context)!;
     String dateText;
     if (rangeStart != null && rangeEnd != null) {
       dateText = _formatRange(rangeStart!, rangeEnd!);

@@ -1,5 +1,4 @@
 import 'dart:io';
-import 'dart:typed_data';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
@@ -7,7 +6,6 @@ import 'package:open_filex/open_filex.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:private_messaging/generated/l10n/app_localizations.dart';
-import 'package:url_launcher/url_launcher.dart';
 import '../models/message.dart';
 import '../services/attachment_service.dart';
 import '../screens/pdf_viewer_screen.dart';
@@ -667,13 +665,6 @@ class AttachmentLocationShare extends StatelessWidget {
     required this.onTap,
   }) : super(key: key);
 
-  /// Restituisce il testo di default per la condivisione posizione.
-  /// Formato body: location_share|expiresAt|sessionId|locationKey|mode|lat,lng
-  String _getCustomText(BuildContext context) {
-    final l10n = AppLocalizations.of(context)!;
-    return l10n.locationShareDefault;
-  }
-
   /// Calcola il tempo rimanente prima della scadenza
   String _getTimeRemaining(BuildContext context) {
     if (message.decryptedContent != null && message.decryptedContent!.contains('|')) {
@@ -704,17 +695,6 @@ class AttachmentLocationShare extends StatelessWidget {
     return '';
   }
 
-  /// Estrae il sessionId dal messaggio
-  String _getSessionId() {
-    if (message.decryptedContent != null && message.decryptedContent!.contains('|')) {
-      final parts = message.decryptedContent!.split('|');
-      if (parts.length >= 3) {
-        return parts[2]; // sessionId è il terzo elemento
-      }
-    }
-    return '';
-  }
-
   bool _isExpired() {
     if (message.decryptedContent != null && message.decryptedContent!.contains('|')) {
       final parts = message.decryptedContent!.split('|');
@@ -728,19 +708,6 @@ class AttachmentLocationShare extends StatelessWidget {
       }
     }
     return false;
-  }
-
-  /// Estrae la modalità (live/static) dal messaggio
-  String _getMode() {
-    if (message.decryptedContent != null && message.decryptedContent!.contains('|')) {
-      final parts = message.decryptedContent!.split('|');
-      // Formato: location_share|expiresAt|sessionId|locationKey|mode
-      // parts[3] = locationKey (chiave AES), parts[4] = mode
-      if (parts.length >= 5 && (parts[4] == 'live' || parts[4] == 'static')) {
-        return parts[4];
-      }
-    }
-    return 'live'; // Default per retrocompatibilità
   }
 
   @override

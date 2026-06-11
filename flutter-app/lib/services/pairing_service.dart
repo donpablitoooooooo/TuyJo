@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:crypto/crypto.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'backup_service.dart';
 
 /// Servizio per gestire il pairing tra dispositivi tramite RSA public keys
 /// Architettura RSA-only: ogni dispositivo condivide solo la propria chiave pubblica
@@ -199,6 +200,9 @@ class PairingService extends ChangeNotifier {
       // Avvia il listener per monitorare lo stato della famiglia
       _startBackgroundUnpairListener();
 
+      // Aggiorna il backup cloud (se attivo) con la chiave del partner.
+      BackupService().cloudBackupNow();
+
       return true;
     } catch (e) {
       if (kDebugMode) print('Error importing partner public key: $e');
@@ -266,6 +270,47 @@ class PairingService extends ChangeNotifier {
   /// Salva la chiave pubblica dell'utente corrente
   Future<void> saveMyPublicKey(String publicKey) async {
     await _storage.write(key: 'rsa_public_key', value: publicKey);
+  }
+
+  /// Ripristino diretto da backup completo: imposta la chiave pubblica del
+  /// partner, segna come accoppiato, riscrive il documento utente su Firestore
+  /// e fa ripartire il listener — senza pairing QR. La UI passa alla chat via
+  /// Provider (notifyListeners). Richiede che rsa_public_key sia già salvata.
+  Future<bool> restorePairing(String partnerPublicKey) async {
+    try {
+      await _storage.write(key: 'partner_public_key', value: partnerPublicKey);
+      _partnerPublicKey = partnerPublicKey;
+      _isPaired = true;
+      _familyWasComplete = true;
+
+      final myUserId = await getMyUserId();
+      final myPublicKey = await _storage.read(key: 'rsa_public_key');
+      final familyChatId = await getFamilyChatId();
+
+      if (myUserId != null && myPublicKey != null && familyChatId != null) {
+        await _firestore
+            .collection('families')
+            .doc(familyChatId)
+            .collection('users')
+            .doc(myUserId)
+            .set({
+          'paired_at': FieldValue.serverTimestamp(),
+          'my_public_key': myPublicKey,
+          'partner_public_key': partnerPublicKey,
+        });
+        if (kDebugMode) {
+          print('✅ [PAIRING] restorePairing OK, family: ${familyChatId.substring(0, 10)}...');
+        }
+      }
+
+      notifyListeners();
+      _startBackgroundUnpairListener();
+      BackupService().cloudBackupNow();
+      return true;
+    } catch (e) {
+      if (kDebugMode) print('❌ [PAIRING] restorePairing failed: $e');
+      return false;
+    }
   }
 
   /// Alias per resetPairing (per compatibilità)
@@ -354,11 +399,11 @@ class PairingService extends ChangeNotifier {
           if (myDocList.isNotEmpty) {
             final myDoc = myDocList.first;
             final myDocData = myDoc.data();
-            final myDocPartnerKey = myDocData?['partner_public_key'] as String?;
-            final myDocPublicKey = myDocData?['my_public_key'] as String?;
+            final myDocPartnerKey = myDocData['partner_public_key'] as String?;
+            final myDocPublicKey = myDocData['my_public_key'] as String?;
 
             // Controlla se il partner ha richiesto la cancellazione della cache
-            final deleteCacheRequested = myDocData?['delete_cache_requested'] as bool?;
+            final deleteCacheRequested = myDocData['delete_cache_requested'] as bool?;
             if (deleteCacheRequested == true) {
               if (kDebugMode) print('🗑️ [PAIRING] Partner requested cache deletion, cleaning up...');
 
@@ -400,8 +445,8 @@ class PairingService extends ChangeNotifier {
             if (partnerDocs.isNotEmpty) {
               final partnerDoc = partnerDocs.first;
               final partnerDocData = partnerDoc.data();
-              final partnerDocPartnerKey = partnerDocData?['partner_public_key'] as String?;
-              final partnerDocPublicKey = partnerDocData?['my_public_key'] as String?;
+              final partnerDocPartnerKey = partnerDocData['partner_public_key'] as String?;
+              final partnerDocPublicKey = partnerDocData['my_public_key'] as String?;
 
               if (kDebugMode) {
                 print('   Verifico chiavi incrociate:');

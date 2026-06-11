@@ -4,7 +4,6 @@ import 'dart:typed_data';
 import 'package:flutter/foundation.dart';
 import 'package:pointycastle/export.dart';
 import 'package:asn1lib/asn1lib.dart';
-import 'package:crypto/crypto.dart';
 import 'package:encrypt/encrypt.dart' as encrypt_lib;
 import 'package:cryptography/cryptography.dart' as cg;
 import 'package:cryptography_flutter/cryptography_flutter.dart' as cgf;
@@ -49,8 +48,8 @@ class EncryptionService {
     final privateKey = _decodePrivateKey(privateKeyStr);
     // Create a placeholder public key derived from the private key
     final publicKey = RSAPublicKey(
-      (privateKey as RSAPrivateKey).modulus!,
-      (privateKey).publicExponent!,
+      privateKey.modulus!,
+      privateKey.publicExponent!,
     );
     _keyPair = AsymmetricKeyPair(publicKey, privateKey);
     _privateKeyBase64 = privateKeyStr;
@@ -270,16 +269,16 @@ class EncryptionService {
       print('   Top level object type: ${topLevelObj.runtimeType}');
 
       final topLevelSeq = topLevelObj as ASN1Sequence;
-      print('   Top level seq elements: ${topLevelSeq.elements?.length}');
+      print('   Top level seq elements: ${topLevelSeq.elements.length}');
 
-      if (topLevelSeq.elements == null || topLevelSeq.elements!.length < 2) {
-        throw FormatException('Invalid public key ASN.1 structure - expected at least 2 elements, got ${topLevelSeq.elements?.length}');
+      if (topLevelSeq.elements.length < 2) {
+        throw FormatException('Invalid public key ASN.1 structure - expected at least 2 elements, got ${topLevelSeq.elements.length}');
       }
 
-      print('   Element 0 type: ${topLevelSeq.elements![0].runtimeType}');
-      print('   Element 1 type: ${topLevelSeq.elements![1].runtimeType}');
+      print('   Element 0 type: ${topLevelSeq.elements[0].runtimeType}');
+      print('   Element 1 type: ${topLevelSeq.elements[1].runtimeType}');
 
-      final publicKeyBitString = topLevelSeq.elements![1] as ASN1BitString;
+      final publicKeyBitString = topLevelSeq.elements[1] as ASN1BitString;
 
       // In X.509 SubjectPublicKeyInfo, il BitString contiene:
       // byte 0: numero di bit di padding (solitamente 0x00)
@@ -293,14 +292,14 @@ class EncryptionService {
       print('   Key sequence bytes length: ${keySequenceBytes.length}');
 
       final publicKeySeq = ASN1Parser(keySequenceBytes).nextObject() as ASN1Sequence;
-      print('   Public key seq elements: ${publicKeySeq.elements?.length}');
+      print('   Public key seq elements: ${publicKeySeq.elements.length}');
 
-      if (publicKeySeq.elements == null || publicKeySeq.elements!.length < 2) {
+      if (publicKeySeq.elements.length < 2) {
         throw FormatException('Invalid public key sequence structure');
       }
 
-      final modulus = (publicKeySeq.elements![0] as ASN1Integer).valueAsBigInteger!;
-      final exponent = (publicKeySeq.elements![1] as ASN1Integer).valueAsBigInteger!;
+      final modulus = (publicKeySeq.elements[0] as ASN1Integer).valueAsBigInteger;
+      final exponent = (publicKeySeq.elements[1] as ASN1Integer).valueAsBigInteger;
 
       print('   ✅ Decoded successfully');
 
@@ -319,15 +318,14 @@ class EncryptionService {
       final privateKeySeq = asn1Parser.nextObject() as ASN1Sequence;
 
       // PKCS#1 RSAPrivateKey requires 9 elements: version, n, e, d, p, q, dP, dQ, qInv
-      if (privateKeySeq.elements == null || privateKeySeq.elements!.length < 9) {
+      if (privateKeySeq.elements.length < 9) {
         throw FormatException('Invalid private key ASN.1 structure - requires 9 elements');
       }
 
-      final modulus = (privateKeySeq.elements![1] as ASN1Integer).valueAsBigInteger!;
-      final publicExponent = (privateKeySeq.elements![2] as ASN1Integer).valueAsBigInteger!;
-      final privateExponent = (privateKeySeq.elements![3] as ASN1Integer).valueAsBigInteger!;
-      final p = (privateKeySeq.elements![4] as ASN1Integer).valueAsBigInteger!;
-      final q = (privateKeySeq.elements![5] as ASN1Integer).valueAsBigInteger!;
+      final modulus = (privateKeySeq.elements[1] as ASN1Integer).valueAsBigInteger;
+      final privateExponent = (privateKeySeq.elements[3] as ASN1Integer).valueAsBigInteger;
+      final p = (privateKeySeq.elements[4] as ASN1Integer).valueAsBigInteger;
+      final q = (privateKeySeq.elements[5] as ASN1Integer).valueAsBigInteger;
 
       // Check if the RSAPrivateKey constructor expects different parameter order
       // Standard: RSAPrivateKey(modulus, privateExponent, p, q)

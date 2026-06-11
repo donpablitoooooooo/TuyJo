@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:provider/provider.dart';
@@ -162,7 +161,7 @@ class _LocationShareSetupPageState extends State<LocationShareSetupPage>
     }
 
     // 3) Avvia GPS sharing
-    await locationService.startSharingLocation(_selectedDuration, sessionId: sessionId);
+    await locationService.startSharingLocation(_selectedDuration, sessionId: sessionId, mode: _selectedMode);
 
     if (!mounted) return;
 
@@ -205,6 +204,9 @@ class _LocationShareSetupPageState extends State<LocationShareSetupPage>
         child: SafeArea(
           child: Column(
             children: [
+              // Durante l'acquisizione GPS centra verticalmente il contenuto
+              // (altrimenti resta incollato in alto e sembra "mezzo schermo").
+              if (_isAcquiringGps) const Spacer(),
               const SizedBox(height: 20),
 
               // Freccia animata

@@ -28,7 +28,6 @@ class _PairingWizardScreenState extends State<PairingWizardScreen> {
   bool _isProcessingQR = false;
   bool _bothPaired = false; // Entrambi i dispositivi hanno completato il pairing
   bool _myQrWasScanned = false; // Il partner ha scansionato il mio QR
-  String? _myPublicKey;
   StreamSubscription<QuerySnapshot>? _pairingStatusSubscription;
   StreamSubscription? _qrScannedSubscription;
 
@@ -105,8 +104,7 @@ class _PairingWizardScreenState extends State<PairingWizardScreen> {
       // Salva la chiave pubblica
       await pairingService.saveMyPublicKey(myPublicKey);
 
-      // Store per uso futuro e avvia listener
-      _myPublicKey = myPublicKey;
+      // Avvia listener
       await pairingService.cleanupPairingSignal(myPublicKey);
       _startListeningForQRScanned(myPublicKey);
 
