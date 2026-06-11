@@ -319,6 +319,23 @@ class PairingService extends ChangeNotifier {
     await resetPairing();
   }
 
+  /// Unpair SOLO locale: rimuove la chiave del partner e lo stato locale ma
+  /// NON tocca i documenti della famiglia su Firestore. Usato da "Elimina i
+  /// Miei Messaggi": il mio documento (con le chiavi) deve sopravvivere così
+  /// la famiglia resta completa e il partner resta paired in chat. Questo
+  /// telefono rientrerà con un nuovo pairing.
+  Future<void> unpairLocallyOnly() async {
+    await _storage.delete(key: 'partner_public_key');
+    _isPaired = false;
+    _partnerPublicKey = null;
+    _familyWasComplete = false;
+    _initCompleter = null; // Permetti re-inizializzazione al prossimo pairing
+    stopListeningToPairingStatus();
+    notifyListeners();
+
+    if (kDebugMode) print('✅ [PAIRING] Local-only unpair completed (family docs untouched)');
+  }
+
   /// Calcola l'ID della chat condivisa tra i due utenti
   /// family_chat_id = SHA-256(sorted([myPublicKey, partnerPublicKey]))
   /// Questo garantisce che entrambi gli utenti calcolino lo stesso ID

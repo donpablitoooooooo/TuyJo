@@ -76,6 +76,10 @@ void main() async {
     chatService.stopListening();
     await chatService.clearMessages(familyChatId: familyChatId);
 
+    // Non ri-salvare il token FCM su questa famiglia al prossimo refresh:
+    // questo telefono non deve più ricevere notifiche per la chat svuotata
+    notificationService.clearSavedTokenTarget();
+
     // Pulisci SOLO cache locale foto (mantieni sul server)
     await coupleSelfieService.removeCoupleSelfie(
       familyChatId,

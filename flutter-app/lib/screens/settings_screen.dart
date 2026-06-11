@@ -115,12 +115,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
     }
   }
 
-  /// Elimina il pairing con 3 modalità:
+  /// Elimina messaggi con 3 modalità (modello "Dov'è" di Apple: i wipe
+  /// selettivi svuotano il singolo telefono, i dati restano sul server e
+  /// si recuperano rifacendo il pairing):
   /// - 'all': elimina pairing + messaggi da entrambi i telefoni E dal server
   ///   (irreversibile); entrambi tornano alla schermata di pairing
-  /// - 'mine': elimina i messaggi solo da QUESTO telefono; il server non viene
-  ///   toccato; entrambi tornano alla schermata di pairing e dopo un nuovo
-  ///   pairing la chat si ripristina dal server
+  /// - 'mine': elimina i messaggi solo da QUESTO telefono; il server non
+  ///   viene toccato e il PARTNER resta paired in chat; questo telefono
+  ///   torna alla schermata di pairing e rientrando recupera tutto dal server
   /// - 'partner': elimina i messaggi solo dal telefono del PARTNER (via flag
   ///   delete_cache_requested); il server non viene toccato e QUESTO telefono
   ///   resta paired e continua a vedere la chat; il partner dovrà rifare il
@@ -155,10 +157,28 @@ class _SettingsScreenState extends State<SettingsScreen> {
           );
         }
       } else if (mode == 'mine') {
-        // OPZIONE 2: Elimina i messaggi solo da QUESTO telefono (es. Cambio Telefono)
-        // NON eliminare dal server: il partner mantiene i suoi e la chat si
-        // ripristina dal server dopo un nuovo pairing
-        await pairingService.clearPairing();
+        // OPZIONE 2: Elimina i messaggi solo da QUESTO telefono (stile
+        // "Dov'è" di Apple: wipe del dispositivo, dati sul server intatti).
+        // Il PARTNER resta paired e continua a vedere la chat: per questo il
+        // mio documento utente NON va eliminato (la famiglia deve restare
+        // completa). Tolgo solo il token FCM, così questo telefono non riceve
+        // più notifiche. Rientrando con un nuovo pairing recupero tutto.
+        if (chatId != null && myUserId != null) {
+          try {
+            await FirebaseFirestore.instance
+                .collection('families')
+                .doc(chatId)
+                .collection('users')
+                .doc(myUserId)
+                .update({'fcm_token': FieldValue.delete()});
+          } catch (_) {
+            // Continua comunque con la pulizia locale
+          }
+        }
+
+        // Unpair SOLO locale: nessun documento Firestore viene toccato
+        await pairingService.unpairLocallyOnly();
+        notificationService.clearSavedTokenTarget();
         chatService.stopListening();
         await chatService.clearMessages(familyChatId: chatId);
         if (chatId != null) {
@@ -193,10 +213,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
         // Niente unpair/stopListening/clearMessages: questo telefono resta in chat
       }
 
-      // Rimuovi token FCM (elimina il MIO documento utente, quindi NON in
-      // modalità 'partner': lì resto paired e il documento deve sopravvivere)
-      if (mode != 'partner' && chatId != null && myUserId != null && mounted) {
+      // Rimuovi il MIO documento utente (token FCM compreso) SOLO per 'all':
+      // in 'mine' e 'partner' i documenti devono sopravvivere, altrimenti il
+      // telefono che mantiene la chat verrebbe auto-spaiato dal listener
+      if (mode == 'all' && chatId != null && myUserId != null && mounted) {
         await notificationService.deleteTokenFromFirestore(chatId, myUserId);
+        notificationService.clearSavedTokenTarget();
       }
 
       if (!mounted) return;
