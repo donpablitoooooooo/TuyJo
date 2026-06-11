@@ -1989,14 +1989,18 @@ class ChatService extends ChangeNotifier {
     }
   }
 
-  // Pulisci i messaggi
-  Future<void> clearMessages() async {
+  /// Pulisci i messaggi (RAM + cache SQLite).
+  /// [familyChatId] indica esplicitamente la famiglia da pulire: serve quando
+  /// la chat non è ancora stata inizializzata in questa sessione (es. flag
+  /// delete_cache_requested processato all'avvio). Default: la chat corrente.
+  Future<void> clearMessages({String? familyChatId}) async {
     _messages.clear();
 
     // 💾 Pulisci anche la cache SQLite
-    if (_currentFamilyChatId != null) {
+    final chatIdToClear = familyChatId ?? _currentFamilyChatId;
+    if (chatIdToClear != null) {
       try {
-        await _cacheService.clearCache(_currentFamilyChatId!);
+        await _cacheService.clearCache(chatIdToClear);
         if (kDebugMode) print('💾 SQLite cache cleared');
       } catch (e) {
         if (kDebugMode) print('❌ Error clearing cache: $e');

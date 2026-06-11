@@ -116,9 +116,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   /// Elimina il pairing con 3 modalità:
-  /// - 'all': Elimina tutti i messaggi (server per entrambi)
-  /// - 'mine': Elimina solo i miei (cache locale)
-  /// - 'partner': Elimina quelli del partner (quando ha cambiato telefono senza unpair)
+  /// - 'all': elimina pairing + messaggi da entrambi i telefoni E dal server (irreversibile)
+  /// - 'mine': elimina i messaggi solo da QUESTO telefono; il server non viene
+  ///   toccato, quindi dopo un nuovo pairing la chat si ripristina
+  /// - 'partner': elimina i messaggi solo dal telefono del PARTNER (via flag
+  ///   delete_cache_requested); il server non viene toccato
+  /// In tutti i casi entrambi i telefoni tornano alla schermata di pairing:
+  /// per 'mine' e 'partner' serve rifare il pairing per ripristinare la chat.
   Future<void> _deletePairing({required String mode}) async {
     setState(() => _isLoading = true);
     try {
@@ -140,7 +144,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
         // Unpair + pulisci cache locale
         await pairingService.clearPairing();
         chatService.stopListening();
-        chatService.clearMessages();
+        await chatService.clearMessages(familyChatId: chatId);
         if (chatId != null) {
           // Pulisci SOLO cache locale (il server è già stato pulito da deleteMessagesAndCoupleSelfie)
           await coupleSelfieService.removeCoupleSelfie(
@@ -149,11 +153,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
           );
         }
       } else if (mode == 'mine') {
-        // OPZIONE 2: Elimina solo cache locale (Cambio Telefono)
-        // NON eliminare dal server - il partner deve mantenerla!
+        // OPZIONE 2: Elimina i messaggi solo da QUESTO telefono (es. Cambio Telefono)
+        // NON eliminare dal server: il partner mantiene i suoi e la chat si
+        // ripristina dal server dopo un nuovo pairing
         await pairingService.clearPairing();
         chatService.stopListening();
-        chatService.clearMessages();
+        await chatService.clearMessages(familyChatId: chatId);
         if (chatId != null) {
           // Pulisci SOLO cache locale, mantieni sul server
           await coupleSelfieService.removeCoupleSelfie(
@@ -162,9 +167,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
           );
         }
       } else if (mode == 'partner') {
-        // OPZIONE 3: Triggera pulizia cache del partner (ha cambiato telefono senza unpair)
+        // OPZIONE 3: Elimina i messaggi solo dal telefono del PARTNER.
+        // Il server NON viene toccato: la chat si ripristina dopo un nuovo pairing.
         if (chatId != null && myUserId != null) {
-          // Scrivi flag in Firestore per notificare il partner di pulire la cache
+          // Scrivi flag in Firestore: il listener del partner lo processa e
+          // pulisce la sua cache. set+merge invece di update così non fallisce
+          // se il documento del partner non esiste più.
           final partnerId = await pairingService.getPartnerId();
           if (partnerId != null) {
             await FirebaseFirestore.instance
@@ -172,17 +180,18 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 .doc(chatId)
                 .collection('users')
                 .doc(partnerId)
-                .update({
+                .set({
               'delete_cache_requested': true,
               'delete_cache_requested_at': FieldValue.serverTimestamp(),
-            });
+            }, SetOptions(merge: true));
           }
         }
 
-        // Unpair locale (i messaggi rimangono sul dispositivo corrente)
+        // Unpair locale. NON chiamare chatService.clearMessages(): i messaggi
+        // restano in cache su questo telefono (e sul server) e torneranno
+        // visibili dopo il prossimo pairing.
         await pairingService.clearPairing();
-        // NON chiamare chatService.clearMessages() - vogliamo mantenere i nostri messaggi
-        // Solo il partner pulirà la sua cache quando riceverà il flag
+        chatService.stopListening();
       }
 
       // Sempre: rimuovi token FCM
@@ -519,31 +528,33 @@ class _SettingsScreenState extends State<SettingsScreen> {
             Text(l10n.settingsResetPairingDialogTitle),
           ],
         ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(l10n.settingsResetPairingDialogPrompt),
-            const SizedBox(height: 20),
-            _DeleteOption(
-              icon: Icons.delete_forever,
-              title: l10n.settingsDeleteAllMessagesTitle,
-              description: l10n.settingsDeleteAllMessagesDescription,
-              isDestructive: true,
-            ),
-            const SizedBox(height: 12),
-            _DeleteOption(
-              icon: Icons.phone_android,
-              title: l10n.settingsDeleteMyMessagesTitle,
-              description: l10n.settingsDeleteMyMessagesDescription,
-            ),
-            const SizedBox(height: 12),
-            _DeleteOption(
-              icon: Icons.phonelink_erase,
-              title: l10n.settingsDeletePartnerMessagesTitle,
-              description: l10n.settingsDeletePartnerMessagesDescription,
-            ),
-          ],
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(l10n.settingsResetPairingDialogPrompt),
+              const SizedBox(height: 20),
+              _DeleteOption(
+                icon: Icons.delete_forever,
+                title: l10n.settingsDeleteAllMessagesTitle,
+                description: l10n.settingsDeleteAllMessagesDescription,
+                isDestructive: true,
+              ),
+              const SizedBox(height: 12),
+              _DeleteOption(
+                icon: Icons.phone_android,
+                title: l10n.settingsDeleteMyMessagesTitle,
+                description: l10n.settingsDeleteMyMessagesDescription,
+              ),
+              const SizedBox(height: 12),
+              _DeleteOption(
+                icon: Icons.phonelink_erase,
+                title: l10n.settingsDeletePartnerMessagesTitle,
+                description: l10n.settingsDeletePartnerMessagesDescription,
+              ),
+            ],
+          ),
         ),
         actions: [
           TextButton(
