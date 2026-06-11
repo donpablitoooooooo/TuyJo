@@ -1,8 +1,7 @@
 import 'dart:convert';
-import 'dart:io';
 
-import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:provider/provider.dart';
 
@@ -12,13 +11,14 @@ import '../services/pairing_service.dart';
 import 'pairing_wizard_screen.dart';
 
 /// Da dove arriva il certificato trovato dalla pagina di ripristino.
-enum _CertSource { checking, local, cloud, file, missing }
+enum _CertSource { checking, local, cloud, pasted, missing }
 
 /// Pagina "Ripristino": recupera il certificato (la chiave privata salvata
 /// col backup) e riporta l'utente in chat. Ordine di ricerca automatico:
-/// già sul telefono → cloud (Block Store / iCloud) → file caricato a mano.
-/// Se il certificato è completo (include la chiave del partner) riconnette
-/// direttamente alla chat senza pairing QR; altrimenti prosegue col wizard QR.
+/// già sul telefono → cloud (Block Store / iCloud) → incollato dagli appunti
+/// (backup manuale). Se il certificato è completo (include la chiave del
+/// partner) riconnette direttamente alla chat senza pairing QR; altrimenti
+/// prosegue col wizard QR.
 /// Riusa lo stile del wizard QR / pagina backup (gradiente teal, box bianchi).
 class RestoreScreen extends StatefulWidget {
   const RestoreScreen({super.key});
@@ -34,8 +34,8 @@ class _RestoreScreenState extends State<RestoreScreen> {
 
   final _storage = const FlutterSecureStorage();
   _CertSource _source = _CertSource.checking;
-  String? _fileKey; // chiave privata letta dal file caricato
-  String? _filePartnerKey; // chiave del partner dal file (bundle completo)
+  String? _pastedKey; // chiave privata incollata dagli appunti
+  String? _pastedPartnerKey; // chiave del partner dal bundle incollato
   bool _working = false; // "Avanti" in corso
 
   @override
@@ -47,7 +47,7 @@ class _RestoreScreenState extends State<RestoreScreen> {
   bool get _certificateReady =>
       _source == _CertSource.local ||
       _source == _CertSource.cloud ||
-      _source == _CertSource.file;
+      _source == _CertSource.pasted;
 
   /// Cerca il certificato in automatico: prima sul telefono, poi nel cloud.
   Future<void> _detectCertificate() async {
@@ -63,23 +63,21 @@ class _RestoreScreenState extends State<RestoreScreen> {
     }
   }
 
-  /// Carica il certificato da file: bundle completo base64(json{priv,partner})
-  /// oppure sola chiave privata grezza.
-  Future<void> _pickCertificateFile() async {
-    String raw;
+  /// Incolla il certificato dagli appunti (backup manuale): bundle completo
+  /// base64(json{priv,partner}) oppure sola chiave privata grezza.
+  Future<void> _pasteCertificate() async {
+    String? raw;
     try {
-      final result = await FilePicker.platform.pickFiles(withData: true);
-      if (result == null || result.files.isEmpty) return; // annullato
-      final picked = result.files.first;
-      if (picked.bytes != null) {
-        raw = utf8.decode(picked.bytes!).trim();
-      } else if (picked.path != null) {
-        raw = (await File(picked.path!).readAsString()).trim();
-      } else {
-        throw Exception('File non leggibile');
-      }
+      final data = await Clipboard.getData(Clipboard.kTextPlain);
+      raw = data?.text?.trim();
     } catch (e) {
-      _showError('Errore nel leggere il file: $e');
+      _showError('Errore nel leggere gli appunti: $e');
+      return;
+    }
+
+    if (raw == null || raw.isEmpty) {
+      _showError(
+          'Negli appunti non c\'è nulla: copia prima il certificato dal tuo backup');
       return;
     }
 
@@ -95,15 +93,10 @@ class _RestoreScreenState extends State<RestoreScreen> {
       // non è un bundle: chiave privata grezza
     }
 
-    if (key.isEmpty) {
-      _showError('Il file non contiene un certificato valido');
-      return;
-    }
-
     setState(() {
-      _fileKey = key;
-      _filePartnerKey = partnerKey;
-      _source = _CertSource.file;
+      _pastedKey = key;
+      _pastedPartnerKey = partnerKey;
+      _source = _CertSource.pasted;
     });
   }
 
@@ -117,8 +110,8 @@ class _RestoreScreenState extends State<RestoreScreen> {
       final pairingService =
           Provider.of<PairingService>(context, listen: false);
 
-      // 1. Chiave privata: dal file oppure già in storage (locale/cloud)
-      final priv = _fileKey ?? await _storage.read(key: 'rsa_private_key');
+      // 1. Chiave privata: incollata oppure già in storage (locale/cloud)
+      final priv = _pastedKey ?? await _storage.read(key: 'rsa_private_key');
       if (priv == null || priv.isEmpty) {
         throw Exception('certificato mancante');
       }
@@ -133,9 +126,9 @@ class _RestoreScreenState extends State<RestoreScreen> {
       }
       await pairingService.saveMyPublicKey(pub);
 
-      // 3. Chiave del partner: dal file (bundle) o dal ripristino cloud
+      // 3. Chiave del partner: dal bundle incollato o dal ripristino cloud
       final partner =
-          _filePartnerKey ?? await _storage.read(key: 'partner_public_key');
+          _pastedPartnerKey ?? await _storage.read(key: 'partner_public_key');
 
       if (!mounted) return;
       if (partner != null && partner.isNotEmpty) {
@@ -214,8 +207,8 @@ class _RestoreScreenState extends State<RestoreScreen> {
                     const Text(
                       'Il certificato è la chiave che decifra i messaggi: '
                       'serve per tornare nella tua chat. Lo cerco sul '
-                      'telefono e nel cloud; se non c\'è, caricalo dal file '
-                      'salvato col backup.',
+                      'telefono e nel cloud; se non c\'è, copialo dal tuo '
+                      'backup e incollalo qui.',
                       style: TextStyle(color: Colors.white70, fontSize: 14),
                     ),
                     const SizedBox(height: 16),
@@ -223,9 +216,9 @@ class _RestoreScreenState extends State<RestoreScreen> {
                     if (_source == _CertSource.missing) ...[
                       const SizedBox(height: 12),
                       _gradientButton(
-                        icon: Icons.upload_file,
-                        label: 'Carica certificato',
-                        onTap: _pickCertificateFile,
+                        icon: Icons.content_paste,
+                        label: 'Incolla certificato',
+                        onTap: _pasteCertificate,
                       ),
                     ],
                   ],
@@ -260,15 +253,16 @@ class _RestoreScreenState extends State<RestoreScreen> {
       icon = Icons.cloud_done;
       title = 'Certificato recuperato dal cloud';
       subtitle = 'Recuperato dal backup cloud. Tocca Avanti per continuare.';
-    } else if (_source == _CertSource.file) {
-      icon = Icons.description;
-      title = 'Certificato caricato';
-      subtitle = 'Letto dal file. Tocca Avanti per continuare.';
+    } else if (_source == _CertSource.pasted) {
+      icon = Icons.content_paste;
+      title = 'Certificato incollato';
+      subtitle = 'Letto dagli appunti. Tocca Avanti per continuare.';
     } else if (_source == _CertSource.missing) {
       icon = Icons.key_off;
       title = 'Nessun certificato trovato';
       subtitle =
-          'Non è su questo telefono né nel cloud. Carica il file salvato col backup.';
+          'Non è su questo telefono né nel cloud. Copia il certificato dal '
+          'tuo backup (es. gestore di password) e incollalo qui.';
     }
 
     return Container(

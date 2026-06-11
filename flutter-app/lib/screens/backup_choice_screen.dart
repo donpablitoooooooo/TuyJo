@@ -1,9 +1,8 @@
-import 'dart:io';
+import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
-import 'package:path_provider/path_provider.dart';
-import 'package:share_plus/share_plus.dart';
 import '../services/backup_service.dart';
 
 /// Pagina "Backup del certificato": scelta di come custodire il certificato (la
@@ -24,9 +23,8 @@ class _BackupChoiceScreenState extends State<BackupChoiceScreen> {
 
   final BackupService _backup = BackupService();
   BackupStrategy? _selected;
-  bool _manualShared = false;
-  final TextEditingController _filename =
-      TextEditingController(text: 'Tuijo-certificato.txt');
+  bool _manualCopied = false;
+  String? _certText; // testo del certificato pronto da copiare
 
   @override
   void initState() {
@@ -36,12 +34,7 @@ class _BackupChoiceScreenState extends State<BackupChoiceScreen> {
         if (mounted) setState(() => _selected = s);
       });
     }
-  }
-
-  @override
-  void dispose() {
-    _filename.dispose();
-    super.dispose();
+    _loadCertificate();
   }
 
   bool get _isApple =>
@@ -52,7 +45,7 @@ class _BackupChoiceScreenState extends State<BackupChoiceScreen> {
   bool get _canProceed {
     final s = _selected;
     if (s == null) return false;
-    if (s == BackupStrategy.manual) return _manualShared;
+    if (s == BackupStrategy.manual) return _manualCopied;
     return true;
   }
 
@@ -66,22 +59,36 @@ class _BackupChoiceScreenState extends State<BackupChoiceScreen> {
     Navigator.pop(context, s);
   }
 
-  Future<void> _shareCertificateFile() async {
-    final priv = await const FlutterSecureStorage().read(key: 'rsa_private_key');
-    if (priv == null) return;
-    var name = _filename.text.trim();
-    if (name.isEmpty) name = 'Tuijo-certificato.txt';
-    if (!name.contains('.')) name = '$name.txt';
-    final dir = await getTemporaryDirectory();
-    final file = File('${dir.path}/$name');
-    await file.writeAsString(priv);
-    await SharePlus.instance.share(
-      ShareParams(
-        files: [XFile(file.path)],
-        subject: 'Tuijo — certificato (backup)',
-      ),
-    );
-    if (mounted) setState(() => _manualShared = true);
+  /// Prepara il testo del certificato da copiare: bundle completo
+  /// base64(json{v, priv, partner}) se accoppiato, altrimenti la sola chiave
+  /// privata. Stesso formato che la pagina Ripristino sa incollare.
+  /// Nel flusso "Nuovo pairing" le chiavi vengono generate in background da
+  /// main.dart: se non sono ancora pronte riprova per qualche secondo.
+  Future<void> _loadCertificate() async {
+    const storage = FlutterSecureStorage();
+    String? priv;
+    for (var i = 0; i < 20; i++) {
+      priv = await storage.read(key: 'rsa_private_key');
+      if (priv != null || !mounted) break;
+      await Future.delayed(const Duration(milliseconds: 500));
+    }
+    if (priv == null || !mounted) return;
+    final partner = await storage.read(key: 'partner_public_key');
+    final text = partner != null
+        ? base64Encode(utf8.encode(jsonEncode({
+            'v': 1,
+            'priv': priv,
+            'partner': partner,
+          })))
+        : priv;
+    if (mounted) setState(() => _certText = text);
+  }
+
+  Future<void> _copyCertificate() async {
+    final text = _certText;
+    if (text == null) return;
+    await Clipboard.setData(ClipboardData(text: text));
+    if (mounted) setState(() => _manualCopied = true);
   }
 
   @override
@@ -150,8 +157,8 @@ class _BackupChoiceScreenState extends State<BackupChoiceScreen> {
                         icon: Icons.vpn_key,
                         title: 'Manuale',
                         subtitle:
-                            'Salvi tu il file del certificato dove preferisci. '
-                            'Per ripristinare lo importi.',
+                            'Copi il certificato e lo custodisci tu, dove '
+                            'decidi tu. Niente cloud: per ripristinare lo incolli.',
                         color: _tealDark,
                         expanded: _manualExtra(),
                       ),
@@ -308,36 +315,53 @@ class _BackupChoiceScreenState extends State<BackupChoiceScreen> {
     );
   }
 
+  /// Dettaglio opzione manuale: anteprima del certificato + bottone copia.
+  /// Niente file né condivisione (un file su Drive sarebbe di nuovo un cloud):
+  /// l'utente incolla il certificato dove vuole lui — gestore di password,
+  /// nota cifrata, persino carta. Massimo controllo per chi ci tiene.
   Widget _manualExtra() {
+    final cert = _certText;
+    final preview = cert == null
+        ? 'Preparo il certificato…'
+        : '${cert.substring(0, cert.length < 18 ? cert.length : 18)}…';
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         const Divider(height: 1),
-        const SizedBox(height: 8),
-        const Text('Nome del file',
+        const SizedBox(height: 10),
+        const Text('Il tuo certificato',
             style: TextStyle(fontSize: 12, color: Colors.grey)),
-        TextField(
-          controller: _filename,
-          decoration: const InputDecoration(
-            isDense: true,
-            border: InputBorder.none,
-            prefixIcon: Icon(Icons.description_outlined, color: _teal),
+        const SizedBox(height: 6),
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+          decoration: BoxDecoration(
+            color: const Color(0xFFF1F3F4),
+            borderRadius: BorderRadius.circular(8),
           ),
-          style: const TextStyle(fontWeight: FontWeight.w600, color: _ink),
+          child: Text(
+            preview,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+              fontFamily: 'monospace',
+              fontSize: 14,
+              letterSpacing: 1.2,
+              color: _ink,
+            ),
+          ),
         ),
         const SizedBox(height: 10),
         Row(
           children: [
             Expanded(
               child: _gradientButton(
-                icon: _manualShared ? Icons.check : Icons.ios_share,
-                label: _manualShared
-                    ? 'Condividi di nuovo'
-                    : 'Salva / Condividi il file',
-                onTap: _shareCertificateFile,
+                icon: _manualCopied ? Icons.check : Icons.copy,
+                label: _manualCopied ? 'Copiato!' : 'Copia il certificato',
+                onTap: cert == null ? null : _copyCertificate,
               ),
             ),
-            if (_manualShared)
+            if (_manualCopied)
               const Padding(
                 padding: EdgeInsets.only(left: 8),
                 child: Icon(Icons.check_circle, color: Colors.green),
@@ -346,8 +370,9 @@ class _BackupChoiceScreenState extends State<BackupChoiceScreen> {
         ),
         const SizedBox(height: 8),
         Text(
-          'Lo salvi dove preferisci (Drive, File, ecc.). Tienilo al sicuro: '
-          'chi ha questo file può decifrare le vostre chat.',
+          'Incollalo dove decidi tu: gestore di password, nota cifrata, '
+          'persino su carta. Tienilo al sicuro: chi ha il certificato può '
+          'decifrare le vostre chat. Per ripristinare lo incollerai nell\'app.',
           style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
         ),
       ],

@@ -12,6 +12,7 @@ import 'pairing_wizard_screen.dart';
 import 'backup_choice_screen.dart';
 import 'couple_selfie_screen.dart';
 import 'restore_screen.dart';
+import 'delete_messages_screen.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({Key? key}) : super(key: key);
@@ -223,77 +224,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
     // Non serve più _checkPairingStatus() - il build() si aggiorna automaticamente via Provider
   }
 
-  void _showDeleteDialog() {
-    final l10n = AppLocalizations.of(context)!;
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: Row(
-          children: [
-            const Icon(Icons.warning_amber, color: Colors.red),
-            const SizedBox(width: 12),
-            Text(l10n.settingsResetPairingDialogTitle),
-          ],
-        ),
-        content: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(l10n.settingsResetPairingDialogPrompt),
-              const SizedBox(height: 20),
-              _DeleteOption(
-                icon: Icons.delete_forever,
-                title: l10n.settingsDeleteAllMessagesTitle,
-                description: l10n.settingsDeleteAllMessagesDescription,
-                isDestructive: true,
-              ),
-              const SizedBox(height: 12),
-              _DeleteOption(
-                icon: Icons.phone_android,
-                title: l10n.settingsDeleteMyMessagesTitle,
-                description: l10n.settingsDeleteMyMessagesDescription,
-              ),
-              const SizedBox(height: 12),
-              _DeleteOption(
-                icon: Icons.phonelink_erase,
-                title: l10n.settingsDeletePartnerMessagesTitle,
-                description: l10n.settingsDeletePartnerMessagesDescription,
-              ),
-            ],
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: Text(l10n.cancel),
-          ),
-          TextButton(
-            onPressed: () {
-              Navigator.pop(context);
-              _deletePairing(mode: 'all');
-            },
-            style: TextButton.styleFrom(foregroundColor: Colors.red),
-            child: Text(l10n.settingsDeleteAllButton),
-          ),
-          TextButton(
-            onPressed: () {
-              Navigator.pop(context);
-              _deletePairing(mode: 'mine');
-            },
-            child: Text(l10n.settingsDeleteMineButton),
-          ),
-          TextButton(
-            onPressed: () {
-              Navigator.pop(context);
-              _deletePairing(mode: 'partner');
-            },
-            child: Text(l10n.settingsDeletePartnerButton),
-          ),
-        ],
-      ),
+  /// Pagina "Elimina Messaggi" (full page, stile wizard): la pagina ritorna
+  /// la modalità scelta e l'esecuzione resta qui.
+  Future<void> _openDeleteMessagesScreen() async {
+    final mode = await Navigator.push<String>(
+      context,
+      MaterialPageRoute(builder: (_) => const DeleteMessagesScreen()),
     );
+    if (mode == null || !mounted) return;
+    await _deletePairing(mode: mode);
   }
 
   @override
@@ -533,7 +472,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
               ),
               const SizedBox(height: 16),
               _OutlineButton(
-                onPressed: _showDeleteDialog,
+                onPressed: _openDeleteMessagesScreen,
                 icon: Icons.delete_outline,
                 label: AppLocalizations.of(context)!.settingsResetPairingButton,
                 color: Colors.red,
@@ -718,57 +657,6 @@ class _OutlineButton extends StatelessWidget {
           ],
         ),
       ),
-    );
-  }
-}
-
-class _DeleteOption extends StatelessWidget {
-  final IconData icon;
-  final String title;
-  final String description;
-  final bool isDestructive;
-
-  const _DeleteOption({
-    required this.icon,
-    required this.title,
-    required this.description,
-    this.isDestructive = false,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Icon(
-          icon,
-          color: isDestructive ? Colors.red : Colors.grey[600],
-          size: 20,
-        ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                title,
-                style: TextStyle(
-                  fontWeight: FontWeight.bold,
-                  color: isDestructive ? Colors.red : Colors.black87,
-                ),
-              ),
-              const SizedBox(height: 4),
-              Text(
-                description,
-                style: TextStyle(
-                  fontSize: 12,
-                  color: isDestructive ? Colors.red[300] : Colors.grey,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ],
     );
   }
 }
