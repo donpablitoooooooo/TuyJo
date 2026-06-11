@@ -1759,20 +1759,21 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                                 scrollController: FixedExtentScrollController(
                                   initialItem: () {
                                     // Stesso set della scheda "Nuovo todo"
-                                    final opts = [null, 1, 2, 24, 48, 168];
+                                    final opts = [null, 1, 2, 8, 24, 48, 168];
                                     final idx = opts.indexOf(alertHours);
                                     return idx == -1 ? 1 : idx;
                                   }(),
                                 ),
                                 itemExtent: 50,
                                 onSelectedItemChanged: (i) {
-                                  const opts = [null, 1, 2, 24, 48, 168];
+                                  const opts = [null, 1, 2, 8, 24, 48, 168];
                                   setAlertState(() => alertHours = opts[i]);
                                 },
                                 children: [
                                   Center(child: Text(l10n.alertNone, style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.w500))),
                                   Center(child: Text(l10n.alert1HourBefore, style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.w500))),
                                   Center(child: Text(l10n.alert2HoursBefore, style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.w500))),
+                                  Center(child: Text(l10n.alert8HoursBefore, style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.w500))),
                                   Center(child: Text(l10n.alert1DayBefore, style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.w500))),
                                   Center(child: Text(l10n.alert2DaysBefore, style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.w500))),
                                   Center(child: Text(l10n.alert1WeekBefore, style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.w500))),

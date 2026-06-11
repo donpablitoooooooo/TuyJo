@@ -40,6 +40,7 @@ class _TodoCreationSheetState extends State<TodoCreationSheet> {
         (l10n.alertNone, null),
         (l10n.alert1HourBefore, 1),
         (l10n.alert2HoursBefore, 2),
+        (l10n.alert8HoursBefore, 8),
         (l10n.alert1DayBefore, 24),
         (l10n.alert2DaysBefore, 48),
         (l10n.alert1WeekBefore, 168),
