@@ -1,6 +1,8 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:ui' as ui;
 import 'package:flutter/foundation.dart';
+import 'package:private_messaging/generated/l10n/app_localizations.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:geolocator_android/geolocator_android.dart';
@@ -26,6 +28,16 @@ class LocationService extends ChangeNotifier {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final _storage = const FlutterSecureStorage();
   final EncryptionService _encryptionService;
+
+  /// Localizzazioni senza BuildContext (per la notifica del foreground
+  /// service): lingua di sistema, fallback inglese.
+  AppLocalizations get _l10nNoContext {
+    final sysLocale = ui.PlatformDispatcher.instance.locale;
+    final supported = AppLocalizations.supportedLocales
+        .any((l) => l.languageCode == sysLocale.languageCode);
+    return lookupAppLocalizations(
+        supported ? ui.Locale(sysLocale.languageCode) : const ui.Locale('en'));
+  }
 
   // Stream subscriptions
   StreamSubscription<Position>? _positionStreamSubscription;
@@ -275,9 +287,9 @@ class LocationService extends ChangeNotifier {
         accuracy: LocationAccuracy.high,
         distanceFilter: 10,
         foregroundNotificationConfig: background
-            ? const ForegroundNotificationConfig(
+            ? ForegroundNotificationConfig(
                 notificationTitle: 'Tuijo',
-                notificationText: 'Stai condividendo la posizione',
+                notificationText: _l10nNoContext.locationSharingNotificationText,
                 enableWakeLock: true,
               )
             : null,

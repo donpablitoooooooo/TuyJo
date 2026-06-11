@@ -1,6 +1,8 @@
 import 'dart:convert';
 import 'dart:async';
+import 'dart:ui' as ui;
 import 'package:flutter/foundation.dart';
+import 'package:private_messaging/generated/l10n/app_localizations.dart';
 import 'package:http/http.dart' as http;
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_storage/firebase_storage.dart';
@@ -31,6 +33,17 @@ class ChatService extends ChangeNotifier {
   Timer? _typingTimer;
 
   ChatService(this._encryptionService, this._notificationService);
+
+  /// Localizzazioni senza BuildContext (per notifiche e placeholder dei
+  /// messaggi): usa la lingua di sistema, con fallback a inglese se non è
+  /// tra le 4 supportate.
+  AppLocalizations get _l10n {
+    final sysLocale = ui.PlatformDispatcher.instance.locale;
+    final supported = AppLocalizations.supportedLocales
+        .any((l) => l.languageCode == sysLocale.languageCode);
+    return lookupAppLocalizations(
+        supported ? ui.Locale(sysLocale.languageCode) : const ui.Locale('en'));
+  }
 
   // Setter per il device ID
   void setMyDeviceId(String deviceId) {
@@ -1725,7 +1738,7 @@ class ChatService extends ChangeNotifier {
   /// gestendo il parse JSON per messageType=todo / todo_completed.
   void _applyPlaintextToMessage(Message message, String? plaintext) {
     if (plaintext == null) {
-      message.decryptedContent = '[Messaggio non decifrabile]';
+      message.decryptedContent = _l10n.messageUndecryptable;
       message.messageType = 'text';
       return;
     }
@@ -1855,7 +1868,7 @@ class ChatService extends ChangeNotifier {
       }
     } catch (e) {
       if (kDebugMode) print('❌ Error decrypting/populating message: $e');
-      message.decryptedContent = '[Messaggio non decifrabile]';
+      message.decryptedContent = _l10n.messageUndecryptable;
       message.messageType = 'text';
     }
   }
@@ -1900,10 +1913,11 @@ class ChatService extends ChangeNotifier {
 
     // Verifica che sia nel futuro
     if (reminderTime.isAfter(DateTime.now())) {
+      final l10n = _l10n;
       _notificationService.scheduleNotification(
         id: todoMessage.id.hashCode,
-        title: '🔔 Nuovo To Do',
-        body: todoMessage.decryptedContent ?? 'Evento imminente',
+        title: l10n.todoReminderTitle,
+        body: todoMessage.decryptedContent ?? l10n.todoReminderFallbackBody,
         scheduledDate: reminderTime,
       );
 
@@ -1949,7 +1963,7 @@ class ChatService extends ChangeNotifier {
       // e non è decifrabile (era cifrato solo per il destinatario)
       if (iAmSender && finalEncryptedKey == null) {
         if (kDebugMode) print('⚠️ Old message sent by me - cannot decrypt (was only encrypted for recipient)');
-        return '[Vecchio messaggio non decifrabile]';
+        return _l10n.messageUndecryptableOld;
       }
 
       if (kDebugMode) {
@@ -1985,7 +1999,7 @@ class ChatService extends ChangeNotifier {
       return data['body'] ?? plaintext;
     } catch (e) {
       if (kDebugMode) print('❌ Decrypt error: $e');
-      return '[Messaggio non decifrabile]';
+      return _l10n.messageUndecryptable;
     }
   }
 

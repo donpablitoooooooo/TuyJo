@@ -301,5 +301,72 @@
     "chatDemoPairingRequired": "Pair with your partner to use this feature",
     "chatDemoNotABot": "I'm not an AI bot 🤖❌ Pair with your partner and you'll see their messages here — no registration needed, just exchange the QR code!",
     "chatDemoPartnerReply": "This is how your partner's messages will look!",
-    "chatDemoNotice": "This is a demo. Messages will be replaced after pairing."
+    "chatDemoNotice": "This is a demo. Messages will be replaced after pairing.",
+    "commonNext": "Next",
+    "calendarAddButton": "Add",
+    "calendarNoTodos": "No to-dos for this day",
+    "backupChoiceTitle": "Certificate backup",
+    "backupChoiceIntro": "The certificate is the key needed to decrypt your messages. The backup saves the certificate, not the messages: without it, nobody will be able to read your chats again.",
+    "backupChoiceCloudTitle": "Automatic cloud ({cloudName})",
+    "backupChoiceCloudSubtitle": "The certificate is saved in your {cloudName}. When you change phone (same account) you get everything back automatically.",
+    "backupChoiceManualTitle": "Manual",
+    "backupChoiceManualSubtitle": "You copy the certificate and keep it yourself, wherever you decide. No cloud: to restore, you paste it.",
+    "backupChoiceYourCertificate": "Your certificate",
+    "backupChoicePreparing": "Preparing the certificate…",
+    "backupChoiceCopyButton": "Copy the certificate",
+    "backupChoiceCopiedButton": "Copied!",
+    "backupChoiceManualNote": "Paste it wherever you decide: password manager, encrypted note, even on paper. Keep it safe: whoever has the certificate can decrypt your chats. To restore, you'll paste it into the app.",
+    "restoreTitle": "Restore",
+    "restoreIntro": "The certificate is the key that decrypts your messages: you need it to get back into your chat. I'll look for it on this phone and in the cloud; if it's not there, copy it from your backup and paste it here.",
+    "restoreCheckingTitle": "Checking for the certificate…",
+    "restoreCheckingSubtitle": "Looking for the certificate on this phone and in the cloud.",
+    "restoreFoundLocalTitle": "Certificate already on this phone",
+    "restoreFoundLocalSubtitle": "Found on this phone. Tap Next to continue.",
+    "restoreFoundCloudTitle": "Certificate recovered from the cloud",
+    "restoreFoundCloudSubtitle": "Recovered from the cloud backup. Tap Next to continue.",
+    "restorePastedTitle": "Certificate pasted",
+    "restorePastedSubtitle": "Read from the clipboard. Tap Next to continue.",
+    "restoreMissingTitle": "No certificate found",
+    "restoreMissingSubtitle": "It's not on this phone or in the cloud. Copy the certificate from your backup (e.g. password manager) and paste it here.",
+    "restorePasteButton": "Paste certificate",
+    "restoreWorkingButton": "One moment…",
+    "restoreClipboardEmpty": "The clipboard is empty: first copy the certificate from your backup",
+    "restoreClipboardError": "Could not read the clipboard: {error}",
+    "restoreFailed": "Restore failed: {error}",
+    "todoSheetTitle": "New to-do",
+    "todoSheetSave": "Save",
+    "todoSheetNameHint": "To-do name",
+    "todoSheetTitleRequired": "Enter a title",
+    "todoSheetAddAttachment": "Add attachment",
+    "todoSheetAttachments": "{count, plural, =1{1 attachment} other{{count} attachments}}",
+    "@todoSheetAttachments": {
+        "placeholders": {
+            "count": {
+                "type": "int"
+            }
+        }
+    },
+    "todoSheetStart": "Start",
+    "todoSheetEnd": "End",
+    "todoSheetSetEnd": "Set end",
+    "alert1WeekBefore": "1 week before",
+    "mediaLoadingArchive": "Loading full archive…",
+    "attachmentPreparing": "Preparing...",
+    "pdfPageOf": "Page {current} of {total}",
+    "@pdfPageOf": {
+        "placeholders": {
+            "current": {
+                "type": "int"
+            },
+            "total": {
+                "type": "int"
+            }
+        }
+    },
+    "todoReminderTitle": "🔔 New To Do",
+    "todoReminderFallbackBody": "Upcoming event",
+    "messageUndecryptable": "[Message cannot be decrypted]",
+    "messageUndecryptableOld": "[Old message cannot be decrypted]",
+    "locationSharingNotificationText": "You are sharing your location",
+    "todoDateNotSelected": "Date not selected"
 }

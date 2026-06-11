@@ -191,10 +191,11 @@ class _MediaScreenState extends State<MediaScreen> {
                     ),
                   ),
                   const SizedBox(width: 10),
-                  const Expanded(
+                  Expanded(
                     child: Text(
-                      'Carico archivio completo…',
-                      style: TextStyle(fontSize: 12, color: MediaColors.tealDark),
+                      l10n.mediaLoadingArchive,
+                      style: const TextStyle(
+                          fontSize: 12, color: MediaColors.tealDark),
                     ),
                   ),
                 ],

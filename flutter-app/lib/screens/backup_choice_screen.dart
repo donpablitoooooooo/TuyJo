@@ -3,6 +3,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:private_messaging/generated/l10n/app_localizations.dart';
 import '../services/backup_service.dart';
 
 /// Pagina "Backup del certificato": scelta di come custodire il certificato (la
@@ -93,6 +94,7 @@ class _BackupChoiceScreenState extends State<BackupChoiceScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     return PopScope(
       canPop: !widget.mandatory,
       child: Scaffold(
@@ -119,10 +121,10 @@ class _BackupChoiceScreenState extends State<BackupChoiceScreen> {
                         )
                       else
                         const SizedBox(width: 12),
-                      const Expanded(
+                      Expanded(
                         child: Text(
-                          'Backup del certificato',
-                          style: TextStyle(
+                          l10n.backupChoiceTitle,
+                          style: const TextStyle(
                             color: Colors.white,
                             fontSize: 22,
                             fontWeight: FontWeight.bold,
@@ -136,29 +138,24 @@ class _BackupChoiceScreenState extends State<BackupChoiceScreen> {
                   child: ListView(
                     padding: const EdgeInsets.all(16),
                     children: [
-                      const Text(
-                        'Il certificato è la chiave che serve a decifrare i '
-                        'messaggi. Il backup salva il certificato, non i '
-                        'messaggi: senza, nessuno potrà più leggere le chat.',
-                        style: TextStyle(color: Colors.white70, fontSize: 14),
+                      Text(
+                        l10n.backupChoiceIntro,
+                        style: const TextStyle(
+                            color: Colors.white70, fontSize: 14),
                       ),
                       const SizedBox(height: 16),
                       _option(
                         strategy: BackupStrategy.cloud,
                         icon: Icons.cloud_done,
-                        title: 'Cloud automatico ($_cloudName)',
-                        subtitle:
-                            'Il certificato si salva nel tuo $_cloudName. Cambiando '
-                            'telefono (stesso account) ritrovi tutto in automatico.',
+                        title: l10n.backupChoiceCloudTitle(_cloudName),
+                        subtitle: l10n.backupChoiceCloudSubtitle(_cloudName),
                         color: _teal,
                       ),
                       _option(
                         strategy: BackupStrategy.manual,
                         icon: Icons.vpn_key,
-                        title: 'Manuale',
-                        subtitle:
-                            'Copi il certificato e lo custodisci tu, dove '
-                            'decidi tu. Niente cloud: per ripristinare lo incolli.',
+                        title: l10n.backupChoiceManualTitle,
+                        subtitle: l10n.backupChoiceManualSubtitle,
                         color: _tealDark,
                         expanded: _manualExtra(),
                       ),
@@ -169,7 +166,7 @@ class _BackupChoiceScreenState extends State<BackupChoiceScreen> {
                   padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
                   child: _gradientButton(
                     icon: Icons.arrow_forward,
-                    label: 'Avanti',
+                    label: l10n.commonNext,
                     onTap: _canProceed ? _confirm : null,
                   ),
                 ),
@@ -320,17 +317,18 @@ class _BackupChoiceScreenState extends State<BackupChoiceScreen> {
   /// l'utente incolla il certificato dove vuole lui — gestore di password,
   /// nota cifrata, persino carta. Massimo controllo per chi ci tiene.
   Widget _manualExtra() {
+    final l10n = AppLocalizations.of(context)!;
     final cert = _certText;
     final preview = cert == null
-        ? 'Preparo il certificato…'
+        ? l10n.backupChoicePreparing
         : '${cert.substring(0, cert.length < 18 ? cert.length : 18)}…';
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         const Divider(height: 1),
         const SizedBox(height: 10),
-        const Text('Il tuo certificato',
-            style: TextStyle(fontSize: 12, color: Colors.grey)),
+        Text(l10n.backupChoiceYourCertificate,
+            style: const TextStyle(fontSize: 12, color: Colors.grey)),
         const SizedBox(height: 6),
         Container(
           width: double.infinity,
@@ -357,7 +355,9 @@ class _BackupChoiceScreenState extends State<BackupChoiceScreen> {
             Expanded(
               child: _gradientButton(
                 icon: _manualCopied ? Icons.check : Icons.copy,
-                label: _manualCopied ? 'Copiato!' : 'Copia il certificato',
+                label: _manualCopied
+                    ? l10n.backupChoiceCopiedButton
+                    : l10n.backupChoiceCopyButton,
                 onTap: cert == null ? null : _copyCertificate,
               ),
             ),
@@ -370,9 +370,7 @@ class _BackupChoiceScreenState extends State<BackupChoiceScreen> {
         ),
         const SizedBox(height: 8),
         Text(
-          'Incollalo dove decidi tu: gestore di password, nota cifrata, '
-          'persino su carta. Tienilo al sicuro: chi ha il certificato può '
-          'decifrare le vostre chat. Per ripristinare lo incollerai nell\'app.',
+          l10n.backupChoiceManualNote,
           style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
         ),
       ],

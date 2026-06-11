@@ -1564,6 +1564,9 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     Navigator.push(
       context,
       MaterialPageRoute(
+        // Lo snapshotting della zoom transition Android può lasciare la
+        // pagina renderizzata a metà su alcuni device: disattivalo
+        allowSnapshotting: false,
         builder: (context) => const LocationShareSetupPage(),
       ),
     );
@@ -1832,9 +1835,10 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
         bottom: false,
         child: Column(
           children: [
-            // Header: X (chiudi, sx) + "+" (aggiungi todo, dx)
+            // Header: X (chiudi, sx) + chip "+ Aggiungi" (todo, dx) stile
+            // Calendario Apple (pillola semitrasparente con icona e label)
             Padding(
-              padding: const EdgeInsets.only(left: 8, top: 4, right: 8),
+              padding: const EdgeInsets.only(left: 8, top: 4, right: 12),
               child: Row(
                 children: [
                   IconButton(
@@ -1842,9 +1846,32 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                     onPressed: _calOverlayClose,
                   ),
                   const Spacer(),
-                  IconButton(
-                    icon: const Icon(Icons.add, color: Colors.white, size: 28),
-                    onPressed: _calOverlayAddTodo,
+                  Material(
+                    color: Colors.white.withValues(alpha: 0.18),
+                    borderRadius: BorderRadius.circular(20),
+                    child: InkWell(
+                      borderRadius: BorderRadius.circular(20),
+                      onTap: _calOverlayAddTodo,
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 14, vertical: 8),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(Icons.add, color: Colors.white, size: 20),
+                            const SizedBox(width: 6),
+                            Text(
+                              AppLocalizations.of(context)!.calendarAddButton,
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 15,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
                   ),
                 ],
               ),
@@ -1959,13 +1986,13 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     final todos = _getTodosForDayInCalendar(day);
 
     return todos.isEmpty
-          ? const Center(
+          ? Center(
               child: Padding(
-                padding: EdgeInsets.all(24),
+                padding: const EdgeInsets.all(24),
                 child: Text(
-                  'Nessun todo per questo giorno',
+                  AppLocalizations.of(context)!.calendarNoTodos,
                   textAlign: TextAlign.center,
-                  style: TextStyle(color: Colors.grey),
+                  style: const TextStyle(color: Colors.grey),
                 ),
               ),
             )
@@ -2847,7 +2874,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                               );
                             } else {
                               // Messaggio normale
-                              final decryptedContent = message.decryptedContent ?? '[Messaggio non decifrabile]';
+                              final decryptedContent = message.decryptedContent ?? l10n.messageUndecryptable;
 
                               messageWidget = _MessageBubble(
                                 key: ValueKey(message.id), // Key stabile basata solo sull'ID
@@ -2885,9 +2912,14 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                           },
                         ),
           ),
-          // 💬 Indicatore "Sta scrivendo..." (nascosto in vista calendario)
+          // 💬 Indicatore "Sta scrivendo..." (nascosto in vista calendario).
+          // Le ValueKey su indicatore e barra di input sono ESSENZIALI: senza,
+          // quando l'indicatore appare/scompare Flutter ricicla per posizione
+          // il Container della barra di input trasformandolo nell'indicatore,
+          // il TextField viene ricreato e la tastiera del partner si chiude.
           if (!_calOverlayOpen && chatService.partnerIsTyping)
             Container(
+              key: const ValueKey('typing_indicator'),
               padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
               child: Row(
                 children: [
@@ -2914,6 +2946,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
           // Barra di input: nascosta quando la vista calendario è aperta
           if (!_calOverlayOpen)
             Container(
+            key: const ValueKey('chat_input_bar'),
             padding: EdgeInsets.fromLTRB(
               8,
               12,
@@ -3491,7 +3524,7 @@ class _TodoDatePreview extends StatelessWidget {
     } else if (date != null) {
       dateText = _formatDate(context, date!);
     } else {
-      dateText = 'Data non selezionata';
+      dateText = AppLocalizations.of(context)!.todoDateNotSelected;
     }
 
     return Container(
@@ -3770,6 +3803,7 @@ class _MessageBubble extends StatelessWidget {
             Navigator.push(
               context,
               MaterialPageRoute(
+                allowSnapshotting: false,
                 builder: (context) => LocationSharingScreen(
                   expectedSessionId: sessionId,
                   isSender: isMe,

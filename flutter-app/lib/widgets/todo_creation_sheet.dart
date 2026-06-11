@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:private_messaging/generated/l10n/app_localizations.dart';
 
 /// Scheda di creazione todo in stile Apple (campi essenziali del nostro model).
 ///
@@ -34,13 +35,14 @@ class _TodoCreationSheetState extends State<TodoCreationSheet> {
   late DateTime _end;
   int? _alertHours = 2;
 
-  static const List<(String, int?)> _alertOptions = [
-    ('Nessuno', null),
-    ('1 ora', 1),
-    ('2 ore', 2),
-    ('1 giorno', 24),
-    ('1 settimana', 168),
-  ];
+  /// Opzioni alert: etichetta localizzata → ore prima dell'evento
+  List<(String, int?)> _alertOptions(AppLocalizations l10n) => [
+        (l10n.alertNone, null),
+        (l10n.alert1HourBefore, 1),
+        (l10n.alert2HoursBefore, 2),
+        (l10n.alert1DayBefore, 24),
+        (l10n.alert1WeekBefore, 168),
+      ];
 
   @override
   void initState() {
@@ -57,8 +59,10 @@ class _TodoCreationSheetState extends State<TodoCreationSheet> {
     super.dispose();
   }
 
-  String _fmtDate(DateTime d) =>
-      DateFormat('EEE d MMM yyyy', 'it').format(d);
+  String _fmtDate(DateTime d) => DateFormat(
+        'EEE d MMM yyyy',
+        Localizations.localeOf(context).toString(),
+      ).format(d);
   String _fmtTime(DateTime d) => DateFormat('HH:mm').format(d);
 
   Future<void> _pickDate({required bool isEnd}) async {
@@ -104,7 +108,8 @@ class _TodoCreationSheetState extends State<TodoCreationSheet> {
     final title = _titleController.text.trim();
     if (title.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Inserisci un titolo')),
+        SnackBar(
+            content: Text(AppLocalizations.of(context)!.todoSheetTitleRequired)),
       );
       return;
     }
@@ -118,6 +123,7 @@ class _TodoCreationSheetState extends State<TodoCreationSheet> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     return Padding(
       padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
       child: Container(
@@ -139,8 +145,8 @@ class _TodoCreationSheetState extends State<TodoCreationSheet> {
                         child: TextField(
                           controller: _titleController,
                           autofocus: widget.initialTitle.isEmpty,
-                          decoration: const InputDecoration(
-                            hintText: 'Nome todo',
+                          decoration: InputDecoration(
+                            hintText: l10n.todoSheetNameHint,
                             border: InputBorder.none,
                           ),
                           style: const TextStyle(fontSize: 18),
@@ -149,7 +155,7 @@ class _TodoCreationSheetState extends State<TodoCreationSheet> {
                       if (widget.onAddAttachments != null)
                         IconButton(
                           icon: const Icon(Icons.add_circle_outline, color: _teal),
-                          tooltip: 'Aggiungi allegato',
+                          tooltip: l10n.todoSheetAddAttachment,
                           onPressed: widget.onAddAttachments,
                         ),
                     ],
@@ -166,7 +172,7 @@ class _TodoCreationSheetState extends State<TodoCreationSheet> {
                               const Icon(Icons.attach_file, size: 18, color: Colors.grey),
                               const SizedBox(width: 8),
                               Text(
-                                count == 1 ? '1 allegato' : '$count allegati',
+                                l10n.todoSheetAttachments(count),
                                 style: const TextStyle(color: Colors.black54),
                               ),
                             ],
@@ -176,32 +182,32 @@ class _TodoCreationSheetState extends State<TodoCreationSheet> {
                     ),
                 ]),
                 _buildCard([
-                  _buildDateTimeRow('Inizio', _start, isEnd: false),
+                  _buildDateTimeRow(l10n.todoSheetStart, _start, isEnd: false),
                   const Divider(height: 1),
                   SwitchListTile(
                     contentPadding: EdgeInsets.zero,
                     activeColor: _teal,
-                    title: const Text('Imposta fine'),
+                    title: Text(l10n.todoSheetSetEnd),
                     value: _hasEnd,
                     onChanged: (v) => setState(() => _hasEnd = v),
                   ),
                   if (_hasEnd) ...[
                     const Divider(height: 1),
-                    _buildDateTimeRow('Fine', _end, isEnd: true),
+                    _buildDateTimeRow(l10n.todoSheetEnd, _end, isEnd: true),
                   ],
                 ]),
                 _buildCard([
-                  const Padding(
-                    padding: EdgeInsets.only(bottom: 8),
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 8),
                     child: Align(
                       alignment: Alignment.centerLeft,
-                      child: Text('Avviso',
-                          style: TextStyle(fontWeight: FontWeight.w600)),
+                      child: Text(l10n.reminderLabel,
+                          style: const TextStyle(fontWeight: FontWeight.w600)),
                     ),
                   ),
                   Wrap(
                     spacing: 8,
-                    children: _alertOptions.map((opt) {
+                    children: _alertOptions(l10n).map((opt) {
                       final selected = _alertHours == opt.$2;
                       return ChoiceChip(
                         label: Text(opt.$1),
@@ -222,22 +228,23 @@ class _TodoCreationSheetState extends State<TodoCreationSheet> {
   }
 
   Widget _buildHeader() {
+    final l10n = AppLocalizations.of(context)!;
     return Padding(
       padding: const EdgeInsets.fromLTRB(8, 8, 8, 4),
       child: Row(
         children: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('Annulla', style: TextStyle(color: Colors.grey)),
+            child: Text(l10n.cancel, style: const TextStyle(color: Colors.grey)),
           ),
           const Spacer(),
-          const Text('Nuovo todo',
-              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+          Text(l10n.todoSheetTitle,
+              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
           const Spacer(),
           TextButton(
             onPressed: _save,
-            child: const Text('Salva',
-                style: TextStyle(color: _teal, fontWeight: FontWeight.bold)),
+            child: Text(l10n.todoSheetSave,
+                style: const TextStyle(color: _teal, fontWeight: FontWeight.bold)),
           ),
         ],
       ),

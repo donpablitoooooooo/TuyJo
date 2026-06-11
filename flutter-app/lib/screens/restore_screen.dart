@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:private_messaging/generated/l10n/app_localizations.dart';
 import 'package:provider/provider.dart';
 
 import '../services/backup_service.dart';
@@ -71,13 +72,15 @@ class _RestoreScreenState extends State<RestoreScreen> {
       final data = await Clipboard.getData(Clipboard.kTextPlain);
       raw = data?.text?.trim();
     } catch (e) {
-      _showError('Errore nel leggere gli appunti: $e');
+      if (!mounted) return;
+      _showError(AppLocalizations.of(context)!
+          .restoreClipboardError(e.toString()));
       return;
     }
 
     if (raw == null || raw.isEmpty) {
-      _showError(
-          'Negli appunti non c\'è nulla: copia prima il certificato dal tuo backup');
+      if (!mounted) return;
+      _showError(AppLocalizations.of(context)!.restoreClipboardEmpty);
       return;
     }
 
@@ -146,7 +149,10 @@ class _RestoreScreenState extends State<RestoreScreen> {
         );
       }
     } catch (e) {
-      _showError('Ripristino non riuscito: $e');
+      if (mounted) {
+        _showError(
+            AppLocalizations.of(context)!.restoreFailed(e.toString()));
+      }
     } finally {
       if (mounted) setState(() => _working = false);
     }
@@ -166,6 +172,7 @@ class _RestoreScreenState extends State<RestoreScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     return Scaffold(
       backgroundColor: _tealDark,
       body: Container(
@@ -187,10 +194,10 @@ class _RestoreScreenState extends State<RestoreScreen> {
                       icon: const Icon(Icons.close, color: Colors.white),
                       onPressed: () => Navigator.pop(context),
                     ),
-                    const Expanded(
+                    Expanded(
                       child: Text(
-                        'Ripristino',
-                        style: TextStyle(
+                        l10n.restoreTitle,
+                        style: const TextStyle(
                           color: Colors.white,
                           fontSize: 22,
                           fontWeight: FontWeight.bold,
@@ -204,12 +211,10 @@ class _RestoreScreenState extends State<RestoreScreen> {
                 child: ListView(
                   padding: const EdgeInsets.all(16),
                   children: [
-                    const Text(
-                      'Il certificato è la chiave che decifra i messaggi: '
-                      'serve per tornare nella tua chat. Lo cerco sul '
-                      'telefono e nel cloud; se non c\'è, copialo dal tuo '
-                      'backup e incollalo qui.',
-                      style: TextStyle(color: Colors.white70, fontSize: 14),
+                    Text(
+                      l10n.restoreIntro,
+                      style: const TextStyle(
+                          color: Colors.white70, fontSize: 14),
                     ),
                     const SizedBox(height: 16),
                     _statusCard(),
@@ -217,7 +222,7 @@ class _RestoreScreenState extends State<RestoreScreen> {
                       const SizedBox(height: 12),
                       _gradientButton(
                         icon: Icons.content_paste,
-                        label: 'Incolla certificato',
+                        label: l10n.restorePasteButton,
                         onTap: _pasteCertificate,
                       ),
                     ],
@@ -228,7 +233,8 @@ class _RestoreScreenState extends State<RestoreScreen> {
                 padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
                 child: _gradientButton(
                   icon: Icons.arrow_forward,
-                  label: _working ? 'Un attimo…' : 'Avanti',
+                  label:
+                      _working ? l10n.restoreWorkingButton : l10n.commonNext,
                   onTap: (_certificateReady && !_working) ? _proceed : null,
                 ),
               ),
@@ -241,28 +247,27 @@ class _RestoreScreenState extends State<RestoreScreen> {
 
   // ── Card con lo stato della ricerca del certificato ──────────────────────
   Widget _statusCard() {
+    final l10n = AppLocalizations.of(context)!;
     IconData icon = Icons.search;
-    String title = 'Controllo del certificato…';
-    String subtitle = 'Cerco il certificato sul telefono e nel cloud.';
+    String title = l10n.restoreCheckingTitle;
+    String subtitle = l10n.restoreCheckingSubtitle;
 
     if (_source == _CertSource.local) {
       icon = Icons.smartphone;
-      title = 'Certificato già presente';
-      subtitle = 'Trovato su questo telefono. Tocca Avanti per continuare.';
+      title = l10n.restoreFoundLocalTitle;
+      subtitle = l10n.restoreFoundLocalSubtitle;
     } else if (_source == _CertSource.cloud) {
       icon = Icons.cloud_done;
-      title = 'Certificato recuperato dal cloud';
-      subtitle = 'Recuperato dal backup cloud. Tocca Avanti per continuare.';
+      title = l10n.restoreFoundCloudTitle;
+      subtitle = l10n.restoreFoundCloudSubtitle;
     } else if (_source == _CertSource.pasted) {
       icon = Icons.content_paste;
-      title = 'Certificato incollato';
-      subtitle = 'Letto dagli appunti. Tocca Avanti per continuare.';
+      title = l10n.restorePastedTitle;
+      subtitle = l10n.restorePastedSubtitle;
     } else if (_source == _CertSource.missing) {
       icon = Icons.key_off;
-      title = 'Nessun certificato trovato';
-      subtitle =
-          'Non è su questo telefono né nel cloud. Copia il certificato dal '
-          'tuo backup (es. gestore di password) e incollalo qui.';
+      title = l10n.restoreMissingTitle;
+      subtitle = l10n.restoreMissingSubtitle;
     }
 
     return Container(
