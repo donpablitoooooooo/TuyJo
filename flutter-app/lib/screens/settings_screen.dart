@@ -116,13 +116,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   /// Elimina il pairing con 3 modalità:
-  /// - 'all': elimina pairing + messaggi da entrambi i telefoni E dal server (irreversibile)
+  /// - 'all': elimina pairing + messaggi da entrambi i telefoni E dal server
+  ///   (irreversibile); entrambi tornano alla schermata di pairing
   /// - 'mine': elimina i messaggi solo da QUESTO telefono; il server non viene
-  ///   toccato, quindi dopo un nuovo pairing la chat si ripristina
+  ///   toccato; entrambi tornano alla schermata di pairing e dopo un nuovo
+  ///   pairing la chat si ripristina dal server
   /// - 'partner': elimina i messaggi solo dal telefono del PARTNER (via flag
-  ///   delete_cache_requested); il server non viene toccato
-  /// In tutti i casi entrambi i telefoni tornano alla schermata di pairing:
-  /// per 'mine' e 'partner' serve rifare il pairing per ripristinare la chat.
+  ///   delete_cache_requested); il server non viene toccato e QUESTO telefono
+  ///   resta paired e continua a vedere la chat; il partner dovrà rifare il
+  ///   pairing con me per rientrare (la chat gli si ripristinerà dal server)
   Future<void> _deletePairing({required String mode}) async {
     setState(() => _isLoading = true);
     try {
@@ -168,7 +170,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
         }
       } else if (mode == 'partner') {
         // OPZIONE 3: Elimina i messaggi solo dal telefono del PARTNER.
-        // Il server NON viene toccato: la chat si ripristina dopo un nuovo pairing.
+        // Il server NON viene toccato e IO resto paired: continuo a vedere la
+        // chat. Il partner verrà spaiato dal suo telefono quando processa il
+        // flag; per rientrare dovrà rifare il pairing con me.
         if (chatId != null && myUserId != null) {
           // Scrivi flag in Firestore: il listener del partner lo processa e
           // pulisce la sua cache. set+merge invece di update così non fallisce
@@ -186,16 +190,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
             }, SetOptions(merge: true));
           }
         }
-
-        // Unpair locale. NON chiamare chatService.clearMessages(): i messaggi
-        // restano in cache su questo telefono (e sul server) e torneranno
-        // visibili dopo il prossimo pairing.
-        await pairingService.clearPairing();
-        chatService.stopListening();
+        // Niente unpair/stopListening/clearMessages: questo telefono resta in chat
       }
 
-      // Sempre: rimuovi token FCM
-      if (chatId != null && myUserId != null && mounted) {
+      // Rimuovi token FCM (elimina il MIO documento utente, quindi NON in
+      // modalità 'partner': lì resto paired e il documento deve sopravvivere)
+      if (mode != 'partner' && chatId != null && myUserId != null && mounted) {
         await notificationService.deleteTokenFromFirestore(chatId, myUserId);
       }
 

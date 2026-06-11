@@ -416,17 +416,23 @@ class PairingService extends ChangeNotifier {
           onPartnerDeletedAll!(chatId);
         }
 
-        // Elimina il mio documento (flag compreso): la famiglia resta pulita
-        // per il prossimo pairing
+        // NON eliminare il mio documento: il partner (chi ha inviato la
+        // richiesta) deve restare paired e continuare a vedere la chat.
+        // Rimuovi solo il flag e il token FCM (questo telefono non deve più
+        // ricevere notifiche per una chat che non ha più).
         try {
           await _firestore
               .collection('families')
               .doc(chatId)
               .collection('users')
               .doc(myUserId)
-              .delete();
+              .update({
+            'delete_cache_requested': FieldValue.delete(),
+            'delete_cache_requested_at': FieldValue.delete(),
+            'fcm_token': FieldValue.delete(),
+          });
         } catch (e) {
-          if (kDebugMode) print('⚠️ [PAIRING] Error removing my document: $e');
+          if (kDebugMode) print('⚠️ [PAIRING] Error cleaning my document: $e');
         }
 
         if (kDebugMode) print('✅ [PAIRING] Cache deletion completed (triggered by partner)');
