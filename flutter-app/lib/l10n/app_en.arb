@@ -240,6 +240,7 @@
     "tomorrowAt": "Tomorrow {time}",
     "alertOneHourBefore": "Alert: 1h before",
     "alertTwoDaysBefore": "Alert: 2 days before",
+    "alertOneWeekBefore": "Alert: 1 week before",
     "alertOneDayBefore": "Alert: 1 day before",
     "alertHoursBefore": "Alert: {hours}h before",
     "alertShortHours": "{hours}h",

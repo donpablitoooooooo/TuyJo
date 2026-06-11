@@ -240,6 +240,7 @@
     "tomorrowAt": "Demà {time}",
     "alertOneHourBefore": "Alerta: 1h abans",
     "alertTwoDaysBefore": "Alerta: 2 dies abans",
+    "alertOneWeekBefore": "Alerta: 1 setmana abans",
     "alertOneDayBefore": "Alerta: 1 dia abans",
     "alertHoursBefore": "Alerta: {hours}h abans",
     "alertShortHours": "{hours}h",

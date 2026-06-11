@@ -239,6 +239,7 @@
     "tomorrowAt": "Domani {time}",
     "alertOneHourBefore": "Alert: 1h prima",
     "alertTwoDaysBefore": "Alert: 2 giorni prima",
+    "alertOneWeekBefore": "Alert: 1 settimana prima",
     "alertOneDayBefore": "Alert: 1 giorno prima",
     "alertHoursBefore": "Alert: {hours}h prima",
     "alertShortHours": "{hours}h",
