@@ -237,7 +237,8 @@ class PairingService extends ChangeNotifier {
       // Continua comunque con il reset locale
     }
 
-    // Poi elimina i dati locali
+    // Poi elimina i dati locali e ferma il listener della famiglia
+    stopListeningToPairingStatus();
     await _storage.delete(key: 'partner_public_key');
 
     _isPaired = false;
@@ -385,6 +386,16 @@ class PairingService extends ChangeNotifier {
 
     if (kDebugMode) print('🎧 Background unpair listener (state-based) started for chat: ${chatId.substring(0, 10)}...');
 
+    // IDEMPOTENTE: cancella un'eventuale subscription precedente PRIMA di
+    // crearne una nuova. Senza questo, ogni chiamata (initialize, chat screen,
+    // restore, import QR) aggiungeva un listener "zombie" mai cancellato:
+    // stopListeningToPairingStatus() cancella solo l'ultimo assegnato. Gli
+    // zombie continuavano a processare snapshot dopo l'unpair locale e,
+    // vedendo _partnerPublicKey == null con la famiglia ancora completa,
+    // facevano scattare la pulizia "famiglia corrotta" che eliminava i
+    // documenti di ENTRAMBI i telefoni (unpair indesiderato del partner).
+    _pairingStatusSubscription?.cancel();
+
     // STATE-BASED: Ascolta la collezione /users invece di pairing_status
     _pairingStatusSubscription = _firestore
         .collection('families')
@@ -403,11 +414,21 @@ class PairingService extends ChangeNotifier {
         print('   Current _isPaired: $_isPaired');
       }
 
+      // GUARDIA: se questo dispositivo si è già spaiato localmente, non deve
+      // più gestire lo stato della famiglia. Senza questa uscita, uno snapshot
+      // consegnato dopo l'unpair locale (subscription in coda o zombie)
+      // valuterebbe il check "famiglia corrotta" con _partnerPublicKey == null
+      // e distruggerebbe i documenti di entrambi i telefoni.
+      if (_partnerPublicKey == null) {
+        if (kDebugMode) print('🔇 [PAIRING] Locally unpaired, ignoring family snapshot');
+        stopListeningToPairingStatus();
+        return;
+      }
+
       // PRIORITÀ 1: il partner ha richiesto la pulizia dei messaggi su QUESTO
       // telefono ("Elimina Messaggi del Partner"). Va controllato PRIMA di
-      // qualsiasi logica su userCount: chi invia la richiesta elimina subito
-      // dopo il proprio documento, quindi lo snapshot può arrivare già con un
-      // solo utente (il vecchio check dentro userCount >= 2 veniva saltato).
+      // qualsiasi logica su userCount: chi invia la richiesta potrebbe non
+      // essere più presente nello snapshot.
       final myDocsForFlag =
           snapshot.docs.where((doc) => doc.id == myUserId).toList();
       final deleteCacheRequested = myDocsForFlag.isNotEmpty &&
@@ -416,14 +437,15 @@ class PairingService extends ChangeNotifier {
       if (deleteCacheRequested) {
         if (kDebugMode) print('🗑️ [PAIRING] Partner requested cache deletion, cleaning up...');
 
-        // Unpair locale PRIMA delle scritture remote, così la pulizia non
-        // resta bloccata se il dispositivo è offline
-        await _storage.delete(key: 'partner_public_key');
+        // Teardown SINCRONO per primo: ferma il listener e azzera lo stato
+        // locale, così eventuali snapshot già in coda vengono scartati dalla
+        // guardia qui sopra invece di ri-processare il flag
+        stopListeningToPairingStatus();
         _isPaired = false;
         _partnerPublicKey = null;
         _familyWasComplete = false;
         _initCompleter = null; // Permetti re-inizializzazione al prossimo pairing
-        stopListeningToPairingStatus();
+        await _storage.delete(key: 'partner_public_key');
         notifyListeners();
 
         // Pulisci la cache locale (messaggi + foto). I messaggi sul SERVER
