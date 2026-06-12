@@ -50,9 +50,8 @@ class _LocationShareSetupPageState extends State<LocationShareSetupPage>
     // Aspetta la fine della transizione, poi parti.
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       final route = ModalRoute.of(context);
-      if (route is TransitionRoute &&
-          route.animation != null &&
-          !route.animation!.isCompleted) {
+      final animation = route?.animation;
+      if (route != null && animation != null && !animation.isCompleted) {
         await Future.delayed(
             route.transitionDuration + const Duration(milliseconds: 50));
       }
