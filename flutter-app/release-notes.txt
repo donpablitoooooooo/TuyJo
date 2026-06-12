@@ -1,24 +1,16 @@
-TuyJo v1.33.0
+TuyJo v1.34.0
 
 NOVITÀ:
-🗓️ Nuovo calendario per i promemoria: ora si apre come pannello integrato nella chat e non copre più la barra di scrittura — puoi scrivere il testo mentre scegli il giorno
-⌨️ Si adatta alla tastiera: si nasconde quando scrivi e riappare quando hai finito
-✅ Imposti data, ora e avviso e invii in un solo tocco
-🔔 Avviso predefinito 2 ore prima per i nuovi promemoria, con riepilogo sempre visibile e modificabile al volo
-
-PRESTAZIONI:
-⚡ Invio foto fino a 3-5x più veloce con pipeline di upload parallela
-🔐 Nuovo backend di crittografia nativa (AES-GCM): cifratura e decifratura molto più rapide
-🧵 Operazioni crittografiche pesanti spostate fuori dal thread principale: interfaccia sempre fluida stile WhatsApp
-📜 Apertura chat istantanea: carichiamo gli ultimi messaggi e aggiungiamo i più vecchi solo quando scorri verso l'alto
-🖼️ Sezione Media più completa: foto, link e documenti dell'intero archivio visibili appena apri la galleria
+🔐 Backup del certificato: scegli tu come custodirlo — cloud automatico (Google/iCloud) per ritrovare tutto quando cambi telefono, oppure manuale con copia negli appunti (niente cloud, massimo controllo)
+♻️ Nuova pagina Ripristino: trova il certificato da sola (sul telefono o nel cloud) e ti riporta in chat senza rifare il QR
+🗑️ Elimina Messaggi ripensato: svuota solo questo telefono, solo quello del partner o tutto (anche dal server). Chi resta non perde nulla, e i wipe selettivi si recuperano rifacendo il pairing
+📅 Calendario: nuovo bottone "Aggiungi" e avvisi fino a 1 settimana prima (1h, 2h, 8h, 1 giorno, 2 giorni, 1 settimana)
+🌍 Traduzioni complete in italiano, inglese, spagnolo e catalano
 
 CORREZIONI:
-🗄️ Risolto un problema che, dopo l'aggiornamento da una versione precedente, poteva impedire di vedere più di 100 messaggi e parte dei file nella galleria
-🐛 Risolto avvio lento dell'app
-📄 Risolto problema con i PDF condivisi trattati come link
-🖼️ Risolto lampeggio della bolla foto durante l'invio
-📥 Le foto inviate non vengono più riscaricate inutilmente
+⌨️ La tastiera non si chiude più mentre il partner sta scrivendo
+📍 Risolta la condivisione posizione che si apriva a metà schermo
+🔕 Il telefono svuotato non riceve più le notifiche della vecchia chat
 
 NOTE:
 📱 Compatibilità: Android 6.0+ e iOS 15.0+
