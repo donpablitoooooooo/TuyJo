@@ -4,10 +4,12 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
+import 'package:permission_handler/permission_handler.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:private_messaging/generated/l10n/app_localizations.dart';
 import '../services/pairing_service.dart';
 import '../services/encryption_service.dart';
+import '../widgets/permission_denied_dialog.dart';
 
 /// Wizard di pairing con checklist a 2 step
 /// Step 1: Mostra il tuo QR
@@ -196,6 +198,30 @@ class _PairingWizardScreenState extends State<PairingWizardScreen> {
     }
   }
 
+  /// La fotocamera è un permesso BLOCCANTE per il pairing: senza non si può
+  /// inquadrare il QR del partner, quindi non ci si può accoppiare e l'app
+  /// resta inutilizzabile. Per questo l'avviso compare OGNI volta (nessun
+  /// opt-out): chiediamo il permesso e, se negato, spieghiamo perché serve con
+  /// accesso diretto alle Impostazioni, invece di aprire uno scanner a schermo
+  /// nero senza spiegazioni.
+  Future<void> _openScannerOrExplain() async {
+    final status = await Permission.camera.request();
+    if (!mounted) return;
+    if (status.isGranted || status.isLimited) {
+      setState(() {
+        _showScanner = true;
+      });
+      return;
+    }
+    final l10n = AppLocalizations.of(context)!;
+    await showPermissionDeniedDialog(
+      context: context,
+      title: l10n.permissionCameraDeniedTitle,
+      message: l10n.permissionCameraPairingMessage,
+      isPermanentlyDenied: true,
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     if (_showScanner) {
@@ -369,11 +395,7 @@ class _PairingWizardScreenState extends State<PairingWizardScreen> {
                                         color: Colors.transparent,
                                         child: InkWell(
                                           borderRadius: BorderRadius.circular(12),
-                                          onTap: () {
-                                            setState(() {
-                                              _showScanner = true;
-                                            });
-                                          },
+                                          onTap: _openScannerOrExplain,
                                           child: Container(
                                             padding: const EdgeInsets.symmetric(vertical: 16),
                                             child: Row(

@@ -73,27 +73,3 @@ Future<void> showPermissionDeniedDialog({
     },
   );
 }
-
-/// Mostra un SnackBar per permesso negato (per feedback meno invasivo).
-void showPermissionDeniedSnackBar({
-  required BuildContext context,
-  required String message,
-  bool showSettingsAction = false,
-}) {
-  final l10n = AppLocalizations.of(context)!;
-
-  ScaffoldMessenger.of(context).showSnackBar(
-    SnackBar(
-      content: Text(message),
-      duration: const Duration(seconds: 5),
-      backgroundColor: Colors.red[700],
-      action: showSettingsAction
-          ? SnackBarAction(
-              label: l10n.permissionOpenSettings,
-              textColor: Colors.white,
-              onPressed: () => openAppSettings(),
-            )
-          : null,
-    ),
-  );
-}
