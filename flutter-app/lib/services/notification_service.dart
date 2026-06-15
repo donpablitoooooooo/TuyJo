@@ -8,6 +8,8 @@ import 'package:flutter_callkit_incoming/entities/call_kit_params.dart';
 import 'package:flutter_callkit_incoming/entities/android_params.dart';
 import 'package:flutter_callkit_incoming/entities/ios_params.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:permission_handler/permission_handler.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:timezone/data/latest_all.dart' as tz;
 import 'package:timezone/timezone.dart' as tz;
 import 'dart:ui' as ui;
@@ -291,14 +293,30 @@ class NotificationService {
     }
   }
 
-  /// Richiedi permessi necessari per CallKit (Android 14+ full screen intent)
+  /// Richiedi permessi necessari per CallKit (notifiche + Android 14+ full
+  /// screen intent).
+  ///
+  /// Le notifiche sono un permesso "degradante": l'app funziona anche senza.
+  /// NON usiamo più FlutterCallkitIncoming.requestNotificationPermission, che a
+  /// ogni avvio mostra un dialog coercivo ("Notification permission is
+  /// required... go to settings") quando il permesso è negato. Chiediamo invece
+  /// il permesso col prompt di SISTEMA (permission_handler), una sola volta: se
+  /// è già concesso o negato in modo permanente non compare nulla. Il promemoria
+  /// gentile + opt-out è gestito dal MaterialBanner. Se l'utente ha fatto
+  /// opt-out, non chiediamo nulla.
   Future<void> _requestCallKitPermissions() async {
     try {
-      // Android 13+: permesso notifiche (necessario per mostrare la UI di chiamata)
-      await FlutterCallkitIncoming.requestNotificationPermission({
-        "rationaleMessagePermission": "Per ricevere le chiamate in arrivo è necessario il permesso notifiche.",
-        "postNotificationMessage": "Per ricevere le chiamate in arrivo, abilita le notifiche nelle impostazioni.",
-      });
+      final prefs = await SharedPreferences.getInstance();
+      final optedOut = prefs.getBool('notifications_opt_out') ?? false;
+      if (optedOut) return;
+
+      // Android 13+: permesso notifiche (serve anche per la UI di chiamata).
+      // Lo chiediamo col prompt di sistema solo se è ancora richiedibile; se è
+      // già negato in modo permanente NON mostriamo alcun dialog coercivo.
+      final notifStatus = await Permission.notification.status;
+      if (notifStatus.isDenied) {
+        await Permission.notification.request();
+      }
 
       // Android 14+: permesso full screen intent (schermata chiamata a schermo intero)
       final canFullScreen = await FlutterCallkitIncoming.canUseFullScreenIntent();
