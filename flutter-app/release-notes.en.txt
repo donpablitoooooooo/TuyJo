@@ -1,16 +1,12 @@
-TuyJo v1.34.0
+TuyJo v1.35.0
 
 NEW:
-🔐 Certificate backup: you choose how to keep it — automatic cloud (Google/iCloud) to get everything back when you change phone, or manual with copy to clipboard (no cloud, full control)
-♻️ New Restore page: it finds the certificate by itself (on the phone or in the cloud) and brings you back into your chat without re-scanning the QR
-🗑️ Delete Messages redesigned: wipe only this phone, only your partner's phone, or everything (server included). Whoever stays loses nothing, and selective wipes are recovered by pairing again
-📅 Calendar: new "Add" button and alerts up to 1 week before (1h, 2h, 8h, 1 day, 2 days, 1 week)
-🌍 Complete translations in Italian, English, Spanish and Catalan
+🔔 Notifications are now optional: the app works without them too. No more nagging prompt on every launch
+🙅 If you don't want them, choose "I don't want notifications" once and we won't ask again
+📷 Clearer pairing: if the camera permission is missing we explain why it's needed, with a shortcut to settings (no more black screen)
 
 BUG FIXES:
-⌨️ The keyboard no longer closes while your partner is typing
-📍 Fixed location sharing opening at half screen
-🔕 A wiped phone no longer receives notifications for the old chat
+🔕 Removed the "notification permission required" message that kept reappearing on every launch
 
 NOTES:
 📱 Compatibility: Android 6.0+ and iOS 15.0+
