@@ -2,6 +2,17 @@
 
 Tutte le modifiche notevoli a questo progetto saranno documentate in questo file.
 
+## [1.35.0] - 2026-06-15
+
+### 🔔 Notifiche e permessi (le notifiche non sono più obbligatorie)
+- **Le notifiche sono ora opzionali**: l'app funziona anche senza (i messaggi arrivano quando l'app è aperta). Niente più messaggio coercivo "le notifiche sono richieste" a ogni avvio.
+- Se le notifiche sono disattivate compare un avviso **gentile e ignorabile** con "Apri impostazioni" e "Non voglio le notifiche": scelto una volta, non riappare più (opt-out persistente).
+- Rimosso il dialog di sistema "Notification permission is required" che il modulo chiamate (CallKit) riproponeva a ogni avvio.
+- Testi dei permessi ammorbiditi in it/en/es/ca: da "necessarie" a "consigliate".
+
+### 📷 Pairing più chiaro
+- Se manca il permesso fotocamera, lo scanner del QR mostra una **spiegazione chiara** ("serve per inquadrare il QR del partner") con accesso diretto alle impostazioni, invece di una schermata nera senza indicazioni.
+
 ## [1.34.0] - 2026-06-12
 
 ### 🔐 Backup del certificato

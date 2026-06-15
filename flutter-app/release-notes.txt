@@ -1,16 +1,12 @@
-TuyJo v1.34.0
+TuyJo v1.35.0
 
 NOVITÀ:
-🔐 Backup del certificato: scegli tu come custodirlo — cloud automatico (Google/iCloud) per ritrovare tutto quando cambi telefono, oppure manuale con copia negli appunti (niente cloud, massimo controllo)
-♻️ Nuova pagina Ripristino: trova il certificato da sola (sul telefono o nel cloud) e ti riporta in chat senza rifare il QR
-🗑️ Elimina Messaggi ripensato: svuota solo questo telefono, solo quello del partner o tutto (anche dal server). Chi resta non perde nulla, e i wipe selettivi si recuperano rifacendo il pairing
-📅 Calendario: nuovo bottone "Aggiungi" e avvisi fino a 1 settimana prima (1h, 2h, 8h, 1 giorno, 2 giorni, 1 settimana)
-🌍 Traduzioni complete in italiano, inglese, spagnolo e catalano
+🔔 Le notifiche ora sono opzionali: l'app funziona anche senza. Niente più avviso insistente a ogni avvio
+🙅 Se non le vuoi, scegli "Non voglio le notifiche" una volta e non te lo chiediamo più
+📷 Pairing più chiaro: se manca il permesso fotocamera ti spieghiamo perché serve, con scorciatoia alle impostazioni (niente più schermata nera)
 
 CORREZIONI:
-⌨️ La tastiera non si chiude più mentre il partner sta scrivendo
-📍 Risolta la condivisione posizione che si apriva a metà schermo
-🔕 Il telefono svuotato non riceve più le notifiche della vecchia chat
+🔕 Rimosso il messaggio "permesso notifiche obbligatorio" che ricompariva a ogni apertura
 
 NOTE:
 📱 Compatibilità: Android 6.0+ e iOS 15.0+
