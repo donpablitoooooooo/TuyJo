@@ -475,6 +475,16 @@ class NotificationService {
     }
   }
 
+  /// Dimentica il target di salvataggio del token. Da chiamare quando questo
+  /// telefono lascia la chat (unpair / wipe): senza, onTokenRefresh
+  /// ri-scriverebbe il token FCM sulla famiglia abbandonata e il telefono
+  /// continuerebbe a ricevere notifiche per una chat che non ha più.
+  void clearSavedTokenTarget() {
+    _savedFamilyChatId = null;
+    _savedUserId = null;
+    if (kDebugMode) print('🔇 Token save target cleared');
+  }
+
   /// Azzera il badge dell'app (icona notifiche)
   Future<void> clearBadge() async {
     try {

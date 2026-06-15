@@ -70,9 +70,15 @@ void main() async {
   pairingService.onPartnerDeletedAll = (String familyChatId) async {
     print('🧹 [MAIN] Partner requested cache deletion, cleaning up...');
 
-    // Pulisci cache messaggi
+    // Pulisci cache messaggi. familyChatId esplicito: se il flag viene
+    // processato all'avvio dell'app la chat non è ancora inizializzata e
+    // senza id la pulizia SQLite verrebbe saltata
     chatService.stopListening();
-    chatService.clearMessages();
+    await chatService.clearMessages(familyChatId: familyChatId);
+
+    // Non ri-salvare il token FCM su questa famiglia al prossimo refresh:
+    // questo telefono non deve più ricevere notifiche per la chat svuotata
+    notificationService.clearSavedTokenTarget();
 
     // Pulisci SOLO cache locale foto (mantieni sul server)
     await coupleSelfieService.removeCoupleSelfie(

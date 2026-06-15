@@ -215,7 +215,7 @@ class _PdfViewerScreenState extends State<PdfViewerScreen> {
                             if (_totalPages > 0) ...[
                               const SizedBox(height: 4),
                               Text(
-                                'Pagina $_currentPage di $_totalPages',
+                                l10n.pdfPageOf(_currentPage, _totalPages),
                                 style: const TextStyle(color: Colors.white70, fontSize: 12),
                               ),
                             ],

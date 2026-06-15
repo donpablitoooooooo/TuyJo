@@ -586,7 +586,7 @@ class _FullscreenImageViewerState extends State<FullscreenImageViewer> {
                                 const Icon(Icons.lock, color: Colors.white70, size: 14),
                                 const SizedBox(width: 4),
                                 Text(
-                                  'Cifrato E2E • ${_formatFileSize(widget.attachment.fileSize)}',
+                                  '${AppLocalizations.of(context)!.mediaEncryptedE2E} • ${_formatFileSize(widget.attachment.fileSize)}',
                                   style: const TextStyle(color: Colors.white70, fontSize: 12),
                                 ),
                               ],
@@ -607,16 +607,16 @@ class _FullscreenImageViewerState extends State<FullscreenImageViewer> {
 
   Future<void> _shareImage(BuildContext context) async {
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
+      SnackBar(
         content: Row(
           children: [
-            SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white)),
-            SizedBox(width: 12),
-            Text('Preparazione...'),
+            const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white)),
+            const SizedBox(width: 12),
+            Text(AppLocalizations.of(context)!.attachmentPreparing),
           ],
         ),
-        backgroundColor: Color(0xFF3BA8B0),
-        duration: Duration(seconds: 10),
+        backgroundColor: const Color(0xFF3BA8B0),
+        duration: const Duration(seconds: 10),
       ),
     );
 

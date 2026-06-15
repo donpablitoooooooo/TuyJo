@@ -44,7 +44,19 @@ class _LocationShareSetupPageState extends State<LocationShareSetupPage>
     _pulseAnimation = Tween<double>(begin: 0.6, end: 1.0).animate(
       CurvedAnimation(parent: _pulseController, curve: Curves.easeInOut),
     );
-    _acquireGps();
+    // NON acquisire il GPS subito: la richiesta del permesso può far comparire
+    // il dialog di sistema mentre l'animazione di apertura della route è in
+    // corso, congelandola a metà (pagina renderizzata a metà schermo).
+    // Aspetta la fine della transizione, poi parti.
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      final route = ModalRoute.of(context);
+      final animation = route?.animation;
+      if (route != null && animation != null && !animation.isCompleted) {
+        await Future.delayed(
+            route.transitionDuration + const Duration(milliseconds: 50));
+      }
+      if (mounted) _acquireGps();
+    });
   }
 
   @override
@@ -169,6 +181,7 @@ class _LocationShareSetupPageState extends State<LocationShareSetupPage>
     Navigator.pushReplacement(
       context,
       MaterialPageRoute(
+        allowSnapshotting: false,
         builder: (context) => LocationSharingScreen(
           expectedSessionId: sessionId,
           isSender: true,

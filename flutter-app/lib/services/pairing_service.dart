@@ -18,7 +18,8 @@ class PairingService extends ChangeNotifier {
   bool _familyWasComplete = false; // Traccia se abbiamo mai visto 2 users
   Completer<void>? _initCompleter; // Evita doppia inizializzazione
 
-  /// Callback invocato quando il partner fa "Elimina Tutto"
+  /// Callback invocato quando il partner fa "Elimina Tutto" oppure richiede
+  /// la pulizia di questo telefono ("Elimina Messaggi del Partner").
   /// Permette al codice chiamante di pulire la cache locale (messaggi + foto)
   Function(String familyChatId)? onPartnerDeletedAll;
 
@@ -236,7 +237,8 @@ class PairingService extends ChangeNotifier {
       // Continua comunque con il reset locale
     }
 
-    // Poi elimina i dati locali
+    // Poi elimina i dati locali e ferma il listener della famiglia
+    stopListeningToPairingStatus();
     await _storage.delete(key: 'partner_public_key');
 
     _isPaired = false;
@@ -318,6 +320,23 @@ class PairingService extends ChangeNotifier {
     await resetPairing();
   }
 
+  /// Unpair SOLO locale: rimuove la chiave del partner e lo stato locale ma
+  /// NON tocca i documenti della famiglia su Firestore. Usato da "Elimina i
+  /// Miei Messaggi": il mio documento (con le chiavi) deve sopravvivere così
+  /// la famiglia resta completa e il partner resta paired in chat. Questo
+  /// telefono rientrerà con un nuovo pairing.
+  Future<void> unpairLocallyOnly() async {
+    await _storage.delete(key: 'partner_public_key');
+    _isPaired = false;
+    _partnerPublicKey = null;
+    _familyWasComplete = false;
+    _initCompleter = null; // Permetti re-inizializzazione al prossimo pairing
+    stopListeningToPairingStatus();
+    notifyListeners();
+
+    if (kDebugMode) print('✅ [PAIRING] Local-only unpair completed (family docs untouched)');
+  }
+
   /// Calcola l'ID della chat condivisa tra i due utenti
   /// family_chat_id = SHA-256(sorted([myPublicKey, partnerPublicKey]))
   /// Questo garantisce che entrambi gli utenti calcolino lo stesso ID
@@ -367,6 +386,16 @@ class PairingService extends ChangeNotifier {
 
     if (kDebugMode) print('🎧 Background unpair listener (state-based) started for chat: ${chatId.substring(0, 10)}...');
 
+    // IDEMPOTENTE: cancella un'eventuale subscription precedente PRIMA di
+    // crearne una nuova. Senza questo, ogni chiamata (initialize, chat screen,
+    // restore, import QR) aggiungeva un listener "zombie" mai cancellato:
+    // stopListeningToPairingStatus() cancella solo l'ultimo assegnato. Gli
+    // zombie continuavano a processare snapshot dopo l'unpair locale e,
+    // vedendo _partnerPublicKey == null con la famiglia ancora completa,
+    // facevano scattare la pulizia "famiglia corrotta" che eliminava i
+    // documenti di ENTRAMBI i telefoni (unpair indesiderato del partner).
+    _pairingStatusSubscription?.cancel();
+
     // STATE-BASED: Ascolta la collezione /users invece di pairing_status
     _pairingStatusSubscription = _firestore
         .collection('families')
@@ -385,6 +414,70 @@ class PairingService extends ChangeNotifier {
         print('   Current _isPaired: $_isPaired');
       }
 
+      // GUARDIA: se questo dispositivo si è già spaiato localmente, non deve
+      // più gestire lo stato della famiglia. Senza questa uscita, uno snapshot
+      // consegnato dopo l'unpair locale (subscription in coda o zombie)
+      // valuterebbe il check "famiglia corrotta" con _partnerPublicKey == null
+      // e distruggerebbe i documenti di entrambi i telefoni.
+      if (_partnerPublicKey == null) {
+        if (kDebugMode) print('🔇 [PAIRING] Locally unpaired, ignoring family snapshot');
+        stopListeningToPairingStatus();
+        return;
+      }
+
+      // PRIORITÀ 1: il partner ha richiesto la pulizia dei messaggi su QUESTO
+      // telefono ("Elimina Messaggi del Partner"). Va controllato PRIMA di
+      // qualsiasi logica su userCount: chi invia la richiesta potrebbe non
+      // essere più presente nello snapshot.
+      final myDocsForFlag =
+          snapshot.docs.where((doc) => doc.id == myUserId).toList();
+      final deleteCacheRequested = myDocsForFlag.isNotEmpty &&
+          myDocsForFlag.first.data()['delete_cache_requested'] == true;
+
+      if (deleteCacheRequested) {
+        if (kDebugMode) print('🗑️ [PAIRING] Partner requested cache deletion, cleaning up...');
+
+        // Teardown SINCRONO per primo: ferma il listener e azzera lo stato
+        // locale, così eventuali snapshot già in coda vengono scartati dalla
+        // guardia qui sopra invece di ri-processare il flag
+        stopListeningToPairingStatus();
+        _isPaired = false;
+        _partnerPublicKey = null;
+        _familyWasComplete = false;
+        _initCompleter = null; // Permetti re-inizializzazione al prossimo pairing
+        await _storage.delete(key: 'partner_public_key');
+        notifyListeners();
+
+        // Pulisci la cache locale (messaggi + foto). I messaggi sul SERVER
+        // non vengono toccati: torneranno dopo un nuovo pairing.
+        if (onPartnerDeletedAll != null) {
+          if (kDebugMode) print('🧹 [PAIRING] Invoking onPartnerDeletedAll callback...');
+          onPartnerDeletedAll!(chatId);
+        }
+
+        // NON eliminare il mio documento: il partner (chi ha inviato la
+        // richiesta) deve restare paired e continuare a vedere la chat.
+        // Rimuovi solo il flag e il token FCM (questo telefono non deve più
+        // ricevere notifiche per una chat che non ha più).
+        try {
+          await _firestore
+              .collection('families')
+              .doc(chatId)
+              .collection('users')
+              .doc(myUserId)
+              .update({
+            'delete_cache_requested': FieldValue.delete(),
+            'delete_cache_requested_at': FieldValue.delete(),
+            'fcm_token': FieldValue.delete(),
+          });
+        } catch (e) {
+          if (kDebugMode) print('⚠️ [PAIRING] Error cleaning my document: $e');
+        }
+
+        if (kDebugMode) print('✅ [PAIRING] Cache deletion completed (triggered by partner)');
+        return; // Esci dal listener
+      }
+
       // LOGICA ROBUSTA: isPaired = true SOLO se:
       // 1. userCount == 2
       // 2. Entrambi i documenti hanno chiavi valide che si corrispondono
@@ -401,43 +494,6 @@ class PairingService extends ChangeNotifier {
             final myDocData = myDoc.data();
             final myDocPartnerKey = myDocData['partner_public_key'] as String?;
             final myDocPublicKey = myDocData['my_public_key'] as String?;
-
-            // Controlla se il partner ha richiesto la cancellazione della cache
-            final deleteCacheRequested = myDocData['delete_cache_requested'] as bool?;
-            if (deleteCacheRequested == true) {
-              if (kDebugMode) print('🗑️ [PAIRING] Partner requested cache deletion, cleaning up...');
-
-              // Importa i servizi necessari (assumendo che siano disponibili via Provider o altro)
-              // Per ora triggeriamo unpair completo che include pulizia cache
-              try {
-                // Rimuovi il flag
-                await _firestore
-                    .collection('families')
-                    .doc(chatId)
-                    .collection('users')
-                    .doc(myUserId)
-                    .update({'delete_cache_requested': FieldValue.delete()});
-
-                // Triggera pulizia: unpair + cache locale
-                await _storage.delete(key: 'partner_public_key');
-                _isPaired = false;
-                _partnerPublicKey = null;
-                _familyWasComplete = false;
-                stopListeningToPairingStatus();
-                notifyListeners();
-
-                // Invoca il callback per pulire la cache (messaggi + foto)
-                if (onPartnerDeletedAll != null) {
-                  if (kDebugMode) print('🧹 [PAIRING] Invoking onPartnerDeletedAll callback...');
-                  onPartnerDeletedAll!(chatId);
-                }
-
-                if (kDebugMode) print('✅ [PAIRING] Cache deletion completed (triggered by partner)');
-                return; // Esci dal listener
-              } catch (e) {
-                if (kDebugMode) print('❌ [PAIRING] Error processing cache deletion: $e');
-              }
-            }
 
             // Trova il documento del partner
             final partnerDocs = snapshot.docs.where((doc) => doc.id != myUserId).toList();

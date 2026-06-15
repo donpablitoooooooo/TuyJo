@@ -1,22 +1,16 @@
-TuyJo v1.32.0
+TuyJo v1.34.0
 
-PERFORMANCE:
-⚡ Photo sending up to 3-5x faster with a parallel upload pipeline
-🔐 New native encryption backend (AES-GCM): much faster encrypt/decrypt
-🧵 Heavy crypto moved off the main thread: smooth WhatsApp-grade UI
-📜 Instant chat open: we load the latest messages and fetch older ones only when you scroll up
-🖼️ Fuller Media section: photos, links and documents from the whole archive are visible as soon as you open the gallery
-📸 Optimized image thumbnail generation with a single native pass
-☁️ Faster initial chat load and batched read receipts
+NEW:
+🔐 Certificate backup: you choose how to keep it — automatic cloud (Google/iCloud) to get everything back when you change phone, or manual with copy to clipboard (no cloud, full control)
+♻️ New Restore page: it finds the certificate by itself (on the phone or in the cloud) and brings you back into your chat without re-scanning the QR
+🗑️ Delete Messages redesigned: wipe only this phone, only your partner's phone, or everything (server included). Whoever stays loses nothing, and selective wipes are recovered by pairing again
+📅 Calendar: new "Add" button and alerts up to 1 week before (1h, 2h, 8h, 1 day, 2 days, 1 week)
+🌍 Complete translations in Italian, English, Spanish and Catalan
 
 BUG FIXES:
-🗄️ Fixed an issue where, after updating from a previous version, users could get stuck seeing only 100 messages and part of the files in the gallery
-🐛 Fixed slow app startup
-📄 Fixed shared PDFs being treated as links
-🔁 Removed auth-token retry cascade
-🖼️ Fixed photo bubble flashing empty while sending
-📥 Sent photos are no longer re-downloaded unnecessarily
-🚫 Prevented duplicate parallel uploads of the same attachment
+⌨️ The keyboard no longer closes while your partner is typing
+📍 Fixed location sharing opening at half screen
+🔕 A wiped phone no longer receives notifications for the old chat
 
 NOTES:
 📱 Compatibility: Android 6.0+ and iOS 15.0+

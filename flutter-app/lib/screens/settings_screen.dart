@@ -1,14 +1,9 @@
-import 'dart:convert';
-import 'dart:io';
-import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:private_messaging/generated/l10n/app_localizations.dart';
 import '../services/pairing_service.dart';
-import '../services/encryption_service.dart';
 import '../services/chat_service.dart';
 import '../services/notification_service.dart';
 import '../services/backup_service.dart';
@@ -16,7 +11,8 @@ import '../services/couple_selfie_service.dart';
 import 'pairing_wizard_screen.dart';
 import 'backup_choice_screen.dart';
 import 'couple_selfie_screen.dart';
-import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'restore_screen.dart';
+import 'delete_messages_screen.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({Key? key}) : super(key: key);
@@ -26,7 +22,6 @@ class SettingsScreen extends StatefulWidget {
 }
 
 class _SettingsScreenState extends State<SettingsScreen> {
-  final _storage = const FlutterSecureStorage();
   bool _isLoading = false;
 
   @override
@@ -34,91 +29,18 @@ class _SettingsScreenState extends State<SettingsScreen> {
     super.initState();
   }
 
-  Future<void> _copyPrivateKey() async {
-    setState(() => _isLoading = true);
-    try {
-      final privateKey = await _storage.read(key: 'rsa_private_key');
-
-      if (privateKey == null) {
-        if (!mounted) return;
-        final l10n = AppLocalizations.of(context)!;
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Row(
-              children: [
-                const Icon(Icons.warning_amber, color: Colors.white),
-                const SizedBox(width: 12),
-                Expanded(child: Text(l10n.settingsPrivateKeyNotFound)),
-              ],
-            ),
-            backgroundColor: Colors.orange[700],
-            behavior: SnackBarBehavior.floating,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-          ),
-        );
-        return;
-      }
-
-      // Backup "completo": se accoppiato includi anche la chiave pubblica del
-      // partner (e così l'ID famiglia è ricostruibile), così il ripristino può
-      // riconnettere senza rifare il pairing. Se non accoppiato, esporta la
-      // sola chiave privata come prima.
-      final partnerKey = await _storage.read(key: 'partner_public_key');
-      final String backupText;
-      if (partnerKey != null) {
-        backupText = base64Encode(utf8.encode(jsonEncode({
-          'v': 1,
-          'priv': privateKey,
-          'partner': partnerKey,
-        })));
-      } else {
-        backupText = privateKey;
-      }
-
-      await Clipboard.setData(ClipboardData(text: backupText));
-
-      if (!mounted) return;
-      final l10n = AppLocalizations.of(context)!;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Row(
-            children: [
-              const Icon(Icons.check_circle, color: Colors.white),
-              const SizedBox(width: 12),
-              Expanded(child: Text(l10n.settingsPrivateKeyCopied)),
-            ],
-          ),
-          backgroundColor: Colors.green[600],
-          behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        ),
-      );
-    } catch (e) {
-      if (!mounted) return;
-      final l10n = AppLocalizations.of(context)!;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Row(
-            children: [
-              const Icon(Icons.error, color: Colors.white),
-              const SizedBox(width: 12),
-              Expanded(child: Text(l10n.error(e.toString()))),
-            ],
-          ),
-          backgroundColor: Colors.red[600],
-          behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        ),
-      );
-    } finally {
-      setState(() => _isLoading = false);
-    }
-  }
-
-  /// Elimina il pairing con 3 modalità:
-  /// - 'all': Elimina tutti i messaggi (server per entrambi)
-  /// - 'mine': Elimina solo i miei (cache locale)
-  /// - 'partner': Elimina quelli del partner (quando ha cambiato telefono senza unpair)
+  /// Elimina messaggi con 3 modalità (modello "Dov'è" di Apple: i wipe
+  /// selettivi svuotano il singolo telefono, i dati restano sul server e
+  /// si recuperano rifacendo il pairing):
+  /// - 'all': elimina pairing + messaggi da entrambi i telefoni E dal server
+  ///   (irreversibile); entrambi tornano alla schermata di pairing
+  /// - 'mine': elimina i messaggi solo da QUESTO telefono; il server non
+  ///   viene toccato e il PARTNER resta paired in chat; questo telefono
+  ///   torna alla schermata di pairing e rientrando recupera tutto dal server
+  /// - 'partner': elimina i messaggi solo dal telefono del PARTNER (via flag
+  ///   delete_cache_requested); il server non viene toccato e QUESTO telefono
+  ///   resta paired e continua a vedere la chat; il partner dovrà rifare il
+  ///   pairing con me per rientrare (la chat gli si ripristinerà dal server)
   Future<void> _deletePairing({required String mode}) async {
     setState(() => _isLoading = true);
     try {
@@ -140,7 +62,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
         // Unpair + pulisci cache locale
         await pairingService.clearPairing();
         chatService.stopListening();
-        chatService.clearMessages();
+        await chatService.clearMessages(familyChatId: chatId);
         if (chatId != null) {
           // Pulisci SOLO cache locale (il server è già stato pulito da deleteMessagesAndCoupleSelfie)
           await coupleSelfieService.removeCoupleSelfie(
@@ -149,11 +71,30 @@ class _SettingsScreenState extends State<SettingsScreen> {
           );
         }
       } else if (mode == 'mine') {
-        // OPZIONE 2: Elimina solo cache locale (Cambio Telefono)
-        // NON eliminare dal server - il partner deve mantenerla!
-        await pairingService.clearPairing();
+        // OPZIONE 2: Elimina i messaggi solo da QUESTO telefono (stile
+        // "Dov'è" di Apple: wipe del dispositivo, dati sul server intatti).
+        // Il PARTNER resta paired e continua a vedere la chat: per questo il
+        // mio documento utente NON va eliminato (la famiglia deve restare
+        // completa). Tolgo solo il token FCM, così questo telefono non riceve
+        // più notifiche. Rientrando con un nuovo pairing recupero tutto.
+        if (chatId != null && myUserId != null) {
+          try {
+            await FirebaseFirestore.instance
+                .collection('families')
+                .doc(chatId)
+                .collection('users')
+                .doc(myUserId)
+                .update({'fcm_token': FieldValue.delete()});
+          } catch (_) {
+            // Continua comunque con la pulizia locale
+          }
+        }
+
+        // Unpair SOLO locale: nessun documento Firestore viene toccato
+        await pairingService.unpairLocallyOnly();
+        notificationService.clearSavedTokenTarget();
         chatService.stopListening();
-        chatService.clearMessages();
+        await chatService.clearMessages(familyChatId: chatId);
         if (chatId != null) {
           // Pulisci SOLO cache locale, mantieni sul server
           await coupleSelfieService.removeCoupleSelfie(
@@ -162,9 +103,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
           );
         }
       } else if (mode == 'partner') {
-        // OPZIONE 3: Triggera pulizia cache del partner (ha cambiato telefono senza unpair)
+        // OPZIONE 3: Elimina i messaggi solo dal telefono del PARTNER.
+        // Il server NON viene toccato e IO resto paired: continuo a vedere la
+        // chat. Il partner verrà spaiato dal suo telefono quando processa il
+        // flag; per rientrare dovrà rifare il pairing con me.
         if (chatId != null && myUserId != null) {
-          // Scrivi flag in Firestore per notificare il partner di pulire la cache
+          // Scrivi flag in Firestore: il listener del partner lo processa e
+          // pulisce la sua cache. set+merge invece di update così non fallisce
+          // se il documento del partner non esiste più.
           final partnerId = await pairingService.getPartnerId();
           if (partnerId != null) {
             await FirebaseFirestore.instance
@@ -172,22 +118,21 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 .doc(chatId)
                 .collection('users')
                 .doc(partnerId)
-                .update({
+                .set({
               'delete_cache_requested': true,
               'delete_cache_requested_at': FieldValue.serverTimestamp(),
-            });
+            }, SetOptions(merge: true));
           }
         }
-
-        // Unpair locale (i messaggi rimangono sul dispositivo corrente)
-        await pairingService.clearPairing();
-        // NON chiamare chatService.clearMessages() - vogliamo mantenere i nostri messaggi
-        // Solo il partner pulirà la sua cache quando riceverà il flag
+        // Niente unpair/stopListening/clearMessages: questo telefono resta in chat
       }
 
-      // Sempre: rimuovi token FCM
-      if (chatId != null && myUserId != null && mounted) {
+      // Rimuovi il MIO documento utente (token FCM compreso) SOLO per 'all':
+      // in 'mine' e 'partner' i documenti devono sopravvivere, altrimenti il
+      // telefono che mantiene la chat verrebbe auto-spaiato dal listener
+      if (mode == 'all' && chatId != null && myUserId != null && mounted) {
         await notificationService.deleteTokenFromFirestore(chatId, myUserId);
+        notificationService.clearSavedTokenTarget();
       }
 
       if (!mounted) return;
@@ -235,240 +180,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
     }
   }
 
-  void _showNewPairingDialog() {
-    final l10n = AppLocalizations.of(context)!;
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: Row(
-          children: [
-            const Icon(Icons.favorite, color: Color(0xFF3BA8B0)),
-            const SizedBox(width: 12),
-            Text(l10n.settingsNewPairingDialogTitle),
-          ],
-        ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              l10n.settingsNewPairingDialogContent,
-              style: const TextStyle(fontSize: 16),
-            ),
-            const SizedBox(height: 16),
-            Text(
-              l10n.settingsNewPairingDialogTip,
-              style: const TextStyle(fontSize: 13, color: Colors.grey),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: Text(l10n.cancel),
-          ),
-          TextButton(
-            onPressed: () async {
-              Navigator.pop(context);
-              // Mostra dialog per salvare la chiave (opzionale)
-              _showSaveKeyDialog();
-            },
-            style: TextButton.styleFrom(foregroundColor: const Color(0xFF3BA8B0)),
-            child: Text(l10n.continue_),
-          ),
-        ],
-      ),
-    );
-  }
-
-  void _showSaveKeyDialog() {
-    final l10n = AppLocalizations.of(context)!;
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: Row(
-          children: [
-            const Icon(Icons.backup, color: Color(0xFF3BA8B0)),
-            const SizedBox(width: 12),
-            Text(l10n.settingsSaveKeyDialogTitle),
-          ],
-        ),
-        content: Text(
-          l10n.settingsSaveKeyDialogContent,
-        ),
-        actions: [
-          TextButton(
-            onPressed: () {
-              Navigator.pop(context);
-              // Vai direttamente al wizard
-              _startPairingWizard();
-            },
-            child: Text(l10n.settingsSaveKeyLater),
-          ),
-          TextButton(
-            onPressed: () async {
-              Navigator.pop(context);
-              // Copia la chiave e poi vai al wizard
-              await _copyPrivateKey();
-              _startPairingWizard();
-            },
-            style: TextButton.styleFrom(foregroundColor: const Color(0xFF3BA8B0)),
-            child: Text(l10n.settingsSaveKeyNow),
-          ),
-        ],
-      ),
-    );
-  }
-
-  /// Ripristino: carica il file del certificato (la chiave privata salvata col
-  /// backup) e poi rifai il pairing QR per riprendere la chiave del partner.
-  /// Se il file è un bundle completo (priv + partner) riconnette direttamente.
-  Future<void> _startRestoreFlow() async {
-    final l10n = AppLocalizations.of(context)!;
-
-    // Passo 1 — spiega i due passaggi: carica il certificato, poi rifai il pair.
-    final proceed = await showDialog<bool>(
-      context: context,
-      builder: (dialogContext) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: Row(
-          children: [
-            const Icon(Icons.restore, color: Color(0xFF3BA8B0)),
-            const SizedBox(width: 12),
-            Expanded(child: Text(l10n.settingsRestoreDialogTitle)),
-          ],
-        ),
-        content: const Text(
-          'Per ripristinare:\n'
-          '1) carichi il file del certificato salvato col backup;\n'
-          '2) rifai il pairing con il partner tramite QR.\n\n'
-          'Il certificato è la chiave che decifra i messaggi: senza, le chat '
-          'non sono leggibili.',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(dialogContext, false),
-            child: Text(l10n.cancel),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(dialogContext, true),
-            style: TextButton.styleFrom(foregroundColor: const Color(0xFF3BA8B0)),
-            child: const Text('Carica certificato'),
-          ),
-        ],
-      ),
-    );
-
-    if (proceed != true || !mounted) return;
-
-    // Passo 2 — scegli il file del certificato dal dispositivo.
-    String raw;
-    try {
-      final result = await FilePicker.platform.pickFiles(withData: true);
-      if (result == null || result.files.isEmpty) return; // annullato
-      final picked = result.files.first;
-      if (picked.bytes != null) {
-        raw = utf8.decode(picked.bytes!).trim();
-      } else if (picked.path != null) {
-        raw = (await File(picked.path!).readAsString()).trim();
-      } else {
-        throw Exception('File non leggibile');
-      }
-    } catch (e) {
-      if (!mounted) return;
-      _showRestoreError(AppLocalizations.of(context)!.error(e.toString()));
-      return;
-    }
-
-    // Il certificato può essere un bundle completo base64(json{priv, partner})
-    // → riconnessione diretta, oppure la sola chiave privata → pairing QR.
-    String key = raw;
-    String? partnerKey;
-    try {
-      final obj = jsonDecode(utf8.decode(base64Decode(raw)));
-      if (obj is Map && obj['priv'] is String) {
-        key = obj['priv'] as String;
-        partnerKey = obj['partner'] as String?;
-      }
-    } catch (_) {
-      // non è un bundle: chiave privata grezza
-    }
-
-    if (!mounted) return;
-    if (key.isEmpty) {
-      _showRestoreError(
-          AppLocalizations.of(context)!.settingsRestoreEmptyKeyError);
-      return;
-    }
-
-    setState(() => _isLoading = true);
-    try {
-      final encryptionService =
-          Provider.of<EncryptionService>(context, listen: false);
-      final pairingService =
-          Provider.of<PairingService>(context, listen: false);
-
-      encryptionService.loadPrivateKey(key);
-      final publicKey = await encryptionService.deriveAndSavePublicKey();
-      if (publicKey == null) {
-        throw Exception('Impossibile derivare la chiave pubblica');
-      }
-
-      await _storage.write(key: 'rsa_private_key', value: key);
-      await pairingService.saveMyPublicKey(publicKey);
-
-      if (!mounted) return;
-      final l10nOk = AppLocalizations.of(context)!;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Row(
-            children: [
-              const Icon(Icons.check_circle, color: Colors.white),
-              const SizedBox(width: 12),
-              Expanded(child: Text(l10nOk.settingsRestoreSuccess)),
-            ],
-          ),
-          backgroundColor: Colors.green[600],
-          behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        ),
-      );
-
-      if (partnerKey != null) {
-        // Backup completo: riconnetti direttamente, senza pairing QR.
-        // La UI passa automaticamente alla chat via Provider.
-        await pairingService.restorePairing(partnerKey);
-      } else {
-        // Solo chiave privata: rifai il pairing QR per riprendere la chiave
-        // del partner.
-        await Future.delayed(const Duration(milliseconds: 600));
-        if (!mounted) return;
-        _startPairingWizard();
-      }
-    } catch (e) {
-      if (!mounted) return;
-      _showRestoreError(AppLocalizations.of(context)!.error(e.toString()));
-    } finally {
-      if (mounted) setState(() => _isLoading = false);
-    }
-  }
-
-  void _showRestoreError(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Row(
-          children: [
-            const Icon(Icons.error, color: Colors.white),
-            const SizedBox(width: 12),
-            Expanded(child: Text(message)),
-          ],
-        ),
-        backgroundColor: Colors.red[600],
-        behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      ),
+  /// Ripristino (pagina intera): cerca il certificato sul telefono e nel
+  /// cloud, oppure lo fa caricare da file; con il certificato completo
+  /// riconnette direttamente alla chat, altrimenti prosegue col wizard QR.
+  Future<void> _openRestoreScreen() async {
+    await Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => const RestoreScreen()),
     );
   }
 
@@ -506,75 +224,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
     // Non serve più _checkPairingStatus() - il build() si aggiorna automaticamente via Provider
   }
 
-  void _showDeleteDialog() {
-    final l10n = AppLocalizations.of(context)!;
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: Row(
-          children: [
-            const Icon(Icons.warning_amber, color: Colors.red),
-            const SizedBox(width: 12),
-            Text(l10n.settingsResetPairingDialogTitle),
-          ],
-        ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(l10n.settingsResetPairingDialogPrompt),
-            const SizedBox(height: 20),
-            _DeleteOption(
-              icon: Icons.delete_forever,
-              title: l10n.settingsDeleteAllMessagesTitle,
-              description: l10n.settingsDeleteAllMessagesDescription,
-              isDestructive: true,
-            ),
-            const SizedBox(height: 12),
-            _DeleteOption(
-              icon: Icons.phone_android,
-              title: l10n.settingsDeleteMyMessagesTitle,
-              description: l10n.settingsDeleteMyMessagesDescription,
-            ),
-            const SizedBox(height: 12),
-            _DeleteOption(
-              icon: Icons.phonelink_erase,
-              title: l10n.settingsDeletePartnerMessagesTitle,
-              description: l10n.settingsDeletePartnerMessagesDescription,
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: Text(l10n.cancel),
-          ),
-          TextButton(
-            onPressed: () {
-              Navigator.pop(context);
-              _deletePairing(mode: 'all');
-            },
-            style: TextButton.styleFrom(foregroundColor: Colors.red),
-            child: Text(l10n.settingsDeleteAllButton),
-          ),
-          TextButton(
-            onPressed: () {
-              Navigator.pop(context);
-              _deletePairing(mode: 'mine');
-            },
-            child: Text(l10n.settingsDeleteMineButton),
-          ),
-          TextButton(
-            onPressed: () {
-              Navigator.pop(context);
-              _deletePairing(mode: 'partner');
-            },
-            child: Text(l10n.settingsDeletePartnerButton),
-          ),
-        ],
-      ),
+  /// Pagina "Elimina Messaggi" (full page, stile wizard): la pagina ritorna
+  /// la modalità scelta e l'esecuzione resta qui.
+  Future<void> _openDeleteMessagesScreen() async {
+    final mode = await Navigator.push<String>(
+      context,
+      MaterialPageRoute(builder: (_) => const DeleteMessagesScreen()),
     );
+    if (mode == null || !mounted) return;
+    await _deletePairing(mode: mode);
   }
 
   @override
@@ -764,29 +422,19 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 ),
               ),
               const SizedBox(height: 16),
-              Text(
-                AppLocalizations.of(context)!.settingsSavePrivateKeyReminder,
-                style: const TextStyle(color: Colors.grey, fontSize: 14),
-              ),
-              const SizedBox(height: 12),
+              // Ricollega il nuovo telefono del partner (cambio telefono,
+              // wipe, chiave persa): apre direttamente il wizard QR.
               _OutlineButton(
-                onPressed: _copyPrivateKey,
-                icon: Icons.backup,
-                label: AppLocalizations.of(context)!.settingsBackupKeyButton,
-              ),
-              const SizedBox(height: 12),
-              // Rifai pairing / collega il nuovo dispositivo del partner
-              // (es. se il partner ha perso la chiave).
-              _OutlineButton(
-                onPressed: _startNewPairingFlow,
+                onPressed: _startPairingWizard,
                 icon: Icons.qr_code,
-                label: AppLocalizations.of(context)!.settingsNewPairingButton,
+                label: AppLocalizations.of(context)!.settingsRestorePartnerButton,
               ),
               const SizedBox(height: 12),
               _OutlineButton(
                 onPressed: _showBackupChoice,
                 icon: Icons.cloud,
-                label: 'Backup e sicurezza',
+                label:
+                    AppLocalizations.of(context)!.settingsBackupCertificateButton,
               ),
             ] else ...[
               // Unpaired: scelta Nuovo vs Ripristino
@@ -802,15 +450,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
               ),
               const SizedBox(height: 12),
               _OutlineButton(
-                onPressed: _startRestoreFlow,
+                onPressed: _openRestoreScreen,
                 icon: Icons.restore,
                 label: AppLocalizations.of(context)!.settingsRestoreFromBackupButton,
-              ),
-              const SizedBox(height: 12),
-              _OutlineButton(
-                onPressed: _showBackupChoice,
-                icon: Icons.cloud,
-                label: 'Backup e sicurezza',
               ),
             ],
           ],
@@ -830,7 +472,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
               ),
               const SizedBox(height: 16),
               _OutlineButton(
-                onPressed: _showDeleteDialog,
+                onPressed: _openDeleteMessagesScreen,
                 icon: Icons.delete_outline,
                 label: AppLocalizations.of(context)!.settingsResetPairingButton,
                 color: Colors.red,
@@ -1015,57 +657,6 @@ class _OutlineButton extends StatelessWidget {
           ],
         ),
       ),
-    );
-  }
-}
-
-class _DeleteOption extends StatelessWidget {
-  final IconData icon;
-  final String title;
-  final String description;
-  final bool isDestructive;
-
-  const _DeleteOption({
-    required this.icon,
-    required this.title,
-    required this.description,
-    this.isDestructive = false,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Icon(
-          icon,
-          color: isDestructive ? Colors.red : Colors.grey[600],
-          size: 20,
-        ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                title,
-                style: TextStyle(
-                  fontWeight: FontWeight.bold,
-                  color: isDestructive ? Colors.red : Colors.black87,
-                ),
-              ),
-              const SizedBox(height: 4),
-              Text(
-                description,
-                style: TextStyle(
-                  fontSize: 12,
-                  color: isDestructive ? Colors.red[300] : Colors.grey,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ],
     );
   }
 }

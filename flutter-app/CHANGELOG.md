@@ -2,6 +2,39 @@
 
 Tutte le modifiche notevoli a questo progetto saranno documentate in questo file.
 
+## [1.34.0] - 2026-06-12
+
+### 🔐 Backup del certificato
+- **Scelta esplicita della strategia di backup** in una pagina dedicata stile wizard:
+  - **Cloud automatico** (Google Block Store / iCloud): cambiando telefono con lo stesso account ritrovi tutto in automatico
+  - **Manuale**: anteprima del certificato + bottone copia negli appunti; lo custodisci dove decidi tu (gestore password, nota cifrata, carta) — niente file, niente condivisione, niente cloud
+- **Nuova pagina Ripristino**: cerca il certificato da sola (già sul telefono → cloud → incolla dagli appunti) e, se il certificato è completo (include la chiave del partner), **riconnette direttamente alla chat senza rifare il QR**
+
+### 🗑️ Elimina Messaggi ripensato (modello "Dov'è" di Apple)
+- Nuova pagina dedicata (non più dialog) con 3 modalità come card selezionabili:
+  - **Tutti**: pairing + messaggi eliminati da entrambi i telefoni E dal server — irreversibile, con conferma
+  - **I Miei**: svuota solo questo telefono; il partner resta in chat e non si accorge di nulla; rientrando col pairing recuperi tutto dal server
+  - **Del Partner**: svuota solo il telefono del partner; tu resti in chat senza interruzioni
+- **Fix**: le modalità selettive spaiavano entrambi i telefoni (flag `delete_cache_requested` processato solo con famiglia completa + listener "zombie" mai cancellati che facevano scattare la pulizia famiglia-corrotta)
+- Il telefono svuotato non riceve più notifiche per la chat che non ha più (token FCM rimosso, niente ri-registrazione su refresh)
+
+### 🧹 Impostazioni ripulite
+- Non accoppiato: solo **Nuovo Pairing** e **Ripristino**
+- Accoppiato: solo **Ripristino Partner** e **Backup Certificato**
+- Rimossi bottoni e flussi legacy (copia chiave negli appunti, ripristino a dialog con file picker, dialog morti) e 20 chiavi di traduzione orfane
+
+### 📅 Todo e calendario
+- Chip **"+ Aggiungi"** stile Calendario Apple nella vista calendario
+- Avvisi allineati ovunque (rotella + scheda Nuovo todo): Nessuno / 1h / 2h / 8h / 1 giorno / 2 giorni / **1 settimana**
+
+### 🌍 Localizzazione completa
+- Audit su tutta l'app: ~55 nuove stringhe localizzate in it/en/es/ca (pagine backup e ripristino, scheda Nuovo todo, notifiche locali, placeholder "[Messaggio non decifrabile]", notifica del GPS in background, ecc.)
+- Il formato data dei todo segue la lingua dell'app (era forzato a italiano)
+
+### 🐛 Correzioni
+- **La tastiera del partner non si chiude più** quando l'altro sta scrivendo (l'indicatore "sta scrivendo" ricreava la barra di input per mancanza di key)
+- **"Condividi posizione" non si apre più a metà schermo** (richiesta permesso GPS spostata a transizione conclusa + snapshotting della route disattivato)
+
 ## [1.33.0] - 2026-05-29
 
 ### ✨ Nuova interfaccia calendario (todo)
