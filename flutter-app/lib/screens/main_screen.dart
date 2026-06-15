@@ -1,11 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:private_messaging/generated/l10n/app_localizations.dart';
 import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:permission_handler/permission_handler.dart';
 import '../services/pairing_service.dart';
 import '../services/couple_selfie_service.dart';
 import '../state/ui_state.dart';
 import '../services/notification_service.dart';
-import '../widgets/permission_denied_dialog.dart';
 import 'chat_screen.dart';
 import 'media_screen.dart';
 import 'settings_screen.dart';
@@ -23,6 +24,9 @@ class _MainScreenState extends State<MainScreen> {
   int _selectedIndex = 0;
   bool _isInitialized = false;
   bool _wasPaired = false; // Traccia lo stato precedente per rilevare i cambiamenti
+
+  /// Chiave SharedPreferences: l'utente ha scelto di non abilitare le notifiche.
+  static const String _notificationsOptOutKey = 'notifications_opt_out';
 
   @override
   void initState() {
@@ -123,14 +127,49 @@ class _MainScreenState extends State<MainScreen> {
     if (!mounted) return;
 
     final notificationService = Provider.of<NotificationService>(context, listen: false);
-    if (notificationService.isNotificationPermissionDenied) {
-      final l10n = AppLocalizations.of(context)!;
-      showPermissionDeniedSnackBar(
-        context: context,
-        message: l10n.permissionNotificationDeniedMessage,
-        showSettingsAction: true,
-      );
-    }
+    // Le notifiche sono un permesso "degradante": l'app funziona anche senza
+    // (i messaggi arrivano via Firestore quando l'app è aperta). Se negate
+    // mostriamo un avviso NON bloccante e NON una SnackBar: usiamo un
+    // MaterialBanner che resta finché l'utente non sceglie. Se ha già detto
+    // "non le voglio" (opt-out persistente), non mostriamo più nulla.
+    if (!notificationService.isNotificationPermissionDenied) return;
+
+    final prefs = await SharedPreferences.getInstance();
+    if (prefs.getBool(_notificationsOptOutKey) ?? false) return;
+    if (!mounted) return;
+
+    final l10n = AppLocalizations.of(context)!;
+    final messenger = ScaffoldMessenger.of(context);
+    messenger.showMaterialBanner(
+      MaterialBanner(
+        backgroundColor: Colors.red[700],
+        contentTextStyle: const TextStyle(color: Colors.white),
+        leading: const Icon(Icons.notifications_off, color: Colors.white),
+        content: Text(l10n.permissionNotificationDeniedMessage),
+        actions: [
+          TextButton(
+            onPressed: () => openAppSettings(),
+            child: Text(
+              l10n.permissionOpenSettings,
+              style: const TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+          TextButton(
+            onPressed: () async {
+              await prefs.setBool(_notificationsOptOutKey, true);
+              messenger.hideCurrentMaterialBanner();
+            },
+            child: Text(
+              l10n.permissionNotificationOptOut,
+              style: const TextStyle(color: Colors.white70),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   void _onItemTapped(int index) {

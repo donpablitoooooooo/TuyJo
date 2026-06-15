@@ -1489,10 +1489,11 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                     }
                   } on AttachmentPermissionDeniedException {
                     if (mounted) {
-                      showPermissionDeniedSnackBar(
+                      showPermissionDeniedDialog(
                         context: context,
+                        title: l10n.permissionCameraDeniedTitle,
                         message: l10n.permissionCameraDeniedMessage,
-                        showSettingsAction: true,
+                        isPermanentlyDenied: true,
                       );
                     }
                   }
@@ -1515,10 +1516,11 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                     }
                   } on AttachmentPermissionDeniedException {
                     if (mounted) {
-                      showPermissionDeniedSnackBar(
+                      showPermissionDeniedDialog(
                         context: context,
+                        title: l10n.permissionCameraDeniedTitle,
                         message: l10n.permissionCameraDeniedMessage,
-                        showSettingsAction: true,
+                        isPermanentlyDenied: true,
                       );
                     }
                   }
