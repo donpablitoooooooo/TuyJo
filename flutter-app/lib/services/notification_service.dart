@@ -90,6 +90,7 @@ String _generateUUID() {
 Future<void> _showCallKitIncoming(Map<String, dynamic> data) async {
   final callerId = data['callerId'] ?? '';
   final familyChatId = data['familyChatId'] ?? '';
+  final callId = data['callId'] ?? '';
   // Genera UUID v4 valido (RFC 4122) — iOS CallKit richiede questo formato
   final uuid = _generateUUID();
 
@@ -111,6 +112,7 @@ Future<void> _showCallKitIncoming(Map<String, dynamic> data) async {
       extra: <String, dynamic>{
         'familyChatId': familyChatId,
         'callerId': callerId,
+        'callId': callId,
       },
       android: _callKitAndroidParams,
       ios: _callKitIosParams,
@@ -148,6 +150,7 @@ class NotificationService {
   /// Listener sul documento chiamata mentre CallKit squilla: se il caller
   /// riaggancia prima della risposta, chiudiamo subito la UI nativa.
   StreamSubscription? _ringingWatcher;
+  String? _ringingCallId;
 
   static const AndroidNotificationChannel _channel = AndroidNotificationChannel(
     'messages_channel',
@@ -250,8 +253,13 @@ class NotificationService {
       if (message.data['type'] == 'incoming_call') {
         _handleIncomingCallNotification(message);
       } else if (message.data['type'] == 'call_cancelled') {
-        _ringingWatcher?.cancel();
-        _dismissRingingCallKit();
+        // Ignora un annullamento in ritardo riferito a una chiamata diversa
+        final cancelledId = message.data['callId'] as String? ?? '';
+        if (cancelledId.isEmpty || _ringingCallId == null || cancelledId == _ringingCallId) {
+          _ringingWatcher?.cancel();
+          _ringingWatcher = null;
+          _dismissRingingCallKit();
+        }
       } else {
         _showLocalNotification(message);
       }
@@ -389,7 +397,10 @@ class NotificationService {
 
       switch (event) {
         case CallEventActionCallIncoming(:final callKitParams):
-          _watchRingingCall(familyChatIdOf(callKitParams));
+          _watchRingingCall(
+            familyChatIdOf(callKitParams),
+            callKitParams.extra?['callId'] as String? ?? '',
+          );
           break;
 
         case CallEventActionCallAccept(:final callKitParams):
@@ -458,9 +469,17 @@ class NotificationService {
   /// Mentre CallKit squilla, osserva il documento chiamata: se il caller
   /// riaggancia (status ended / documento eliminato) chiudi la UI nativa
   /// invece di lasciarla squillare fino al timeout.
-  void _watchRingingCall(String familyChatId) {
+  ///
+  /// Attenzione alla cache Firestore: il primo snapshot può essere lo stato
+  /// della chiamata PRECEDENTE (documento cancellato o `ended`). Per questo
+  /// ignoriamo gli snapshot dalla cache, agiamo solo dopo aver visto dal
+  /// server la chiamata in corso, e confrontiamo il `callId`.
+  void _watchRingingCall(String familyChatId, String callId) {
     if (familyChatId.isEmpty) return;
     _ringingWatcher?.cancel();
+    _ringingCallId = callId.isEmpty ? null : callId;
+    bool seenRingingFromServer = false;
+
     _ringingWatcher = _firestore
         .collection('families')
         .doc(familyChatId)
@@ -468,14 +487,30 @@ class NotificationService {
         .doc('current')
         .snapshots()
         .listen((snap) {
-      final status = snap.data()?['status'] as String?;
-      if (!snap.exists || status == 'ended' || status == 'declined') {
-        if (kDebugMode) print('📞 [CALLKIT] Caller cancelled while ringing → dismiss');
-        _ringingWatcher?.cancel();
-        _ringingWatcher = null;
-        _dismissRingingCallKit();
+      if (snap.metadata.isFromCache) return;
+      final data = snap.data();
+
+      if (snap.exists) {
+        final docCallId = data?['callId'] as String?;
+        if (callId.isNotEmpty && docCallId != null && docCallId != callId) {
+          return; // documento di un'altra chiamata
+        }
+        final status = data?['status'] as String?;
+        if (status == 'ringing') {
+          seenRingingFromServer = true;
+          return;
+        }
+        if (status != 'ended' && status != 'declined') return;
+      } else if (!seenRingingFromServer) {
+        return; // non abbiamo ancora visto questa chiamata: non è un annullamento
       }
+
+      if (kDebugMode) print('📞 [CALLKIT] Caller cancelled while ringing → dismiss');
+      _ringingWatcher?.cancel();
+      _ringingWatcher = null;
+      _dismissRingingCallKit();
     }, onError: (_) {});
+
     // Sicurezza: non restare in ascolto oltre lo squillo
     Future.delayed(const Duration(seconds: 40), () {
       _ringingWatcher?.cancel();

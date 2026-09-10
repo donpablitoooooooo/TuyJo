@@ -366,6 +366,7 @@ exports.sendCallNotification = functions
           type: 'call_cancelled',
           familyChatId,
           callerId: before.caller_id || '',
+          callId: before.callId || '',
         }, 20)));
         return null;
       }
@@ -410,7 +411,7 @@ exports.sendCallNotification = functions
             handle: 'TuyJo',
             type: 0,
             duration: 30000,
-            extra: {familyChatId, callerId},
+            extra: {familyChatId, callerId, callId: after.callId || ''},
             ios: {
               iconName: 'AppIcon',
               handleType: 'generic',
@@ -454,6 +455,7 @@ exports.sendCallNotification = functions
           type: 'incoming_call',
           familyChatId,
           callerId: callerId || '',
+          callId: after.callId || '',
           callerName: localizedText.body,
           status: status,
         }, 30);
