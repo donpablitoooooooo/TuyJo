@@ -5,6 +5,7 @@ import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter_callkit_incoming/flutter_callkit_incoming.dart';
 import 'package:flutter_callkit_incoming/entities/entities.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_core/firebase_core.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:timezone/data/latest_all.dart' as tz;
@@ -28,6 +29,45 @@ Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
     // Il caller ha riagganciato mentre squillava ancora: chiudi la UI nativa
     await _dismissRingingCallKit();
   }
+}
+
+/// Scrive `declined` sul documento chiamata così il caller smette di
+/// squillare. Top-level: usato sia dal main isolate sia dal background
+/// handler CallKit (rifiuto con app terminata, Android).
+Future<void> writeCallDeclined(String familyChatId, {String? callId}) async {
+  if (familyChatId.isEmpty) return;
+  try {
+    await FirebaseFirestore.instance
+        .collection('families')
+        .doc(familyChatId)
+        .collection('calls')
+        .doc('current')
+        .set({
+      'status': 'declined',
+      if (callId != null && callId.isNotEmpty) 'declined_call_id': callId,
+      'updated_at': FieldValue.serverTimestamp(),
+    }, SetOptions(merge: true));
+    if (kDebugMode) print('📞 [CALLKIT] declined written for family ${familyChatId.substring(0, 8)}…');
+  } catch (e) {
+    if (kDebugMode) print('❌ [CALLKIT] Error writing declined: $e');
+  }
+}
+
+/// Handler CallKit per eventi ricevuti con app TERMINATA (Android).
+/// Gira in un isolate separato: Firebase va inizializzato qui.
+@pragma('vm:entry-point')
+Future<void> _callKitBackgroundHandler(CallEvent event) async {
+  if (event is! CallEventActionCallDecline) return;
+  try {
+    await Firebase.initializeApp();
+  } catch (_) {
+    // già inizializzato o non necessario
+  }
+  final extra = event.callKitParams.extra ?? const {};
+  await writeCallDeclined(
+    extra['familyChatId'] as String? ?? '',
+    callId: extra['callId'] as String?,
+  );
 }
 
 /// Chiude la UI CallKit di chiamata in arrivo (top-level per background handler)
@@ -151,6 +191,9 @@ class NotificationService {
   /// riaggancia prima della risposta, chiudiamo subito la UI nativa.
   StreamSubscription? _ringingWatcher;
   String? _ringingCallId;
+  /// callId dell'ultima chiamata rifiutata (letto da main.dart per il write)
+  String? _lastDeclinedCallId;
+  String? get lastDeclinedCallId => _lastDeclinedCallId;
 
   static const AndroidNotificationChannel _channel = AndroidNotificationChannel(
     'messages_channel',
@@ -203,6 +246,13 @@ class NotificationService {
 
     // 2.5. Inizializza CallKit event listeners
     _initializeCallKitListeners();
+    if (Platform.isAndroid) {
+      try {
+        await FlutterCallkitIncoming.onBackgroundMessage(_callKitBackgroundHandler);
+      } catch (e) {
+        if (kDebugMode) print('⚠️ [CALLKIT] onBackgroundMessage registration failed: $e');
+      }
+    }
 
     // 2.6. Richiedi permessi CallKit (Android 14+ full screen intent, notifiche)
     await _requestCallKitPermissions();
@@ -411,9 +461,10 @@ class NotificationService {
           break;
 
         case CallEventActionCallDecline(:final callKitParams):
-          if (kDebugMode) print('📞 [CALLKIT] Call declined');
+          if (kDebugMode) print('📞 [CALLKIT] Call declined (extra: ${callKitParams.extra})');
           _ringingWatcher?.cancel();
           _activeCallUuid = null;
+          _lastDeclinedCallId = callKitParams.extra?['callId'] as String?;
           onCallDeclined?.call(familyChatIdOf(callKitParams), callerIdOf(callKitParams));
           break;
 

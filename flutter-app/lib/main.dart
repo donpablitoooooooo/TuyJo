@@ -3,7 +3,6 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:provider/provider.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:cryptography_flutter/cryptography_flutter.dart';
 import 'screens/main_screen.dart';
 import 'screens/voice_call_screen.dart';
@@ -116,20 +115,19 @@ void main() async {
   };
 
   // Configura callback per rifiuto chiamata (CallKit decline)
-  notificationService.onCallDeclined = (String familyChatId, String callerId) {
+  notificationService.onCallDeclined = (String familyChatId, String callerId) async {
     print('📞 [MAIN] Call declined via CallKit from $callerId in family $familyChatId');
-    if (familyChatId.isEmpty) return;
-    // Aggiorna Firestore con status "declined": il caller lo vede dal
-    // listener del documento e chiude la chiamata
-    FirebaseFirestore.instance
-        .collection('families')
-        .doc(familyChatId)
-        .collection('calls')
-        .doc('current')
-        .set({
-      'status': 'declined',
-      'updated_at': FieldValue.serverTimestamp(),
-    }, SetOptions(merge: true));
+    // Se l'extra CallKit non porta il familyChatId, usa quello del pairing
+    // (l'app ha una sola famiglia): il caller deve comunque smettere di squillare.
+    final fid = familyChatId.isNotEmpty
+        ? familyChatId
+        : (await pairingService.getFamilyChatId() ?? '');
+    if (fid.isEmpty) {
+      print('❌ [MAIN] Cannot write declined: no familyChatId');
+      return;
+    }
+    // Il caller vede "declined" dal listener del documento e chiude la chiamata
+    await writeCallDeclined(fid, callId: notificationService.lastDeclinedCallId);
   };
 
   // Configura callback per fine chiamata (CallKit end)
