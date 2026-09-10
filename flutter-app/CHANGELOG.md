@@ -2,6 +2,23 @@
 
 Tutte le modifiche notevoli a questo progetto saranno documentate in questo file.
 
+## [Unreleased]
+
+### 📞 Chiamate vocali: riscrittura del motore peer-to-peer
+- **ICE restart automatico**: un cambio di rete (Wi-Fi ↔ 4G, ascensore, cambio cella) non chiude più la chiamata. Dopo 4 s di grace period il caller rinegozia (fino a 3 tentativi); il callee, se è lui a perdere la rete, chiede il restart via signaling. Stato "riconnessione…" in UI.
+- **Pop-up "Chiamata non disponibile in peer to peer"**: se i due telefoni non trovano un percorso diretto (NAT simmetrico / CGNAT) compare un avviso grande e chiaro con il suggerimento di cambiare rete, invece di uno squillo infinito.
+- **Signaling cifrato end-to-end**: offer, answer e candidati ICE sono cifrati con AES-256-GCM e una chiave di sessione avvolta con la chiave RSA del partner. Firestore non vede più SDP, fingerprint DTLS né indirizzi IP: niente MITM da chi conosce il familyChatId.
+- **Coda dei candidati ICE**: i candidati arrivati prima della remote description non vengono più scartati (connessione più rapida e affidabile).
+- **`callId` univoco per chiamata**: il documento `calls/current` viene sovrascritto (non più merge), i candidati residui di chiamate precedenti vengono ignorati. Niente più answer "fantasma" dopo un crash.
+- **Data channel di controllo P2P**: riaggancio e stato muto viaggiano direttamente tra i telefoni (istantanei, senza passare da Firestore). Il documento eliminato viene trattato come riaggancio.
+- **Annullamento chiamata**: se il caller riaggancia mentre squilla, il telefono del partner smette subito di squillare (push `call_cancelled` + listener sul documento). Timeout allineati a 30 s su entrambi i lati.
+- **Qualità audio**: Opus con FEC in-band, mono, 40 kbps, fullband 48 kHz; vincoli espliciti AEC / noise suppression / AGC / highpass; sessione audio nativa in modalità voce (`voiceChat` + 48 kHz su iOS, `inCommunication` + `voiceCommunication` su Android) con supporto Bluetooth.
+- **Indicatore di qualità** (RTT, jitter, perdita pacchetti da `getStats()`) e percorso di rete (host / srflx) mostrati durante la chiamata. "Il partner è in muto" visibile in UI.
+- **iOS: PushKit VoIP**: le chiamate in arrivo arrivano via push VoIP (APNs diretto dalla Cloud Function) e squillano anche ad app chiusa o in Low Power Mode. Le chiamate in uscita sono registrate in CallKit (lock screen, sessione audio gestita dal sistema). Ringback tone anche su iOS.
+- **Android: foreground service** con tipo microphone durante la chiamata (in uscita e in entrata): il microfono resta attivo con app in background o schermo spento. Ripristino della chiamata accettata se l'app viene avviata da CallKit.
+- Aggiornate `flutter_webrtc` 1.6.2 (libwebrtc 150) e `flutter_callkit_incoming` 3.1.5.
+- Rimossi i pulsanti accetta/rifiuta in-app (codice morto: la risposta avviene sempre dalla UI nativa). Il timer parte alla connessione ICE reale, non al segnale Firestore.
+
 ## [1.35.0] - 2026-06-15
 
 ### 🔔 Notifiche e permessi (le notifiche non sono più obbligatorie)

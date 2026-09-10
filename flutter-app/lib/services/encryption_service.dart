@@ -126,6 +126,21 @@ class EncryptionService {
     }
   }
 
+  /// Decifra una chiave AES cifrata con [encryptAesKeyOnly] usando la
+  /// nostra chiave privata RSA. Usato dal signaling delle chiamate vocali
+  /// per recuperare la chiave di sessione della chiamata.
+  Uint8List decryptAesKeyOnly(String encryptedKeyBase64) {
+    try {
+      return _rsaDecrypt(base64Decode(encryptedKeyBase64));
+    } catch (e) {
+      throw Exception('AES key decryption failed: $e');
+    }
+  }
+
+  /// Genera una chiave AES-256 random (base64) da usare come chiave di
+  /// sessione simmetrica (es. signaling WebRTC cifrato con AES-GCM).
+  String generateSessionKey() => base64Encode(_generateRandomKey(32));
+
   /// Cifra solo una chiave AES con una chiave pubblica RSA
   /// Usato per la dual encryption (cifrare la stessa AES key con due chiavi pubbliche diverse)
   String encryptAesKeyOnly(Uint8List aesKey, String publicKeyStr) {

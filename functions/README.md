@@ -162,3 +162,31 @@ I token FCM possono diventare invalidi se:
 - L'app viene aggiornata e chiama `deleteToken()`
 
 La funzione `sendMessageNotification` rimuove automaticamente i token invalidi.
+
+
+## Chiamate vocali: push VoIP iOS (PushKit)
+
+Su iOS le chiamate in arrivo squillano solo tramite push VoIP (PushKit),
+inviate direttamente ad APNs da `sendCallNotification`. FCM non può
+inviarle. Senza questa configurazione la funzione ripiega su un push FCM
+in background, che iOS non consegna ad app terminata.
+
+1. Apple Developer → *Certificates, Identifiers & Profiles* → *Keys* →
+   crea una chiave con **Apple Push Notifications service (APNs)** abilitato
+   e scarica il file `.p8` (si scarica una volta sola).
+2. Imposta i secret (una volta, nel progetto Firebase):
+
+```bash
+firebase functions:secrets:set APNS_AUTH_KEY   # incolla il contenuto del .p8, righe BEGIN/END incluse
+firebase functions:secrets:set APNS_KEY_ID     # Key ID della chiave (10 caratteri)
+firebase functions:secrets:set APNS_TEAM_ID    # PW2GC2RTH2
+```
+
+3. Deploy: `firebase deploy --only functions`
+
+La funzione prova prima l'ambiente APNs production e, se il token è di un
+build di sviluppo (`BadDeviceToken`), riprova su sandbox. Il bundle id è
+fissato in `IOS_BUNDLE_ID` (`com.privatemessaging.tuyjo`, topic `.voip`).
+
+Su Xcode il target Runner deve avere la capability **Push Notifications** e
+**Background Modes → Voice over IP** (già presente in `Info.plist`).

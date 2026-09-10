@@ -92,20 +92,35 @@ void main() async {
   // Configura callback per chiamate in arrivo (CallKit accept)
   notificationService.onIncomingCall = (String familyChatId, String callerId) {
     print('📞 [MAIN] Call accepted via CallKit from $callerId in family $familyChatId');
-    final navigatorState = NotificationService.navigatorKey.currentState;
-    if (navigatorState != null) {
-      navigatorState.push(
-        MaterialPageRoute(
-          builder: (context) => const VoiceCallScreen(isOutgoing: false),
-        ),
-      );
+    // Se l'app è stata appena lanciata da CallKit (PushKit / full screen
+    // intent) il navigator potrebbe non esistere ancora: riprova per qualche
+    // secondo invece di perdere la chiamata accettata.
+    Future<void> openWhenReady([int attempt = 0]) async {
+      if (VoiceCallScreen.isActive) return; // già aperta (evento + activeCalls)
+      final navigatorState = NotificationService.navigatorKey.currentState;
+      if (navigatorState != null) {
+        navigatorState.push(
+          MaterialPageRoute(
+            builder: (context) => const VoiceCallScreen(isOutgoing: false),
+          ),
+        );
+        return;
+      }
+      if (attempt < 20) {
+        await Future.delayed(const Duration(milliseconds: 250));
+        return openWhenReady(attempt + 1);
+      }
+      print('❌ [MAIN] Navigator never became ready, cannot open call screen');
     }
+    openWhenReady();
   };
 
   // Configura callback per rifiuto chiamata (CallKit decline)
   notificationService.onCallDeclined = (String familyChatId, String callerId) {
     print('📞 [MAIN] Call declined via CallKit from $callerId in family $familyChatId');
-    // Aggiorna Firestore con status "declined"
+    if (familyChatId.isEmpty) return;
+    // Aggiorna Firestore con status "declined": il caller lo vede dal
+    // listener del documento e chiude la chiamata
     FirebaseFirestore.instance
         .collection('families')
         .doc(familyChatId)
