@@ -181,16 +181,16 @@ const NOTIFICATION_TEXTS = {
 // nella lingua del destinatario. L'app li usa se presenti, altrimenti
 // ripiega sulla lingua del dispositivo.
 const CALLKIT_TEXTS = {
-  it: {nameCaller: 'Partner', textAccept: 'Accetta', textDecline: 'Rifiuta',
+  it: {nameCaller: 'Il mio amore', textAccept: 'Accetta', textDecline: 'Rifiuta',
     incomingChannel: 'Chiamate in arrivo', missedChannel: 'Chiamate perse',
     missedSubtitle: 'Chiamata persa', callback: 'Richiama'},
-  en: {nameCaller: 'Partner', textAccept: 'Accept', textDecline: 'Decline',
+  en: {nameCaller: 'My love', textAccept: 'Accept', textDecline: 'Decline',
     incomingChannel: 'Incoming calls', missedChannel: 'Missed calls',
     missedSubtitle: 'Missed call', callback: 'Call back'},
-  es: {nameCaller: 'Pareja', textAccept: 'Aceptar', textDecline: 'Rechazar',
+  es: {nameCaller: 'Mi amor', textAccept: 'Aceptar', textDecline: 'Rechazar',
     incomingChannel: 'Llamadas entrantes', missedChannel: 'Llamadas perdidas',
     missedSubtitle: 'Llamada perdida', callback: 'Devolver llamada'},
-  ca: {nameCaller: 'Parella', textAccept: 'Accepta', textDecline: 'Rebutja',
+  ca: {nameCaller: 'El meu amor', textAccept: 'Accepta', textDecline: 'Rebutja',
     incomingChannel: 'Trucades entrants', missedChannel: 'Trucades perdudes',
     missedSubtitle: 'Trucada perduda', callback: 'Torna la trucada'},
 };

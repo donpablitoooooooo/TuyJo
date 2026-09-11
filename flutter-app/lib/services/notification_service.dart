@@ -108,7 +108,7 @@ const IOSParams _callKitIosParams = IOSParams(
 /// handler (nessun BuildContext) e nei parametri dei canali Android.
 const Map<String, Map<String, String>> _callTexts = {
   'it': {
-    'partner': 'Partner',
+    'partner': 'Il mio amore',
     'accept': 'Accetta',
     'decline': 'Rifiuta',
     'incomingChannel': 'Chiamate in arrivo',
@@ -121,7 +121,7 @@ const Map<String, Map<String, String>> _callTexts = {
     'todoChannelDesc': 'Notifiche per i promemoria degli eventi',
   },
   'en': {
-    'partner': 'Partner',
+    'partner': 'My love',
     'accept': 'Accept',
     'decline': 'Decline',
     'incomingChannel': 'Incoming calls',
@@ -134,7 +134,7 @@ const Map<String, Map<String, String>> _callTexts = {
     'todoChannelDesc': 'Notifications for event reminders',
   },
   'es': {
-    'partner': 'Pareja',
+    'partner': 'Mi amor',
     'accept': 'Aceptar',
     'decline': 'Rechazar',
     'incomingChannel': 'Llamadas entrantes',
@@ -147,7 +147,7 @@ const Map<String, Map<String, String>> _callTexts = {
     'todoChannelDesc': 'Notificaciones de recordatorios de eventos',
   },
   'ca': {
-    'partner': 'Parella',
+    'partner': 'El meu amor',
     'accept': 'Accepta',
     'decline': 'Rebutja',
     'incomingChannel': 'Trucades entrants',
