@@ -1,13 +1,20 @@
-TuyJo v1.35.0
+TuyJo v1.36.0
 
 NOVITÀ:
-🔔 Le notifiche ora sono opzionali: l'app funziona anche senza. Niente più avviso insistente a ogni avvio
-🙅 Se non le vuoi, scegli "Non voglio le notifiche" una volta e non te lo chiediamo più
-📷 Pairing più chiaro: se manca il permesso fotocamera ti spieghiamo perché serve, con scorciatoia alle impostazioni (niente più schermata nera)
+📞 Chiamate vocali riscritte: più stabili, con riconnessione automatica se cambi rete (Wi-Fi/4G) e audio migliore
+📞 Se non è possibile chiamare in peer-to-peer te lo diciamo chiaramente con un avviso
+📞 Le chiamate arrivano anche a iPhone bloccato o con app chiusa, come una chiamata normale
+📞 Lo schermo si spegne quando porti il telefono all'orecchio
+📍 Condivisione posizione: "Tempo reale" continua anche con lo schermo spento e non si interrompe più se il partner chiude la schermata; "Questa posizione" invia un solo punto
+📍 Pulsante per interrompere la condivisione direttamente dalla schermata di navigazione
 
 CORREZIONI:
-🔕 Rimosso il messaggio "permesso notifiche obbligatorio" che ricompariva a ogni apertura
+🔴 Il pallino sull'icona mostra il numero reale di messaggi non letti e sparisce quando li leggi
+✅ I messaggi non risultano più letti mentre l'app è in background
+📱 Schermata condivisione posizione che appariva a metà schermo
+🌍 Descrizioni dei permessi e schermata di chiamata tradotte in tutte le lingue
+📷 Permesso fotocamera su iPhone: ora la richiesta compare correttamente
 
 NOTE:
 📱 Compatibilità: Android 6.0+ e iOS 15.0+
-🔐 Crittografia end-to-end garantita
+🔐 Crittografia end-to-end garantita, anche per chiamate e posizione

@@ -2,7 +2,7 @@
 
 Tutte le modifiche notevoli a questo progetto saranno documentate in questo file.
 
-## [Unreleased]
+## [1.36.0] - 2026-09-11
 
 ### 📞 Chiamate vocali: riscrittura del motore peer-to-peer
 - **ICE restart automatico**: un cambio di rete (Wi-Fi ↔ 4G, ascensore, cambio cella) non chiude più la chiamata. Dopo 4 s di grace period il caller rinegozia (fino a 3 tentativi); il callee, se è lui a perdere la rete, chiede il restart via signaling. Stato "riconnessione…" in UI.
@@ -26,6 +26,18 @@ Tutte le modifiche notevoli a questo progetto saranno documentate in questo file
 - Schermata di navigazione: avvio a transizione conclusa (niente più schermo a metà), stream GPS con filtro di distanza al posto del fix ogni 5 secondi, scritture del ricevente al massimo ogni 10 s, pulsante per interrompere la condivisione, testo "Condivisione avviata" per chi condivide con suggerimento a non chiudere l'app dal task switcher.
 - Lo stop non resta più bloccato se il documento non esiste; un errore di decifratura non uccide più il listener del partner; mai più coordinate scritte in chiaro.
 - iOS: abilitate le macro `PERMISSION_*` di permission_handler nel Podfile. Senza, la richiesta della fotocamera per il pairing via QR rispondeva "negato" senza mai mostrare il prompt.
+- Modalità di condivisione rinominate "Tempo reale" / "Questa posizione".
+
+### 🔴 Badge e messaggi non letti
+- **Badge iOS corretto**: il push impostava sempre "1" e l'app non lo azzerava mai. Ora la Cloud Function conta i messaggi del partner non ancora letti e l'app azzera il badge quando leggi. Su Android una sola notifica con il conteggio giusto.
+- **Messaggi non più marcati letti in background** su Android: la lettura automatica scatta solo con app in primo piano e chat visibile. Prima risultavano letti col telefono in tasca.
+
+### 🌍 Localizzazione
+- Descrizioni dei permessi iOS complete in it/en/es/ca (mancava quella della posizione in background), accenti corretti, `CFBundleLocalizations` dichiarato.
+- Chiamata in arrivo: nome chiamante "Il mio amore", pulsanti Accetta/Rifiuta, notifica di chiamata persa e nomi dei canali notifiche Android nella lingua del dispositivo.
+
+### ⚙️ Infrastruttura
+- Cloud Functions su Node 22, firebase-functions 6, firebase-admin 13.
 
 ## [1.35.0] - 2026-06-15
 
