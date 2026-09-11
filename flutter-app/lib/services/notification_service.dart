@@ -195,6 +195,11 @@ class NotificationService {
   String? _lastDeclinedCallId;
   String? get lastDeclinedCallId => _lastDeclinedCallId;
 
+  /// True mentre VoiceCallScreen è montata (impostato dalla schermata).
+  /// Serve per il "glare": se arriva una chiamata mentre ne abbiamo già una
+  /// aperta, l'accept CallKit non deve aprire una seconda schermata.
+  bool callScreenActive = false;
+
   static const AndroidNotificationChannel _channel = AndroidNotificationChannel(
     'messages_channel',
     'Messaggi',
@@ -456,6 +461,13 @@ class NotificationService {
         case CallEventActionCallAccept(:final callKitParams):
           if (kDebugMode) print('📞 [CALLKIT] Call accepted');
           _ringingWatcher?.cancel();
+          if (callScreenActive) {
+            // Glare: siamo già in una chiamata. Chiudi solo questa entry
+            // CallKit senza toccare quella della chiamata in corso.
+            if (kDebugMode) print('⚠️ [CALLKIT] Accept while a call is active → dropping');
+            FlutterCallkitIncoming.endCall(callKitParams.id).catchError((_) {});
+            break;
+          }
           _activeCallUuid = callKitParams.id;
           onIncomingCall?.call(familyChatIdOf(callKitParams), callerIdOf(callKitParams));
           break;
@@ -506,7 +518,18 @@ class NotificationService {
         final extra = call.extra ?? const {};
         final familyChatId = extra['familyChatId'] as String? ?? '';
         final callerId = extra['callerId'] as String? ?? '';
+        final callId = extra['callId'] as String? ?? '';
         if (familyChatId.isEmpty) continue;
+
+        // Il plugin può conservare una chiamata "accettata" di una sessione
+        // precedente (crash, kill). Riprendila solo se su Firestore è
+        // ancora viva, altrimenti ripulisci CallKit.
+        final alive = await _isCallStillAlive(familyChatId, callId);
+        if (!alive) {
+          if (kDebugMode) print('🧹 [CALLKIT] Stale accepted call ${call.id} → ending');
+          await FlutterCallkitIncoming.endCall(call.id);
+          continue;
+        }
         if (kDebugMode) print('📞 [CALLKIT] Resuming accepted call ${call.id}');
         _activeCallUuid = call.id;
         onIncomingCall?.call(familyChatId, callerId);
@@ -514,6 +537,28 @@ class NotificationService {
       }
     } catch (e) {
       if (kDebugMode) print('⚠️ [CALLKIT] activeCalls() failed: $e');
+    }
+  }
+
+  Future<bool> _isCallStillAlive(String familyChatId, String callId) async {
+    try {
+      final snap = await _firestore
+          .collection('families')
+          .doc(familyChatId)
+          .collection('calls')
+          .doc('current')
+          .get(const GetOptions(source: Source.server));
+      final data = snap.data();
+      if (!snap.exists || data == null) return false;
+      final status = data['status'] as String?;
+      if (status != 'ringing' && status != 'connected') return false;
+      if (callId.isNotEmpty && data['callId'] != null && data['callId'] != callId) {
+        return false;
+      }
+      return true;
+    } catch (e) {
+      if (kDebugMode) print('⚠️ [CALLKIT] Cannot verify call on Firestore: $e');
+      return false;
     }
   }
 

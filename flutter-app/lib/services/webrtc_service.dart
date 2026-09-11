@@ -457,13 +457,17 @@ class WebRTCService {
         _tuneOpus(answerJson['sdp'] as String),
         answerJson['type'] as String,
       );
+      // Flag impostato PRIMA dell'await: i callback del listener Firestore
+      // sono concorrenti e uno snapshot successivo (es. updated_at) non deve
+      // riapplicare la stessa answer.
+      _remoteDescriptionSet = true;
       try {
         await pc.setRemoteDescription(answer);
       } catch (e) {
         _log('⚠️ setRemoteDescription(answer) failed: $e');
+        _remoteDescriptionSet = false;
         return;
       }
-      _remoteDescriptionSet = true;
       _restarting = false;
       _flushPendingCandidates();
       _log('Remote answer set (gen=$_gen)');
@@ -552,7 +556,8 @@ class WebRTCService {
   }
 
   void _publishCandidate(String subcollection, RTCIceCandidate candidate) {
-    if (_disposed || _familyChatId == null || candidate.candidate == null) return;
+    final c = candidate.candidate;
+    if (_disposed || _familyChatId == null || c == null || c.isEmpty) return;
     _callDoc(_familyChatId!).collection(subcollection).add({
       'callId': _callId,
       'gen': _gen,
@@ -622,8 +627,18 @@ class WebRTCService {
     }
   }
 
+  DateTime? _lastRecoveryAt;
+
   Future<void> _attemptRecovery() async {
     if (_disposed) return;
+    // ICE `failed` e PeerConnection `failed` arrivano quasi insieme: un solo
+    // tentativo per finestra, altrimenti bruciamo i restart disponibili.
+    final now = DateTime.now();
+    if (_lastRecoveryAt != null &&
+        now.difference(_lastRecoveryAt!) < const Duration(seconds: 3)) {
+      return;
+    }
+    _lastRecoveryAt = now;
     if (_restartCount >= _maxRestarts) {
       _reportP2PFailure();
       return;
@@ -833,7 +848,8 @@ class WebRTCService {
             packetsReceived = _num(v['packetsReceived'])?.toInt();
             packetsLost = _num(v['packetsLost'])?.toInt();
             bytesReceived = _num(v['bytesReceived'])?.toInt();
-            timestampMs = r.timestamp;
+            // Android riporta il timestamp in microsecondi, iOS in ms
+            timestampMs = r.timestamp > 1e14 ? r.timestamp / 1000 : r.timestamp;
           }
           break;
         case 'local-candidate':

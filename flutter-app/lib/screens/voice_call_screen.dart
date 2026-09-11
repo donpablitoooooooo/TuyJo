@@ -85,6 +85,7 @@ class _VoiceCallScreenState extends State<VoiceCallScreen>
 
     // Se l'utente termina dalla UI nativa (lock screen iOS, notifica Android)
     _notificationService = Provider.of<NotificationService>(context, listen: false);
+    _notificationService.callScreenActive = true;
     _notificationService.onNativeCallEnded = () {
       if (mounted) _endCall(localHangup: true, fromNative: true);
     };
@@ -100,6 +101,7 @@ class _VoiceCallScreenState extends State<VoiceCallScreen>
     _stopRingbackTone();
     _pulseController.dispose();
     _notificationService.onNativeCallEnded = null;
+    _notificationService.callScreenActive = false;
     // Chiudi WebRTC (stream audio + peer connection)
     _webrtcService.dispose();
     // Pulisci lo stato della chiamata su Firestore
