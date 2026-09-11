@@ -1,0 +1,510 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Tuijo — store screenshots</title>
+<link rel="stylesheet" href="fonts.css">
+<style>
+/* =========================================================
+   Palette e tipografia: identiche a public/styles.css (sito)
+   ========================================================= */
+:root {
+  --teal: #2F9DA6; --teal-bright: #3BA8B0; --teal-deep: #145A60; --teal-ink: #0C2E32; --teal-night: #08252A;
+  --cherry: #D81F2C; --cherry-deep: #9E1B22; --cherry-soft: #F0858E; --leaf: #7CA01E;
+  --paper: #F4EDE0; --paper-2: #EFE6D6; --paper-card: #FBF7EF; --cream-line: #E3D7C2;
+  --ink: #16302F; --ink-soft: #4A5E5C; --ink-faint: #7E8E8B;
+  --display: "Bricolage Grotesque", system-ui, sans-serif;
+  --serif: "Instrument Serif", Georgia, serif;
+  --sans: "Hanken Grotesk", system-ui, sans-serif;
+  --app-font: "Inter", "Roboto", system-ui, sans-serif;
+  --grad: linear-gradient(135deg, #3BA8B0, #145A60);
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { width: 100%; height: 100%; overflow: hidden; }
+body { font-family: var(--sans); -webkit-font-smoothing: antialiased; color: var(--ink); }
+img { display: block; }
+
+/* ---------- Pagina (uno screenshot) ---------- */
+.shot { position: relative; width: 100vw; height: 100vh; overflow: hidden; display: flex; flex-direction: column; background: var(--paper); }
+.shot.dark { background: linear-gradient(160deg, var(--teal-deep) 0%, var(--teal-ink) 55%, var(--teal-night) 100%); color: #fff; }
+.bg-cherry { position: absolute; z-index: 0; width: 46vw; right: -16vw; top: -3vh; opacity: .07; transform: rotate(-16deg); pointer-events: none; filter: saturate(.9); }
+.shot.dark .bg-cherry { opacity: .07; }
+.glow { position: absolute; z-index: 0; left: 50%; top: 66%; width: 130vw; height: 76vh; transform: translate(-50%, -50%);
+  background: radial-gradient(closest-side, rgba(47,157,166,.34), transparent 72%); }
+.shot.dark .glow { background: radial-gradient(closest-side, rgba(59,168,176,.40), transparent 72%); }
+
+.copy { position: relative; z-index: 2; text-align: center; padding: 6.2vh 6.5vw 0; }
+.eyebrow { display: inline-flex; align-items: center; gap: .7em; font-weight: 600; font-size: 3vw; letter-spacing: .18em; text-transform: uppercase; color: var(--teal-deep); }
+.eyebrow::before, .eyebrow::after { content: ""; width: 1.6em; height: 1.5px; background: var(--cherry); }
+.shot.dark .eyebrow { color: var(--teal-bright); }
+h1 { font-family: var(--display); font-weight: 800; font-size: 9.4vw; line-height: 1.02; letter-spacing: -.02em; color: var(--teal-ink); margin-top: 1.4vh; text-wrap: balance; }
+.shot.dark h1 { color: #fff; }
+.serif-em { font-family: var(--serif); font-weight: 400; font-style: italic; letter-spacing: 0; }
+.shot.dark .serif-em { color: var(--cherry-soft); }
+.sub { font-size: 4.2vw; line-height: 1.35; color: var(--ink-soft); margin: 1.6vh auto 0; max-width: 30ch; text-wrap: balance; }
+.shot.dark .sub { color: rgba(255,255,255,.78); }
+
+/* android 9:16: meno alto, quindi testi e telefono un po' più compatti */
+.dev-android .copy { padding-top: 5vh; }
+.dev-android h1 { font-size: 8.6vw; }
+.dev-android .sub { font-size: 3.9vw; margin-top: 1.2vh; }
+.dev-android .stage { padding-top: 3vh; }
+.dev-android .device.android { width: 74vw; }
+
+/* tablet: testi proporzionalmente più piccoli */
+.dev-ipad .eyebrow, .dev-tablet .eyebrow { font-size: 1.9vw; }
+.dev-ipad h1, .dev-tablet h1 { font-size: 6.4vw; }
+.dev-ipad .sub, .dev-tablet .sub { font-size: 2.6vw; max-width: 36ch; }
+.dev-ipad .copy, .dev-tablet .copy { padding-top: 5.5vh; }
+
+.stage { position: relative; z-index: 2; flex: 1; display: flex; justify-content: center; align-items: flex-start; padding-top: 4vh; }
+
+/* ---------- Cornici dispositivo ---------- */
+.device { position: relative; background: #0c0f12; box-shadow: 0 40px 90px -30px rgba(12,46,50,.55), 0 0 0 2px rgba(255,255,255,.07) inset; }
+.shot.dark .device { box-shadow: 0 40px 90px -30px rgba(0,0,0,.7), 0 0 0 2px rgba(255,255,255,.12) inset; }
+.device::after { content: ""; position: absolute; right: -0.8vw; top: 22%; width: .8vw; height: 9%; background: #0c0f12; border-radius: 0 3px 3px 0; }
+.screen { position: relative; width: 100%; overflow: hidden; background: #fff; }
+.device.iphone { width: 80vw; border-radius: 13vw; padding: 3vw; }
+.device.iphone .screen { aspect-ratio: 1320 / 2868; border-radius: 10vw; }
+.device.android { width: 80vw; border-radius: 9vw; padding: 2.2vw; }
+.device.android .screen { aspect-ratio: 1080 / 2340; border-radius: 6.8vw; }
+.device.ipad { width: 78vw; border-radius: 4.6vw; padding: 3.4vw; }
+.device.ipad .screen { aspect-ratio: 2064 / 2752; border-radius: 1.6vw; }
+.device.tablet { width: 78vw; border-radius: 4vw; padding: 3vw; }
+.device.tablet .screen { aspect-ratio: 1600 / 2560; border-radius: 1.6vw; }
+.device.ipad::after, .device.tablet::after { display: none; }
+
+/* elementi hardware, in coordinate logiche (dentro .app, quindi scalati) */
+.island { position: absolute; z-index: 30; top: 11px; left: 50%; transform: translateX(-50%); width: 126px; height: 37px; border-radius: 999px; background: #0c0f12; }
+.punch { position: absolute; z-index: 30; top: 12px; left: 50%; transform: translateX(-50%); width: 22px; height: 22px; border-radius: 50%; background: #0c0f12; }
+.sb { position: absolute; z-index: 29; top: 0; left: 0; right: 0; display: flex; justify-content: space-between; align-items: center; font-family: var(--app-font); font-weight: 600; }
+.sb.ios { height: 56px; padding: 6px 30px 0 38px; font-size: 17px; }
+.sb.android { height: 32px; padding: 0 22px; font-size: 14px; font-weight: 500; }
+.sb.tab { height: 30px; padding: 0 22px; font-size: 13px; font-weight: 600; }
+.sb .ic { display: flex; align-items: center; gap: 6px; }
+.sb svg { display: block; }
+.sb.on-light { color: #000; } .sb.on-dark { color: #fff; }
+.homebar { position: absolute; z-index: 30; bottom: 8px; left: 50%; transform: translateX(-50%); width: 139px; height: 5px; border-radius: 3px; background: #000; }
+.homebar.android { width: 108px; height: 4px; }
+.homebar.on-dark { background: #fff; }
+
+.app { position: absolute; left: 0; top: 0; font-family: var(--app-font); overflow: hidden; background: #fff; }
+
+/* ---------- Componenti app (fedeli al Flutter) ---------- */
+.mi { font-family: 'Material Icons'; font-weight: normal; font-style: normal; display: inline-block; line-height: 1; letter-spacing: normal; text-transform: none; white-space: nowrap; font-feature-settings: 'liga'; -webkit-font-smoothing: antialiased; }
+.mio { font-family: 'Material Icons Outlined'; } .mir { font-family: 'Material Icons Round'; }
+.fab { width: 48px; height: 48px; border-radius: 50%; background: #fff; box-shadow: 0 2px 8px rgba(0,0,0,.10); display: flex; align-items: center; justify-content: center; color: #3BA8B0; }
+.fab img { width: 48px; height: 48px; border-radius: 50%; object-fit: cover; }
+.fab-l { position: absolute; z-index: 20; top: var(--fab-top); left: 16px; }
+.fab-r { position: absolute; z-index: 20; top: var(--fab-top); right: 16px; display: flex; gap: 10px; }
+
+/* Chat */
+.chat { position: absolute; inset: 0; display: flex; flex-direction: column; background: #fff; }
+.msgs { flex: 1; display: flex; flex-direction: column; justify-content: flex-end; padding: 60px 12px 2px; overflow: hidden; }
+.datesep { display: flex; align-items: center; padding: 16px; }
+.datesep .ln { flex: 1; height: 1px; background: linear-gradient(90deg, transparent, #E0E0E0); }
+.datesep .ln.r { background: linear-gradient(90deg, #E0E0E0, transparent); }
+.datesep .pill { display: inline-flex; align-items: center; gap: 6px; margin: 0 12px; padding: 6px 16px; border-radius: 16px; background: linear-gradient(90deg, #3BA8B0, #145A60); color: #fff; font-size: 12px; font-weight: 600; letter-spacing: .5px; box-shadow: 0 2px 8px rgba(59,168,176,.3); }
+.row { display: flex; padding: 0 8px 12px; }
+.row.me { justify-content: flex-end; } .row.them { justify-content: flex-start; }
+.bubble { position: relative; max-width: 75%; padding: 10px 16px; font-size: 15px; line-height: 1.4; color: #fff; background: var(--grad); border-radius: 20px 20px 4px 20px; box-shadow: 0 2px 8px rgba(59,168,176,.3); }
+.them .bubble { color: rgba(0,0,0,.87); background: linear-gradient(135deg, #EEEEEE, #F5F5F5); border-radius: 20px 20px 20px 4px; box-shadow: 0 2px 8px rgba(0,0,0,.08); }
+.meta { display: flex; justify-content: flex-end; align-items: center; gap: 4px; margin-top: 4px; font-size: 11px; color: rgba(255,255,255,.8); }
+.them .meta { color: rgba(0,0,0,.54); }
+.tick { font-size: 14px; color: rgba(255,255,255,.8); } .tick.read { color: #64B5F6; }
+.react { position: absolute; bottom: -6px; right: -6px; width: 36px; height: 36px; border-radius: 50%; background: var(--grad); box-shadow: 0 3px 6px rgba(59,168,176,.3); display: flex; align-items: center; justify-content: center; color: #fff; }
+.bubble.loc { padding: 0; width: 200px; overflow: hidden; }
+.locmap { width: 200px; height: 100px; border-radius: 12px; display: flex; align-items: center; justify-content: center; background: var(--grad); color: #fff; }
+.locbody { padding: 10px 16px; }
+.locbody .st { font-style: italic; }
+.locbody .cd { display: flex; align-items: center; gap: 4px; margin-top: 6px; font-size: 12px; color: rgba(255,255,255,.7); }
+.locbody .meta { margin-top: 6px; }
+.todorow { display: flex; align-items: center; gap: 4px; margin-top: 8px; font-size: 12px; color: rgba(255,255,255,.9); }
+.them .todorow { color: rgba(0,0,0,.54); }
+.todorow .al { display: inline-flex; align-items: center; gap: 2px; margin-left: 8px; }
+.typing { display: flex; align-items: center; gap: 8px; padding: 8px 24px; font-size: 13px; font-style: italic; color: #757575; }
+.spin { width: 16px; height: 16px; border-radius: 50%; border: 2px solid #BDBDBD; border-top-color: transparent; transform: rotate(35deg); }
+.inputbar { display: flex; align-items: center; gap: 0; padding: 12px 8px; padding-bottom: calc(12px + var(--safe-b)); background: #fff; box-shadow: 0 -2px 10px 1px rgba(0,0,0,.05); }
+.ibtn { width: 48px; height: 48px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.field { flex: 1; margin: 0 8px 0 4px; display: flex; align-items: center; background: #F5F5F5; border-radius: 24px; padding: 0 4px 0 20px; min-height: 48px; font-size: 16px; color: #9E9E9E; }
+.field span:first-child { flex: 1; }
+.send { width: 48px; height: 48px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; }
+.send .c { width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: #fff; background: linear-gradient(135deg, #E0E0E0, #BDBDBD); transform: scale(.8); }
+
+/* Chiamata */
+.call { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; color: #fff; background: linear-gradient(180deg, #1A1A2E, #16213E, #0F3460); padding-top: calc(var(--safe-t) + 40px); padding-bottom: 60px; }
+.call .status { font-size: 16px; letter-spacing: 1.2px; color: rgba(255,255,255,.7); }
+.call .qrow { display: flex; align-items: flex-end; gap: 0; margin-top: 10px; }
+.call .bar { width: 5px; margin-right: 3px; border-radius: 2px; background: #66BB6A; }
+.call .ql { margin-left: 8px; font-size: 12px; letter-spacing: .5px; color: #66BB6A; }
+.call .qp { margin-left: 10px; font-size: 11px; color: rgba(255,255,255,.38); }
+.call .sp1 { flex: 1; } .call .sp2 { flex: 2; }
+.avatar { width: 160px; height: 160px; border-radius: 50%; border: 4px solid #3BA8B0; box-shadow: 0 0 30px 5px rgba(59,168,176,.2); overflow: hidden; display: flex; align-items: center; justify-content: center; background: rgba(59,168,176,.3); color: rgba(255,255,255,.7); }
+.call .title { margin-top: 32px; font-size: 28px; font-weight: 700; }
+.controls { display: flex; justify-content: space-evenly; align-items: flex-end; width: 100%; padding: 0 40px; }
+.ctl { display: flex; flex-direction: column; align-items: center; gap: 8px; font-size: 12px; color: rgba(255,255,255,.7); }
+.ctl .b { width: 60px; height: 60px; border-radius: 50%; background: rgba(255,255,255,.1); display: flex; align-items: center; justify-content: center; color: #fff; }
+.ctl .b.on { background: rgba(255,255,255,.3); }
+.ctl .end { width: 72px; height: 72px; border-radius: 50%; background: #F44336; box-shadow: 0 4px 12px rgba(255,0,0,.4); display: flex; align-items: center; justify-content: center; color: #fff; }
+
+/* Posizione */
+.locs { position: absolute; inset: 0; color: #fff; background: var(--grad); display: flex; flex-direction: column; align-items: center; padding-top: calc(var(--safe-t) + 60px); }
+.locs .appbar { position: absolute; top: var(--safe-t); left: 0; right: 0; height: 56px; display: flex; align-items: center; justify-content: space-between; padding: 0 16px; }
+.locs .appbar .r { display: flex; gap: 24px; }
+.ring { width: 40px; height: 40px; border-radius: 50%; border: 2px solid rgba(255,255,255,.5); display: flex; align-items: center; justify-content: center; }
+.ring i { width: 24px; height: 24px; border-radius: 50%; border: 2px solid rgba(255,255,255,.7); }
+.arrow { margin-top: 80px; transform: rotate(-24deg); filter: drop-shadow(0 6px 14px rgba(0,0,0,.18)); }
+.panel { margin: 40px 32px 0; padding: 24px 32px; align-self: stretch; text-align: center; background: rgba(255,255,255,.15); border: 1px solid rgba(255,255,255,.2); border-radius: 24px; }
+.panel .d { font-size: 48px; font-weight: 300; letter-spacing: 2px; }
+.panel .t { display: flex; justify-content: center; align-items: center; gap: 6px; margin-top: 16px; font-size: 13px; font-weight: 300; letter-spacing: .5px; color: rgba(255,255,255,.6); }
+
+/* Calendario / promemoria */
+.cal { position: absolute; inset: 0; color: #fff; background: linear-gradient(180deg, #3BA8B0, #145A60); display: flex; flex-direction: column; padding-top: var(--safe-t); }
+.cal .hdr { display: flex; align-items: center; justify-content: space-between; padding: 4px 12px 0 8px; }
+.cal .addp { display: inline-flex; align-items: center; gap: 6px; padding: 8px 14px; border-radius: 20px; background: rgba(255,255,255,.18); font-size: 15px; font-weight: 600; }
+.cal .wd { display: grid; grid-template-columns: repeat(7, 1fr); padding: 6px 8px; font-size: 12px; font-weight: 700; color: rgba(255,255,255,.7); text-align: center; }
+.cal .body { position: relative; flex: 1; }
+.cal .mh { height: 44px; padding: 12px 16px 4px; font-size: 18px; font-weight: 700; }
+.cal .grid { display: grid; grid-template-columns: repeat(7, 1fr); }
+.cal .grid div { height: 44px; display: flex; align-items: center; justify-content: center; }
+.cal .day { position: relative; width: 38px; height: 38px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 15px; }
+.cal .day.today { background: rgba(255,255,255,.3); font-weight: 700; }
+.cal .day.sel { background: #fff; color: #145A60; font-weight: 700; }
+.cal .day .dot { position: absolute; bottom: 4px; left: 50%; transform: translateX(-50%); width: 5px; height: 5px; border-radius: 50%; background: #fff; }
+.cal .day.sel .dot { background: #145A60; }
+.cal .tpanel { position: absolute; left: 12px; right: 12px; bottom: calc(12px + var(--safe-b)); height: 42%; border-radius: 20px; background: rgba(255,255,255,.9); box-shadow: 0 4px 12px rgba(0,0,0,.18); padding: 12px; overflow: hidden; }
+.cal .tpanel .bubble { max-width: 78%; }
+
+/* Media */
+.media { position: absolute; inset: 0; background: #FAFAFA; display: flex; flex-direction: column; padding-top: 100px; }
+.tabs { margin: 0 80px; padding: 6px; border-radius: 30px; background: var(--grad); box-shadow: 0 4px 12px rgba(59,168,176,.3); display: flex; justify-content: space-evenly; }
+.tabs .t { width: 48px; height: 48px; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: #fff; background: rgba(255,255,255,.2); border: 1px solid rgba(255,255,255,.3); }
+.tabs .t.on { background: #fff; color: #3BA8B0; border: none; box-shadow: 0 2px 4px rgba(0,0,0,.15); }
+.msep { display: flex; align-items: center; padding: 12px 16px; }
+.msep .ln { flex: 1; height: 1px; background: linear-gradient(90deg, transparent, #E0E0E0); } .msep .ln.r { background: linear-gradient(90deg, #E0E0E0, transparent); }
+.msep .pill { display: inline-flex; align-items: center; gap: 6px; margin: 0 12px; padding: 6px 16px; border-radius: 16px; background: var(--grad); color: #fff; font-size: 12px; font-weight: 600; letter-spacing: .5px; box-shadow: 0 2px 8px rgba(59,168,176,.3); }
+.pgrid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; padding: 0 8px 8px; }
+.ph { position: relative; aspect-ratio: 1; border-radius: 8px; overflow: hidden; background: #EEE; }
+.ph .badge { position: absolute; right: 4px; bottom: 4px; padding: 2px 6px; border-radius: 6px; background: rgba(59,168,176,.9); color: #fff; font-size: 9px; font-weight: 500; }
+.ph .badge.p { background: rgba(158,158,158,.9); }
+.ph .vid { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; color: #fff; background: linear-gradient(180deg, transparent, rgba(0,0,0,.4)); }
+
+/* Pairing */
+.pair { position: absolute; inset: 0; color: #fff; background: linear-gradient(180deg, #3BA8B0, #145A60); padding: 60px 24px 24px; text-align: center; }
+.pair .ttl { font-size: 28px; font-weight: 700; margin-top: var(--safe-t); }
+.pair .stl { font-size: 14px; color: rgba(255,255,255,.7); margin-top: 8px; }
+.card { background: #fff; border-radius: 16px; padding: 20px; box-shadow: 0 4px 12px rgba(0,0,0,.1); color: #2d3436; margin-top: 24px; }
+.card .ct { font-size: 18px; font-weight: 700; } .card .cd { font-size: 12px; color: #757575; margin-top: 4px; }
+.qrbox { display: inline-block; margin-top: 16px; padding: 12px; border-radius: 16px; background: #fff; box-shadow: 0 2px 8px rgba(0,0,0,.05); }
+.qrbox img { width: 240px; height: 240px; }
+.gbtn { margin-top: 16px; display: flex; align-items: center; justify-content: center; gap: 12px; padding: 16px; border-radius: 12px; background: linear-gradient(90deg, #3BA8B0, #145A60); color: #fff; font-size: 16px; font-weight: 600; box-shadow: 0 4px 8px rgba(59,168,176,.3); }
+.closefab { position: absolute; top: var(--fab-top); left: 16px; width: 44px; height: 44px; border-radius: 50%; background: #fff; box-shadow: 0 2px 8px rgba(0,0,0,.1); display: flex; align-items: center; justify-content: center; color: #3BA8B0; }
+
+/* ---------- Feature graphic (Google Play, 1024×500) ---------- */
+.feature { position: relative; width: 1024px; height: 500px; overflow: hidden; background: var(--paper); display: flex; }
+.feature .glow { left: 74%; top: 60%; width: 700px; height: 700px; }
+.feature .bg-cherry { width: 420px; right: auto; left: -110px; top: auto; bottom: -140px; transform: rotate(18deg); opacity: .06; }
+.feature .fcopy { position: relative; z-index: 2; width: 560px; padding: 64px 0 0 72px; }
+.feature .brand { display: flex; align-items: center; gap: 16px; }
+.feature .brand img { width: 52px; }
+.feature .brand .word { font-family: var(--display); font-weight: 800; font-size: 40px; letter-spacing: -.03em; color: var(--teal-deep); }
+.feature h1 { font-size: 58px; margin-top: 26px; }
+.feature .sub { font-size: 21px; margin: 16px 0 0; max-width: 24ch; }
+.feature .trust { display: flex; gap: 18px; margin-top: 26px; font-size: 13px; font-weight: 600; color: var(--teal-deep); letter-spacing: .04em; }
+.feature .trust span { display: inline-flex; align-items: center; gap: 6px; }
+.feature .trust span::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: var(--cherry); }
+.feature .fstage { position: absolute; z-index: 2; right: 96px; top: 62px; }
+.feature .device.iphone { width: 292px; border-radius: 48px; padding: 11px; }
+.feature .device.iphone .screen { border-radius: 38px; }
+.feature .device::after { right: -3px; width: 3px; }
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script>
+// ------------------------------------------------------------------
+// Testi marketing (stile e tono del sito public/*.html)
+// ------------------------------------------------------------------
+const COPY = {
+  it: [
+    { eb: 'Solo per due', h: 'Solo <em>tu e io.</em> Tutto il resto, fuori.', s: 'Chat cifrata end-to-end. Nemmeno noi possiamo leggervi.' },
+    { eb: 'Chiamate vocali', h: 'Voce a voce, <em>senza intermediari.</em>', s: 'Audio peer-to-peer, direttamente tra i vostri telefoni.' },
+    { eb: 'Posizione live', h: 'Ti raggiungo, <em>segui la freccia.</em>', s: 'Posizione in tempo reale per 1 o 8 ore, cifrata AES-256.' },
+    { eb: 'Promemoria condivisi', h: 'Le cose da fare, <em>insieme.</em>', s: 'Un calendario a due, con avvisi automatici per entrambi.' },
+    { eb: 'Galleria dei ricordi', h: 'Foto, link e documenti <em>al sicuro.</em>', s: 'Tutto quello che vi siete mandati, ordinato per mese e cifrato.' },
+    { eb: 'Si parte in 10 secondi', h: 'Inquadra il QR e siete <em>abbinati.</em>', s: 'Niente account, email o numero di telefono. Solo voi due.' },
+  ],
+  en: [
+    { eb: 'Just for two', h: 'Just <em>you and me.</em> Everything else, out.', s: 'End-to-end encrypted chat. Not even we can read you.' },
+    { eb: 'Voice calls', h: 'Voice to voice, <em>no middlemen.</em>', s: 'Peer-to-peer audio, straight between your phones.' },
+    { eb: 'Live location', h: 'On my way, <em>follow the arrow.</em>', s: 'Real-time location for 1 or 8 hours, AES-256 encrypted.' },
+    { eb: 'Shared reminders', h: 'Things to do, <em>together.</em>', s: 'A calendar for two, with automatic alerts for both of you.' },
+    { eb: 'Memory gallery', h: 'Photos, links and files, <em>kept safe.</em>', s: 'Everything you have sent each other, sorted by month and encrypted.' },
+    { eb: 'Set up in 10 seconds', h: 'Scan the QR and you are <em>paired.</em>', s: 'No account, email or phone number. Just the two of you.' },
+  ],
+  es: [
+    { eb: 'Solo para dos', h: 'Solo <em>tú y yo.</em> Todo lo demás, fuera.', s: 'Chat cifrado de extremo a extremo. Ni siquiera nosotros podemos leeros.' },
+    { eb: 'Llamadas de voz', h: 'De voz a voz, <em>sin intermediarios.</em>', s: 'Audio peer-to-peer, directo entre vuestros móviles.' },
+    { eb: 'Ubicación en directo', h: 'Voy hacia ti, <em>sigue la flecha.</em>', s: 'Ubicación en tiempo real durante 1 u 8 horas, cifrada AES-256.' },
+    { eb: 'Recordatorios compartidos', h: 'Las cosas por hacer, <em>juntos.</em>', s: 'Un calendario para dos, con avisos automáticos para ambos.' },
+    { eb: 'Galería de recuerdos', h: 'Fotos, enlaces y documentos <em>a salvo.</em>', s: 'Todo lo que os habéis enviado, ordenado por mes y cifrado.' },
+    { eb: 'List@s en 10 segundos', h: 'Escanea el QR y estáis <em>emparejados.</em>', s: 'Sin cuenta, email ni número de teléfono. Solo vosotros dos.' },
+  ],
+  ca: [
+    { eb: 'Només per a dos', h: 'Només <em>tu i jo.</em> Tota la resta, fora.', s: 'Xat xifrat d\'extrem a extrem. Ni tan sols nosaltres us podem llegir.' },
+    { eb: 'Trucades de veu', h: 'De veu a veu, <em>sense intermediaris.</em>', s: 'Àudio peer-to-peer, directe entre els vostres mòbils.' },
+    { eb: 'Ubicació en directe', h: 'Vinc cap a tu, <em>segueix la fletxa.</em>', s: 'Ubicació en temps real durant 1 o 8 hores, xifrada AES-256.' },
+    { eb: 'Recordatoris compartits', h: 'Les coses per fer, <em>junts.</em>', s: 'Un calendari per a dos, amb avisos automàtics per a tots dos.' },
+    { eb: 'Galeria de records', h: 'Fotos, enllaços i documents <em>fora de perill.</em>', s: 'Tot el que us heu enviat, ordenat per mes i xifrat.' },
+    { eb: 'A punt en 10 segons', h: 'Escaneja el QR i esteu <em>aparellats.</em>', s: 'Sense compte, email ni número de telèfon. Només vosaltres dos.' },
+  ],
+};
+
+const FEATURE = {
+  it: { h: 'Solo <em>tu e io.</em>', s: 'Messaggi privati e cifrati, pensati per due.', t: ['End-to-end', 'Senza account', 'Solo per due'] },
+  en: { h: 'Just <em>you and me.</em>', s: 'Private, encrypted messaging made for two.', t: ['End-to-end', 'No account', 'Just for two'] },
+  es: { h: 'Solo <em>tú y yo.</em>', s: 'Mensajes privados y cifrados, pensados para dos.', t: ['End-to-end', 'Sin cuenta', 'Solo para dos'] },
+  ca: { h: 'Només <em>tu i jo.</em>', s: 'Missatges privats i xifrats, pensats per a dos.', t: ['End-to-end', 'Sense compte', 'Només per a dos'] },
+};
+
+// ------------------------------------------------------------------
+// Testi mostrati dentro l'app (stringhe reali dai file .arb + contenuti demo)
+// ------------------------------------------------------------------
+const UI = {
+  it: { yesterday: 'Ieri', e1: 'Buongiorno amore ☕ oggi finisco tardi', e2: 'Tranquilla, preparo io la cena 🍝', e3: 'Sei il migliore ❤️', e4: 'Ho prenotato per sabato, ti va?',
+    today: 'Oggi', tomorrow: 'Domani', typing: 'Sta scrivendo...', hint: 'Scrivi...',
+    c1: 'Ho appena finito 💚 dove sei?', c2: 'Quasi arrivata! Ti mando la posizione', c3: 'Ti vedo 😍 ti aspetto al bar', c4: 'Due minuti e sono lì 🍒',
+    locActive: 'Condivisione attiva', callTitle: 'Chiamata Vocale', good: 'Connessione buona', mute: 'Muto', speaker: 'Altoparlante', end: 'Fine',
+    ago: '12s fa', add: 'Aggiungi', wd: ['L','M','M','G','V','S','D'], month: 'Settembre 2026', month2: 'Agosto 2026',
+    todo1: 'Cena da Marco e Giulia 🍝', todo2: 'Prenotare il treno per Roma 🚄', todo3: 'Comprare i fiori per la mamma 💐',
+    pairTitle: 'Pairing con il tuo amore', pairSub: 'Completa entrambi i passaggi per accoppiare i dispositivi',
+    s1t: 'Mostra il tuo QR', s1d: 'Fai scansionare questo QR al tuo amore', s2t: 'Leggi il QR del tuo amore', s2d: 'Scansiona il QR mostrato dal tuo amore', scan: 'Scansiona QR' },
+  en: { yesterday: 'Yesterday', e1: 'Morning love ☕ running late tonight', e2: 'No worries, I\'ll cook dinner 🍝', e3: 'You\'re the best ❤️', e4: 'Booked a table for Saturday, ok?',
+    today: 'Today', tomorrow: 'Tomorrow', typing: 'Typing...', hint: 'Message',
+    c1: 'Just finished 💚 where are you?', c2: 'Almost there! Sending you my location', c3: 'I see you 😍 waiting at the bar', c4: 'Two minutes and I\'m there 🍒',
+    locActive: 'Sharing active', callTitle: 'Voice Call', good: 'Good connection', mute: 'Mute', speaker: 'Speaker', end: 'End',
+    ago: '12s ago', add: 'Add', wd: ['M','T','W','T','F','S','S'], month: 'September 2026', month2: 'August 2026',
+    todo1: 'Dinner at Marco & Giulia\'s 🍝', todo2: 'Book the train to Rome 🚄', todo3: 'Buy flowers for mum 💐',
+    pairTitle: 'Pairing with your love', pairSub: 'Complete both steps to pair the devices',
+    s1t: 'Show your QR code', s1d: 'Have your love scan this QR code', s2t: 'Read your love\'s QR code', s2d: 'Scan the QR code shown by your love', scan: 'Scan QR' },
+  es: { yesterday: 'Ayer', e1: 'Buenos días amor ☕ hoy acabo tarde', e2: 'Tranquila, preparo yo la cena 🍝', e3: 'Eres el mejor ❤️', e4: 'He reservado para el sábado, ¿te va?',
+    today: 'Hoy', tomorrow: 'Mañana', typing: 'Escribiendo...', hint: 'Mensaje',
+    c1: 'Acabo de terminar 💚 ¿dónde estás?', c2: '¡Casi llego! Te mando la ubicación', c3: 'Te veo 😍 te espero en el bar', c4: 'Dos minutos y estoy ahí 🍒',
+    locActive: 'Compartir activo', callTitle: 'Llamada de Voz', good: 'Buena conexión', mute: 'Silenciar', speaker: 'Altavoz', end: 'Finalizar',
+    ago: 'hace 12s', add: 'Añadir', wd: ['L','M','X','J','V','S','D'], month: 'Septiembre 2026', month2: 'Agosto 2026',
+    todo1: 'Cena en casa de Marco y Giulia 🍝', todo2: 'Reservar el tren a Roma 🚄', todo3: 'Comprar flores para mamá 💐',
+    pairTitle: 'Pairing con tu amor', pairSub: 'Complete ambos pasos para emparejar los dispositivos',
+    s1t: 'Muestra tu código QR', s1d: 'Haz que tu amor escanee este código QR', s2t: 'Lee el código QR de tu amor', s2d: 'Escanea el código QR que te muestra tu amor', scan: 'Escanear QR' },
+  ca: { yesterday: 'Ahir', e1: 'Bon dia amor ☕ avui acabo tard', e2: 'Tranquil·la, ja faig jo el sopar 🍝', e3: 'Ets el millor ❤️', e4: 'He reservat per dissabte, et va bé?',
+    today: 'Avui', tomorrow: 'Demà', typing: 'Escrivint...', hint: 'Missatge',
+    c1: 'Acabo d\'acabar 💚 on ets?', c2: 'Gairebé hi soc! T\'envio la ubicació', c3: 'Et veig 😍 t\'espero al bar', c4: 'Dos minuts i hi soc 🍒',
+    locActive: 'Compartir actiu', callTitle: 'Trucada de Veu', good: 'Bona connexió', mute: 'Silenciar', speaker: 'Altaveu', end: 'Finalitzar',
+    ago: 'fa 12s', add: 'Afegeix', wd: ['DL','DT','DC','DJ','DV','DS','DG'], month: 'Setembre 2026', month2: 'Agost 2026',
+    todo1: 'Sopar a casa d\'en Marco i la Giulia 🍝', todo2: 'Reservar el tren a Roma 🚄', todo3: 'Comprar flors per a la mama 💐',
+    pairTitle: 'Pairing amb el teu amor', pairSub: 'Completeu els dos passos per emparellar els dispositius',
+    s1t: 'Mostra el teu codi QR', s1d: 'Fes que el teu amor escanegi aquest codi QR', s2t: 'Llegeix el codi QR del teu amor', s2d: 'Escaneja el codi QR que et mostra el teu amor', scan: 'Escaneja un codi QR' },
+};
+
+// ------------------------------------------------------------------
+const q = new URLSearchParams(location.search);
+const device = q.get('device') || 'iphone';       // iphone | android | ipad | tablet | feature
+const lang = COPY[q.get('lang')] ? q.get('lang') : 'it';
+const shot = parseInt(q.get('shot') || '1', 10);
+const t = UI[lang];
+const isApple = device === 'iphone' || device === 'ipad' || device === 'feature';
+const isTablet = device === 'ipad' || device === 'tablet';
+const BASE_W = { iphone: 390, android: 390, ipad: 1032, tablet: 800, feature: 390 }[device];
+const SAFE_T = isApple ? (isTablet ? 24 : 59) : (isTablet ? 30 : 32);
+const SAFE_B = isApple ? (isTablet ? 20 : 34) : 24;
+const FAB_TOP = 48; // Positioned(top: 48) nel Flutter
+
+const mi = (name, size, color, v = '') => `<span class="mi ${v}" style="font-size:${size}px;color:${color}">${name}</span>`;
+
+// ---- barra di stato / hardware ----
+function statusBar(onDark) {
+  const cls = onDark ? 'on-dark' : 'on-light';
+  const cell = `<svg width="19" height="12" viewBox="0 0 19 12"><rect x="0" y="8" width="3" height="4" rx=".8" fill="currentColor"/><rect x="5" y="5.5" width="3" height="6.5" rx=".8" fill="currentColor"/><rect x="10" y="3" width="3" height="9" rx=".8" fill="currentColor"/><rect x="15" y="0" width="3" height="12" rx=".8" fill="currentColor"/></svg>`;
+  const wifi = `<svg width="17" height="12" viewBox="0 0 17 12" fill="currentColor"><path d="M8.5 11.6 5.9 8.9a3.7 3.7 0 0 1 5.2 0Zm4.2-4.4a6.2 6.2 0 0 0-8.4 0L2.5 5.4a8.7 8.7 0 0 1 12 0ZM16.5 3.6l-1.8 1.8a10.6 10.6 0 0 0-12.4 0L.5 3.6a13.1 13.1 0 0 1 16 0Z"/></svg>`;
+  const batt = `<svg width="28" height="13" viewBox="0 0 28 13"><rect x=".5" y=".5" width="24" height="12" rx="3.5" stroke="currentColor" stroke-opacity=".4" fill="none"/><rect x="2" y="2" width="21" height="9" rx="2" fill="currentColor"/><path d="M26 4.5v4a2 2 0 0 0 0-4Z" fill="currentColor" fill-opacity=".4"/></svg>`;
+  const abatt = `<svg width="10" height="16" viewBox="0 0 10 16" fill="currentColor"><rect x="3" y="0" width="4" height="2"/><rect x="0" y="2" width="10" height="14" rx="1.5"/></svg>`;
+  const asig = `<svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M15 1v15H0Z"/></svg>`;
+  const awifi = `<svg width="18" height="16" viewBox="0 0 18 16" fill="currentColor"><path d="M9 15.5 0 4.5a13 13 0 0 1 18 0Z"/></svg>`;
+  if (isApple) return `<div class="sb ios ${cls}" style="${isTablet ? 'height:30px;padding:0 22px;font-size:13px' : ''}"><span>9:41</span><span class="ic">${cell}${wifi}${batt}</span></div>`;
+  return `<div class="sb android ${cls}"><span>9:41</span><span class="ic">${awifi}${asig}${abatt}</span></div>`;
+}
+const hw = () => device === 'iphone' || device === 'feature' ? '<div class="island"></div>' : device === 'android' ? '<div class="punch"></div>' : '';
+const homebar = (onDark) => `<div class="homebar ${isApple ? '' : 'android'} ${onDark ? 'on-dark' : ''}"></div>`;
+
+// ---- componenti chat ----
+const datesep = (label) => `<div class="datesep"><span class="ln"></span><span class="pill">${mi('flag', 14, '#fff', 'mir')}${label}</span><span class="ln r"></span></div>`;
+function bubble(side, text, time, tick, reaction) {
+  const tk = side === 'me' && tick ? (tick === 'read' ? `<span class="mi tick read" style="font-size:14px">done_all</span>` : `<span class="mi tick" style="font-size:14px">done</span>`) : '';
+  const rx = reaction ? `<span class="react">${mi(reaction, 20, '#fff')}</span>` : '';
+  return `<div class="row ${side}"><div class="bubble">${text}<div class="meta"><span>${time}</span>${tk}</div>${rx}</div></div>`;
+}
+function locBubble() {
+  return `<div class="row me"><div class="bubble loc"><div class="locmap">${mi('location_on', 48, '#fff')}</div>
+    <div class="locbody"><div class="st">${t.locActive}</div><div class="cd">${mi('access_time', 14, 'rgba(255,255,255,.7)')}<span>58m</span></div>
+    <div class="meta"><span>21:04</span><span class="mi tick" style="font-size:16px;color:#40C4FF">done_all</span></div></div></div></div>`;
+}
+function todoBubble(side, text, when, alert, state, time) {
+  const done = state === 'done';
+  const icon = alert ? 'notifications' : 'calendar_today';
+  const al = alert ? `<span class="al">${mi('notifications_active', 12, 'inherit', 'mio')}${alert}</span>` : '';
+  let meta;
+  if (done) meta = `<span>${time}</span>${mi('check_circle', 12, side === 'me' ? 'rgba(255,255,255,.8)' : '#4CAF50')}`;
+  else meta = `<span>${time}</span>` + (side === 'me' ? `<span class="mi tick ${state === 'read' ? 'read' : ''}" style="font-size:14px">${state === 'read' ? 'done_all' : 'done'}</span>` : '');
+  return `<div class="row ${side}"><div class="bubble"><span style="${done ? 'text-decoration:line-through' : ''}">${text}</span>
+    <div class="todorow">${mi(icon, 14, 'inherit', 'mio')}<span>${when}</span>${al}</div><div class="meta">${meta}</div></div></div>`;
+}
+function fabs(withCall) {
+  return `<div class="fab-l"><div class="fab">${mi('menu', 24, '#3BA8B0')}</div></div>
+    <div class="fab-r">${withCall ? `<div class="fab">${mi('call', 22, '#3BA8B0')}</div>` : ''}<div class="fab"><img src="img/logo_teal.png" alt=""></div></div>`;
+}
+function inputBar() {
+  return `<div class="inputbar"><div class="ibtn">${mi('add_circle_outline', 28, '#757575')}</div>
+    <div class="field"><span>${t.hint}</span><span class="ibtn">${mi('calendar_month', 24, '#757575', 'mio')}</span></div>
+    <div class="send"><div class="c">${mi('send', 22, '#fff', 'mir')}</div></div></div>`;
+}
+
+// ---- schermate ----
+function chatScreen() {
+  const earlier = isTablet ? `${datesep(t.yesterday)}
+    ${bubble('me', t.e1, '08:12', 'read')}
+    ${bubble('them', t.e2, '08:15')}
+    ${bubble('me', t.e3, '13:40', 'read', 'thumb_up')}
+    ${bubble('them', t.e4, '18:02')}` : '';
+  return `<div class="chat">${fabs(true)}<div class="msgs">
+    ${earlier}
+    ${datesep(t.today)}
+    ${bubble('them', t.c1, '21:04')}
+    ${bubble('me', t.c2, '21:04', 'read')}
+    ${locBubble()}
+    ${bubble('them', t.c3, '21:05', null, 'favorite')}
+    ${bubble('me', t.c4, '21:06', 'sent')}
+    <div class="typing"><span class="spin"></span><span>${t.typing}</span></div>
+  </div>${inputBar()}</div>`;
+}
+function callScreen() {
+  const bars = [6, 10, 14].map(h => `<span class="bar" style="height:${h}px"></span>`).join('');
+  return `<div class="call"><div class="status">03:42</div>
+    <div class="qrow">${bars}<span class="ql">${t.good}</span><span class="qp">24 ms · host ↔ host</span></div>
+    <div class="sp1"></div>
+    <div class="avatar">${mi('person', 80, 'rgba(255,255,255,.7)')}</div>
+    <div class="title">${t.callTitle}</div>
+    <div class="sp2"></div>
+    <div class="controls">
+      <div class="ctl"><div class="b">${mi('mic', 28, '#fff')}</div><span>${t.mute}</span></div>
+      <div class="ctl"><div class="end">${mi('call_end', 32, '#fff')}</div><span>${t.end}</span></div>
+      <div class="ctl"><div class="b on">${mi('volume_up', 28, '#fff')}</div><span>${t.speaker}</span></div>
+    </div></div>`;
+}
+function locationScreen() {
+  return `<div class="locs"><div class="appbar">${mi('close', 24, '#fff')}<span class="r">${mi('map', 24, '#fff', 'mio')}${mi('stop_circle', 24, '#fff', 'mio')}</span></div>
+    <div class="ring"><i></i></div>
+    <div class="arrow">${mi('navigation', 280, '#fff')}</div>
+    <div class="panel"><div class="d">350 m</div><div class="t">${mi('location_on', 16, 'rgba(255,255,255,.6)')}<span>${t.ago}</span></div></div></div>`;
+}
+function calendarScreen() {
+  // Settembre 2026: il primo è martedì. Oggi 11 (venerdì), giorno selezionato 12.
+  const cells = [];
+  for (let i = 0; i < 42; i++) {
+    const d = i - 1 + 1; // offset: lunedì vuoto
+    const day = i === 0 ? null : (i <= 30 ? i : null);
+    if (!day) { cells.push('<div></div>'); continue; }
+    const cls = day === 12 ? 'sel' : day === 11 ? 'today' : '';
+    const dot = [3, 12, 19, 26].includes(day) ? '<span class="dot"></span>' : '';
+    cells.push(`<div><span class="day ${cls}">${day}${dot}</span></div>`);
+  }
+  return `<div class="cal"><div class="hdr"><div class="ibtn">${mi('close', 26, '#fff')}</div><span class="addp">${mi('add', 20, '#fff')}${t.add}</span></div>
+    <div class="wd">${t.wd.map(w => `<span>${w}</span>`).join('')}</div>
+    <div class="body"><div class="mh">${t.month}</div><div class="grid">${cells.join('')}</div>
+      <div class="tpanel">
+        ${todoBubble('me', t.todo1, `${t.tomorrow} 20:30`, '2h', 'read', '19:12')}
+        ${todoBubble('them', t.todo2, `${t.tomorrow} 09:00`, null, 'done', '18:40')}
+        ${todoBubble('me', t.todo3, `${t.tomorrow} 17:00`, '1h', 'sent', '19:15')}
+      </div></div></div>`;
+}
+const PHOTOS = [
+  'linear-gradient(180deg,#FBD38D 0%,#F6A17A 45%,#C4547A 100%)|radial-gradient(circle at 50% 62%,#FFF3C4 0 14%,transparent 15%)',
+  'linear-gradient(180deg,#9EDCEA 0%,#3BA8B0 55%,#145A60 100%)|repeating-linear-gradient(180deg,transparent 0 18px,rgba(255,255,255,.12) 18px 20px)',
+  'linear-gradient(165deg,#BBD37A 0%,#5D8F33 55%,#24401A 100%)|radial-gradient(circle at 70% 25%,rgba(255,255,255,.35) 0 10%,transparent 11%)',
+  'linear-gradient(180deg,#0C2E32,#08252A)|radial-gradient(circle at 20% 30%,#fff 0 1.2px,transparent 2px),radial-gradient(circle at 70% 20%,#fff 0 1px,transparent 2px),radial-gradient(circle at 40% 70%,#fff 0 1px,transparent 2px),radial-gradient(circle at 85% 60%,#fff 0 1.4px,transparent 2px),radial-gradient(circle at 60% 45%,#fff 0 .8px,transparent 2px)',
+  'linear-gradient(160deg,#F4EDE0,#D9B98A)|radial-gradient(circle at 50% 55%,#6B3E26 0 22%,#F4EDE0 23% 27%,transparent 28%)',
+  'linear-gradient(160deg,#F0858E,#D81F2C 70%,#9E1B22)|radial-gradient(circle at 35% 60%,rgba(255,255,255,.35) 0 9%,transparent 10%)',
+  'linear-gradient(180deg,#C9B6E4,#7E5BA6)|radial-gradient(ellipse at 50% 100%,rgba(255,255,255,.25),transparent 60%)',
+  'linear-gradient(180deg,#BFE6F2 0 46%,#F1DDB5 46%)|radial-gradient(circle at 78% 22%,#FFE59A 0 9%,transparent 10%)',
+  'linear-gradient(180deg,#8FC1D9 0%,#D7E5EC 55%,#5C6B78 55%,#2B3640 100%)|linear-gradient(115deg,transparent 58%,#37424D 58%)',
+  'linear-gradient(180deg,#1B2430,#0F141B)|repeating-linear-gradient(90deg,transparent 0 9px,rgba(255,220,130,.55) 9px 12px,transparent 12px 18px),repeating-linear-gradient(180deg,transparent 0 40%,rgba(0,0,0,.6) 40% 41%)',
+  'linear-gradient(160deg,#FFD6A5,#FFADAD)|radial-gradient(circle at 50% 45%,#D81F2C 0 8%,transparent 9%)',
+  'linear-gradient(180deg,#7CC7B6,#2F9DA6 60%,#145A60)|radial-gradient(circle at 30% 30%,rgba(255,255,255,.4) 0 6%,transparent 7%)',
+];
+function mediaScreen() {
+  const tile = (i, date, mine, vid) => {
+    const [a, b] = PHOTOS[i % PHOTOS.length].split('|');
+    return `<div class="ph" style="background:${b},${a}">${vid ? `<div class="vid">${mi('play_circle_filled', 36, '#fff')}</div>` : ''}<span class="badge ${mine ? '' : 'p'}">${date}</span></div>`;
+  };
+  const sept = [['10/09', 1], ['10/09', 0], ['08/09', 1, 1], ['06/09', 0], ['05/09', 1], ['02/09', 0]];
+  const aug = [['29/08', 1], ['24/08', 0], ['21/08', 1], ['17/08', 0, 1], ['15/08', 1], ['09/08', 0], ['05/08', 1], ['02/08', 0], ['01/08', 1]];
+  return `<div class="media">${fabs(false)}
+    <div class="tabs"><span class="t on">${mi('photo_library', 22, '#3BA8B0')}</span><span class="t">${mi('link', 22, '#fff', 'mir')}</span><span class="t">${mi('insert_drive_file', 22, '#fff')}</span></div>
+    <div class="msep"><span class="ln"></span><span class="pill">${mi('flag', 14, '#fff', 'mir')}${t.month}</span><span class="ln r"></span></div>
+    <div class="pgrid">${sept.map((p, i) => tile(i, p[0], p[1], p[2])).join('')}</div>
+    <div class="msep"><span class="ln"></span><span class="pill">${mi('flag', 14, '#fff', 'mir')}${t.month2}</span><span class="ln r"></span></div>
+    <div class="pgrid">${aug.map((p, i) => tile(i + 6, p[0], p[1], p[2])).join('')}</div></div>`;
+}
+function pairingScreen() {
+  return `<div class="pair"><div class="closefab">${mi('close', 22, '#3BA8B0')}</div>
+    <div class="ttl">${t.pairTitle}</div><div class="stl">${t.pairSub}</div>
+    <div class="card"><div class="ct">${t.s1t}</div><div class="cd">${t.s1d}</div><div class="qrbox"><img src="img/qr-teal.svg" alt=""></div></div>
+    <div class="card"><div class="ct">${t.s2t}</div><div class="cd">${t.s2d}</div><div class="gbtn">${mi('qr_code_scanner', 24, '#fff')}${t.scan}</div></div></div>`;
+}
+
+const SCREENS = [
+  { html: chatScreen, dark: false, theme: 'paper' },
+  { html: callScreen, dark: true, theme: 'dark' },
+  { html: locationScreen, dark: true, theme: 'paper' },
+  { html: calendarScreen, dark: true, theme: 'paper' },
+  { html: mediaScreen, dark: false, theme: 'dark' },
+  { html: pairingScreen, dark: true, theme: 'paper' },
+];
+
+function appMarkup(sc) {
+  return `<div class="app" style="--safe-t:${SAFE_T}px;--safe-b:${SAFE_B}px;--fab-top:${FAB_TOP}px">${sc.html()}${statusBar(sc.dark)}${homebar(sc.dark)}</div>`;
+}
+
+function render() {
+  const root = document.getElementById('root');
+  if (device === 'feature') {
+    const f = FEATURE[lang];
+    root.innerHTML = `<div class="feature"><img class="bg-cherry" src="img/cherries.png" alt=""><div class="glow"></div>
+      <div class="fcopy"><div class="brand"><img src="img/cherries.png" alt=""><span class="word">Tuijo</span></div>
+        <h1>${f.h.replace('<em>', '<span class="serif-em">').replace('</em>', '</span>')}</h1><p class="sub">${f.s}</p>
+        <div class="trust">${f.t.map(x => `<span>${x}</span>`).join('')}</div></div>
+      <div class="fstage"><div class="device iphone"><div class="screen">${hw()}${appMarkup(SCREENS[0])}</div></div></div></div>`;
+  } else {
+    const c = COPY[lang][shot - 1];
+    const sc = SCREENS[shot - 1];
+    const frame = device;
+    root.innerHTML = `<div class="shot ${sc.theme} dev-${device}"><img class="bg-cherry" src="img/cherries.png" alt=""><div class="glow"></div>
+      <div class="copy"><span class="eyebrow">${c.eb}</span><h1>${c.h.replace('<em>', '<span class="serif-em">').replace('</em>', '</span>')}</h1><p class="sub">${c.s}</p></div>
+      <div class="stage"><div class="device ${frame}"><div class="screen">${hw()}${appMarkup(sc)}</div></div></div></div>`;
+  }
+  fit();
+}
+
+// L'app è disegnata in px logici (390 su telefono, come Flutter) e scalata con zoom
+function fit() {
+  document.querySelectorAll('.screen').forEach(screen => {
+    const app = screen.querySelector('.app');
+    const r = screen.getBoundingClientRect();
+    const z = r.width / BASE_W;
+    app.style.zoom = z;
+    app.style.width = BASE_W + 'px';
+    app.style.height = (r.height / z) + 'px';
+  });
+}
+render();
+</script>
+</body>
+</html>

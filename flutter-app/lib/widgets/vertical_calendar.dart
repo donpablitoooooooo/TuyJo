@@ -64,10 +64,20 @@ class _VerticalCalendarState extends State<VerticalCalendar> {
     final df = DateFormat.E(locale);
     // 2024-01-01 è un lunedì → genera Lun..Dom e prendi l'iniziale.
     final monday = DateTime(2024, 1, 1);
-    return List.generate(7, (i) {
-      final s = df.format(monday.add(Duration(days: i)));
-      return s.isNotEmpty ? s[0].toUpperCase() : '';
-    });
+    final names = List.generate(
+      7,
+      (i) => df.format(monday.add(Duration(days: i))).replaceAll('.', ''),
+    );
+    final initials =
+        names.map((s) => s.isNotEmpty ? s[0].toUpperCase() : '').toList();
+    // In alcune lingue (es. catalano: dl, dt, dc, dj, dv, ds, dg) l'iniziale
+    // è la stessa per tutti i giorni: in quel caso usa le prime due lettere.
+    if (initials.toSet().length == 1) {
+      return names
+          .map((s) => s.length >= 2 ? s.substring(0, 2).toUpperCase() : s)
+          .toList();
+    }
+    return initials;
   }
 
   @override

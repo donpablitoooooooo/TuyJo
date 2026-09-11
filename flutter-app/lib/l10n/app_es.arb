@@ -103,7 +103,7 @@
     "chatSendMessageError": "Error al enviar el mensaje",
     "chatEmptyMessage": "No hay mensajes. \n ¡Sé el primero en publicar!",
     "chatLoadingMessages": "Cargando mensajes...",
-    "chatTypingIndicator": "Él está escribiendo...",
+    "chatTypingIndicator": "Escribiendo...",
     "chatAttachmentsTooltip": "Archivos adjuntos",
     "chatMessagePlaceholder": "Escribe un mensaje...",
     "chatVideoPlayerInDevelopment": "Reproductores de vídeo cifrados en desarrollo",

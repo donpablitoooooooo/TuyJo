@@ -4,6 +4,11 @@ Tutte le modifiche notevoli a questo progetto saranno documentate in questo file
 
 ## [1.36.0] - 2026-09-11
 
+### 🖼️ Store e localizzazione
+- **Nuovi screenshot per App Store e Google Play** (iPhone 6,9", iPad 13", telefono e tablet Android, immagine in evidenza) in it/en/es/ca, generati da `store/screenshots/` con lo stile del sito.
+- Indicatore "sta scrivendo" neutro in en/es/ca ("Typing..." / "Escribiendo..." / "Escrivint...").
+- Calendario: in catalano le iniziali dei giorni erano tutte "D"; ora mostra "DL DT DC DJ DV DS DG".
+
 ### 📞 Chiamate vocali: riscrittura del motore peer-to-peer
 - **ICE restart automatico**: un cambio di rete (Wi-Fi ↔ 4G, ascensore, cambio cella) non chiude più la chiamata. Dopo 4 s di grace period il caller rinegozia (fino a 3 tentativi); il callee, se è lui a perdere la rete, chiede il restart via signaling. Stato "riconnessione…" in UI.
 - **Pop-up "Chiamata non disponibile in peer to peer"**: se i due telefoni non trovano un percorso diretto (NAT simmetrico / CGNAT) compare un avviso grande e chiaro con il suggerimento di cambiare rete, invece di uno squillo infinito.

@@ -103,7 +103,7 @@
     "chatSendMessageError": "S'ha produït un error en enviar el missatge",
     "chatEmptyMessage": "No hi ha missatges. \n Sigues el primer a publicar!",
     "chatLoadingMessages": "S'estan carregant els missatges...",
-    "chatTypingIndicator": "Ell està escrivint...",
+    "chatTypingIndicator": "Escrivint...",
     "chatAttachmentsTooltip": "Adjunts",
     "chatMessagePlaceholder": "Escriu un missatge...",
     "chatVideoPlayerInDevelopment": "Reproductors de vídeo xifrats en desenvolupament",
