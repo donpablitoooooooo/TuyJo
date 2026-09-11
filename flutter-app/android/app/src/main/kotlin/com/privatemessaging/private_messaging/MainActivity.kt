@@ -1,8 +1,10 @@
 package com.privatemessaging.private_messaging
 
 import android.content.Intent
+import android.content.Context
 import android.media.AudioManager
 import android.media.ToneGenerator
+import android.os.PowerManager
 import android.net.Uri
 import android.os.Bundle
 import android.util.Log
@@ -20,11 +22,14 @@ import java.io.FileOutputStream
 class MainActivity: FlutterActivity() {
     private val CHANNEL = "com.privatemessaging.tuyjo/shared_media"
     private val TONE_CHANNEL = "com.privatemessaging.tuyjo/tone_generator"
+    private val PROXIMITY_CHANNEL = "com.privatemessaging.tuyjo/proximity"
     private val BLOCKSTORE_CHANNEL = "com.privatemessaging.tuyjo/blockstore"
     private var methodChannel: MethodChannel? = null
     private var toneChannel: MethodChannel? = null
     private var blockstoreChannel: MethodChannel? = null
     private var toneGenerator: ToneGenerator? = null
+    private var proximityChannel: MethodChannel? = null
+    private var proximityWakeLock: PowerManager.WakeLock? = null
     private var initialMediaPaths: List<String>? = null
     private var initialSharedText: String? = null
 
@@ -86,6 +91,46 @@ class MainActivity: FlutterActivity() {
         }
         Log.d(TAG, "✅ ToneGenerator Channel configured")
 
+        // Sensore di prossimità durante la chiamata: il wake lock
+        // PROXIMITY_SCREEN_OFF spegne lo schermo quando il telefono è
+        // all'orecchio e lo riaccende quando lo allontani (stesso meccanismo
+        // del dialer di sistema). Nessun permesso runtime: basta WAKE_LOCK.
+        proximityChannel = MethodChannel(flutterEngine.dartExecutor.binaryMessenger, PROXIMITY_CHANNEL)
+        proximityChannel?.setMethodCallHandler { call, result ->
+            when (call.method) {
+                "enable" -> {
+                    try {
+                        val pm = getSystemService(Context.POWER_SERVICE) as PowerManager
+                        if (pm.isWakeLockLevelSupported(PowerManager.PROXIMITY_SCREEN_OFF_WAKE_LOCK)) {
+                            if (proximityWakeLock == null) {
+                                proximityWakeLock = pm.newWakeLock(
+                                    PowerManager.PROXIMITY_SCREEN_OFF_WAKE_LOCK,
+                                    "tuyjo:call_proximity"
+                                )
+                            }
+                            if (proximityWakeLock?.isHeld != true) {
+                                proximityWakeLock?.acquire()
+                            }
+                            Log.d(TAG, "📵 Proximity wake lock acquired")
+                            result.success(true)
+                        } else {
+                            Log.d(TAG, "📵 Proximity wake lock not supported on this device")
+                            result.success(false)
+                        }
+                    } catch (e: Exception) {
+                        Log.e(TAG, "📵 Proximity error: ${e.message}")
+                        result.error("PROXIMITY_ERROR", e.message, null)
+                    }
+                }
+                "disable" -> {
+                    releaseProximityWakeLock()
+                    result.success(true)
+                }
+                else -> result.notImplemented()
+            }
+        }
+        Log.d(TAG, "✅ Proximity Channel configured")
+
         // Block Store channel: backup delle chiavi nel cloud dell'account Google
         blockstoreChannel = MethodChannel(flutterEngine.dartExecutor.binaryMessenger, BLOCKSTORE_CHANNEL)
         blockstoreChannel?.setMethodCallHandler { call, result ->
@@ -133,6 +178,26 @@ class MainActivity: FlutterActivity() {
             }
         }
         Log.d(TAG, "✅ Block Store Channel configured")
+    }
+
+    private fun releaseProximityWakeLock() {
+        try {
+            if (proximityWakeLock?.isHeld == true) {
+                // RELEASE_FLAG_WAIT_FOR_NO_PROXIMITY: se il telefono è ancora
+                // all'orecchio non riaccendere lo schermo finché non lo allontani
+                proximityWakeLock?.release(PowerManager.RELEASE_FLAG_WAIT_FOR_NO_PROXIMITY)
+                Log.d(TAG, "📵 Proximity wake lock released")
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "📵 Proximity release error: ${e.message}")
+        }
+    }
+
+    override fun onDestroy() {
+        releaseProximityWakeLock()
+        toneGenerator?.release()
+        toneGenerator = null
+        super.onDestroy()
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {

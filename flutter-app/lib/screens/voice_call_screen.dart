@@ -102,6 +102,7 @@ class _VoiceCallScreenState extends State<VoiceCallScreen>
     _pulseController.dispose();
     _notificationService.onNativeCallEnded = null;
     _notificationService.callScreenActive = false;
+    _setProximity(false);
     // Chiudi WebRTC (stream audio + peer connection)
     _webrtcService.dispose();
     // Pulisci lo stato della chiamata su Firestore
@@ -193,6 +194,7 @@ class _VoiceCallScreenState extends State<VoiceCallScreen>
       setState(() => _callState = CallState.connected);
       _pulseController.stop();
       _startCallTimer();
+      _updateProximity();
     };
 
     _webrtcService.onReconnecting = () {
@@ -274,6 +276,7 @@ class _VoiceCallScreenState extends State<VoiceCallScreen>
     _ringingTimeoutTimer?.cancel();
     if (mounted) setState(() => _callState = CallState.ended);
     _pulseController.stop();
+    _setProximity(false);
 
     if (localHangup) {
       // 1. "bye" P2P istantaneo, 2. stato su Firestore (fallback + cancel push)
@@ -438,6 +441,29 @@ class _VoiceCallScreenState extends State<VoiceCallScreen>
   void _toggleSpeaker() {
     setState(() => _isSpeakerOn = !_isSpeakerOn);
     _webrtcService.setSpeakerOn(_isSpeakerOn);
+    _updateProximity();
+  }
+
+  // ─── Sensore di prossimità ────────────────────────────────────────
+  // Attivo solo a chiamata connessa e con altoparlante spento: con il
+  // vivavoce il telefono sta lontano dal viso e lo schermo deve restare acceso.
+  static const _proximityChannel = MethodChannel('com.privatemessaging.tuyjo/proximity');
+  bool _proximityEnabled = false;
+
+  void _updateProximity() {
+    final wanted = _callState == CallState.connected && !_isSpeakerOn && !_ending;
+    _setProximity(wanted);
+  }
+
+  Future<void> _setProximity(bool enable) async {
+    if (_proximityEnabled == enable) return;
+    _proximityEnabled = enable;
+    try {
+      await _proximityChannel.invokeMethod(enable ? 'enable' : 'disable');
+      if (kDebugMode) print('📵 [VOICE_CALL] Proximity ${enable ? "on" : "off"}');
+    } catch (e) {
+      if (kDebugMode) print('⚠️ [VOICE_CALL] Proximity channel error: $e');
+    }
   }
 
   String _statusText(AppLocalizations l10n) {

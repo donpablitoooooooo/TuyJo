@@ -8,8 +8,10 @@ import flutter_callkit_incoming
 @objc class AppDelegate: FlutterAppDelegate, PKPushRegistryDelegate {
   private let CHANNEL = "com.privatemessaging.tuyjo/shared_media"
   private let TONE_CHANNEL = "com.privatemessaging.tuyjo/tone_generator"
+  private let PROXIMITY_CHANNEL = "com.privatemessaging.tuyjo/proximity"
   private var methodChannel: FlutterMethodChannel?
   private var toneChannel: FlutterMethodChannel?
+  private var proximityChannel: FlutterMethodChannel?
   private let ringback = RingbackTonePlayer()
   private var initialMediaPaths: [String]?
   private var initialSharedText: String?
@@ -45,6 +47,22 @@ import flutter_callkit_incoming
         result(true)
       case "stopRingback":
         self?.ringback.stop()
+        result(true)
+      default:
+        result(FlutterMethodNotImplemented)
+      }
+    })
+
+    // Sensore di prossimità durante la chiamata: iOS spegne da solo lo
+    // schermo quando il telefono è all'orecchio finché il monitoring è attivo.
+    proximityChannel = FlutterMethodChannel(name: PROXIMITY_CHANNEL, binaryMessenger: controller.binaryMessenger)
+    proximityChannel?.setMethodCallHandler({ (call: FlutterMethodCall, result: @escaping FlutterResult) in
+      switch call.method {
+      case "enable":
+        UIDevice.current.isProximityMonitoringEnabled = true
+        result(UIDevice.current.isProximityMonitoringEnabled)
+      case "disable":
+        UIDevice.current.isProximityMonitoringEnabled = false
         result(true)
       default:
         result(FlutterMethodNotImplemented)

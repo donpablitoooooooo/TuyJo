@@ -18,6 +18,8 @@ Tutte le modifiche notevoli a questo progetto saranno documentate in questo file
 - **Android: foreground service** con tipo microphone durante la chiamata (in uscita e in entrata): il microfono resta attivo con app in background o schermo spento. Ripristino della chiamata accettata se l'app viene avviata da CallKit.
 - Aggiornate `flutter_webrtc` 1.6.2 (libwebrtc 150) e `flutter_callkit_incoming` 3.1.5.
 - Rimossi i pulsanti accetta/rifiuta in-app (codice morto: la risposta avviene sempre dalla UI nativa). Il timer parte alla connessione ICE reale, non al segnale Firestore.
+- **Sensore di prossimità**: lo schermo si spegne quando il telefono è all'orecchio e si riaccende quando lo allontani (wake lock proximity su Android, proximity monitoring su iOS). Attivo solo a chiamata connessa e con altoparlante spento.
+- iOS: abilitate le macro `PERMISSION_*` di permission_handler nel Podfile. Senza, la richiesta della fotocamera per il pairing via QR rispondeva "negato" senza mai mostrare il prompt.
 
 ## [1.35.0] - 2026-06-15
 
