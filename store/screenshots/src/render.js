@@ -20,6 +20,7 @@ const { chromium } = resolvePlaywright();
 // Formati richiesti dagli store (larghezza × altezza in pixel reali).
 const TARGETS = {
   ios: { w: 1320, h: 2868, dpr: 3, device: 'iphone', dir: 'ios/iphone-6.9' },        // iPhone 6.9"
+  'ios-6.5': { w: 1284, h: 2778, dpr: 3, device: 'iphone', dir: 'ios/iphone-6.5' },  // iPhone 6.5" (1284×2778)
   ipad: { w: 2064, h: 2752, dpr: 2, device: 'ipad', dir: 'ios/ipad-13' },            // iPad 13"
   android: { w: 1080, h: 1920, dpr: 3, device: 'android', dir: 'android/phone' },    // 9:16
   'android-tablet': { w: 1600, h: 2560, dpr: 2, device: 'tablet', dir: 'android/tablet-10' },

@@ -11,6 +11,7 @@ Grotesque, Hanken Grotesk, Instrument Serif).
 | Cartella | Formato | Dove si carica |
 |---|---|---|
 | `ios/iphone-6.9/<lingua>/` | 1320 × 2868 px | App Store Connect → iPhone 6,9" (Apple lo riadatta ai formati minori) |
+| `ios/iphone-6.5/<lingua>/` | 1284 × 2778 px | App Store Connect → iPhone 6,5" (se la scheda chiede questo formato) |
 | `ios/ipad-13/<lingua>/` | 2064 × 2752 px | App Store Connect → iPad 13" |
 | `android/phone/<lingua>/` | 1080 × 1920 px (9:16) | Play Console → Screenshot telefono |
 | `android/tablet-10/<lingua>/` | 1600 × 2560 px | Play Console → Screenshot tablet 10" |
@@ -32,7 +33,7 @@ node render.js                       # tutto
 node render.js --lang it --target ios --shot 1,2   # sottoinsieme
 ```
 
-Opzioni: `--lang it,en,es,ca`, `--target ios,ipad,android,android-tablet,feature`,
+Opzioni: `--lang it,en,es,ca`, `--target ios,ios-6.5,ipad,android,android-tablet,feature`,
 `--shot 1..6`, `--out <cartella>`. Con `PLAYWRIGHT_CHROMIUM_PATH` si indica un
 eseguibile Chromium alternativo.
 
