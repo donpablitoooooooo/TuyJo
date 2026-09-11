@@ -43,9 +43,9 @@
       <h1>Política de <span class="serif-em">privadesa.</span></h1>
       <p>Tuijo està dissenyada des de zero per no poder llegir el que us escriviu. Això és exactament quines dades tractem i quines no.</p>
       <div class="legal-date">
-        <span><b>Última actualització:</b> 13 de gener de 2026</span>
+        <span><b>Última actualització:</b> 11 de setembre de 2026</span>
         <span class="sep"></span>
-        <span><b>Versió:</b> 1.0</span>
+        <span><b>Versió:</b> 1.1</span>
       </div>
     </div>
 
@@ -72,6 +72,20 @@
         <span><strong>Important:</strong> no emmagatzemem cap informació d'autenticació personal (correu, ID d'usuari, contrasenya). El sistema es basa exclusivament en les claus criptogràfiques generades localment al teu dispositiu.</span>
       </div>
 
+      <h3>2.2 Ubicació (només si la comparteixes tu)</h3>
+      <p>Tuijo fa servir la ubicació del dispositiu <strong>exclusivament</strong> quan inicies tu la funció «Compartir ubicació» des del xat. Mai no recollim la ubicació en altres moments, ni en segon pla sense una compartició activa.</p>
+      <ul>
+        <li><strong>Què es tracta:</strong> coordenades GPS (latitud i longitud), precisió i direcció de marxa.</li>
+        <li><strong>Com:</strong> les coordenades es xifren al teu dispositiu amb AES-256 abans d'enviar-se. Al servidor només es desa la dada xifrada, juntament amb l'hora i la caducitat de la compartició. Ni tan sols nosaltres podem veure on ets.</li>
+        <li><strong>Durant quant de temps:</strong> tries tu la durada (1 o 8 hores) i el mode (ubicació en temps real o una única ubicació). En caducar, o quan l'atures, l'enviament es deté i la ubicació es marca com a no activa.</li>
+        <li><strong>En segon pla:</strong> durant una compartició en temps real l'app continua actualitzant la ubicació encara que bloquegis la pantalla o canviïs d'app, mostrant una notificació persistent (Android) o l'indicador del sistema (iOS). Si tanques l'app, la compartició s'atura.</li>
+        <li><strong>Qui la veu:</strong> només la teva parella, al seu dispositiu, per calcular distància i direcció.</li>
+      </ul>
+      <div class="legal-note">
+        <span class="ni"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 10c0 6-9 12-9 12s-9-6-9-12a9 9 0 0 1 18 0Z"/><circle cx="12" cy="10" r="3"/></svg></span>
+        <span><strong>Control total:</strong> pots aturar la compartició en qualsevol moment des de l'app i revocar el permís d'ubicació a la configuració del sistema. Tota la resta de l'app continua funcionant.</span>
+      </div>
+
       <h3>2.3 Missatges i contingut (xifrats)</h3>
       <ul>
         <li><strong>Missatges xifrats:</strong> el text dels missatges xifrat amb AES-256.</li>
@@ -87,6 +101,22 @@
       <h3>2.4 Dades tècniques</h3>
       <ul>
         <li><strong>Token FCM:</strong> token per a les notificacions push de Firebase Cloud Messaging, necessari per enviar notificacions quan reps nous missatges.</li>
+        <li><strong>Token VoIP (només iOS):</strong> token d'Apple PushKit per fer sonar el telèfon quan reps una trucada, fins i tot amb l'app tancada.</li>
+        <li><strong>Plataforma:</strong> el sistema operatiu del dispositiu (iOS o Android), per triar el tipus de notificació correcte.</li>
+      </ul>
+
+      <h3>2.5 Trucades de veu</h3>
+      <p>Les trucades de veu són <strong>peer-to-peer</strong> (WebRTC): l'àudio viatja directament entre els dos mòbils, xifrat (DTLS-SRTP), i <strong>no passa pels nostres servidors ni s'hi grava</strong>. El servidor només serveix perquè els dos dispositius es trobin (senyalització): aquestes dades també estan xifrades d'extrem a extrem i s'eliminen en acabar la trucada. Com que és una connexió directa, els dos dispositius intercanvien les seves adreces IP, visibles només per a la teva parella.</p>
+
+      <h3>2.6 Permisos del dispositiu</h3>
+      <p>Tuijo demana aquests permisos, sempre i només en el moment en què fas servir la funció corresponent:</p>
+      <ul>
+        <li><strong>Ubicació:</strong> per compartir la ubicació (vegeu 2.2).</li>
+        <li><strong>Micròfon:</strong> per a les trucades de veu. Mai no s'activa fora d'una trucada.</li>
+        <li><strong>Càmera:</strong> per escanejar el codi QR durant l'aparellament, fer fotos per enviar i el selfie de parella. Cap imatge no es tracta sense una acció teva.</li>
+        <li><strong>Fotos i fitxers:</strong> per adjuntar fotos o documents que tries tu; es xifren abans d'enviar-se.</li>
+        <li><strong>Notificacions:</strong> per avisar-te de missatges, recordatoris i trucades entrants.</li>
+        <li><strong>Contactes, agenda, calendari, SMS:</strong> <em>mai</em> no es demanen.</li>
       </ul>
 
       <h2>3. Com utilitzem les dades</h2>
@@ -95,6 +125,8 @@
       <ul>
         <li><strong>Prestar el servei:</strong> sincronitzar els missatges entre els teus dispositius i els de la teva parella.</li>
         <li><strong>Notificacions:</strong> enviar notificacions push quan reps nous missatges o recordatoris.</li>
+        <li><strong>Trucades:</strong> posar en contacte els dos dispositius per a una trucada de veu directa.</li>
+        <li><strong>Ubicació:</strong> mostrar a la teva parella on ets, només mentre dura una compartició iniciada per tu.</li>
         <li><strong>Seguretat:</strong> mantenir la integritat i la seguretat del sistema d'aparellament.</li>
         <li><strong>Millores:</strong> corregir errors i millorar les funcions de l'app.</li>
       </ul>
@@ -103,6 +135,7 @@
       <ul>
         <li class="no"><strong>No llegim els teus missatges</strong> (impossible gràcies al xifratge E2E).</li>
         <li class="no"><strong>No venem les teves dades</strong> a tercers.</li>
+        <li class="no"><strong>No rastregem la teva ubicació</strong> ni la desem en clar: només es fa servir durant una compartició iniciada per tu, xifrada.</li>
         <li class="no"><strong>No fem servir les teves dades per a publicitat</strong> dirigida ni perfilat.</li>
         <li class="no"><strong>No compartim el teu contingut</strong> amb ningú (excepte casos legals, vegeu secció 5).</li>
       </ul>
@@ -129,6 +162,7 @@
 
       <h2>5. Conservació i eliminació de dades</h2>
       <p>L'eliminació de les dades es pot fer directament des de l'app per qualsevol dels dos membres de la parella. Tots dos tenen el control complet sobre les dades compartides i les poden eliminar en qualsevol moment.</p>
+      <p>Les dades d'ubicació tenen una caducitat que tries tu (1 o 8 hores): en caducar deixen d'actualitzar-se i romanen només en forma xifrada, il·legible sense les claus dels vostres dispositius, fins que elimineu les dades des de l'app. Les dades de senyalització de les trucades s'eliminen en acabar cada trucada.</p>
 
       <h2>6. Contacte</h2>
       <p>Per a preguntes o sol·licituds sobre privadesa, pots contactar-nos:</p>

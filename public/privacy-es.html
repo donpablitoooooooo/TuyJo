@@ -43,9 +43,9 @@
       <h1>Política de <span class="serif-em">privacidad.</span></h1>
       <p>Tuijo está diseñada desde cero para no poder leer lo que os escribís. Esto es exactamente qué datos tratamos y cuáles no.</p>
       <div class="legal-date">
-        <span><b>Última actualización:</b> 13 de enero de 2026</span>
+        <span><b>Última actualización:</b> 11 de septiembre de 2026</span>
         <span class="sep"></span>
-        <span><b>Versión:</b> 1.0</span>
+        <span><b>Versión:</b> 1.1</span>
       </div>
     </div>
 
@@ -72,6 +72,20 @@
         <span><strong>Importante:</strong> no almacenamos ninguna información de autenticación personal (correo, ID de usuario, contraseña). El sistema se basa exclusivamente en las claves criptográficas generadas localmente en tu dispositivo.</span>
       </div>
 
+      <h3>2.2 Ubicación (solo si la compartes tú)</h3>
+      <p>Tuijo usa la ubicación del dispositivo <strong>exclusivamente</strong> cuando inicias tú la función «Compartir ubicación» desde el chat. Nunca recopilamos la ubicación en otros momentos, ni en segundo plano sin una compartición activa.</p>
+      <ul>
+        <li><strong>Qué se trata:</strong> coordenadas GPS (latitud y longitud), precisión y dirección de marcha.</li>
+        <li><strong>Cómo:</strong> las coordenadas se cifran en tu dispositivo con AES-256 antes de enviarse. En el servidor solo se guarda el dato cifrado, junto con la hora y la caducidad de la compartición. Ni siquiera nosotros podemos ver dónde estás.</li>
+        <li><strong>Durante cuánto tiempo:</strong> eliges tú la duración (1 u 8 horas) y el modo (ubicación en tiempo real o una única ubicación). Al caducar, o cuando la interrumpes, el envío se detiene y la ubicación se marca como no activa.</li>
+        <li><strong>En segundo plano:</strong> durante una compartición en tiempo real la app sigue actualizando la ubicación aunque bloquees la pantalla o cambies de app, mostrando una notificación persistente (Android) o el indicador del sistema (iOS). Si cierras la app, la compartición se interrumpe.</li>
+        <li><strong>Quién la ve:</strong> solo tu pareja, en su dispositivo, para calcular distancia y dirección.</li>
+      </ul>
+      <div class="legal-note">
+        <span class="ni"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 10c0 6-9 12-9 12s-9-6-9-12a9 9 0 0 1 18 0Z"/><circle cx="12" cy="10" r="3"/></svg></span>
+        <span><strong>Control total:</strong> puedes detener la compartición en cualquier momento desde la app y revocar el permiso de ubicación en los ajustes del sistema. Todo lo demás de la app sigue funcionando.</span>
+      </div>
+
       <h3>2.3 Mensajes y contenido (cifrados)</h3>
       <ul>
         <li><strong>Mensajes cifrados:</strong> el texto de los mensajes cifrado con AES-256.</li>
@@ -87,6 +101,22 @@
       <h3>2.4 Datos técnicos</h3>
       <ul>
         <li><strong>Token FCM:</strong> token para las notificaciones push de Firebase Cloud Messaging, necesario para enviar notificaciones cuando recibes nuevos mensajes.</li>
+        <li><strong>Token VoIP (solo iOS):</strong> token de Apple PushKit para hacer sonar el teléfono cuando recibes una llamada, incluso con la app cerrada.</li>
+        <li><strong>Plataforma:</strong> el sistema operativo del dispositivo (iOS o Android), para elegir el tipo de notificación correcto.</li>
+      </ul>
+
+      <h3>2.5 Llamadas de voz</h3>
+      <p>Las llamadas de voz son <strong>peer-to-peer</strong> (WebRTC): el audio viaja directamente entre los dos móviles, cifrado (DTLS-SRTP), y <strong>no pasa por nuestros servidores ni se graba en ellos</strong>. El servidor solo sirve para que los dos dispositivos se encuentren (señalización): esos datos también están cifrados de extremo a extremo y se eliminan al terminar la llamada. Al ser una conexión directa, los dos dispositivos intercambian sus direcciones IP, visibles solo para tu pareja.</p>
+
+      <h3>2.6 Permisos del dispositivo</h3>
+      <p>Tuijo pide estos permisos, siempre y solo en el momento en que usas la función correspondiente:</p>
+      <ul>
+        <li><strong>Ubicación:</strong> para compartir la ubicación (ver 2.2).</li>
+        <li><strong>Micrófono:</strong> para las llamadas de voz. Nunca se activa fuera de una llamada.</li>
+        <li><strong>Cámara:</strong> para escanear el código QR durante el emparejamiento, hacer fotos para enviar y el selfie de pareja. Ninguna imagen se trata sin una acción tuya.</li>
+        <li><strong>Fotos y archivos:</strong> para adjuntar fotos o documentos que eliges tú; se cifran antes de enviarse.</li>
+        <li><strong>Notificaciones:</strong> para avisarte de mensajes, recordatorios y llamadas entrantes.</li>
+        <li><strong>Contactos, agenda, calendario, SMS:</strong> <em>nunca</em> se solicitan.</li>
       </ul>
 
       <h2>3. Cómo usamos los datos</h2>
@@ -95,6 +125,8 @@
       <ul>
         <li><strong>Prestar el servicio:</strong> sincronizar los mensajes entre tus dispositivos y los de tu pareja.</li>
         <li><strong>Notificaciones:</strong> enviar notificaciones push cuando recibes nuevos mensajes o recordatorios.</li>
+        <li><strong>Llamadas:</strong> poner en contacto los dos dispositivos para una llamada de voz directa.</li>
+        <li><strong>Ubicación:</strong> mostrar a tu pareja dónde estás, solo mientras dura una compartición iniciada por ti.</li>
         <li><strong>Seguridad:</strong> mantener la integridad y la seguridad del sistema de emparejamiento.</li>
         <li><strong>Mejoras:</strong> corregir errores y mejorar las funciones de la app.</li>
       </ul>
@@ -103,6 +135,7 @@
       <ul>
         <li class="no"><strong>No leemos tus mensajes</strong> (imposible gracias al cifrado E2E).</li>
         <li class="no"><strong>No vendemos tus datos</strong> a terceros.</li>
+        <li class="no"><strong>No rastreamos tu ubicación</strong> ni la guardamos en claro: solo se usa durante una compartición iniciada por ti, cifrada.</li>
         <li class="no"><strong>No usamos tus datos para publicidad</strong> dirigida ni perfilado.</li>
         <li class="no"><strong>No compartimos tu contenido</strong> con nadie (salvo casos legales, ver sección 5).</li>
       </ul>
@@ -129,6 +162,7 @@
 
       <h2>5. Conservación y eliminación de datos</h2>
       <p>La eliminación de los datos puede realizarse directamente desde la app por cualquiera de los dos miembros de la pareja. Ambos tienen el control completo sobre los datos compartidos y pueden eliminarlos en cualquier momento.</p>
+      <p>Los datos de ubicación tienen una caducidad que eliges tú (1 u 8 horas): al caducar dejan de actualizarse y permanecen solo en forma cifrada, ilegible sin las claves de vuestros dispositivos, hasta que eliminéis los datos desde la app. Los datos de señalización de las llamadas se eliminan al terminar cada llamada.</p>
 
       <h2>6. Contacto</h2>
       <p>Para preguntas o solicitudes sobre privacidad, puedes contactarnos:</p>

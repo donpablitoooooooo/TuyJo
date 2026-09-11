@@ -43,9 +43,9 @@
       <h1>Privacy <span class="serif-em">policy.</span></h1>
       <p>Tuijo is built from the ground up so it can't read what you write to each other. Here is exactly which data we handle and which we don't.</p>
       <div class="legal-date">
-        <span><b>Last updated:</b> 13 January 2026</span>
+        <span><b>Last updated:</b> 11 September 2026</span>
         <span class="sep"></span>
-        <span><b>Version:</b> 1.0</span>
+        <span><b>Version:</b> 1.1</span>
       </div>
     </div>
 
@@ -72,6 +72,20 @@
         <span><strong>Important:</strong> we do not store any personal authentication information (email, user ID, password). The system relies solely on the cryptographic keys generated locally on your device.</span>
       </div>
 
+      <h3>2.2 Location (only when you share it)</h3>
+      <p>Tuijo uses the device location <strong>exclusively</strong> when you start the "Share location" feature from the chat. We never collect your location at any other time, nor in the background without an active share.</p>
+      <ul>
+        <li><strong>What is processed:</strong> GPS coordinates (latitude and longitude), accuracy and heading.</li>
+        <li><strong>How:</strong> coordinates are encrypted on your device with AES-256 before being sent. The server only stores the encrypted data, together with the time and the expiry of the share. Not even we can see where you are.</li>
+        <li><strong>For how long:</strong> you choose the duration (1 or 8 hours) and the mode (live location or a single location). When it expires, or when you stop sharing, updates stop and the location is marked as no longer active.</li>
+        <li><strong>In the background:</strong> during a live share the app keeps updating your location even if you lock the screen or switch to another app, showing a persistent notification (Android) or the system indicator (iOS). If you close the app, sharing stops.</li>
+        <li><strong>Who sees it:</strong> only your partner, on their device, to compute distance and direction.</li>
+      </ul>
+      <div class="legal-note">
+        <span class="ni"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 10c0 6-9 12-9 12s-9-6-9-12a9 9 0 0 1 18 0Z"/><circle cx="12" cy="10" r="3"/></svg></span>
+        <span><strong>Full control:</strong> you can stop sharing at any time from the app and revoke the location permission in the system settings. Everything else in the app keeps working.</span>
+      </div>
+
       <h3>2.3 Messages and content (encrypted)</h3>
       <ul>
         <li><strong>Encrypted messages:</strong> message text encrypted with AES-256.</li>
@@ -87,6 +101,22 @@
       <h3>2.4 Technical data</h3>
       <ul>
         <li><strong>FCM token:</strong> token for Firebase Cloud Messaging push notifications, required to send notifications when you receive new messages.</li>
+        <li><strong>VoIP token (iOS only):</strong> Apple PushKit token used to ring your phone when you receive a call, even when the app is closed.</li>
+        <li><strong>Platform:</strong> the device operating system (iOS or Android), to pick the right kind of notification.</li>
+      </ul>
+
+      <h3>2.5 Voice calls</h3>
+      <p>Voice calls are <strong>peer-to-peer</strong> (WebRTC): audio travels directly between the two phones, encrypted (DTLS-SRTP), and <strong>never passes through or gets recorded on our servers</strong>. The server is only used to let the two devices find each other (signalling): that data is itself end-to-end encrypted and is deleted when the call ends. Because the connection is direct, the two devices exchange their IP addresses, visible only to your partner.</p>
+
+      <h3>2.6 Device permissions</h3>
+      <p>Tuijo asks for these permissions, always and only at the moment you use the corresponding feature:</p>
+      <ul>
+        <li><strong>Location:</strong> for location sharing (see 2.2).</li>
+        <li><strong>Microphone:</strong> for voice calls. It is never activated outside a call.</li>
+        <li><strong>Camera:</strong> to scan the QR code during pairing, take photos to send and take the couple selfie. No image is processed without an action from you.</li>
+        <li><strong>Photos and files:</strong> to attach photos or documents you choose; they are encrypted before sending.</li>
+        <li><strong>Notifications:</strong> to alert you about messages, reminders and incoming calls.</li>
+        <li><strong>Contacts, address book, calendar, SMS:</strong> <em>never</em> requested.</li>
       </ul>
 
       <h2>3. How we use data</h2>
@@ -95,6 +125,8 @@
       <ul>
         <li><strong>Provide the service:</strong> sync messages between your devices and your partner's.</li>
         <li><strong>Notifications:</strong> send push notifications when you receive new messages or reminders.</li>
+        <li><strong>Calls:</strong> connect the two devices for a direct voice call.</li>
+        <li><strong>Location:</strong> show your partner where you are, only for the duration of a share you started.</li>
         <li><strong>Security:</strong> maintain the integrity and security of the pairing system.</li>
         <li><strong>Improvements:</strong> fix bugs and improve the app's features.</li>
       </ul>
@@ -103,6 +135,7 @@
       <ul>
         <li class="no"><strong>We don't read your messages</strong> (impossible thanks to E2E encryption).</li>
         <li class="no"><strong>We don't sell your data</strong> to third parties.</li>
+        <li class="no"><strong>We do not track your location</strong> and never store it in clear text: it is used only during a share you started, encrypted.</li>
         <li class="no"><strong>We don't use your data for targeted advertising</strong> or profiling.</li>
         <li class="no"><strong>We don't share your content</strong> with anyone (except legal cases, see section 5).</li>
       </ul>
@@ -129,6 +162,7 @@
 
       <h2>5. Data retention and deletion</h2>
       <p>Data deletion can be carried out directly from the app by either of the two partners. Both partners have full control over the shared data and can delete it at any time.</p>
+      <p>Location data has an expiry you choose (1 or 8 hours): once expired it is no longer updated and remains only in encrypted form, unreadable without the keys on your devices, until you delete the data from the app. Call signalling data is deleted at the end of every call.</p>
 
       <h2>6. Contact</h2>
       <p>For privacy questions or requests, you can contact us:</p>
