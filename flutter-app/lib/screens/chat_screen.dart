@@ -115,6 +115,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
 
     // 🔔 Aggiungi observer per lifecycle events (foreground/background)
     WidgetsBinding.instance.addObserver(this);
+    Provider.of<ChatService>(context, listen: false).chatScreenMounted = true;
 
     // Listen per cambiamenti nel text field
     _messageController.addListener(() {
@@ -975,6 +976,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    Provider.of<ChatService>(context, listen: false).chatScreenMounted = false;
     _messageController.dispose();
     _scrollController.dispose();
     _messageFocusNode.dispose();

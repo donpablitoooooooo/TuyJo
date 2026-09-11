@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:async';
 import 'dart:ui' as ui;
 import 'package:flutter/foundation.dart';
+import 'package:flutter/widgets.dart';
 import 'package:private_messaging/generated/l10n/app_localizations.dart';
 import 'package:http/http.dart' as http;
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -52,6 +53,19 @@ class ChatService extends ChangeNotifier {
 
   List<Message> get messages => _messages;
   bool get isConnected => _subscription != null;
+
+  /// True mentre ChatScreen è montata (impostato dalla schermata).
+  bool chatScreenMounted = false;
+
+  /// La chat è davvero sotto gli occhi dell'utente: app in primo piano e
+  /// schermata chat montata. Solo allora un messaggio in arrivo può essere
+  /// marcato letto. Su Android il processo resta vivo in background e il
+  /// listener Firestore continua a girare: senza questo controllo i
+  /// messaggi risultavano "letti" col telefono in tasca, e il badge non
+  /// superava mai 1 perché i precedenti venivano già contati come letti.
+  bool get isChatVisible =>
+      chatScreenMounted &&
+      WidgetsBinding.instance.lifecycleState == AppLifecycleState.resumed;
   bool get isLoadingFromCache => _isLoadingFromCache;
   bool get isLoadingOlderMessages => _isLoadingOlderMessages;
   bool get hasMoreMessages => _hasMoreMessages;
@@ -655,14 +669,18 @@ class ChatService extends ChangeNotifier {
                   if (kDebugMode) print('❌ Error caching message: $e');
                 }
 
-                // ✅ AUTO-MARK AS READ: Se ricevo un messaggio, marcalo subito come letto
+                // ✅ AUTO-MARK AS READ: solo se l'utente sta davvero guardando
+                // la chat (app in primo piano + schermata chat montata).
                 if (_myDeviceId != null && message.senderId != _myDeviceId) {
-                  // Messaggio ricevuto da qualcun altro, marcalo come letto
-                  markAllMessagesAsRead(familyChatId, _myDeviceId!);
-                  // e azzera il badge: il push potrebbe averlo appena impostato
-                  _notificationService.clearBadge();
-                  if (kDebugMode) {
-                    print('✅ [AUTO-READ] Marked message as read: ${message.id.substring(0, 8)}...');
+                  if (isChatVisible) {
+                    markAllMessagesAsRead(familyChatId, _myDeviceId!);
+                    // e azzera il badge: il push potrebbe averlo appena impostato
+                    _notificationService.clearBadge();
+                    if (kDebugMode) {
+                      print('✅ [AUTO-READ] Marked message as read: ${message.id.substring(0, 8)}...');
+                    }
+                  } else if (kDebugMode) {
+                    print('📥 [AUTO-READ] Chat not visible, leaving message unread: ${message.id.substring(0, 8)}...');
                   }
                 }
               }
