@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:provider/provider.dart';
@@ -194,6 +195,11 @@ class _LocationShareSetupPageState extends State<LocationShareSetupPage>
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
+    if (kDebugMode) {
+      final mq = MediaQuery.of(context);
+      print('📐 [SETUP] build size=${mq.size} padding=${mq.padding} '
+          'viewInsets=${mq.viewInsets} dpr=${mq.devicePixelRatio}');
+    }
 
     return Scaffold(
       extendBodyBehindAppBar: true,
