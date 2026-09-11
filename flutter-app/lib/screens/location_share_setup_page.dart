@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:provider/provider.dart';
@@ -68,10 +67,12 @@ class _LocationShareSetupPageState extends State<LocationShareSetupPage>
   }
 
   Future<void> _acquireGps() async {
-    final locationService = Provider.of<LocationService>(context, listen: false);
+    final locationService =
+        Provider.of<LocationService>(context, listen: false);
 
     // Controlla permessi prima di provare a ottenere la posizione
-    final permResult = await locationService.requestLocationPermissionDetailed();
+    final permResult =
+        await locationService.requestLocationPermissionDetailed();
     if (!mounted) return;
 
     if (permResult != LocationPermissionResult.granted) {
@@ -87,7 +88,8 @@ class _LocationShareSetupPageState extends State<LocationShareSetupPage>
           context: context,
           title: l10n.permissionLocationDeniedTitle,
           message: l10n.permissionLocationDeniedMessage,
-          isPermanentlyDenied: permResult == LocationPermissionResult.deniedForever,
+          isPermanentlyDenied:
+              permResult == LocationPermissionResult.deniedForever,
         );
       }
       if (mounted) Navigator.pop(context);
@@ -122,18 +124,22 @@ class _LocationShareSetupPageState extends State<LocationShareSetupPage>
     if (_isSending || _position == null) return;
     setState(() => _isSending = true);
 
-    final locationService = Provider.of<LocationService>(context, listen: false);
+    final locationService =
+        Provider.of<LocationService>(context, listen: false);
     final chatService = Provider.of<ChatService>(context, listen: false);
     final pairingService = Provider.of<PairingService>(context, listen: false);
-    final encryptionService = Provider.of<EncryptionService>(context, listen: false);
+    final encryptionService =
+        Provider.of<EncryptionService>(context, listen: false);
 
     final familyChatId = await pairingService.getFamilyChatId();
     final myDeviceId = await pairingService.getMyUserId();
     final myPublicKey = await encryptionService.getPublicKey();
     final partnerPublicKey = pairingService.partnerPublicKey;
 
-    if (familyChatId == null || myDeviceId == null ||
-        myPublicKey == null || partnerPublicKey == null) {
+    if (familyChatId == null ||
+        myDeviceId == null ||
+        myPublicKey == null ||
+        partnerPublicKey == null) {
       if (mounted) {
         final l10n = AppLocalizations.of(context)!;
         ScaffoldMessenger.of(context).showSnackBar(
@@ -174,7 +180,8 @@ class _LocationShareSetupPageState extends State<LocationShareSetupPage>
     }
 
     // 3) Avvia GPS sharing
-    await locationService.startSharingLocation(_selectedDuration, sessionId: sessionId, mode: _selectedMode);
+    await locationService.startSharingLocation(_selectedDuration,
+        sessionId: sessionId, mode: _selectedMode);
 
     if (!mounted) return;
 
@@ -195,12 +202,6 @@ class _LocationShareSetupPageState extends State<LocationShareSetupPage>
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
-    if (kDebugMode) {
-      final mq = MediaQuery.of(context);
-      print('📐 [SETUP] build size=${mq.size} padding=${mq.padding} '
-          'viewInsets=${mq.viewInsets} dpr=${mq.devicePixelRatio}');
-    }
-
     return Scaffold(
       extendBodyBehindAppBar: true,
       backgroundColor: Colors.transparent,
@@ -212,62 +213,68 @@ class _LocationShareSetupPageState extends State<LocationShareSetupPage>
           onPressed: () => Navigator.pop(context),
         ),
       ),
-      body: Container(
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [Color(0xFF3BA8B0), Color(0xFF145A60)],
+      // Il body dello Scaffold ha vincoli di larghezza lassi: senza
+      // SizedBox.expand il Container si restringe al figlio più largo (in
+      // fase "acquisizione GPS" è solo il testo) e il gradiente copre due
+      // terzi dello schermo, con il resto nero.
+      body: SizedBox.expand(
+        child: Container(
+          decoration: const BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [Color(0xFF3BA8B0), Color(0xFF145A60)],
+            ),
           ),
-        ),
-        child: SafeArea(
-          child: Column(
-            children: [
-              // Durante l'acquisizione GPS centra verticalmente il contenuto
-              // (altrimenti resta incollato in alto e sembra "mezzo schermo").
-              if (_isAcquiringGps) const Spacer(),
-              const SizedBox(height: 20),
-
-              // Freccia animata
-              AnimatedBuilder(
-                animation: _pulseAnimation,
-                builder: (context, child) {
-                  return Opacity(
-                    opacity: _isAcquiringGps ? _pulseAnimation.value : 1.0,
-                    child: Icon(
-                      Icons.navigation,
-                      size: 120,
-                      color: Colors.white,
-                      shadows: [
-                        Shadow(
-                          color: Colors.black.withValues(alpha: 0.2),
-                          blurRadius: 20,
-                        ),
-                      ],
-                    ),
-                  );
-                },
-              ),
-
-              const SizedBox(height: 32),
-
-              // Stato GPS
-              _buildGpsStatus(l10n),
-
-              const SizedBox(height: 40),
-
-              // Opzioni
-              if (!_isAcquiringGps) ...[
-                _buildDurationSelector(l10n),
+          child: SafeArea(
+            child: Column(
+              children: [
+                // Durante l'acquisizione GPS centra verticalmente il contenuto
+                // (altrimenti resta incollato in alto e sembra "mezzo schermo").
+                if (_isAcquiringGps) const Spacer(),
                 const SizedBox(height: 20),
-                _buildModeSelector(l10n),
-                const Spacer(),
-                _buildShareButton(l10n),
+
+                // Freccia animata
+                AnimatedBuilder(
+                  animation: _pulseAnimation,
+                  builder: (context, child) {
+                    return Opacity(
+                      opacity: _isAcquiringGps ? _pulseAnimation.value : 1.0,
+                      child: Icon(
+                        Icons.navigation,
+                        size: 120,
+                        color: Colors.white,
+                        shadows: [
+                          Shadow(
+                            color: Colors.black.withValues(alpha: 0.2),
+                            blurRadius: 20,
+                          ),
+                        ],
+                      ),
+                    );
+                  },
+                ),
+
+                const SizedBox(height: 32),
+
+                // Stato GPS
+                _buildGpsStatus(l10n),
+
                 const SizedBox(height: 40),
-              ] else ...[
-                const Spacer(),
+
+                // Opzioni
+                if (!_isAcquiringGps) ...[
+                  _buildDurationSelector(l10n),
+                  const SizedBox(height: 20),
+                  _buildModeSelector(l10n),
+                  const Spacer(),
+                  _buildShareButton(l10n),
+                  const SizedBox(height: 40),
+                ] else ...[
+                  const Spacer(),
+                ],
               ],
-            ],
+            ),
           ),
         ),
       ),
@@ -375,13 +382,15 @@ class _LocationShareSetupPageState extends State<LocationShareSetupPage>
                 _buildToggleOption(
                   label: l10n.locationShareDuration1Hour,
                   selected: _selectedDuration == const Duration(hours: 1),
-                  onTap: () => setState(() => _selectedDuration = const Duration(hours: 1)),
+                  onTap: () => setState(
+                      () => _selectedDuration = const Duration(hours: 1)),
                   isLeft: true,
                 ),
                 _buildToggleOption(
                   label: l10n.locationShareDuration8Hours,
                   selected: _selectedDuration == const Duration(hours: 8),
-                  onTap: () => setState(() => _selectedDuration = const Duration(hours: 8)),
+                  onTap: () => setState(
+                      () => _selectedDuration = const Duration(hours: 8)),
                   isLeft: false,
                 ),
               ],
@@ -460,7 +469,9 @@ class _LocationShareSetupPageState extends State<LocationShareSetupPage>
           duration: const Duration(milliseconds: 200),
           padding: const EdgeInsets.symmetric(vertical: 14),
           decoration: BoxDecoration(
-            color: selected ? Colors.white.withValues(alpha: 0.25) : Colors.transparent,
+            color: selected
+                ? Colors.white.withValues(alpha: 0.25)
+                : Colors.transparent,
             borderRadius: BorderRadius.horizontal(
               left: isLeft ? const Radius.circular(15) : Radius.zero,
               right: isLeft ? Radius.zero : const Radius.circular(15),
@@ -500,8 +511,10 @@ class _LocationShareSetupPageState extends State<LocationShareSetupPage>
           ),
           child: _isSending
               ? const SizedBox(
-                  width: 22, height: 22,
-                  child: CircularProgressIndicator(strokeWidth: 2.5, color: Color(0xFF145A60)),
+                  width: 22,
+                  height: 22,
+                  child: CircularProgressIndicator(
+                      strokeWidth: 2.5, color: Color(0xFF145A60)),
                 )
               : Text(
                   l10n.locationShareButton,

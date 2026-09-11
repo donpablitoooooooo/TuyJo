@@ -374,11 +374,13 @@ class _LocationSharingScreenState extends State<LocationSharingScreen> {
             ),
         ],
       ),
-      body: Container(
-        decoration: BoxDecoration(gradient: backgroundColor),
-        child: isTerminated
-            ? _buildTerminatedView()
-            : _buildActiveView(partnerLocation, myLocation),
+      body: SizedBox.expand(
+        child: Container(
+          decoration: BoxDecoration(gradient: backgroundColor),
+          child: isTerminated
+              ? _buildTerminatedView()
+              : _buildActiveView(partnerLocation, myLocation),
+        ),
       ),
     );
   }
