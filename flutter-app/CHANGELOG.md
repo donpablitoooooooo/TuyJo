@@ -19,6 +19,12 @@ Tutte le modifiche notevoli a questo progetto saranno documentate in questo file
 - Aggiornate `flutter_webrtc` 1.6.2 (libwebrtc 150) e `flutter_callkit_incoming` 3.1.5.
 - Rimossi i pulsanti accetta/rifiuta in-app (codice morto: la risposta avviene sempre dalla UI nativa). Il timer parte alla connessione ICE reale, non al segnale Firestore.
 - **Sensore di prossimità**: lo schermo si spegne quando il telefono è all'orecchio e si riaccende quando lo allontani (wake lock proximity su Android, proximity monitoring su iOS). Attivo solo a chiamata connessa e con altoparlante spento.
+### 📍 Condivisione posizione
+- **La tua condivisione non si spegne più se il partner chiude la schermata** o perde il GPS: termina solo con lo stop manuale o alla scadenza. Aggiunto un timer di scadenza (prima scattava solo se ti muovevi).
+- **"Vieni qua" manda la posizione una volta sola**: prima continuava a trasmettere in tempo reale come "Sto arrivando".
+- **Tolto il permesso "posizione sempre"**: non serviva (foreground service Android e background mode iOS bastano con "mentre usi l'app"), causava un prompt in inglese e la revisione dedicata su Google Play. Rimosso `ACCESS_BACKGROUND_LOCATION` dal manifest.
+- Schermata di navigazione: avvio a transizione conclusa (niente più schermo a metà), stream GPS con filtro di distanza al posto del fix ogni 5 secondi, scritture del ricevente al massimo ogni 10 s, pulsante per interrompere la condivisione, testo "Condivisione avviata" per chi condivide con suggerimento a non chiudere l'app dal task switcher.
+- Lo stop non resta più bloccato se il documento non esiste; un errore di decifratura non uccide più il listener del partner; mai più coordinate scritte in chiaro.
 - iOS: abilitate le macro `PERMISSION_*` di permission_handler nel Podfile. Senza, la richiesta della fotocamera per il pairing via QR rispondeva "negato" senza mai mostrare il prompt.
 
 ## [1.35.0] - 2026-06-15

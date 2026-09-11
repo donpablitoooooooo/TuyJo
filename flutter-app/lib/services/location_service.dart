@@ -7,7 +7,6 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:geolocator_android/geolocator_android.dart';
 import 'package:geolocator_apple/geolocator_apple.dart';
-import 'package:permission_handler/permission_handler.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:crypto/crypto.dart';
@@ -41,6 +40,11 @@ class LocationService extends ChangeNotifier {
 
   // Stream subscriptions
   StreamSubscription<Position>? _positionStreamSubscription;
+  /// Ferma la condivisione allo scadere anche se il telefono è fermo
+  /// (senza movimento non arrivano posizioni e il controllo non scatterebbe).
+  Timer? _expiryTimer;
+  /// 'live' (sto arrivando) oppure 'static' (vieni qua)
+  String _mode = 'live';
   StreamSubscription<QuerySnapshot<Map<String, dynamic>>>? _partnerLocationSubscription;
 
   // State
@@ -69,6 +73,7 @@ class LocationService extends ChangeNotifier {
   static const String _prefExpiresAt = 'location_sharing_expires_at';
   static const String _prefActive = 'location_sharing_active';
   static const String _prefLocationKey = 'location_sharing_key';
+  static const String _prefMode = 'location_sharing_mode';
 
   /// Pre-imposta sessione e stato attivo prima di mandare il messaggio Firestore,
   /// così la UI mostra subito la condivisione come attiva.
@@ -116,6 +121,7 @@ class LocationService extends ChangeNotifier {
         await prefs.setString(_prefSessionId, _currentSessionId!);
         await prefs.setString(_prefExpiresAt, _sharingExpiresAt!.toIso8601String());
         await prefs.setBool(_prefActive, true);
+        await prefs.setString(_prefMode, _mode);
         // Salva location key in Secure Storage (non SharedPreferences!)
         if (_locationKey != null) {
           await _storage.write(key: _prefLocationKey, value: _locationKey!);
@@ -135,6 +141,7 @@ class LocationService extends ChangeNotifier {
       await prefs.remove(_prefSessionId);
       await prefs.remove(_prefExpiresAt);
       await prefs.remove(_prefActive);
+      await prefs.remove(_prefMode);
       await _storage.delete(key: _prefLocationKey);
     } catch (e) {
       if (kDebugMode) print('❌ [LOCATION] Error clearing persisted state: $e');
@@ -177,10 +184,11 @@ class LocationService extends ChangeNotifier {
 
       notifyListeners();
 
-      // Riavvia GPS stream
+      // Riavvia GPS stream (o solo il timer di scadenza in modalità statica)
       final remaining = expiresAt.difference(DateTime.now());
       if (remaining.inSeconds > 0) {
-        startSharingLocation(remaining, sessionId: sessionId);
+        final mode = prefs.getString(_prefMode) ?? 'live';
+        startSharingLocation(remaining, sessionId: sessionId, mode: mode);
       }
     } catch (e) {
       if (kDebugMode) print('❌ [LOCATION] Error restoring session: $e');
@@ -310,17 +318,6 @@ class LocationService extends ChangeNotifier {
     );
   }
 
-  /// Richiede (best-effort) il permesso di posizione "sempre"/background.
-  /// Non blocca la condivisione se negato: in tal caso funziona solo in foreground.
-  Future<void> _ensureBackgroundLocationPermission() async {
-    try {
-      final status = await Permission.locationAlways.request();
-      if (kDebugMode) print('🌍 [LOCATION] Background permission: $status');
-    } catch (e) {
-      if (kDebugMode) print('⚠️ [LOCATION] Background permission request failed: $e');
-    }
-  }
-
   Future<bool> startSharingLocation(Duration duration, {String? sessionId, String mode = 'live'}) async {
     // Se sessionId è fornito, prepareSession() è già stato chiamato e il messaggio
     // è già su Firestore. Non resettare lo stato se qualcosa fallisce.
@@ -335,11 +332,14 @@ class LocationService extends ChangeNotifier {
         return false;
       }
 
-      // Modalità "Sto arrivando": chiedi anche il permesso background (best-effort).
+      // Modalità "Sto arrivando": posizione continua anche in background.
+      // NON serve il permesso "sempre": su Android il foreground service di
+      // tipo location e su iOS il background mode `location` funzionano con
+      // "mentre usi l'app". Il permesso "sempre" chiedeva un prompt in più,
+      // non aggiungeva nulla e su Play richiede una revisione dedicata.
+      // Modalità "Vieni qua": si manda la posizione UNA volta, niente stream.
       final bool background = mode == 'live';
-      if (background) {
-        await _ensureBackgroundLocationPermission();
-      }
+      _mode = mode;
 
       if (kDebugMode) print('✅ [LOCATION] Permissions OK, checking pairing...');
 
@@ -363,9 +363,10 @@ class LocationService extends ChangeNotifier {
       // IMPORTANTE: Chiudi vecchie sessioni PRIMA di iniziare nuova
       await _closeOldSessions(myUserId, familyChatId);
 
-      // Imposta scadenza
+      // Imposta scadenza (+ timer: ferma anche se il telefono resta fermo)
       _sharingExpiresAt = DateTime.now().add(duration);
       _isSharingLocation = true;
+      _scheduleExpiry(duration);
 
       // Ottieni posizione iniziale
       if (kDebugMode) print('📍 [LOCATION] Verifico disponibilità GPS...');
@@ -381,12 +382,9 @@ class LocationService extends ChangeNotifier {
           // Messaggio già inviato → tieni lo stato attivo, il GPS stream proverà dopo
           if (kDebugMode) print('   Messaggio già su Firestore, mantengo stato attivo');
         }
-        // Avvia comunque lo stream: quando il GPS diventa disponibile, aggiornerà
-        _positionStreamSubscription = Geolocator.getPositionStream(
-          locationSettings: _buildLocationSettings(background: background),
-        ).listen((Position position) {
-          _updateMyLocationToFirestore(position, myUserId, familyChatId);
-        });
+        // Avvia comunque lo stream: quando il GPS diventa disponibile, aggiornerà.
+        // In modalità statica si ferma da solo alla prima posizione scritta.
+        _startPositionStream(myUserId, familyChatId, background: background, once: mode == 'static');
         notifyListeners();
         return hasPreparedSession; // true se il messaggio esiste già
       }
@@ -396,12 +394,10 @@ class LocationService extends ChangeNotifier {
       // Salva posizione iniziale
       await _updateMyLocationToFirestore(initialPosition, myUserId, familyChatId);
 
-      // Avvia stream di posizione per aggiornamenti continui
-      _positionStreamSubscription = Geolocator.getPositionStream(
-        locationSettings: _buildLocationSettings(background: background),
-      ).listen((Position position) {
-        _updateMyLocationToFirestore(position, myUserId, familyChatId);
-      });
+      // Live: stream continuo. Static: la posizione è già scritta, basta così.
+      if (mode == 'live') {
+        _startPositionStream(myUserId, familyChatId, background: true, once: false);
+      }
 
       _persistSharingState();
       notifyListeners();
@@ -416,6 +412,31 @@ class LocationService extends ChangeNotifier {
       notifyListeners();
       return hasPreparedSession;
     }
+  }
+
+  void _startPositionStream(String myUserId, String familyChatId,
+      {required bool background, required bool once}) {
+    _positionStreamSubscription?.cancel();
+    _positionStreamSubscription = Geolocator.getPositionStream(
+      locationSettings: _buildLocationSettings(background: background),
+    ).listen((Position position) async {
+      await _updateMyLocationToFirestore(position, myUserId, familyChatId);
+      if (once) {
+        // "Vieni qua": una posizione basta
+        await _positionStreamSubscription?.cancel();
+        _positionStreamSubscription = null;
+      }
+    }, onError: (e) {
+      if (kDebugMode) print('❌ [LOCATION] Position stream error: $e');
+    });
+  }
+
+  void _scheduleExpiry(Duration duration) {
+    _expiryTimer?.cancel();
+    _expiryTimer = Timer(duration, () {
+      if (kDebugMode) print('⏰ [LOCATION] Sharing expired (timer) → stopping');
+      stopSharingLocation();
+    });
   }
 
   /// Imposta l'ID del messaggio di location share
@@ -434,27 +455,15 @@ class LocationService extends ChangeNotifier {
     try {
       if (kDebugMode) print('🛑 [LOCATION] Stopping location sharing');
 
-      // Ferma lo stream posizione
+      // Ferma stream e timer
       await _positionStreamSubscription?.cancel();
       _positionStreamSubscription = null;
+      _expiryTimer?.cancel();
+      _expiryTimer = null;
 
-      // Aggiorna Firestore: imposta is_active = false SOLO per ME
-      // L'altro utente rileverà tramite listener e fermerà la sua condivisione
-      final myUserId = await _getMyUserId();
-      final familyChatId = await _getFamilyChatId();
-
-      if (myUserId != null && familyChatId != null) {
-        // Marca il MIO documento come inattivo
-        await _firestore
-            .collection('families')
-            .doc(familyChatId)
-            .collection('locations')
-            .doc(myUserId)
-            .update({'is_active': false});
-
-        if (kDebugMode) print('🛑 [LOCATION] Marked my location as inactive');
-      }
-
+      // Stato locale azzerato SUBITO: la scrittura su Firestore può fallire
+      // (es. documento mai creato perché il GPS non ha dato un fix) e non
+      // deve lasciare la UI bloccata su "condivisione attiva".
       _isSharingLocation = false;
       _sharingExpiresAt = null;
       _myLocation = null;
@@ -462,8 +471,20 @@ class LocationService extends ChangeNotifier {
       _locationShareMessageId = null;
       _locationKey = null;
       await _clearPersistedSharingState();
-
       notifyListeners();
+
+      // Firestore: is_active = false SOLO per ME (set+merge: crea se manca)
+      final myUserId = await _getMyUserId();
+      final familyChatId = await _getFamilyChatId();
+      if (myUserId != null && familyChatId != null) {
+        await _firestore
+            .collection('families')
+            .doc(familyChatId)
+            .collection('locations')
+            .doc(myUserId)
+            .set({'is_active': false}, SetOptions(merge: true));
+        if (kDebugMode) print('🛑 [LOCATION] Marked my location as inactive');
+      }
     } catch (e) {
       if (kDebugMode) print('❌ [LOCATION] Error stopping location sharing: $e');
     }
@@ -537,74 +558,52 @@ class LocationService extends ChangeNotifier {
           return;
         }
 
-        // Decifra le coordinate se i dati sono cifrati
         final partnerData = partnerDoc.data();
-        final LocationShare locationShare;
-        if (partnerData.containsKey('encrypted_location') && _locationKey != null) {
-          locationShare = LocationShare.fromEncryptedFirestore(
-            partnerDoc.id,
-            partnerData,
-            _locationKey!,
-            _encryptionService,
-          );
-          if (kDebugMode) print('🔐 [LOCATION] Decrypted partner coordinates');
-        } else {
-          // Fallback: dati non cifrati (compatibilità con vecchie sessioni)
-          locationShare = LocationShare.fromFirestore(partnerDoc.id, partnerData);
-          if (kDebugMode && partnerData.containsKey('encrypted_location')) {
-            print('⚠️ [LOCATION] Encrypted data found but no location key available');
-          }
+
+        // Documento di un'altra sessione (residuo): ignora. Vale per il
+        // sender, che conosce la propria sessione; il receiver filtra
+        // nella schermata con expectedSessionId.
+        if (_currentSessionId != null &&
+            partnerData['session_id'] != null &&
+            partnerData['session_id'] != _currentSessionId) {
+          if (kDebugMode) print('👀 [LOCATION] Partner doc from another session → ignored');
+          return;
         }
 
-        // Verifica se è scaduta o inattiva
-        if (locationShare.isExpired || !locationShare.isActive) {
-          if (kDebugMode) {
-            print('👀 [LOCATION] Partner location expired or inactive');
-            print('   _partnerLocation != null: ${_partnerLocation != null}');
-            print('   _partnerLocation?.isActive: ${_partnerLocation?.isActive}');
-            print('   _isSharingLocation: $_isSharingLocation');
-          }
-
-          // Partner ha fermato: se IO sto condividendo, marco anche me come inattivo
-          // Ma SOLO se partner ERA attivo prima (evita di fermare all'inizio)
-          if (_partnerLocation != null && _partnerLocation!.isActive && _isSharingLocation) {
-            if (kDebugMode) print('🛑 [LOCATION] Partner stopped, stopping MY sharing completely');
-
-            // Ferma il position stream (altrimenti continua a scrivere su Firestore!)
-            await _positionStreamSubscription?.cancel();
-            _positionStreamSubscription = null;
-
-            // Usa myUserId e familyChatId dal contesto esterno (già disponibili)
-            try {
-              await _firestore
-                  .collection('families')
-                  .doc(familyChatId)
-                  .collection('locations')
-                  .doc(myUserId)
-                  .update({'is_active': false});
-
-              if (kDebugMode) print('✅ [LOCATION] Marked myself as inactive (partner stopped)');
-            } catch (e) {
-              if (kDebugMode) print('❌ [LOCATION] Error marking as inactive: $e');
+        // Decifra le coordinate. Un errore (chiave sbagliata, dato corrotto)
+        // NON deve uccidere il listener: viene solo saltato l'aggiornamento.
+        LocationShare locationShare;
+        try {
+          if (partnerData.containsKey('encrypted_location')) {
+            if (_locationKey == null) {
+              if (kDebugMode) print('⚠️ [LOCATION] Encrypted data but no location key yet');
+              return;
             }
-
-            // Reset stato locale
-            _isSharingLocation = false;
-            _sharingExpiresAt = null;
-            _myLocation = null;
-            _currentSessionId = null;
-            _locationShareMessageId = null;
-            _locationKey = null;
-            _clearPersistedSharingState();
+            locationShare = LocationShare.fromEncryptedFirestore(
+              partnerDoc.id,
+              partnerData,
+              _locationKey!,
+              _encryptionService,
+            );
+          } else {
+            // Compatibilità con vecchie sessioni non cifrate
+            locationShare = LocationShare.fromFirestore(partnerDoc.id, partnerData);
           }
+        } catch (e) {
+          if (kDebugMode) print('❌ [LOCATION] Cannot decode partner location: $e');
+          return;
+        }
 
-          _partnerLocation = null;
+        // La MIA condivisione dipende solo da me (stop manuale o scadenza):
+        // se il partner chiude la schermata o perde il GPS, io continuo.
+        // Il suo stato serve solo alla UI.
+        if (locationShare.isExpired || !locationShare.isActive) {
+          if (kDebugMode) print('👀 [LOCATION] Partner location expired or inactive');
+          _partnerLocation = locationShare.copyWith(isActive: false);
         } else {
           if (kDebugMode) {
-            print('👀 [LOCATION] Partner location updated:');
-            print('   Position: ${locationShare.latitude}, ${locationShare.longitude}');
-            print('   Timestamp: ${locationShare.timestamp}');
-            print('   Expires: ${locationShare.expiresAt}');
+            print('👀 [LOCATION] Partner location updated: '
+                '${locationShare.latitude}, ${locationShare.longitude}');
           }
           _partnerLocation = locationShare;
         }
@@ -681,9 +680,13 @@ class LocationService extends ChangeNotifier {
         print('   Position: ${position.latitude}, ${position.longitude}');
       }
 
-      // Cifra le coordinate sensibili se la chiave è disponibile
+      // Coordinate SEMPRE cifrate: senza chiave non si scrive nulla
+      if (_locationKey == null) {
+        if (kDebugMode) print('⚠️ [LOCATION] No location key → skipping write (never plaintext)');
+        return;
+      }
       final Map<String, dynamic> firestoreData;
-      if (_locationKey != null) {
+      {
         final sensitiveFields = {
           'lat': position.latitude,
           'lng': position.longitude,
@@ -705,10 +708,6 @@ class LocationService extends ChangeNotifier {
         };
 
         if (kDebugMode) print('🔐 [LOCATION] Coordinates encrypted before Firestore write');
-      } else {
-        // Fallback senza cifratura (non dovrebbe succedere, ma safe)
-        firestoreData = locationShare.toJson();
-        if (kDebugMode) print('⚠️ [LOCATION] No location key - writing unencrypted (fallback)');
       }
 
       // set() SENZA merge: sovrascrive il documento intero,
@@ -820,6 +819,7 @@ class LocationService extends ChangeNotifier {
   void dispose() {
     _positionStreamSubscription?.cancel();
     _partnerLocationSubscription?.cancel();
+    _expiryTimer?.cancel();
     super.dispose();
   }
 }

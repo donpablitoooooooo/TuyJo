@@ -10,6 +10,7 @@ import 'package:flutter_compass/flutter_compass.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:private_messaging/generated/l10n/app_localizations.dart';
+import '../services/chat_service.dart';
 import '../services/encryption_service.dart';
 import '../services/location_service.dart';
 import '../services/pairing_service.dart';
@@ -39,16 +40,33 @@ class _LocationSharingScreenState extends State<LocationSharingScreen> {
   double? _heading; // Direzione corrente dalla bussola (0-360°)
   StreamSubscription<CompassEvent>? _compassSubscription;
   Timer? _compassRetryTimer;
-  Timer? _positionUpdateTimer; // Timer per aggiornare la posizione
+  StreamSubscription<Position>? _myPositionSubscription;
   Position? _myPosition; // Posizione corrente dell'utente (locale, non condivisa)
+  DateTime? _lastRecipientWrite;
+  bool _isStopping = false;
+
+  /// Il ricevente scrive la propria posizione al massimo ogni 10 s e solo
+  /// se si è mosso (distanceFilter dello stream): prima era un fix GPS
+  /// completo + una scrittura Firestore ogni 5 s per tutta la durata.
+  static const _recipientWriteInterval = Duration(seconds: 10);
 
   @override
   void initState() {
     super.initState();
     _startCompass();
 
-    // Avvia tracking del partner e ottieni la mia posizione
+    // Avvia tracking del partner e ottieni la mia posizione, ma SOLO a
+    // transizione di apertura completata: GPS, listener e indicatori di
+    // sistema (barra blu iOS, notifica Android) che partono durante
+    // l'animazione la congelano a metà schermo.
     WidgetsBinding.instance.addPostFrameCallback((_) async {
+      final route = ModalRoute.of(context);
+      final animation = route?.animation;
+      if (route != null && animation != null && !animation.isCompleted) {
+        await Future.delayed(
+            route.transitionDuration + const Duration(milliseconds: 50));
+      }
+      if (!mounted) return;
       final locationService = Provider.of<LocationService>(context, listen: false);
 
       // Se abbiamo coordinate iniziali dal messaggio E2E, usale subito
@@ -63,46 +81,66 @@ class _LocationSharingScreenState extends State<LocationSharingScreen> {
 
       locationService.startTrackingPartner();
 
-      // Ottieni la mia posizione corrente subito
-      _updateMyPosition();
-
-      // Aggiorna posizione ogni 5 secondi
-      _positionUpdateTimer = Timer.periodic(Duration(seconds: 5), (timer) {
-        if (!mounted) {
-          timer.cancel();
-          return;
-        }
-        _updateMyPosition();
+      // Prima posizione subito, poi stream con filtro di distanza
+      final first = await locationService.getCurrentPosition();
+      if (mounted && first != null) _onMyPosition(first, force: true);
+      _myPositionSubscription = Geolocator.getPositionStream(
+        locationSettings: const LocationSettings(
+          accuracy: LocationAccuracy.high,
+          distanceFilter: 5,
+        ),
+      ).listen((pos) => _onMyPosition(pos), onError: (e) {
+        if (kDebugMode) print('❌ [NAV] Position stream error: $e');
       });
     });
   }
 
-  Future<void> _updateMyPosition() async {
+  Future<void> _onMyPosition(Position position, {bool force = false}) async {
+    if (!mounted) return;
+    setState(() => _myPosition = position);
+
+    // Il mittente condivide già tramite LocationService.
+    // Il destinatario condivide la propria posizione (così il mittente vede
+    // la distanza) solo finché la sessione del partner è attiva.
+    if (widget.isSender) return;
+
     final locationService = Provider.of<LocationService>(context, listen: false);
-    final position = await locationService.getCurrentPosition();
-    if (mounted && position != null) {
-      setState(() {
-        _myPosition = position;
-      });
+    final partnerLocation = locationService.partnerLocation;
+    final isPartnerActive = partnerLocation != null &&
+        partnerLocation.isActive &&
+        partnerLocation.sessionId == widget.expectedSessionId;
+    if (!isPartnerActive) return;
 
-      // Se sono il destinatario (non mittente), condividi la mia posizione
-      // così il mittente può vedere la distanza
-      // MA solo se la condivisione è ancora attiva (partner non ha fermato)
-      if (!widget.isSender) {
-        final partnerLocation = locationService.partnerLocation;
-        final isPartnerActive = partnerLocation != null &&
-            partnerLocation.isActive &&
-            partnerLocation.sessionId == widget.expectedSessionId;
+    final now = DateTime.now();
+    if (!force &&
+        _lastRecipientWrite != null &&
+        now.difference(_lastRecipientWrite!) < _recipientWriteInterval) {
+      return;
+    }
+    _lastRecipientWrite = now;
+    await _shareMyPositionWithPartner(position);
+  }
 
-        if (isPartnerActive) {
-          await _shareMyPositionWithPartner(position);
-        } else {
-          // Partner ha fermato o sessione terminata - ferma la condivisione
-          if (kDebugMode) print('🛑 [RECIPIENT] Partner stopped, stopping my position share');
-          await _stopSharingMyPosition();
-          _positionUpdateTimer?.cancel(); // Ferma il timer
-        }
+  /// Il mittente interrompe la condivisione da qui (prima solo dalla chat).
+  Future<void> _stopSharingAsSender() async {
+    if (_isStopping) return;
+    _isStopping = true;
+    try {
+      final locationService = Provider.of<LocationService>(context, listen: false);
+      final chatService = Provider.of<ChatService>(context, listen: false);
+      final pairingService = Provider.of<PairingService>(context, listen: false);
+      final messageId = locationService.getLocationShareMessageId();
+      final familyChatId = await pairingService.getFamilyChatId();
+      final myUserId = await pairingService.getMyUserId();
+      // Azione sul messaggio in chat (stesso effetto del pulsante nella bolla)
+      if (messageId != null && familyChatId != null && myUserId != null) {
+        await chatService.addAction(messageId, familyChatId, myUserId, 'stop_sharing');
       }
+      await locationService.stopSharingLocation();
+    } catch (e) {
+      if (kDebugMode) print('❌ [NAV] Error stopping sharing: $e');
+    } finally {
+      _isStopping = false;
     }
   }
 
@@ -137,9 +175,13 @@ class _LocationSharingScreenState extends State<LocationSharingScreen> {
 
       // Cifra le coordinate sensibili se la chiave è disponibile
       final locationKey = locationService.locationKey;
+      // Coordinate SEMPRE cifrate: senza chiave non si scrive nulla
+      if (locationKey == null) {
+        if (kDebugMode) print('⚠️ [RECIPIENT] No location key → skipping write (never plaintext)');
+        return;
+      }
       final Map<String, dynamic> firestoreData;
-
-      if (locationKey != null) {
+      {
         final sensitiveFields = {
           'lat': position.latitude,
           'lng': position.longitude,
@@ -161,21 +203,6 @@ class _LocationSharingScreenState extends State<LocationSharingScreen> {
         };
 
         if (kDebugMode) print('🔐 [RECIPIENT] Coordinates encrypted before Firestore write');
-      } else {
-        // Fallback senza cifratura (compatibilità)
-        firestoreData = {
-          'latitude': position.latitude,
-          'longitude': position.longitude,
-          'accuracy': position.accuracy,
-          'timestamp': Timestamp.fromDate(now),
-          'expires_at': now.add(Duration(minutes: 5)).toIso8601String(),
-          'session_id': widget.expectedSessionId,
-          'is_active': true,
-          'speed': position.speed,
-          'heading': position.heading,
-          'user_id': myUserId,
-        };
-        if (kDebugMode) print('⚠️ [RECIPIENT] No location key - writing unencrypted (fallback)');
       }
 
       // set() SENZA merge: sovrascrive il documento intero,
@@ -197,7 +224,7 @@ class _LocationSharingScreenState extends State<LocationSharingScreen> {
   void dispose() {
     _compassSubscription?.cancel();
     _compassRetryTimer?.cancel();
-    _positionUpdateTimer?.cancel(); // Cancella il timer posizione
+    _myPositionSubscription?.cancel();
 
     // Se sono il destinatario, ferma la condivisione della mia posizione
     if (!widget.isSender) {
@@ -220,13 +247,13 @@ class _LocationSharingScreenState extends State<LocationSharingScreen> {
 
       final myUserId = sha256.convert(utf8.encode(myPublicKey)).toString();
 
-      // Ferma la condivisione su Firestore
+      // Ferma la condivisione su Firestore (set+merge: il doc può non esistere)
       await FirebaseFirestore.instance
           .collection('families')
           .doc(familyChatId)
           .collection('locations')
           .doc(myUserId)
-          .update({'is_active': false});
+          .set({'is_active': false}, SetOptions(merge: true));
 
       if (kDebugMode) print('🛑 [RECIPIENT] Stopped sharing my position');
     } catch (e) {
@@ -339,6 +366,12 @@ class _LocationSharingScreenState extends State<LocationSharingScreen> {
                 partnerLocation.longitude,
               ),
             ),
+          if (widget.isSender && !isTerminated)
+            IconButton(
+              tooltip: AppLocalizations.of(context)!.locationShareStopButton,
+              icon: const Icon(Icons.stop_circle_outlined, color: Colors.white),
+              onPressed: _stopSharingAsSender,
+            ),
         ],
       ),
       body: Container(
@@ -368,26 +401,63 @@ class _LocationSharingScreenState extends State<LocationSharingScreen> {
         showBigArrow: showBigArrow);
   }
 
-  /// Vista di attesa
+  /// Vista di attesa. Mittente: la condivisione è già partita, il partner
+  /// comparirà qui quando aprirà il messaggio. Ricevente: aspetta il primo
+  /// aggiornamento del partner.
   Widget _buildWaitingView() {
     final l10n = AppLocalizations.of(context)!;
     return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(Icons.location_on, size: 80, color: Colors.white70),
-          SizedBox(height: 40),
-          Text(
-            l10n.locationShareWaitingPartner,
-            style: TextStyle(
-              color: Colors.white,
-              fontSize: 22,
-              fontWeight: FontWeight.w300,
-              letterSpacing: 1.2,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 40),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              widget.isSender ? Icons.check_circle_outline : Icons.location_on,
+              size: 80,
+              color: Colors.white70,
             ),
-            textAlign: TextAlign.center,
-          ),
-        ],
+            const SizedBox(height: 40),
+            Text(
+              widget.isSender
+                  ? l10n.locationShareStartedTitle
+                  : l10n.locationShareWaitingPartner,
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 22,
+                fontWeight: FontWeight.w300,
+                letterSpacing: 1.2,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            if (widget.isSender) ...[
+              const SizedBox(height: 16),
+              Text(
+                l10n.locationShareStartedDescription,
+                style: TextStyle(
+                  color: Colors.white.withValues(alpha: 0.75),
+                  fontSize: 15,
+                  fontWeight: FontWeight.w300,
+                  height: 1.4,
+                ),
+                textAlign: TextAlign.center,
+              ),
+              if (widget.mode == 'live') ...[
+                const SizedBox(height: 12),
+                Text(
+                  l10n.locationShareKeepAppHint,
+                  style: TextStyle(
+                    color: Colors.white.withValues(alpha: 0.55),
+                    fontSize: 13,
+                    fontWeight: FontWeight.w300,
+                    height: 1.4,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+              ],
+            ],
+          ],
+        ),
       ),
     );
   }

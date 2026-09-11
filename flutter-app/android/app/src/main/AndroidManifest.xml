@@ -53,7 +53,9 @@
     <!-- Permessi per localizzazione -->
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION"/>
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION"/>
-    <uses-permission android:name="android.permission.ACCESS_BACKGROUND_LOCATION"/>
+    <!-- ACCESS_BACKGROUND_LOCATION rimosso: il foreground service di tipo
+         location basta per continuare in background e non richiede la
+         revisione Play dedicata al permesso "sempre" -->
     <!-- Per servizio foreground -->
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE"/>
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_LOCATION"/>
