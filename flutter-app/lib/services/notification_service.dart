@@ -459,12 +459,18 @@ class NotificationService {
           break;
 
         case CallEventActionCallAccept(:final callKitParams):
-          if (kDebugMode) print('📞 [CALLKIT] Call accepted');
+          if (kDebugMode) print('📞 [CALLKIT] Call accepted (${callKitParams.id})');
           _ringingWatcher?.cancel();
+          if (callKitParams.id == _activeCallUuid) {
+            // Il plugin può emettere l'accept due volte per la stessa
+            // chiamata (in particolare con app in primo piano): ignora.
+            if (kDebugMode) print('📞 [CALLKIT] Duplicate accept for active call → ignored');
+            break;
+          }
           if (callScreenActive) {
-            // Glare: siamo già in una chiamata. Chiudi solo questa entry
-            // CallKit senza toccare quella della chiamata in corso.
-            if (kDebugMode) print('⚠️ [CALLKIT] Accept while a call is active → dropping');
+            // Glare: siamo già in un'ALTRA chiamata. Chiudi solo questa
+            // entry CallKit senza toccare quella della chiamata in corso.
+            if (kDebugMode) print('⚠️ [CALLKIT] Accept while another call is active → dropping');
             FlutterCallkitIncoming.endCall(callKitParams.id).catchError((_) {});
             break;
           }
@@ -481,9 +487,15 @@ class NotificationService {
           break;
 
         case CallEventActionCallEnded(:final callKitParams):
-          if (kDebugMode) print('📞 [CALLKIT] Call ended');
-          _activeCallUuid = null;
+          if (kDebugMode) print('📞 [CALLKIT] Call ended (${callKitParams.id}, active: $_activeCallUuid)');
           _ringingWatcher?.cancel();
+          if (_activeCallUuid != null && callKitParams.id != _activeCallUuid) {
+            // Fine di un'entry CallKit diversa da quella della chiamata in
+            // corso (es. glare scartato): non toccare la chiamata attiva.
+            if (kDebugMode) print('📞 [CALLKIT] Ended event for a different call → ignored');
+            break;
+          }
+          _activeCallUuid = null;
           onNativeCallEnded?.call();
           onCallEnded?.call(familyChatIdOf(callKitParams), callerIdOf(callKitParams));
           break;
