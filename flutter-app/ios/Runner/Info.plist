@@ -11,6 +11,8 @@
 		<string>es</string>
 		<string>ca</string>
 	</array>
+	<key>ITSAppUsesNonExemptEncryption</key>
+	<false/>
 	<key>CFBundleDisplayName</key>
 	<string>Tuijo</string>
 	<key>CFBundleExecutable</key>
