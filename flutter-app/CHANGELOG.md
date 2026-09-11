@@ -5,6 +5,7 @@ Tutte le modifiche notevoli a questo progetto saranno documentate in questo file
 ## [1.36.0] - 2026-09-11
 
 ### 🖼️ Store e localizzazione
+- **Android**: rimossa `FOREGROUND_SERVICE_CAMERA` (dichiarata dal plugin CallKit per le videochiamate, che TuyJo non ha). Build 45.
 - **Nuovi screenshot per App Store e Google Play** (iPhone 6,9", iPad 13", telefono e tablet Android, immagine in evidenza) in it/en/es/ca, generati da `store/screenshots/` con lo stile del sito.
 - Indicatore "sta scrivendo" neutro in en/es/ca ("Typing..." / "Escribiendo..." / "Escrivint...").
 - Calendario: in catalano le iniziali dei giorni erano tutte "D"; ora mostra "DL DT DC DJ DV DS DG".

@@ -67,6 +67,10 @@
     <!-- Foreground service con microfono durante la chiamata (Android 14+):
          senza, il sistema toglie il microfono all'app in background -->
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MICROPHONE"/>
+    <!-- flutter_callkit_incoming dichiara anche FOREGROUND_SERVICE_CAMERA (videochiamate):
+         TuyJo fa solo chiamate audio (type 0), quindi la togliamo per non doverla
+         giustificare nella Play Console -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_CAMERA" tools:node="remove"/>
     <uses-permission android:name="android.permission.READ_PHONE_NUMBERS" />
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
     <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />
