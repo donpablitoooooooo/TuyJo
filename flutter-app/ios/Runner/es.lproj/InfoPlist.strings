@@ -1,5 +1,7 @@
 /* Spanish - iOS Permission Descriptions */
 "NSPhotoLibraryUsageDescription" = "Para enviar fotos en el chat";
-"NSCameraUsageDescription" = "Para tomar fotos en el chat";
+"NSCameraUsageDescription" = "Para tomar fotos y escanear el código QR de tu pareja";
 "NSMicrophoneUsageDescription" = "Para realizar llamadas de voz con tu pareja";
-"NSLocationWhenInUseUsageDescription" = "Para compartir tu ubicacion con tu pareja";
+"NSLocationWhenInUseUsageDescription" = "Para compartir tu ubicación con tu pareja";
+"NSLocationAlwaysAndWhenInUseUsageDescription" = "Para seguir compartiendo tu ubicación con tu pareja mientras la app está en segundo plano";
+"NSLocationAlwaysUsageDescription" = "Para seguir compartiendo tu ubicación con tu pareja mientras la app está en segundo plano";

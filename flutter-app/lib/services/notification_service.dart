@@ -103,17 +103,107 @@ const IOSParams _callKitIosParams = IOSParams(
   ringtonePath: 'system_ringtone_default',
 );
 
-const AndroidParams _callKitAndroidParams = AndroidParams(
-  isCustomNotification: false,
-  isShowLogo: false,
-  ringtonePath: 'system_ringtone_default',
-  backgroundColor: '#1A1A2E',
-  actionColor: '#3BA8B0',
-  isShowFullLockedScreen: true,
-  isImportant: true,
-  textAccept: 'Accept',
-  textDecline: 'Decline',
-);
+/// Testi della UI nativa CallKit / notifiche Android, per lingua.
+/// Non passano da AppLocalizations perché servono anche nel background
+/// handler (nessun BuildContext) e nei parametri dei canali Android.
+const Map<String, Map<String, String>> _callTexts = {
+  'it': {
+    'partner': 'Partner',
+    'accept': 'Accetta',
+    'decline': 'Rifiuta',
+    'incomingChannel': 'Chiamate in arrivo',
+    'missedChannel': 'Chiamate perse',
+    'missedSubtitle': 'Chiamata persa',
+    'callback': 'Richiama',
+    'messagesChannel': 'Messaggi',
+    'messagesChannelDesc': 'Notifiche per i nuovi messaggi',
+    'todoChannel': 'Promemoria To Do',
+    'todoChannelDesc': 'Notifiche per i promemoria degli eventi',
+  },
+  'en': {
+    'partner': 'Partner',
+    'accept': 'Accept',
+    'decline': 'Decline',
+    'incomingChannel': 'Incoming calls',
+    'missedChannel': 'Missed calls',
+    'missedSubtitle': 'Missed call',
+    'callback': 'Call back',
+    'messagesChannel': 'Messages',
+    'messagesChannelDesc': 'Notifications for new messages',
+    'todoChannel': 'To Do reminders',
+    'todoChannelDesc': 'Notifications for event reminders',
+  },
+  'es': {
+    'partner': 'Pareja',
+    'accept': 'Aceptar',
+    'decline': 'Rechazar',
+    'incomingChannel': 'Llamadas entrantes',
+    'missedChannel': 'Llamadas perdidas',
+    'missedSubtitle': 'Llamada perdida',
+    'callback': 'Devolver llamada',
+    'messagesChannel': 'Mensajes',
+    'messagesChannelDesc': 'Notificaciones de nuevos mensajes',
+    'todoChannel': 'Recordatorios To Do',
+    'todoChannelDesc': 'Notificaciones de recordatorios de eventos',
+  },
+  'ca': {
+    'partner': 'Parella',
+    'accept': 'Accepta',
+    'decline': 'Rebutja',
+    'incomingChannel': 'Trucades entrants',
+    'missedChannel': 'Trucades perdudes',
+    'missedSubtitle': 'Trucada perduda',
+    'callback': 'Torna la trucada',
+    'messagesChannel': 'Missatges',
+    'messagesChannelDesc': 'Notificacions de missatges nous',
+    'todoChannel': 'Recordatoris To Do',
+    'todoChannelDesc': 'Notificacions de recordatoris d\'esdeveniments',
+  },
+};
+
+String _deviceLang() {
+  final code = ui.PlatformDispatcher.instance.locale.languageCode;
+  return _callTexts.containsKey(code) ? code : 'en';
+}
+
+String _t(String key, [String? lang]) =>
+    _callTexts[lang ?? _deviceLang()]![key] ?? _callTexts['en']![key]!;
+
+/// Parametri Android CallKit nella lingua del dispositivo. [override] sono
+/// i testi già localizzati inviati dalla Cloud Function nella lingua del
+/// destinatario (vincono, così coincidono con la lingua scelta in app).
+AndroidParams _callKitAndroidParams({Map<String, dynamic>? override}) {
+  String pick(String pushKey, String textKey) {
+    final v = override?[pushKey];
+    return (v is String && v.isNotEmpty) ? v : _t(textKey);
+  }
+  return AndroidParams(
+    isCustomNotification: false,
+    isShowLogo: false,
+    ringtonePath: 'system_ringtone_default',
+    backgroundColor: '#1A1A2E',
+    actionColor: '#3BA8B0',
+    isShowFullLockedScreen: true,
+    isImportant: true,
+    textAccept: pick('textAccept', 'accept'),
+    textDecline: pick('textDecline', 'decline'),
+    incomingCallNotificationChannelName: pick('incomingChannel', 'incomingChannel'),
+    missedCallNotificationChannelName: pick('missedChannel', 'missedChannel'),
+  );
+}
+
+NotificationParams _missedCallParams({Map<String, dynamic>? override}) {
+  String pick(String pushKey, String textKey) {
+    final v = override?[pushKey];
+    return (v is String && v.isNotEmpty) ? v : _t(textKey);
+  }
+  return NotificationParams(
+    showNotification: true,
+    isShowCallback: true,
+    subtitle: pick('missedSubtitle', 'missedSubtitle'),
+    callbackText: pick('callback', 'callback'),
+  );
+}
 
 /// Genera un UUID v4 valido (RFC 4122) per iOS CallKit
 String _generateUUID() {
@@ -143,9 +233,10 @@ Future<void> _showCallKitIncoming(Map<String, dynamic> data) async {
   }
 
   try {
+    final pushName = data['nameCaller'];
     final params = CallKitParams(
       id: uuid,
-      nameCaller: 'Partner',
+      nameCaller: (pushName is String && pushName.isNotEmpty) ? pushName : _t('partner'),
       appName: 'TuyJo',
       handle: 'TuyJo',
       type: 0, // 0 = audio call
@@ -155,7 +246,8 @@ Future<void> _showCallKitIncoming(Map<String, dynamic> data) async {
         'callerId': callerId,
         'callId': callId,
       },
-      android: _callKitAndroidParams,
+      missedCallNotification: _missedCallParams(override: data),
+      android: _callKitAndroidParams(override: data),
       ios: _callKitIosParams,
     );
 
@@ -201,17 +293,19 @@ class NotificationService {
   /// aperta, l'accept CallKit non deve aprire una seconda schermata.
   bool callScreenActive = false;
 
-  static const AndroidNotificationChannel _channel = AndroidNotificationChannel(
+  // Nomi dei canali nella lingua del dispositivo: compaiono nelle
+  // impostazioni notifiche di Android.
+  static final AndroidNotificationChannel _channel = AndroidNotificationChannel(
     'messages_channel',
-    'Messaggi',
-    description: 'Notifiche per i nuovi messaggi',
+    _t('messagesChannel'),
+    description: _t('messagesChannelDesc'),
     importance: Importance.defaultImportance,
   );
 
-  static const AndroidNotificationChannel _todoChannel = AndroidNotificationChannel(
+  static final AndroidNotificationChannel _todoChannel = AndroidNotificationChannel(
     'todo_reminders',
-    'Promemoria To Do',
-    description: 'Notifiche per i promemoria degli eventi',
+    _t('todoChannel'),
+    description: _t('todoChannelDesc'),
     importance: Importance.defaultImportance,
     playSound: true,
     enableVibration: true,
@@ -636,7 +730,7 @@ class NotificationService {
     try {
       await FlutterCallkitIncoming.startCall(CallKitParams(
         id: uuid,
-        nameCaller: 'Partner',
+        nameCaller: _t('partner'),
         appName: 'TuyJo',
         handle: 'TuyJo',
         type: 0,
@@ -644,7 +738,7 @@ class NotificationService {
           'familyChatId': familyChatId,
           'callerId': myUserId,
         },
-        android: _callKitAndroidParams,
+        android: _callKitAndroidParams(),
         ios: _callKitIosParams,
       ));
       _activeCallUuid = uuid;

@@ -1,5 +1,7 @@
 /* Catalan - iOS Permission Descriptions */
 "NSPhotoLibraryUsageDescription" = "Per enviar fotos al xat";
-"NSCameraUsageDescription" = "Per fer fotos al xat";
+"NSCameraUsageDescription" = "Per fer fotos i escanejar el codi QR de la teva parella";
 "NSMicrophoneUsageDescription" = "Per fer trucades de veu amb la teva parella";
-"NSLocationWhenInUseUsageDescription" = "Per compartir la teva ubicacio amb la teva parella";
+"NSLocationWhenInUseUsageDescription" = "Per compartir la teva ubicació amb la teva parella";
+"NSLocationAlwaysAndWhenInUseUsageDescription" = "Per continuar compartint la teva ubicació amb la teva parella mentre l'app és en segon pla";
+"NSLocationAlwaysUsageDescription" = "Per continuar compartint la teva ubicació amb la teva parella mentre l'app és en segon pla";

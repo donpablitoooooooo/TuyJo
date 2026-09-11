@@ -177,6 +177,27 @@ const NOTIFICATION_TEXTS = {
   },
 };
 
+// Testi della UI nativa CallKit (nome chiamante, pulsanti, chiamata persa)
+// nella lingua del destinatario. L'app li usa se presenti, altrimenti
+// ripiega sulla lingua del dispositivo.
+const CALLKIT_TEXTS = {
+  it: {nameCaller: 'Partner', textAccept: 'Accetta', textDecline: 'Rifiuta',
+    incomingChannel: 'Chiamate in arrivo', missedChannel: 'Chiamate perse',
+    missedSubtitle: 'Chiamata persa', callback: 'Richiama'},
+  en: {nameCaller: 'Partner', textAccept: 'Accept', textDecline: 'Decline',
+    incomingChannel: 'Incoming calls', missedChannel: 'Missed calls',
+    missedSubtitle: 'Missed call', callback: 'Call back'},
+  es: {nameCaller: 'Pareja', textAccept: 'Aceptar', textDecline: 'Rechazar',
+    incomingChannel: 'Llamadas entrantes', missedChannel: 'Llamadas perdidas',
+    missedSubtitle: 'Llamada perdida', callback: 'Devolver llamada'},
+  ca: {nameCaller: 'Parella', textAccept: 'Accepta', textDecline: 'Rebutja',
+    incomingChannel: 'Trucades entrants', missedChannel: 'Trucades perdudes',
+    missedSubtitle: 'Trucada perduda', callback: 'Torna la trucada'},
+};
+function getCallKitTexts(language) {
+  return CALLKIT_TEXTS[language] || CALLKIT_TEXTS.it;
+}
+
 // Funzione helper per ottenere i testi localizzati (default: italiano)
 function getLocalizedText(language, messageType) {
   const lang = NOTIFICATION_TEXTS[language] || NOTIFICATION_TEXTS.it;
@@ -448,12 +469,13 @@ exports.sendCallNotification = functions
 
       await Promise.all(recipients.map(async (recipient) => {
         const localizedText = getLocalizedText(recipient.language, 'incoming_call');
+        const ck = getCallKitTexts(recipient.language);
 
         // ── iOS: VoIP push via APNs ──
         if (recipient.platform === 'ios' && recipient.voipToken && creds) {
           const payload = {
             id: callKitUuid(),
-            nameCaller: 'Partner',
+            nameCaller: ck.nameCaller,
             appName: 'TuyJo',
             handle: 'TuyJo',
             type: 0,
@@ -476,6 +498,12 @@ exports.sendCallNotification = functions
               audioSessionPreferredSampleRate: 48000.0,
               audioSessionPreferredIOBufferDuration: 0.02,
               ringtonePath: 'system_ringtone_default',
+            },
+            missedCallNotification: {
+              showNotification: true,
+              isShowCallback: true,
+              subtitle: ck.missedSubtitle,
+              callbackText: ck.callback,
             },
           };
           const res = await sendApnsVoip(recipient.voipToken, payload, creds);
@@ -505,6 +533,14 @@ exports.sendCallNotification = functions
           callId: after.callId || '',
           callerName: localizedText.body,
           status: status,
+          // Testi UI CallKit nella lingua del destinatario
+          nameCaller: ck.nameCaller,
+          textAccept: ck.textAccept,
+          textDecline: ck.textDecline,
+          incomingChannel: ck.incomingChannel,
+          missedChannel: ck.missedChannel,
+          missedSubtitle: ck.missedSubtitle,
+          callback: ck.callback,
         }, 30);
       }));
 

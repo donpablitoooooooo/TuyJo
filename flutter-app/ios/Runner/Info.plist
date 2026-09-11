@@ -4,6 +4,13 @@
 <dict>
 	<key>CFBundleDevelopmentRegion</key>
 	<string>$(DEVELOPMENT_LANGUAGE)</string>
+	<key>CFBundleLocalizations</key>
+	<array>
+		<string>en</string>
+		<string>it</string>
+		<string>es</string>
+		<string>ca</string>
+	</array>
 	<key>CFBundleDisplayName</key>
 	<string>Tuijo</string>
 	<key>CFBundleExecutable</key>
@@ -49,11 +56,13 @@
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>To send photos in the chat</string>
 	<key>NSCameraUsageDescription</key>
-	<string>To take photos in the chat</string>
+	<string>To take photos and scan your partner's QR code</string>
 	<key>NSMicrophoneUsageDescription</key>
 	<string>To make voice calls with your partner</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string>To share your location with your partner</string>
+	<key>NSLocationAlwaysUsageDescription</key>
+	<string>To keep sharing your location with your partner while the app is in the background</string>
 	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
 	<string>To keep sharing your location with your partner while the app is in the background</string>
 	<key>UISupportsDocumentBrowser</key>
