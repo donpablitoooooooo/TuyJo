@@ -316,6 +316,11 @@ exports.sendMessageNotification = functions
               channelId: 'messages_channel',
               priority: 'default',
               sound: 'default',
+              // Stesso tag → la nuova notifica SOSTITUISCE la precedente:
+              // una sola notifica con il conteggio giusto, invece di N
+              // notifiche i cui conteggi alcuni launcher (Samsung) sommano.
+              // Il testo è comunque generico (E2E), non si perde nulla.
+              tag: messageType === 'todo' ? 'tuyjo_todo' : 'tuyjo_messages',
               notificationCount: unread,
             },
           },
