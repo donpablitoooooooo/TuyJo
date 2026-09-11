@@ -185,6 +185,43 @@ function getLocalizedText(language, messageType) {
 }
 
 /**
+ * Conta i messaggi del partner non ancora letti dal destinatario.
+ *
+ * La lettura è tracciata in read_receipts/{userId}.messageIds (gli id dei
+ * messaggi ricevuti che il client aveva caricati quando ha marcato come
+ * letto). Il client tiene una finestra live di 100 messaggi: scansioniamo
+ * gli ultimi 60, così ogni messaggio "letto" in quella finestra è
+ * sicuramente nella lista. `created_at` è una stringa ISO locale, quindi
+ * non è confrontabile con un timestamp server: per questo si ragiona per id.
+ * Minimo 1 (c'è almeno il messaggio appena arrivato), massimo 99.
+ */
+async function countUnreadForRecipient(familyChatId, recipientId, partnerId) {
+  try {
+    const family = admin.firestore().collection('families').doc(familyChatId);
+    const receiptSnap = await family.collection('read_receipts').doc(recipientId).get();
+    const readIds = new Set(
+      receiptSnap.exists && Array.isArray(receiptSnap.data().messageIds)
+        ? receiptSnap.data().messageIds
+        : [],
+    );
+    const recent = await family
+      .collection('messages')
+      .orderBy('created_at', 'desc')
+      .limit(60)
+      .select('sender_id')
+      .get();
+    let unread = 0;
+    recent.forEach((doc) => {
+      if (doc.data().sender_id === partnerId && !readIds.has(doc.id)) unread++;
+    });
+    return Math.min(Math.max(unread, 1), 99);
+  } catch (e) {
+    console.log('⚠️ countUnreadForRecipient failed, defaulting to 1:', e.message);
+    return 1;
+  }
+}
+
+/**
  * Cloud Function che invia una notifica push quando viene creato un nuovo messaggio
  * Triggered da: Firestore onCreate su /families/{familyChatId}/messages/{messageId}
  * Region: europe-west1 (Belgio - EU)
@@ -253,9 +290,13 @@ exports.sendMessageNotification = functions
       }
 
       // 4. Invia la notifica a ciascun destinatario (con testo localizzato)
-      const notifications = recipients.map((recipient) => {
+      const notifications = recipients.map(async (recipient) => {
         // Ottieni testi localizzati per la lingua del destinatario
         const localizedText = getLocalizedText(recipient.language, messageType);
+
+        // Badge iOS = messaggi del partner non ancora letti dal destinatario
+        // (prima era un "1" fisso, mai azzerato: per questo restava sempre 1)
+        const unread = await countUnreadForRecipient(familyChatId, recipient.userId, senderId);
 
         const message = {
           notification: {
@@ -275,6 +316,7 @@ exports.sendMessageNotification = functions
               channelId: 'messages_channel',
               priority: 'default',
               sound: 'default',
+              notificationCount: unread,
             },
           },
           // Configurazioni iOS
@@ -282,7 +324,7 @@ exports.sendMessageNotification = functions
             payload: {
               aps: {
                 sound: 'default',
-                badge: 1,
+                badge: unread,
               },
             },
           },

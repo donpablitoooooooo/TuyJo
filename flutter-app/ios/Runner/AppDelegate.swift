@@ -2,6 +2,7 @@ import UIKit
 import Flutter
 import PushKit
 import AVFoundation
+import UserNotifications
 import flutter_callkit_incoming
 
 @main
@@ -9,9 +10,11 @@ import flutter_callkit_incoming
   private let CHANNEL = "com.privatemessaging.tuyjo/shared_media"
   private let TONE_CHANNEL = "com.privatemessaging.tuyjo/tone_generator"
   private let PROXIMITY_CHANNEL = "com.privatemessaging.tuyjo/proximity"
+  private let BADGE_CHANNEL = "com.privatemessaging.tuyjo/badge"
   private var methodChannel: FlutterMethodChannel?
   private var toneChannel: FlutterMethodChannel?
   private var proximityChannel: FlutterMethodChannel?
+  private var badgeChannel: FlutterMethodChannel?
   private let ringback = RingbackTonePlayer()
   private var initialMediaPaths: [String]?
   private var initialSharedText: String?
@@ -66,6 +69,29 @@ import flutter_callkit_incoming
         result(true)
       default:
         result(FlutterMethodNotImplemented)
+      }
+    })
+
+    // Badge sull'icona: il push lo imposta al numero di non letti, l'app lo
+    // azzera quando i messaggi vengono letti. Senza questo restava fisso.
+    badgeChannel = FlutterMethodChannel(name: BADGE_CHANNEL, binaryMessenger: controller.binaryMessenger)
+    badgeChannel?.setMethodCallHandler({ (call: FlutterMethodCall, result: @escaping FlutterResult) in
+      guard call.method == "set" else {
+        result(FlutterMethodNotImplemented)
+        return
+      }
+      let count = (call.arguments as? Int) ?? 0
+      if #available(iOS 16.0, *) {
+        UNUserNotificationCenter.current().setBadgeCount(count) { error in
+          if let error = error {
+            print("⚠️ setBadgeCount failed: \(error)")
+            DispatchQueue.main.async { UIApplication.shared.applicationIconBadgeNumber = count }
+          }
+          result(true)
+        }
+      } else {
+        UIApplication.shared.applicationIconBadgeNumber = count
+        result(true)
       }
     })
 

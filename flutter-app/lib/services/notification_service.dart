@@ -1,6 +1,7 @@
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter_callkit_incoming/flutter_callkit_incoming.dart';
 import 'package:flutter_callkit_incoming/entities/entities.dart';
@@ -809,15 +810,27 @@ class NotificationService {
     if (kDebugMode) print('🔇 Token save target cleared');
   }
 
-  /// Azzera il badge dell'app (icona notifiche)
+  static const _badgeChannel = MethodChannel('com.privatemessaging.tuyjo/badge');
+
+  /// Azzera il badge dell'app (icona notifiche).
+  /// Android: il badge del launcher segue le notifiche → basta cancellarle.
+  /// iOS: il badge è un numero indipendente dalle notifiche, impostato dal
+  /// push; va azzerato esplicitamente via canale nativo.
   Future<void> clearBadge() async {
     try {
       // Cancella tutte le notifiche dalla barra di notifica
       await _localNotifications.cancelAll();
-      if (kDebugMode) print('🔴 Badge cleared');
     } catch (e) {
-      if (kDebugMode) print('❌ Error clearing badge: $e');
+      if (kDebugMode) print('❌ Error cancelling notifications: $e');
     }
+    if (Platform.isIOS) {
+      try {
+        await _badgeChannel.invokeMethod('set', 0);
+      } catch (e) {
+        if (kDebugMode) print('❌ Error clearing iOS badge: $e');
+      }
+    }
+    if (kDebugMode) print('🔴 Badge cleared');
   }
 
   /// Schedula una notifica con androidAllowWhileIdle per bypassare Doze mode

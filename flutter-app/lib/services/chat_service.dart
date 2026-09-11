@@ -659,6 +659,8 @@ class ChatService extends ChangeNotifier {
                 if (_myDeviceId != null && message.senderId != _myDeviceId) {
                   // Messaggio ricevuto da qualcun altro, marcalo come letto
                   markAllMessagesAsRead(familyChatId, _myDeviceId!);
+                  // e azzera il badge: il push potrebbe averlo appena impostato
+                  _notificationService.clearBadge();
                   if (kDebugMode) {
                     print('✅ [AUTO-READ] Marked message as read: ${message.id.substring(0, 8)}...');
                   }
