@@ -28,6 +28,28 @@
       "**/.*",
       "**/node_modules/**"
     ],
+    "redirects": [
+      {
+        "source": "/privacy-it.html",
+        "destination": "/privacy-it-v1.1.html",
+        "type": 301
+      },
+      {
+        "source": "/privacy-en.html",
+        "destination": "/privacy-en-v1.1.html",
+        "type": 301
+      },
+      {
+        "source": "/privacy-es.html",
+        "destination": "/privacy-es-v1.1.html",
+        "type": 301
+      },
+      {
+        "source": "/privacy-ca.html",
+        "destination": "/privacy-ca-v1.1.html",
+        "type": 301
+      }
+    ],
     "rewrites": [
       {
         "source": "**",

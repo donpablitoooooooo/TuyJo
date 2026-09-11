@@ -37,10 +37,16 @@ Il sito sara' disponibile su:
 | `en.html` | Homepage inglese |
 | `es.html` | Homepage spagnola |
 | `ca.html` | Homepage catalana |
-| `privacy-it.html` | Privacy policy italiana |
-| `privacy-en.html` | Privacy policy inglese |
-| `privacy-es.html` | Privacy policy spagnola |
-| `privacy-ca.html` | Privacy policy catalana |
+| `privacy-it-v1.1.html` | Privacy policy italiana |
+| `privacy-en-v1.1.html` | Privacy policy inglese |
+| `privacy-es-v1.1.html` | Privacy policy spagnola |
+| `privacy-ca-v1.1.html` | Privacy policy catalana |
+
+Le privacy policy hanno la versione nel nome del file (Play Console e App Store
+vogliono un URL nuovo a ogni modifica). Per una nuova versione: copia i quattro
+file con il nuovo suffisso, aggiorna i link in `index/en/es/ca.html` e nel
+selettore lingua delle pagine privacy, e cambia i redirect in `firebase.json`
+(i vecchi URL `privacy-<lingua>.html` restano validi).
 | `logo.png` | Logo app |
 
 ## Checklist Prima del Deploy
