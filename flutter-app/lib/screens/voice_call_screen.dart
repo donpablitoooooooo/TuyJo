@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:permission_handler/permission_handler.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
@@ -124,6 +125,24 @@ class _VoiceCallScreenState extends State<VoiceCallScreen>
     }
 
     _wireCallbacks();
+
+    // Spiegazione in-app prima del prompt di sistema per il microfono.
+    final micStatus = await Permission.microphone.status;
+    if (!mounted) return;
+    if (!micStatus.isGranted && !micStatus.isPermanentlyDenied) {
+      final l10n = AppLocalizations.of(context)!;
+      final ok = await showPermissionRationaleDialog(
+        context: context,
+        icon: Icons.mic_none,
+        title: l10n.permissionMicRationaleTitle,
+        message: l10n.permissionMicRationaleMessage,
+      );
+      if (!mounted) return;
+      if (!ok) {
+        _endCall(localHangup: true);
+        return;
+      }
+    }
 
     try {
       await _webrtcService.initialize();

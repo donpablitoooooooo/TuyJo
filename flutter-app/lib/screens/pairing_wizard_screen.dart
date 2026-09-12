@@ -205,6 +205,18 @@ class _PairingWizardScreenState extends State<PairingWizardScreen> {
   /// accesso diretto alle Impostazioni, invece di aprire uno scanner a schermo
   /// nero senza spiegazioni.
   Future<void> _openScannerOrExplain() async {
+    final current = await Permission.camera.status;
+    if (!mounted) return;
+    if (!current.isGranted && !current.isLimited && !current.isPermanentlyDenied) {
+      final l10n = AppLocalizations.of(context)!;
+      final ok = await showPermissionRationaleDialog(
+        context: context,
+        icon: Icons.qr_code_scanner,
+        title: l10n.permissionCameraRationaleTitle,
+        message: l10n.permissionCameraRationaleMessage,
+      );
+      if (!mounted || !ok) return;
+    }
     final status = await Permission.camera.request();
     if (!mounted) return;
     if (status.isGranted || status.isLimited) {

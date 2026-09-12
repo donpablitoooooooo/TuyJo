@@ -73,3 +73,70 @@ Future<void> showPermissionDeniedDialog({
     },
   );
 }
+
+/// Spiegazione in-app mostrata PRIMA del prompt di sistema ("prominent
+/// disclosure" richiesta da Google Play per posizione, microfono, ecc.).
+/// Ritorna true se l'utente accetta di proseguire con la richiesta.
+Future<bool> showPermissionRationaleDialog({
+  required BuildContext context,
+  required IconData icon,
+  required String title,
+  required String message,
+}) async {
+  final l10n = AppLocalizations.of(context)!;
+
+  final result = await showDialog<bool>(
+    context: context,
+    barrierDismissible: false,
+    builder: (BuildContext dialogContext) {
+      return AlertDialog(
+        backgroundColor: const Color(0xFF1E1E2E),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: Row(
+          children: [
+            Icon(icon, color: const Color(0xFF3BA8B0), size: 26),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                title,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 18,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+          ],
+        ),
+        content: Text(
+          message,
+          style: const TextStyle(
+            color: Colors.white70,
+            fontSize: 14,
+            height: 1.4,
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: Text(
+              l10n.permissionRationaleNotNow,
+              style: const TextStyle(color: Colors.white54),
+            ),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: Text(
+              l10n.permissionRationaleContinue,
+              style: const TextStyle(
+                color: Color(0xFF3BA8B0),
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+        ],
+      );
+    },
+  );
+  return result ?? false;
+}

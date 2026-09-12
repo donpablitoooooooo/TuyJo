@@ -70,6 +70,25 @@ class _LocationShareSetupPageState extends State<LocationShareSetupPage>
     final locationService =
         Provider.of<LocationService>(context, listen: false);
 
+    // Spiegazione in-app PRIMA del prompt di sistema (richiesta da Google Play
+    // per la posizione, in particolare se usata in background).
+    final current = await Geolocator.checkPermission();
+    if (!mounted) return;
+    if (current == LocationPermission.denied) {
+      final l10n = AppLocalizations.of(context)!;
+      final ok = await showPermissionRationaleDialog(
+        context: context,
+        icon: Icons.location_on_outlined,
+        title: l10n.permissionLocationRationaleTitle,
+        message: l10n.permissionLocationRationaleMessage,
+      );
+      if (!mounted) return;
+      if (!ok) {
+        Navigator.pop(context);
+        return;
+      }
+    }
+
     // Controlla permessi prima di provare a ottenere la posizione
     final permResult =
         await locationService.requestLocationPermissionDetailed();
