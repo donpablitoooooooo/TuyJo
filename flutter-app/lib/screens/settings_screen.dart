@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:package_info_plus/package_info_plus.dart';
+import 'package:intl/intl.dart';
 import 'package:private_messaging/generated/l10n/app_localizations.dart';
 import '../services/pairing_service.dart';
 import '../services/chat_service.dart';
@@ -196,6 +197,87 @@ class _SettingsScreenState extends State<SettingsScreen> {
       MaterialPageRoute(builder: (_) => const BackupChoiceScreen()),
     );
     if (mounted) setState(() {});
+  }
+
+  /// Verifica attiva del backup: riscrive e rilegge il blob cloud, oppure
+  /// controlla che il certificato copiato a mano sia ancora aggiornato.
+  Future<void> _verifyBackup() async {
+    final l10n = AppLocalizations.of(context)!;
+    showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => const Center(child: CircularProgressIndicator()),
+    );
+    final status = await BackupService().checkStatus();
+    if (!mounted) return;
+    Navigator.of(context).pop(); // chiude lo spinner
+
+    final locale = Localizations.localeOf(context).toString();
+    final when = status.savedAt != null
+        ? DateFormat.yMd(locale).add_Hm().format(status.savedAt!.toLocal())
+        : '—';
+    final cloudName = Theme.of(context).platform == TargetPlatform.iOS ||
+            Theme.of(context).platform == TargetPlatform.macOS
+        ? 'iCloud'
+        : 'Google';
+    String message;
+    bool ok;
+    switch (status.health) {
+      case BackupHealth.cloudOk:
+        ok = true;
+        message = l10n.backupCheckCloudOk(cloudName, when);
+        break;
+      case BackupHealth.cloudIncomplete:
+        ok = false;
+        message = l10n.backupCheckCloudIncomplete;
+        break;
+      case BackupHealth.cloudMissing:
+        ok = false;
+        message = l10n.backupCheckCloudMissing;
+        break;
+      case BackupHealth.manualOk:
+        ok = true;
+        message = l10n.backupCheckManualOk(when);
+        break;
+      case BackupHealth.manualOutdated:
+        ok = false;
+        message = l10n.backupCheckManualOutdated;
+        break;
+      case BackupHealth.none:
+        ok = false;
+        message = l10n.backupCheckNone;
+        break;
+    }
+    if (!mounted) return;
+    await showDialog<void>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: Row(
+          children: [
+            Icon(ok ? Icons.verified : Icons.warning_amber_rounded,
+                color: ok ? const Color(0xFF3BA8B0) : Colors.orange[700]),
+            const SizedBox(width: 10),
+            Expanded(child: Text(l10n.backupCheckTitle)),
+          ],
+        ),
+        content: Text(message, style: const TextStyle(height: 1.4)),
+        actions: [
+          if (!ok)
+            TextButton(
+              onPressed: () {
+                Navigator.of(ctx).pop();
+                _showBackupChoice();
+              },
+              child: Text(l10n.settingsBackupCertificateButton),
+            ),
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(),
+            child: Text(l10n.close),
+          ),
+        ],
+      ),
+    );
   }
 
   /// Flusso "Nuovo pairing": 1) scelta backup obbligatoria (full page) →
@@ -435,6 +517,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 icon: Icons.cloud,
                 label:
                     AppLocalizations.of(context)!.settingsBackupCertificateButton,
+              ),
+              const SizedBox(height: 12),
+              _OutlineButton(
+                onPressed: _verifyBackup,
+                icon: Icons.verified_outlined,
+                label: AppLocalizations.of(context)!.settingsVerifyBackupButton,
               ),
             ] else ...[
               // Unpaired: scelta Nuovo vs Ripristino

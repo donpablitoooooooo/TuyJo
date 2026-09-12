@@ -7,6 +7,8 @@ import '../services/pairing_service.dart';
 import '../services/couple_selfie_service.dart';
 import '../state/ui_state.dart';
 import '../services/notification_service.dart';
+import '../services/backup_service.dart';
+import 'backup_choice_screen.dart';
 import 'chat_screen.dart';
 import 'media_screen.dart';
 import 'settings_screen.dart';
@@ -119,6 +121,58 @@ class _MainScreenState extends State<MainScreen> {
 
     // Controlla se il permesso notifiche è stato negato (dopo un breve delay per permettere l'init)
     _checkNotificationPermission();
+    _checkManualBackupReminder();
+  }
+
+  /// Backup manuale: se il certificato è cambiato dopo l'ultima copia (tipico
+  /// dopo un pairing: ora include la chiave del partner) mostra un banner
+  /// finché l'utente non lo ricopia. "Più tardi" lo nasconde solo per questa
+  /// sessione: senza certificato aggiornato la chat non è ripristinabile.
+  Future<void> _checkManualBackupReminder() async {
+    await Future.delayed(const Duration(seconds: 4));
+    if (!mounted) return;
+    if (!await BackupService().manualBackupOutdated()) return;
+    if (!mounted) return;
+
+    final l10n = AppLocalizations.of(context)!;
+    final messenger = ScaffoldMessenger.of(context);
+    messenger.showMaterialBanner(
+      MaterialBanner(
+        backgroundColor: const Color(0xFF145A60),
+        contentTextStyle: const TextStyle(color: Colors.white),
+        leading: const Icon(Icons.key, color: Colors.white),
+        content: Text(l10n.backupReminderBanner),
+        actions: [
+          TextButton(
+            onPressed: () async {
+              messenger.hideCurrentMaterialBanner();
+              await Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const BackupChoiceScreen()),
+              );
+              // Se non ha ancora copiato, il banner torna.
+              if (mounted && await BackupService().manualBackupOutdated()) {
+                _checkManualBackupReminder();
+              }
+            },
+            child: Text(
+              l10n.backupReminderGo,
+              style: const TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+          TextButton(
+            onPressed: () => messenger.hideCurrentMaterialBanner(),
+            child: Text(
+              l10n.backupReminderLater,
+              style: const TextStyle(color: Colors.white70),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   Future<void> _checkNotificationPermission() async {

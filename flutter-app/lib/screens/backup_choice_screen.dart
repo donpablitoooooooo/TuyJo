@@ -1,10 +1,13 @@
 import 'dart:convert';
+import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:private_messaging/generated/l10n/app_localizations.dart';
+import 'package:path_provider/path_provider.dart';
 import 'package:provider/provider.dart';
+import 'package:share_plus/share_plus.dart';
 import '../services/backup_service.dart';
 import '../services/encryption_service.dart';
 
@@ -106,7 +109,33 @@ class _BackupChoiceScreenState extends State<BackupChoiceScreen> {
     final text = _certText;
     if (text == null) return;
     await Clipboard.setData(ClipboardData(text: text));
+    await _backup.markManualCopied();
     if (mounted) setState(() => _manualCopied = true);
+  }
+
+  /// Condivide il certificato come file di testo (Files, password manager,
+  /// AirDrop, mail a sé stessi…): più robusto degli appunti, che si perdono.
+  Future<void> _shareCertificate() async {
+    final text = _certText;
+    if (text == null) return;
+    final l10n = AppLocalizations.of(context)!;
+    try {
+      final dir = await getTemporaryDirectory();
+      final file = File('${dir.path}/tuyjo-certificato.txt');
+      await file.writeAsString(text, flush: true);
+      final result = await SharePlus.instance.share(ShareParams(
+        files: [XFile(file.path, mimeType: 'text/plain')],
+        fileNameOverrides: const ['tuyjo-certificato.txt'],
+        subject: l10n.backupChoiceShareSubject,
+        text: l10n.backupChoiceShareText,
+      ));
+      if (result.status == ShareResultStatus.success) {
+        await _backup.markManualCopied();
+        if (mounted) setState(() => _manualCopied = true);
+      }
+    } catch (e) {
+      if (kDebugMode) print('⚠️ [BACKUP] share failed: $e');
+    }
   }
 
   @override
@@ -329,10 +358,9 @@ class _BackupChoiceScreenState extends State<BackupChoiceScreen> {
     );
   }
 
-  /// Dettaglio opzione manuale: anteprima del certificato + bottone copia.
-  /// Niente file né condivisione (un file su Drive sarebbe di nuovo un cloud):
-  /// l'utente incolla il certificato dove vuole lui — gestore di password,
-  /// nota cifrata, persino carta. Massimo controllo per chi ci tiene.
+  /// Dettaglio opzione manuale: anteprima del certificato + copia negli
+  /// appunti + condivisione come file (dove salvarlo lo decide l'utente:
+  /// gestore di password, Files, nota cifrata, persino carta).
   Widget _manualExtra() {
     final l10n = AppLocalizations.of(context)!;
     final cert = _certText;
@@ -384,6 +412,12 @@ class _BackupChoiceScreenState extends State<BackupChoiceScreen> {
                 child: Icon(Icons.check_circle, color: Colors.green),
               ),
           ],
+        ),
+        const SizedBox(height: 8),
+        _gradientButton(
+          icon: Icons.ios_share,
+          label: l10n.backupChoiceShareButton,
+          onTap: cert == null ? null : _shareCertificate,
         ),
         const SizedBox(height: 8),
         Text(

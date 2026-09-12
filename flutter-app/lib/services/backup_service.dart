@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:crypto/crypto.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'block_store_bridge.dart';
@@ -132,8 +133,14 @@ class BackupService {
     // Il marker 'strategy':'cloud' identifica un blob scritto volontariamente
     // come backup cloud. cloudRestoreIfNeeded ripristina SOLO i blob con questo
     // marker, così i residui di vecchi test non riportano su le chiavi.
-    final json = jsonEncode(
-        {'v': 1, 'strategy': 'cloud', 'priv': priv, 'pub': pub, 'partner': partner});
+    final json = jsonEncode({
+      'v': 1,
+      'strategy': 'cloud',
+      'priv': priv,
+      'pub': pub,
+      'partner': partner,
+      'saved_at': DateTime.now().toIso8601String(),
+    });
     final ok = await _cloudStore(json);
     if (kDebugMode) print('☁️ [BACKUP] cloudBackupNow stored=$ok');
     return ok;
@@ -189,6 +196,102 @@ class BackupService {
     } catch (e) {
       if (kDebugMode) print('⚠️ [BACKUP] cloud restore parse failed: $e');
       return false;
+    }
+  }
+}
+
+/// Esito della verifica del backup (Impostazioni → Verifica backup).
+enum BackupHealth {
+  /// Nessuna strategia scelta.
+  none,
+  /// Cloud: blob presente, stessa identità, chiave del partner inclusa.
+  cloudOk,
+  /// Cloud: blob presente ma senza la chiave del partner.
+  cloudIncomplete,
+  /// Cloud: nessun blob leggibile (salvataggio fallito o servizio assente).
+  cloudMissing,
+  /// Manuale: certificato copiato e ancora aggiornato.
+  manualOk,
+  /// Manuale: mai copiato, oppure cambiato dopo l'ultima copia.
+  manualOutdated,
+}
+
+class BackupStatus {
+  final BackupStrategy? strategy;
+  final BackupHealth health;
+  /// Ultimo salvataggio cloud / ultima copia manuale, se noto.
+  final DateTime? savedAt;
+  const BackupStatus(this.strategy, this.health, this.savedAt);
+}
+
+extension BackupHealthCheck on BackupService {
+  static const String _kFingerprint = 'backup_manual_fingerprint';
+  static const String _kCopiedAt = 'backup_manual_copied_at';
+
+  /// Impronta dell'identità corrente (chiave privata + partner): se cambia,
+  /// il certificato copiato a mano non basta più a ripristinare la chat.
+  Future<String?> _currentFingerprint() async {
+    final priv = await _storage.read(key: BackupService._kPriv);
+    if (priv == null) return null;
+    final partner = await _storage.read(key: BackupService._kPartner) ?? '';
+    return sha256.convert(utf8.encode('$priv|$partner')).toString();
+  }
+
+  /// Da chiamare quando l'utente copia/condivide il certificato manuale.
+  Future<void> markManualCopied() async {
+    final fp = await _currentFingerprint();
+    if (fp == null) return;
+    await _storage.write(key: _kFingerprint, value: fp);
+    await _storage.write(
+        key: _kCopiedAt, value: DateTime.now().toIso8601String());
+  }
+
+  /// True se la strategia è manuale, l'utente è accoppiato e il certificato
+  /// copiato non corrisponde più all'identità corrente (o non è mai stato
+  /// copiato): va mostrato un promemoria.
+  Future<bool> manualBackupOutdated() async {
+    if (await getStrategy() != BackupStrategy.manual) return false;
+    final partner = await _storage.read(key: BackupService._kPartner);
+    if (partner == null) return false; // non accoppiato: nessun promemoria
+    final fp = await _currentFingerprint();
+    if (fp == null) return false;
+    return await _storage.read(key: _kFingerprint) != fp;
+  }
+
+  /// Verifica attiva del backup. Con strategia cloud riscrive il blob e lo
+  /// rilegge, controllando che contenga la chiave di QUESTA identità.
+  Future<BackupStatus> checkStatus() async {
+    final strategy = await getStrategy();
+    if (strategy == null) return const BackupStatus(null, BackupHealth.none, null);
+
+    if (strategy == BackupStrategy.manual) {
+      final outdated = await manualBackupOutdated();
+      final at = await _storage.read(key: _kCopiedAt);
+      return BackupStatus(
+        strategy,
+        outdated ? BackupHealth.manualOutdated : BackupHealth.manualOk,
+        at != null ? DateTime.tryParse(at) : null,
+      );
+    }
+
+    await cloudBackupNow();
+    final json = await _cloudRetrieve();
+    if (json == null) return BackupStatus(strategy, BackupHealth.cloudMissing, null);
+    try {
+      final obj = jsonDecode(json) as Map<String, dynamic>;
+      final priv = await _storage.read(key: BackupService._kPriv);
+      if (obj['priv'] != priv) {
+        return BackupStatus(strategy, BackupHealth.cloudMissing, null);
+      }
+      final savedAt = DateTime.tryParse(obj['saved_at'] as String? ?? '');
+      final partner = obj['partner'] as String?;
+      return BackupStatus(
+        strategy,
+        partner == null ? BackupHealth.cloudIncomplete : BackupHealth.cloudOk,
+        savedAt,
+      );
+    } catch (_) {
+      return BackupStatus(strategy, BackupHealth.cloudMissing, null);
     }
   }
 }
