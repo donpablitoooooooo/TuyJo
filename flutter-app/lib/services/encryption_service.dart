@@ -55,6 +55,18 @@ class EncryptionService {
     _privateKeyBase64 = privateKeyStr;
   }
 
+  /// Carica la coppia di chiavi già presente in secure storage, senza MAI
+  /// generarne una nuova. La generazione avviene solo nel flusso "Nuovo
+  /// pairing" (pagina backup / wizard): se all'avvio venisse generata una
+  /// chiave nuova, la pagina Ripristino la scambierebbe per il certificato
+  /// dell'utente e i vecchi messaggi diventerebbero indecifrabili.
+  Future<bool> loadStoredKeyPair() async {
+    final privateKey = await _storage.read(key: 'rsa_private_key');
+    if (privateKey == null) return false;
+    loadPrivateKey(privateKey);
+    return true;
+  }
+
   // Genera e salva keypair in secure storage
   Future<void> generateAndStoreKeyPair() async {
     // Verifica se esiste già

@@ -138,7 +138,10 @@ void main() async {
   };
 
   // Inizializza in background (non blocca lo startup)
-  encryptionService.generateAndStoreKeyPair(); // No await
+  // Carica le chiavi se esistono: NON generarle qui. Su un telefono appena
+  // reinstallato la generazione automatica faceva credere al Ripristino che
+  // il certificato fosse "già presente" e i vecchi messaggi andavano persi.
+  encryptionService.loadStoredKeyPair(); // No await
   pairingService.initialize(); // No await
   notificationService.initialize(); // No await
 

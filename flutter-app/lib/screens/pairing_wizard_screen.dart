@@ -9,6 +9,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:private_messaging/generated/l10n/app_localizations.dart';
 import '../services/pairing_service.dart';
 import '../services/encryption_service.dart';
+import '../services/backup_service.dart';
 import '../widgets/permission_denied_dialog.dart';
 
 /// Wizard di pairing con checklist a 2 step
@@ -29,6 +30,7 @@ class _PairingWizardScreenState extends State<PairingWizardScreen> {
   bool _showScanner = false;
   bool _isProcessingQR = false;
   bool _bothPaired = false; // Entrambi i dispositivi hanno completato il pairing
+  bool _backupIsManual = false; // strategia backup manuale → ricordare di risalvare il certificato
   bool _myQrWasScanned = false; // Il partner ha scansionato il mio QR
   StreamSubscription<QuerySnapshot>? _pairingStatusSubscription;
   StreamSubscription? _qrScannedSubscription;
@@ -36,6 +38,9 @@ class _PairingWizardScreenState extends State<PairingWizardScreen> {
   @override
   void initState() {
     super.initState();
+    BackupService().getStrategy().then((st) {
+      if (mounted) setState(() => _backupIsManual = st == BackupStrategy.manual);
+    });
     _generateMyQR();
   }
 
@@ -493,6 +498,18 @@ class _PairingWizardScreenState extends State<PairingWizardScreen> {
                                       fontSize: 20,
                                     ),
                                   ),
+                                  if (_backupIsManual) ...[
+                                    const SizedBox(height: 8),
+                                    Text(
+                                      l10n.pairingWizardManualBackupHint,
+                                      textAlign: TextAlign.center,
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        height: 1.35,
+                                        color: Colors.grey.shade700,
+                                      ),
+                                    ),
+                                  ],
                                   const SizedBox(height: 16),
                                   SizedBox(
                                     width: double.infinity,

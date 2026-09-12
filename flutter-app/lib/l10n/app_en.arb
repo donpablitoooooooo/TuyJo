@@ -65,6 +65,7 @@
     "pairingWizardBothReadyMessage": "You're both ready! \n Press \"Go to Chat\" to get started 💜",
     "pairingWizardWaitingForPartner": "Wait for your love to \n both steps...",
     "pairingWizardGoToChatButton": "Go to Chat",
+    "pairingWizardManualBackupHint": "Manual backup: save the certificate again from Settings → Backup. It now includes your love's key and lets you get back to the chat without pairing again.",
     "pairingWizardWaitingButton": "Pending...",
     "pairingWizardScanInstructions": "Frame the QR Code of your love",
     "pairingWizardImportingKey": "Importing key...",

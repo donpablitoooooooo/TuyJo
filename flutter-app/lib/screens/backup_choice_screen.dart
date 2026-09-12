@@ -4,7 +4,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:private_messaging/generated/l10n/app_localizations.dart';
+import 'package:provider/provider.dart';
 import '../services/backup_service.dart';
+import '../services/encryption_service.dart';
 
 /// Pagina "Backup del certificato": scelta di come custodire il certificato (la
 /// chiave privata che serve a decifrare i messaggi). Riusa lo stile del wizard
@@ -60,28 +62,27 @@ class _BackupChoiceScreenState extends State<BackupChoiceScreen> {
     Navigator.pop(context, s);
   }
 
-  /// Prepara il testo del certificato da copiare: bundle completo
-  /// base64(json{v, priv, partner}) se accoppiato, altrimenti la sola chiave
-  /// privata. Stesso formato che la pagina Ripristino sa incollare.
-  /// Nel flusso "Nuovo pairing" le chiavi vengono generate in background da
-  /// main.dart: se non sono ancora pronte riprova per qualche secondo.
+  /// Prepara il testo del certificato da copiare: bundle
+  /// base64(json{v, priv, pub, partner?}). Stesso formato che la pagina
+  /// Ripristino sa incollare. Nel flusso "Nuovo pairing" è QUI che le chiavi
+  /// vengono generate (solo se mancano): è l'unico punto, insieme al wizard,
+  /// in cui è legittimo creare una nuova identità.
   Future<void> _loadCertificate() async {
     const storage = FlutterSecureStorage();
-    String? priv;
-    for (var i = 0; i < 20; i++) {
-      priv = await storage.read(key: 'rsa_private_key');
-      if (priv != null || !mounted) break;
-      await Future.delayed(const Duration(milliseconds: 500));
-    }
+    final encryptionService =
+        Provider.of<EncryptionService>(context, listen: false);
+    await encryptionService.generateAndStoreKeyPair();
+    if (!mounted) return;
+    final priv = await storage.read(key: 'rsa_private_key');
     if (priv == null || !mounted) return;
+    final pub = await storage.read(key: 'rsa_public_key');
     final partner = await storage.read(key: 'partner_public_key');
-    final text = partner != null
-        ? base64Encode(utf8.encode(jsonEncode({
-            'v': 1,
-            'priv': priv,
-            'partner': partner,
-          })))
-        : priv;
+    final text = base64Encode(utf8.encode(jsonEncode({
+      'v': 1,
+      'priv': priv,
+      if (pub != null) 'pub': pub,
+      if (partner != null) 'partner': partner,
+    })));
     if (mounted) setState(() => _certText = text);
   }
 

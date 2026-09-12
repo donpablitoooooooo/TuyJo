@@ -53,11 +53,17 @@ class _RestoreScreenState extends State<RestoreScreen> {
   /// Cerca il certificato in automatico: prima sul telefono, poi nel cloud.
   Future<void> _detectCertificate() async {
     final priv = await _storage.read(key: 'rsa_private_key');
-    if (priv != null) {
+    final partner = await _storage.read(key: 'partner_public_key');
+    // "Già presente" solo se il certificato è COMPLETO (chiave + partner).
+    // Una chiave privata senza partner è quasi sempre una chiave nuova creata
+    // da un wizard/backup aperto e abbandonato: non è il certificato
+    // dell'utente e non deve bloccare il ripristino da cloud o da appunti.
+    if (priv != null && partner != null) {
       if (mounted) setState(() => _source = _CertSource.local);
       return;
     }
-    final restored = await BackupService().cloudRestoreIfNeeded();
+    final restored =
+        await BackupService().cloudRestoreIfNeeded(force: priv != null);
     if (mounted) {
       setState(
           () => _source = restored ? _CertSource.cloud : _CertSource.missing);
@@ -114,24 +120,37 @@ class _RestoreScreenState extends State<RestoreScreen> {
           Provider.of<PairingService>(context, listen: false);
 
       // 1. Chiave privata: incollata oppure già in storage (locale/cloud)
-      final priv = _pastedKey ?? await _storage.read(key: 'rsa_private_key');
+      final pasted = _pastedKey;
+      final priv = pasted ?? await _storage.read(key: 'rsa_private_key');
       if (priv == null || priv.isEmpty) {
         throw Exception('certificato mancante');
       }
       encryptionService.loadPrivateKey(priv);
       await _storage.write(key: 'rsa_private_key', value: priv);
 
-      // 2. Chiave pubblica: usa quella salvata o derivala dalla privata
-      String? pub = await _storage.read(key: 'rsa_public_key');
-      pub ??= await encryptionService.deriveAndSavePublicKey();
+      // 2. Chiave pubblica. Se il certificato è stato incollato va SEMPRE
+      // derivata dalla privata incollata: quella eventualmente in storage
+      // potrebbe appartenere a un'altra coppia di chiavi (identità diversa →
+      // familyChatId diverso → messaggi invisibili).
+      String? pub = pasted != null
+          ? await encryptionService.deriveAndSavePublicKey()
+          : (await _storage.read(key: 'rsa_public_key') ??
+              await encryptionService.deriveAndSavePublicKey());
       if (pub == null) {
         throw Exception('impossibile derivare la chiave pubblica');
       }
       await pairingService.saveMyPublicKey(pub);
 
-      // 3. Chiave del partner: dal bundle incollato o dal ripristino cloud
-      final partner =
-          _pastedPartnerKey ?? await _storage.read(key: 'partner_public_key');
+      // 3. Chiave del partner: dal bundle incollato (mai da uno storage
+      // residuo, che potrebbe riferirsi a un'altra identità) oppure dal
+      // ripristino locale/cloud.
+      final String? partner;
+      if (pasted != null) {
+        partner = _pastedPartnerKey;
+        if (partner == null) await _storage.delete(key: 'partner_public_key');
+      } else {
+        partner = await _storage.read(key: 'partner_public_key');
+      }
 
       if (!mounted) return;
       if (partner != null && partner.isNotEmpty) {
@@ -218,7 +237,7 @@ class _RestoreScreenState extends State<RestoreScreen> {
                     ),
                     const SizedBox(height: 16),
                     _statusCard(),
-                    if (_source == _CertSource.missing) ...[
+                    if (_source != _CertSource.checking) ...[
                       const SizedBox(height: 12),
                       _gradientButton(
                         icon: Icons.content_paste,

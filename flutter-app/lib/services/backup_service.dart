@@ -66,9 +66,12 @@ class BackupService {
   /// All'avvio: se le chiavi mancano in locale, prova a recuperarle dal cloud
   /// (Block Store) SOLO se il blob è un backup cloud volontario (marker
   /// 'strategy':'cloud'). Ritorna true se ha ripristinato la chiave privata.
-  Future<bool> cloudRestoreIfNeeded() async {
+  ///
+  /// [force]: tenta il ripristino anche se in locale c'è già una chiave privata
+  /// (es. chiave "orfana" senza partner generata da un wizard abbandonato).
+  Future<bool> cloudRestoreIfNeeded({bool force = false}) async {
     final existing = await _storage.read(key: _kPriv);
-    if (existing != null) return false; // già presenti in locale
+    if (existing != null && !force) return false; // già presenti in locale
     final json = await BlockStoreBridge.retrieve();
     if (json == null) return false;
     try {
@@ -89,7 +92,14 @@ class BackupService {
       final pub = obj['pub'] as String?;
       if (pub != null) await _storage.write(key: _kPub, value: pub);
       final partner = obj['partner'] as String?;
-      if (partner != null) await _storage.write(key: _kPartner, value: partner);
+      if (partner != null) {
+        await _storage.write(key: _kPartner, value: partner);
+      } else {
+        await _storage.delete(key: _kPartner);
+      }
+      // La preferenza vive nel secure storage, azzerato dalla disinstallazione:
+      // riarmala, altrimenti dopo il ripristino i backup cloud non ripartono.
+      await _storage.write(key: _prefKey, value: BackupStrategy.cloud.name);
       if (kDebugMode) print('☁️ [BACKUP] restored keys from cloud');
       return true;
     } catch (e) {

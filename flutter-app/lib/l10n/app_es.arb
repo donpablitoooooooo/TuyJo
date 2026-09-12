@@ -65,6 +65,7 @@
     "pairingWizardBothReadyMessage": "¡Ambos están listos! \n Presiona \"Ir al chat\" para comenzar 💜",
     "pairingWizardWaitingForPartner": "Espera a que tu amor \n ambos pasos...",
     "pairingWizardGoToChatButton": "Ir al chat",
+    "pairingWizardManualBackupHint": "Copia manual: vuelve a guardar el certificado desde Ajustes → Copia de seguridad. Ahora incluye la clave de tu amor y permite volver al chat sin repetir el emparejamiento.",
     "pairingWizardWaitingButton": "Pendiente...",
     "pairingWizardScanInstructions": "Enmarca el Código QR de tu amor",
     "pairingWizardImportingKey": "Importando clave...",

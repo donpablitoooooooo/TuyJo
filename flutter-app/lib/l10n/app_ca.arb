@@ -65,6 +65,7 @@
     "pairingWizardBothReadyMessage": "Tots dos esteu a punt! \n Prem \"Vés al xat\" per començar 💜",
     "pairingWizardWaitingForPartner": "Espera que el teu amor \n els dos passos...",
     "pairingWizardGoToChatButton": "Ves al xat",
+    "pairingWizardManualBackupHint": "Còpia manual: torna a desar el certificat des de Configuració → Còpia de seguretat. Ara inclou la clau del teu amor i permet tornar al xat sense repetir l'aparellament.",
     "pairingWizardWaitingButton": "Pendent...",
     "pairingWizardScanInstructions": "Emmarca el codi QR del teu amor",
     "pairingWizardImportingKey": "Important la clau...",

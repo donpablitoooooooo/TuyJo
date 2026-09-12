@@ -4,6 +4,12 @@ Tutte le modifiche notevoli a questo progetto saranno documentate in questo file
 
 ## [1.36.0] - 2026-09-11
 
+### 🔐 Ripristino dopo reinstallazione (fix perdita messaggi)
+- L'app non genera più una coppia di chiavi RSA all'avvio: su un telefono reinstallato la chiave nuova veniva scambiata dal Ripristino per il certificato "già presente", il pairing creava una nuova chat e i vecchi messaggi restavano indecifrabili. Le chiavi si creano solo nel flusso "Nuovo pairing".
+- Ripristino: "Certificato già presente" solo se completo (chiave + partner); il pulsante "Incolla certificato" è sempre disponibile; la chiave pubblica viene sempre derivata dalla privata incollata; il ripristino cloud viene tentato anche se in locale c'è una chiave orfana.
+- Backup: il certificato copiato include sempre chiave pubblica e (se presente) chiave del partner; dopo un ripristino dal cloud la strategia "cloud" viene riattivata; a pairing completato, con backup manuale, un promemoria invita a risalvare il certificato.
+- Spiegazione in-app prima della richiesta dei permessi posizione, microfono e fotocamera (richiesta da Google Play).
+
 ### 🖼️ Store e localizzazione
 - **Android**: rimossa `FOREGROUND_SERVICE_CAMERA` (dichiarata dal plugin CallKit per le videochiamate, che TuyJo non ha). Build 45.
 - **Nuovi screenshot per App Store e Google Play** (iPhone 6,9", iPad 13", telefono e tablet Android, immagine in evidenza) in it/en/es/ca, generati da `store/screenshots/` con lo stile del sito.
