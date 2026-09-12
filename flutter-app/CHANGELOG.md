@@ -9,6 +9,7 @@ Tutte le modifiche notevoli a questo progetto saranno documentate in questo file
 - Ripristino: "Certificato già presente" solo se completo (chiave + partner); il pulsante "Incolla certificato" è sempre disponibile; la chiave pubblica viene sempre derivata dalla privata incollata; il ripristino cloud viene tentato anche se in locale c'è una chiave orfana.
 - Backup: il certificato copiato include sempre chiave pubblica e (se presente) chiave del partner; dopo un ripristino dal cloud la strategia "cloud" viene riattivata; a pairing completato, con backup manuale, un promemoria invita a risalvare il certificato.
 - Spiegazione in-app prima della richiesta dei permessi posizione, microfono e fotocamera (richiesta da Google Play).
+- **iOS: backup cloud reale su iCloud Keychain.** La scelta "cloud" ora salva il certificato in un elemento del Keychain sincronizzato con iCloud: cambiando iPhone (stesso Apple ID, iCloud Keychain attivo) il certificato c'è già. Prima l'opzione non salvava nulla e funzionava solo perché il Keychain locale sopravvive alla disinstallazione.
 - Backup cloud Android più robusto: se il salvataggio nel Block Store fallisce l'utente viene avvisato (prima passava in silenzio); il blob viene riscritto a ogni avvio; la lettura viene ritentata se Play Services non è pronto; i backup nel formato di giugno 2026 (senza marcatore) vengono ripristinati invece di essere cancellati.
 
 ### 🖼️ Store e localizzazione

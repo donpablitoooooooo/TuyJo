@@ -3,6 +3,21 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'block_store_bridge.dart';
 
+/// Su iOS/macOS il backup cloud è un item del Keychain marcato
+/// `kSecAttrSynchronizable`: iCloud Keychain lo replica su tutti i dispositivi
+/// con lo stesso Apple ID (se iCloud Keychain è attivo), quindi su un iPhone
+/// nuovo il certificato c'è già. `first_unlock` (senza ThisDeviceOnly) è
+/// obbligatorio perché l'item possa migrare.
+const IOSOptions _kAppleSync = IOSOptions(
+  synchronizable: true,
+  accessibility: KeychainAccessibility.first_unlock,
+);
+const MacOsOptions _kMacSync = MacOsOptions(
+  synchronizable: true,
+  accessibility: KeychainAccessibility.first_unlock,
+);
+const String _kCloudBlobKey = 'tuyjo_cloud_backup';
+
 /// Strategia di backup delle chiavi scelta dall'utente.
 /// - [cloud]  : chiavi sincronizzate nel cloud dell'account (iCloud Keychain su
 ///              iOS, Block Store su Android) → cambio telefono automatico.
@@ -40,17 +55,71 @@ class BackupService {
       // precedente): il Block Store sopravvive alla disinstallazione e a
       // android:allowBackup="false", quindi senza questa pulizia le chiavi
       // verrebbero ripristinate da sole a ogni reinstallazione.
-      await BlockStoreBridge.clear();
+      await _cloudClear();
       return true;
     }
+  }
+
+  bool get _isApple =>
+      defaultTargetPlatform == TargetPlatform.iOS ||
+      defaultTargetPlatform == TargetPlatform.macOS;
+
+  /// Scrive il blob nel cloud della piattaforma: Block Store (Android) o
+  /// Keychain sincronizzato con iCloud (iOS/macOS). True se salvato.
+  Future<bool> _cloudStore(String json) async {
+    if (_isApple) {
+      try {
+        await _storage.write(
+          key: _kCloudBlobKey,
+          value: json,
+          iOptions: _kAppleSync,
+          mOptions: _kMacSync,
+        );
+        return true;
+      } catch (e) {
+        if (kDebugMode) print('⚠️ [BACKUP] iCloud keychain store failed: $e');
+        return false;
+      }
+    }
+    return BlockStoreBridge.store(json);
+  }
+
+  Future<String?> _cloudRetrieve() async {
+    if (_isApple) {
+      try {
+        return await _storage.read(
+          key: _kCloudBlobKey,
+          iOptions: _kAppleSync,
+          mOptions: _kMacSync,
+        );
+      } catch (e) {
+        if (kDebugMode) print('⚠️ [BACKUP] iCloud keychain read failed: $e');
+        return null;
+      }
+    }
+    return BlockStoreBridge.retrieve();
+  }
+
+  Future<void> _cloudClear() async {
+    if (_isApple) {
+      try {
+        await _storage.delete(
+          key: _kCloudBlobKey,
+          iOptions: _kAppleSync,
+          mOptions: _kMacSync,
+        );
+      } catch (_) {}
+      return;
+    }
+    await BlockStoreBridge.clear();
   }
 
   static const String _kPriv = 'rsa_private_key';
   static const String _kPub = 'rsa_public_key';
   static const String _kPartner = 'partner_public_key';
 
-  /// Salva le 3 chiavi identità nel cloud (Android Block Store) se la strategia
-  /// è "cloud". No-op altrove. Idempotente e auto-gated: va richiamato anche
+  /// Salva le 3 chiavi identità nel cloud (Block Store su Android, Keychain
+  /// iCloud su iOS/macOS) se la strategia è "cloud". Idempotente e auto-gated: va richiamato anche
   /// dopo il pairing per includere la chiave del partner.
   ///
   /// Ritorna true se il blob è stato salvato (o se non c'era nulla da fare).
@@ -65,13 +134,13 @@ class BackupService {
     // marker, così i residui di vecchi test non riportano su le chiavi.
     final json = jsonEncode(
         {'v': 1, 'strategy': 'cloud', 'priv': priv, 'pub': pub, 'partner': partner});
-    final ok = await BlockStoreBridge.store(json);
+    final ok = await _cloudStore(json);
     if (kDebugMode) print('☁️ [BACKUP] cloudBackupNow stored=$ok');
     return ok;
   }
 
   /// All'avvio: se le chiavi mancano in locale, prova a recuperarle dal cloud
-  /// (Block Store) SOLO se il blob è un backup cloud volontario (marker
+  /// (Block Store / Keychain iCloud) SOLO se il blob è un backup cloud volontario (marker
   /// 'strategy':'cloud'). Ritorna true se ha ripristinato la chiave privata.
   ///
   /// [force]: tenta il ripristino anche se in locale c'è già una chiave privata
@@ -85,7 +154,7 @@ class BackupService {
     String? json;
     for (var attempt = 0; attempt < 3 && json == null; attempt++) {
       if (attempt > 0) await Future.delayed(Duration(seconds: attempt));
-      json = await BlockStoreBridge.retrieve();
+      json = await _cloudRetrieve();
     }
     if (json == null) return false;
     try {
@@ -93,7 +162,7 @@ class BackupService {
       final priv = obj['priv'] as String?;
       if (priv == null) {
         // Blob senza chiave: residuo inutile, puliscilo.
-        await BlockStoreBridge.clear();
+        await _cloudClear();
         return false;
       }
       // Un blob senza marker 'strategy':'cloud' è nel formato della prima

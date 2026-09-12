@@ -3,7 +3,7 @@ import 'package:flutter/services.dart';
 
 /// Bridge verso Google Block Store (solo Android): salva/recupera un blob nel
 /// cloud dell'account Google, ripristinabile sul nuovo dispositivo. Su iOS/altro
-/// è no-op (lì si usa iCloud Keychain).
+/// è no-op: lì BackupService usa un item Keychain sincronizzato con iCloud.
 class BlockStoreBridge {
   static const MethodChannel _channel =
       MethodChannel('com.privatemessaging.tuyjo/blockstore');
