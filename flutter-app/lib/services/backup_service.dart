@@ -27,10 +27,13 @@ class BackupService {
 
   Future<bool> hasChosen() async => (await getStrategy()) != null;
 
-  Future<void> setStrategy(BackupStrategy strategy) async {
+  /// Ritorna false se la strategia è "cloud" ma il salvataggio nel Block
+  /// Store non è riuscito (Play Services / account Google assenti): il
+  /// chiamante deve avvisare l'utente, altrimenti crede di avere un backup.
+  Future<bool> setStrategy(BackupStrategy strategy) async {
     await _storage.write(key: _prefKey, value: strategy.name);
     if (strategy == BackupStrategy.cloud) {
-      await cloudBackupNow();
+      return cloudBackupNow();
     } else {
       // Manuale: il certificato NON deve stare nel cloud. Cancella eventuali
       // backup Block Store residui (es. lasciati da una scelta "cloud"
@@ -38,6 +41,7 @@ class BackupService {
       // android:allowBackup="false", quindi senza questa pulizia le chiavi
       // verrebbero ripristinate da sole a ogni reinstallazione.
       await BlockStoreBridge.clear();
+      return true;
     }
   }
 
@@ -48,10 +52,12 @@ class BackupService {
   /// Salva le 3 chiavi identità nel cloud (Android Block Store) se la strategia
   /// è "cloud". No-op altrove. Idempotente e auto-gated: va richiamato anche
   /// dopo il pairing per includere la chiave del partner.
-  Future<void> cloudBackupNow() async {
-    if (await getStrategy() != BackupStrategy.cloud) return;
+  ///
+  /// Ritorna true se il blob è stato salvato (o se non c'era nulla da fare).
+  Future<bool> cloudBackupNow() async {
+    if (await getStrategy() != BackupStrategy.cloud) return true;
     final priv = await _storage.read(key: _kPriv);
-    if (priv == null) return; // niente da salvare ancora
+    if (priv == null) return true; // niente da salvare ancora
     final pub = await _storage.read(key: _kPub);
     final partner = await _storage.read(key: _kPartner);
     // Il marker 'strategy':'cloud' identifica un blob scritto volontariamente
@@ -61,6 +67,7 @@ class BackupService {
         {'v': 1, 'strategy': 'cloud', 'priv': priv, 'pub': pub, 'partner': partner});
     final ok = await BlockStoreBridge.store(json);
     if (kDebugMode) print('☁️ [BACKUP] cloudBackupNow stored=$ok');
+    return ok;
   }
 
   /// All'avvio: se le chiavi mancano in locale, prova a recuperarle dal cloud
@@ -72,22 +79,30 @@ class BackupService {
   Future<bool> cloudRestoreIfNeeded({bool force = false}) async {
     final existing = await _storage.read(key: _kPriv);
     if (existing != null && !force) return false; // già presenti in locale
-    final json = await BlockStoreBridge.retrieve();
+    // Subito dopo l'installazione Play Services può non essere ancora pronto:
+    // qualche tentativo distanziato evita di concludere "nessun backup" per
+    // un errore transitorio.
+    String? json;
+    for (var attempt = 0; attempt < 3 && json == null; attempt++) {
+      if (attempt > 0) await Future.delayed(Duration(seconds: attempt));
+      json = await BlockStoreBridge.retrieve();
+    }
     if (json == null) return false;
     try {
       final obj = jsonDecode(json) as Map<String, dynamic>;
-      // Ripristina SOLO i blob marcati come backup cloud. Un blob senza marker
-      // è un residuo (vecchio formato o vecchio test): non ripristinarlo e
-      // cancellalo, così non riappare a ogni reinstallazione.
-      if (obj['strategy'] != 'cloud') {
-        if (kDebugMode) {
-          print('☁️ [BACKUP] Block Store blob senza marker cloud: ignoro e pulisco');
-        }
+      final priv = obj['priv'] as String?;
+      if (priv == null) {
+        // Blob senza chiave: residuo inutile, puliscilo.
         await BlockStoreBridge.clear();
         return false;
       }
-      final priv = obj['priv'] as String?;
-      if (priv == null) return false;
+      // Un blob senza marker 'strategy':'cloud' è nel formato della prima
+      // versione del backup cloud (giugno 2026): è comunque un backup scelto
+      // dall'utente, quindi va ripristinato. Verrà riscritto col marker al
+      // primo avvio (cloudBackupNow in main.dart).
+      if (obj['strategy'] != 'cloud' && kDebugMode) {
+        print('☁️ [BACKUP] Block Store blob legacy senza marker: ripristino');
+      }
       await _storage.write(key: _kPriv, value: priv);
       final pub = obj['pub'] as String?;
       if (pub != null) await _storage.write(key: _kPub, value: pub);

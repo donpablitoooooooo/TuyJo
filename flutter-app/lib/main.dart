@@ -142,6 +142,10 @@ void main() async {
   // reinstallato la generazione automatica faceva credere al Ripristino che
   // il certificato fosse "già presente" e i vecchi messaggi andavano persi.
   encryptionService.loadStoredKeyPair(); // No await
+  // Backup cloud (solo se strategia "cloud"): riscrive il blob a ogni avvio,
+  // così un salvataggio fallito al momento del pairing (Play Services non
+  // pronto) o un blob nel vecchio formato vengono recuperati da soli.
+  BackupService().cloudBackupNow(); // No await
   pairingService.initialize(); // No await
   notificationService.initialize(); // No await
 

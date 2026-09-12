@@ -57,8 +57,24 @@ class _BackupChoiceScreenState extends State<BackupChoiceScreen> {
   Future<void> _confirm() async {
     final s = _selected;
     if (s == null) return;
-    await _backup.setStrategy(s);
+    final ok = await _backup.setStrategy(s);
     if (!mounted) return;
+    if (!ok) {
+      // Il Block Store non ha salvato: senza avviso l'utente crederebbe di
+      // avere un backup. Resta sulla pagina per riprovare o scegliere Manuale.
+      final l10n = AppLocalizations.of(context)!;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(l10n.backupChoiceCloudStoreFailed),
+          backgroundColor: Colors.red[600],
+          behavior: SnackBarBehavior.floating,
+          duration: const Duration(seconds: 6),
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        ),
+      );
+      return;
+    }
     Navigator.pop(context, s);
   }
 

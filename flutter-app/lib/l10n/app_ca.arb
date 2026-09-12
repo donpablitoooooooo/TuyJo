@@ -335,6 +335,7 @@
     "backupChoiceIntro": "El certificat és la clau que serveix per desxifrar els missatges. La còpia desa el certificat, no els missatges: sense, ningú no podrà tornar a llegir els xats.",
     "backupChoiceCloudTitle": "Núvol automàtic ({cloudName})",
     "backupChoiceCloudSubtitle": "El certificat es desa al teu {cloudName}. En canviar de telèfon (mateix compte) ho recuperes tot automàticament.",
+    "backupChoiceCloudStoreFailed": "La còpia al núvol ha fallat en aquest telèfon (Google Play Services o compte de Google no disponibles). Torna-ho a provar o tria la còpia manual.",
     "backupChoiceManualTitle": "Manual",
     "backupChoiceManualSubtitle": "Copies el certificat i el guardes tu, on decideixis. Sense núvol: per restaurar l'enganxes.",
     "backupChoiceYourCertificate": "El teu certificat",

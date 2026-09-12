@@ -334,6 +334,7 @@
     "backupChoiceIntro": "Il certificato è la chiave che serve a decifrare i messaggi. Il backup salva il certificato, non i messaggi: senza, nessuno potrà più leggere le chat.",
     "backupChoiceCloudTitle": "Cloud automatico ({cloudName})",
     "backupChoiceCloudSubtitle": "Il certificato si salva nel tuo {cloudName}. Cambiando telefono (stesso account) ritrovi tutto in automatico.",
+    "backupChoiceCloudStoreFailed": "Backup cloud non riuscito su questo telefono (Google Play Services o account Google non disponibili). Riprova, oppure scegli il backup manuale.",
     "backupChoiceManualTitle": "Manuale",
     "backupChoiceManualSubtitle": "Copi il certificato e lo custodisci tu, dove decidi tu. Niente cloud: per ripristinare lo incolli.",
     "backupChoiceYourCertificate": "Il tuo certificato",

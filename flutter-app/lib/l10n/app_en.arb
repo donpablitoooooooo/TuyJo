@@ -335,6 +335,7 @@
     "backupChoiceIntro": "The certificate is the key needed to decrypt your messages. The backup saves the certificate, not the messages: without it, nobody will be able to read your chats again.",
     "backupChoiceCloudTitle": "Automatic cloud ({cloudName})",
     "backupChoiceCloudSubtitle": "The certificate is saved in your {cloudName}. When you change phone (same account) you get everything back automatically.",
+    "backupChoiceCloudStoreFailed": "Cloud backup failed on this phone (Google Play Services or Google account unavailable). Try again, or choose manual backup.",
     "backupChoiceManualTitle": "Manual",
     "backupChoiceManualSubtitle": "You copy the certificate and keep it yourself, wherever you decide. No cloud: to restore, you paste it.",
     "backupChoiceYourCertificate": "Your certificate",
