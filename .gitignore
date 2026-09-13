@@ -1,0 +1,20 @@
+# macOS / IDE
+.DS_Store
+.idea/
+
+# Firebase CLI cache e log
+.firebase/
+firebase-debug.log
+*.log
+
+# Cartelle di lavoro locali (non fanno parte del progetto)
+public_old/
+screenshots/
+
+# Build Android (già ignorata dentro flutter-app, qui per il root)
+flutter-app/android/build/
+flutter-app/android/.gradle/
+
+# Generati da flutter pub get, specifici della macchina
+flutter-app/ios/Flutter/Generated.xcconfig
+flutter-app/ios/Flutter/flutter_export_environment.sh
