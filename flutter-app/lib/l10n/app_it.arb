@@ -107,6 +107,8 @@
     "chatTypingIndicator": "Sta scrivendo...",
     "chatAttachmentsTooltip": "Allegati",
     "chatMessagePlaceholder": "Scrivi un messaggio...",
+    "shareNotPaired": "Contenuto ricevuto, ma non sei ancora abbinato: completa il pairing dalle Impostazioni e poi invialo.",
+    "shareKeptInComposer": "Contenuto condiviso inserito nel campo messaggio: tocca Invia quando vuoi.",
     "chatVideoPlayerInDevelopment": "Player video cifrati in sviluppo",
     "chatFileOpenError": "Impossibile aprire: {message}",
     "chatTodoPlaceholder": "Todo...",

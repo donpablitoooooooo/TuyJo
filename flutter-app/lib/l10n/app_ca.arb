@@ -107,6 +107,8 @@
     "chatTypingIndicator": "Escrivint...",
     "chatAttachmentsTooltip": "Adjunts",
     "chatMessagePlaceholder": "Escriu un missatge...",
+    "shareNotPaired": "Contingut rebut, però encara no esteu aparellats: completa l'aparellament des de Configuració i després envia'l.",
+    "shareKeptInComposer": "Contingut compartit afegit al camp de missatge: toca Envia quan vulguis.",
     "chatVideoPlayerInDevelopment": "Reproductors de vídeo xifrats en desenvolupament",
     "chatFileOpenError": "No es pot obrir: {message}",
     "chatTodoPlaceholder": "Todo...",

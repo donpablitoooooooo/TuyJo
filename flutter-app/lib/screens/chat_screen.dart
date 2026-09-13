@@ -284,6 +284,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
         print("❌ [SHARED-TEXT] Timeout waiting for chat initialization, inserting text in field instead");
       }
       _insertTextIntoMessage(text);
+      _showShareFeedback(paired: _partnerPublicKey != null);
       return;
     }
 
@@ -314,6 +315,26 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   }
 
   /// Inserisce testo nel messaggio
+  /// Avvisa l'utente quando una condivisione non può essere inviata subito:
+  /// prima finiva in silenzio nel campo messaggio (o restava tra gli
+  /// allegati) e sembrava persa.
+  void _showShareFeedback({required bool paired}) {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final l10n = AppLocalizations.of(context)!;
+      ScaffoldMessenger.maybeOf(context)?.showSnackBar(
+        SnackBar(
+          content: Text(paired ? l10n.shareKeptInComposer : l10n.shareNotPaired),
+          backgroundColor: paired ? const Color(0xFF145A60) : Colors.orange[800],
+          behavior: SnackBarBehavior.floating,
+          duration: const Duration(seconds: 5),
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        ),
+      );
+    });
+  }
+
   void _insertTextIntoMessage(String text) {
     // Usa addPostFrameCallback per assicurarsi che il widget sia completamente inizializzato
     // (stesso pattern di _handleSharedFilePaths che funziona per le foto)
@@ -651,6 +672,11 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
           }
         }
       });
+      // I file restano tra gli allegati: se non si è accoppiati l'invio non
+      // è possibile, va detto invece di lasciarli lì in silenzio.
+      if (processedFiles.isNotEmpty) {
+        _showShareFeedback(paired: _partnerPublicKey != null);
+      }
     });
   }
 

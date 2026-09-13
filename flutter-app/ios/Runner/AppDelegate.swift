@@ -151,25 +151,55 @@ import flutter_callkit_incoming
   override func applicationDidBecomeActive(_ application: UIApplication) {
     super.applicationDidBecomeActive(application)
 
-    // Print Share Extension debug log if present
+    // Rete di sicurezza: se l'estensione non è riuscita ad aprire l'app,
+    // la coda viene svuotata al primo passaggio in foreground.
+    drainSharedQueue()
+  }
+
+  /// Legge e cancella la coda scritta dalla Share Extension
+  /// (`shared_queue.json` nel container App Group) e consegna tutto a Flutter:
+  /// i file in un'unica chiamata, i testi uno per uno. Gestisce anche le
+  /// chiavi UserDefaults del formato precedente.
+  private func drainSharedQueue() {
     let appGroupId = "group.com.privatemessaging.tuyjo"
-    if let ud = UserDefaults(suiteName: appGroupId) {
-      if let log = ud.string(forKey: "share_debug_log"), !log.isEmpty {
-        print("📋 Share Extension debug log:\n\(log)")
-        ud.removeObject(forKey: "share_debug_log")
-        ud.synchronize()
+    var files: [URL] = []
+    var texts: [String] = []
+
+    if let container = FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: appGroupId) {
+      let queueURL = container.appendingPathComponent("shared_queue.json")
+      if let data = try? Data(contentsOf: queueURL) {
+        try? FileManager.default.removeItem(at: queueURL)
+        if let items = try? JSONSerialization.jsonObject(with: data) as? [[String: String]] {
+          for item in items {
+            guard let value = item["value"], !value.isEmpty else { continue }
+            if item["type"] == "file" {
+              files.append(URL(fileURLWithPath: value))
+            } else {
+              texts.append(value)
+            }
+          }
+        }
       }
     }
 
-    // Pick up any pending shared data (safety net for iOS 26+
-    // where the extension may not be able to open the app directly)
-    if let imagePath = loadSharedImagePathFromAppGroup() {
-      handleSharedMedia([URL(fileURLWithPath: imagePath)])
-    } else if let documentPath = loadSharedDocumentPathFromAppGroup() {
-      handleSharedMedia([URL(fileURLWithPath: documentPath)])
-    } else if let sharedText = loadSharedTextFromAppGroup() {
-      handleSharedText(sharedText)
+    // Formato precedente (chiavi singole in UserDefaults).
+    if let ud = UserDefaults(suiteName: appGroupId) {
+      for key in ["shared_image_path", "shared_document_path"] {
+        if let path = ud.string(forKey: key) {
+          ud.removeObject(forKey: key)
+          files.append(URL(fileURLWithPath: path))
+        }
+      }
+      if let text = ud.string(forKey: "shared_text") {
+        ud.removeObject(forKey: "shared_text")
+        texts.append(text)
+      }
+      ud.removeObject(forKey: "share_debug_log")
+      ud.synchronize()
     }
+
+    if !files.isEmpty { handleSharedMedia(files) }
+    for text in texts { handleSharedText(text) }
   }
 
   // Gestisce l'apertura di file/foto/URL condivisi (iOS 9+)
@@ -177,30 +207,11 @@ import flutter_callkit_incoming
     print("📱 AppDelegate: application:open:options called with URL: \(url)")
     print("📱 URL scheme: \(url.scheme ?? "nil"), pathExtension: \(url.pathExtension)")
 
-    // Controlla se viene da ShareExtension tramite App Group
+    // Viene dalla Share Extension: svuota la coda nel container App Group
     if url.scheme?.lowercased() == "sharemedia" {
-      print("📱 ShareMedia URL detected, checking App Group...")
-
-      // Prima controlla se c'è un'immagine condivisa
-      if let imagePath = loadSharedImagePathFromAppGroup() {
-        print("📱 Found shared image from App Group: \(imagePath)")
-        handleSharedMedia([URL(fileURLWithPath: imagePath)])
-        return true
-      }
-
-      // Controlla se c'è un documento condiviso
-      if let documentPath = loadSharedDocumentPathFromAppGroup() {
-        print("📱 Found shared document from App Group: \(documentPath)")
-        handleSharedMedia([URL(fileURLWithPath: documentPath)])
-        return true
-      }
-
-      // Poi controlla se c'è del testo condiviso
-      if let sharedText = loadSharedTextFromAppGroup() {
-        print("📱 Found shared text from App Group: \(sharedText)")
-        handleSharedText(sharedText)
-        return true
-      }
+      print("📱 ShareMedia URL detected, draining shared queue...")
+      drainSharedQueue()
+      return true
     }
 
     // Controlla se è un URL web (http/https) condiviso
@@ -368,62 +379,6 @@ import flutter_callkit_incoming
     }
   }
 
-  private func loadSharedTextFromAppGroup() -> String? {
-    let appGroupId = "group.com.privatemessaging.tuyjo"
-    guard let userDefaults = UserDefaults(suiteName: appGroupId) else {
-      print("❌ Failed to access App Group: \(appGroupId)")
-      return nil
-    }
-
-    guard let sharedText = userDefaults.string(forKey: "shared_text") else {
-      print("⚠️ No shared text found in App Group")
-      return nil
-    }
-
-    // Rimuovi dopo aver letto (usa solo una volta)
-    userDefaults.removeObject(forKey: "shared_text")
-    userDefaults.synchronize()
-
-    return sharedText
-  }
-
-  private func loadSharedImagePathFromAppGroup() -> String? {
-    let appGroupId = "group.com.privatemessaging.tuyjo"
-    guard let userDefaults = UserDefaults(suiteName: appGroupId) else {
-      print("❌ Failed to access App Group: \(appGroupId)")
-      return nil
-    }
-
-    guard let imagePath = userDefaults.string(forKey: "shared_image_path") else {
-      print("⚠️ No shared image path found in App Group")
-      return nil
-    }
-
-    // Rimuovi dopo aver letto (usa solo una volta)
-    userDefaults.removeObject(forKey: "shared_image_path")
-    userDefaults.synchronize()
-
-    return imagePath
-  }
-
-  private func loadSharedDocumentPathFromAppGroup() -> String? {
-    let appGroupId = "group.com.privatemessaging.tuyjo"
-    guard let userDefaults = UserDefaults(suiteName: appGroupId) else {
-      print("❌ Failed to access App Group: \(appGroupId)")
-      return nil
-    }
-
-    guard let documentPath = userDefaults.string(forKey: "shared_document_path") else {
-      print("⚠️ No shared document path found in App Group")
-      return nil
-    }
-
-    // Rimuovi dopo aver letto (usa solo una volta)
-    userDefaults.removeObject(forKey: "shared_document_path")
-    userDefaults.synchronize()
-
-    return documentPath
-  }
 }
 
 

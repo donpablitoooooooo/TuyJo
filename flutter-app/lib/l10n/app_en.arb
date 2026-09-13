@@ -107,6 +107,8 @@
     "chatTypingIndicator": "Typing...",
     "chatAttachmentsTooltip": "Attachments",
     "chatMessagePlaceholder": "Write a message...",
+    "shareNotPaired": "Content received, but you are not paired yet: complete the pairing from Settings, then send it.",
+    "shareKeptInComposer": "Shared content placed in the message field: tap Send when you're ready.",
     "chatVideoPlayerInDevelopment": "Encrypted video players under development",
     "chatFileOpenError": "Unable to open: {message}",
     "chatTodoPlaceholder": "Todo...",

@@ -2,8 +2,35 @@ import UIKit
 import Social
 import UniformTypeIdentifiers
 
+/// Share Extension di Tuijo.
+///
+/// Raccoglie TUTTI gli elementi condivisi (fino a 10 immagini, documenti,
+/// testo/URL), li mette in coda nel container dell'App Group e apre l'app
+/// principale con lo schema `ShareMedia://open`. L'app svuota la coda in
+/// `application(_:open:)` e, come rete di sicurezza, in
+/// `applicationDidBecomeActive`.
+///
+/// Coda: file JSON `shared_queue.json` nel container (protezione
+/// NSFileProtectionComplete, cancellato dall'app dopo la lettura), array di
+/// `{"type": "text" | "file", "value": ...}`. I file vengono salvati in
+/// `shared_media/` con la stessa protezione e rimossi dall'app dopo la copia.
 class ShareViewController: UIViewController {
     private let appGroupId = "group.com.privatemessaging.tuyjo"
+    static let queueFileName = "shared_queue.json"
+
+    /// viewDidAppear può scattare più volte (l'utente torna sull'app host e
+    /// l'estensione viene ripresentata): il contenuto va gestito UNA volta.
+    private var didHandle = false
+
+    private let documentTypes: [String] = [
+        UTType.pdf.identifier,
+        "com.microsoft.word.doc",
+        "org.openxmlformats.wordprocessingml.document",
+        "com.microsoft.excel.xls",
+        "org.openxmlformats.spreadsheetml.sheet",
+        "com.microsoft.powerpoint.ppt",
+        "org.openxmlformats.presentationml.presentation",
+    ]
 
     override func loadView() {
         let v = UIView()
@@ -12,517 +39,324 @@ class ShareViewController: UIViewController {
         self.view = v
     }
 
-    override func viewDidLoad() {
-        super.viewDidLoad()
-        debugLog("viewDidLoad")
-    }
-
     override func viewWillAppear(_ animated: Bool) {
         super.viewWillAppear(animated)
         view.superview?.backgroundColor = .clear
     }
 
-    /// viewDidAppear può scattare più volte (l'utente torna sull'app host e
-    /// l'estensione viene ripresentata): il contenuto va gestito UNA volta,
-    /// altrimenti viene riscritto nell'App Group e rimandato in chat.
-    private var didHandle = false
-
     override func viewDidAppear(_ animated: Bool) {
         super.viewDidAppear(animated)
-        guard !didHandle else {
-            debugLog("viewDidAppear — already handled, ignoring")
-            return
-        }
+        guard !didHandle else { return }
         didHandle = true
-        debugLog("viewDidAppear — starting")
         handleSharedContent()
     }
 
-    // Write debug info to App Group so the main app can read it
     private func debugLog(_ msg: String) {
-        guard let ud = UserDefaults(suiteName: appGroupId) else { return }
-        let prev = ud.string(forKey: "share_debug_log") ?? ""
-        let ts = ISO8601DateFormatter().string(from: Date())
-        ud.set(prev + "[\(ts)] \(msg)\n", forKey: "share_debug_log")
-        ud.synchronize()
+        #if DEBUG
+        print("📤 [ShareExtension] \(msg)")
+        #endif
     }
 
+    // MARK: - Raccolta degli elementi condivisi
+
     private func handleSharedContent() {
-        guard let extensionItem = extensionContext?.inputItems.first as? NSExtensionItem,
-              let attachments = extensionItem.attachments else {
-            debugLog("handleSharedContent: no inputItems or attachments — closing")
+        guard let items = extensionContext?.inputItems as? [NSExtensionItem] else {
             closeExtension()
             return
         }
-        debugLog("handleSharedContent: found \(attachments.count) attachment(s)")
+        let attachments = items.compactMap { $0.attachments }.flatMap { $0 }
+        guard !attachments.isEmpty else {
+            closeExtension()
+            return
+        }
+        debugLog("found \(attachments.count) attachment(s)")
 
-        // Prima passa: cerca immagini
-        for attachment in attachments {
-            if attachment.hasItemConformingToTypeIdentifier(UTType.image.identifier) {
-                handleImage(attachment)
-                return
+        let group = DispatchGroup()
+        let lock = NSLock()
+        var filePaths: [String] = []
+        var texts: [String] = []
+        var handledAny = false
+
+        func addFile(_ path: String) {
+            lock.lock(); filePaths.append(path); lock.unlock()
+        }
+        func addText(_ text: String) {
+            lock.lock(); texts.append(text); lock.unlock()
+        }
+
+        // 1) Immagini: tutte, non solo la prima (il plist ne dichiara fino a 10).
+        for attachment in attachments where attachment.hasItemConformingToTypeIdentifier(UTType.image.identifier) {
+            handledAny = true
+            group.enter()
+            loadImage(attachment) { path in
+                if let path = path { addFile(path) }
+                group.leave()
             }
         }
 
-        // Seconda passa: cerca documenti (PDF, DOC, XLS, PPT, etc.) PRIMA di URL/testo
-        // perché i documenti condivisi conformano anche a UTType.url e verrebbero trattati come link
-        for attachment in attachments {
-            if attachment.hasItemConformingToTypeIdentifier(UTType.pdf.identifier) ||
-               attachment.hasItemConformingToTypeIdentifier("com.microsoft.word.doc") ||
-               attachment.hasItemConformingToTypeIdentifier("org.openxmlformats.wordprocessingml.document") ||
-               attachment.hasItemConformingToTypeIdentifier("com.microsoft.excel.xls") ||
-               attachment.hasItemConformingToTypeIdentifier("org.openxmlformats.spreadsheetml.sheet") ||
-               attachment.hasItemConformingToTypeIdentifier("com.microsoft.powerpoint.ppt") ||
-               attachment.hasItemConformingToTypeIdentifier("org.openxmlformats.presentationml.presentation") {
-                handleDocument(attachment)
-                return
+        // 2) Documenti (prima di URL/testo: un documento conforma anche a UTType.url).
+        for attachment in attachments where !attachment.hasItemConformingToTypeIdentifier(UTType.image.identifier) {
+            let isDocument = documentTypes.contains { attachment.hasItemConformingToTypeIdentifier($0) }
+            guard isDocument else { continue }
+            handledAny = true
+            group.enter()
+            loadDocument(attachment) { path in
+                if let path = path { addFile(path) }
+                group.leave()
             }
         }
 
-        // Terza passa: cerca URL o testo (solo se NON è un documento)
-        var hasText = false
-        var hasUrl = false
-        var textAttachment: NSItemProvider?
-        var urlAttachment: NSItemProvider?
-
-        for attachment in attachments {
-            if attachment.hasItemConformingToTypeIdentifier(UTType.plainText.identifier) {
-                hasText = true
-                textAttachment = attachment
-            }
-            if attachment.hasItemConformingToTypeIdentifier(UTType.url.identifier) {
-                hasUrl = true
-                urlAttachment = attachment
+        // 3) Testo / URL (solo se non ci sono già immagini o documenti).
+        if !handledAny {
+            let textAttachment = attachments.first { $0.hasItemConformingToTypeIdentifier(UTType.plainText.identifier) }
+            let urlAttachment = attachments.first { $0.hasItemConformingToTypeIdentifier(UTType.url.identifier) }
+            if textAttachment != nil || urlAttachment != nil {
+                handledAny = true
+                group.enter()
+                loadTextOrUrl(textAttachment: textAttachment, urlAttachment: urlAttachment) { text in
+                    if let text = text { addText(text) }
+                    group.leave()
+                }
             }
         }
 
-        // Se c'è un URL o testo con URL, gestiscilo come link
-        if hasUrl || hasText {
-            handleTextOrUrl(hasText: hasText, hasUrl: hasUrl, textAttachment: textAttachment, urlAttachment: urlAttachment)
+        // 4) fileURL generico (file locale) come documento; URL web come link.
+        if !handledAny {
+            for attachment in attachments where attachment.hasItemConformingToTypeIdentifier(UTType.fileURL.identifier) {
+                handledAny = true
+                group.enter()
+                attachment.loadItem(forTypeIdentifier: UTType.fileURL.identifier, options: nil) { [weak self] item, _ in
+                    defer { group.leave() }
+                    guard let self = self, let url = item as? URL else { return }
+                    let s = url.absoluteString.lowercased()
+                    if s.hasPrefix("http://") || s.hasPrefix("https://") {
+                        addText(url.absoluteString)
+                    } else if let path = self.saveFileURL(url) {
+                        addFile(path)
+                    }
+                }
+                break
+            }
+        }
+
+        guard handledAny else {
+            closeExtension()
             return
         }
 
-        // Quarta passa: fileURL generico (solo per file locali, non web)
-        for attachment in attachments {
-            if attachment.hasItemConformingToTypeIdentifier(UTType.fileURL.identifier) {
-                // Verifica che non sia un URL web
-                attachment.loadItem(forTypeIdentifier: UTType.fileURL.identifier, options: nil) { [weak self] (item, error) in
-                    if let url = item as? URL {
-                        let urlString = url.absoluteString.lowercased()
-                        // Se è un URL web, trattalo come link
-                        if urlString.hasPrefix("http://") || urlString.hasPrefix("https://") {
-                            self?.saveToAppGroup(text: url.absoluteString, key: "shared_text")
-                            self?.openMainApp()
-                        } else {
-                            // È un file locale, trattalo come documento
-                            self?.handleDocumentFromFileURL(url)
-                        }
-                    } else {
-                        self?.closeExtension()
-                    }
-                }
-                return
-            }
-        }
-
-        closeExtension()
-    }
-
-    private func handleTextOrUrl(hasText: Bool, hasUrl: Bool, textAttachment: NSItemProvider?, urlAttachment: NSItemProvider?) {
-        // Strategia: preferisci il testo se contiene un URL (più completo)
-        // Altrimenti usa l'URL diretto
-        if hasText, let textAtt = textAttachment {
-            textAtt.loadItem(forTypeIdentifier: UTType.plainText.identifier, options: nil) { [weak self] (item, error) in
-                if let text = item as? String {
-                    // Controlla se il testo contiene un URL
-                    if let extractedUrl = self?.extractURL(from: text) {
-                        // Se il testo è SOLO l'URL, salva l'URL
-                        // Se il testo contiene altro oltre all'URL, salva il testo completo
-                        let trimmedText = text.trimmingCharacters(in: .whitespacesAndNewlines)
-                        if trimmedText == extractedUrl {
-                            self?.saveToAppGroup(text: extractedUrl, key: "shared_text")
-                        } else {
-                            // Testo contiene più dell'URL - salva tutto
-                            self?.saveToAppGroup(text: text, key: "shared_text")
-                        }
-                        self?.openMainApp()
-                    } else if hasUrl, let urlAtt = urlAttachment {
-                        // Il testo non ha URL, prova con l'URL attachment
-                        urlAtt.loadItem(forTypeIdentifier: UTType.url.identifier, options: nil) { [weak self] (urlItem, urlError) in
-                            if let url = urlItem as? URL {
-                                // Combina testo + URL se il testo non è vuoto
-                                let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
-                                if !trimmed.isEmpty {
-                                    self?.saveToAppGroup(text: "\(text)\n\(url.absoluteString)", key: "shared_text")
-                                } else {
-                                    self?.saveToAppGroup(text: url.absoluteString, key: "shared_text")
-                                }
-                                self?.openMainApp()
-                            } else {
-                                // Salva solo il testo
-                                self?.saveToAppGroup(text: text, key: "shared_text")
-                                self?.openMainApp()
-                            }
-                        }
-                    } else {
-                        // Solo testo senza URL
-                        self?.saveToAppGroup(text: text, key: "shared_text")
-                        self?.openMainApp()
-                    }
-                } else {
-                    self?.closeExtension()
-                }
-            }
-            return
-        }
-
-        // Se non c'è testo, usa solo l'URL
-        if hasUrl, let urlAtt = urlAttachment {
-            urlAtt.loadItem(forTypeIdentifier: UTType.url.identifier, options: nil) { [weak self] (item, error) in
-                if let url = item as? URL {
-                    self?.saveToAppGroup(text: url.absoluteString, key: "shared_text")
-                    self?.openMainApp()
-                } else {
-                    self?.closeExtension()
-                }
-            }
-            return
-        }
-
-        closeExtension()
-    }
-
-    private func handleDocumentFromFileURL(_ url: URL) {
-        // Accedi al file con security scope se necessario
-        let accessing = url.startAccessingSecurityScopedResource()
-        defer {
-            if accessing { url.stopAccessingSecurityScopedResource() }
-        }
-
-        if let data = try? Data(contentsOf: url) {
-            let fileName = url.lastPathComponent
-            if let documentPath = saveDocumentToAppGroup(data: data, fileName: fileName) {
-                saveToAppGroup(text: documentPath, key: "shared_document_path")
-                openMainApp()
-                return
-            }
-        }
-        closeExtension()
-    }
-
-    private func handleDocument(_ attachment: NSItemProvider) {
-        // Prova con fileURL prima (più comune per documenti)
-        if attachment.hasItemConformingToTypeIdentifier(UTType.fileURL.identifier) {
-            attachment.loadItem(forTypeIdentifier: UTType.fileURL.identifier, options: nil) { [weak self] (item, error) in
-                guard let self = self else { return }
-
-                if let url = item as? URL {
-                    // Accedi al file con security scope se necessario
-                    let accessing = url.startAccessingSecurityScopedResource()
-                    defer {
-                        if accessing { url.stopAccessingSecurityScopedResource() }
-                    }
-
-                    if let data = try? Data(contentsOf: url) {
-                        let fileName = url.lastPathComponent
-                        if let documentPath = self.saveDocumentToAppGroup(data: data, fileName: fileName) {
-                            self.saveToAppGroup(text: documentPath, key: "shared_document_path")
-                            self.openMainApp()
-                            return
-                        }
-                    }
-                }
+        group.notify(queue: .main) { [weak self] in
+            guard let self = self else { return }
+            var queue: [[String: String]] = []
+            for p in filePaths { queue.append(["type": "file", "value": p]) }
+            for t in texts { queue.append(["type": "text", "value": t]) }
+            guard !queue.isEmpty, self.appendToQueue(queue) else {
+                self.debugLog("nothing to enqueue or write failed")
                 self.closeExtension()
+                return
             }
-            return
+            self.openMainApp()
         }
+    }
 
-        // Fallback: prova con data generico
-        if attachment.hasItemConformingToTypeIdentifier(UTType.data.identifier) {
-            attachment.loadItem(forTypeIdentifier: UTType.data.identifier, options: nil) { [weak self] (item, error) in
-                guard let self = self else { return }
+    // MARK: - Caricamento singoli elementi
 
-                var documentData: Data?
-                var fileName = "shared_document"
+    private func loadImage(_ attachment: NSItemProvider, completion: @escaping (String?) -> Void) {
+        attachment.loadItem(forTypeIdentifier: UTType.image.identifier, options: nil) { [weak self] item, _ in
+            guard let self = self else { completion(nil); return }
+            var data: Data?
+            var ext = "jpg"
+            if let url = item as? URL {
+                data = self.readData(url)
+                ext = url.pathExtension.isEmpty ? "jpg" : url.pathExtension
+            } else if let image = item as? UIImage {
+                data = image.jpegData(compressionQuality: 0.9)
+            } else if let d = item as? Data {
+                data = d
+            }
+            guard let bytes = data else { completion(nil); return }
+            completion(self.saveToSharedMedia(bytes, fileName: "shared_\(self.uniqueSuffix()).\(ext)"))
+        }
+    }
 
-                if let url = item as? URL {
-                    documentData = try? Data(contentsOf: url)
-                    fileName = url.lastPathComponent
-                } else if let data = item as? Data {
-                    documentData = data
-                    // Prova a determinare l'estensione dal suggestedName
-                    if let suggestedName = attachment.suggestedName {
-                        fileName = suggestedName
+    private func loadDocument(_ attachment: NSItemProvider, completion: @escaping (String?) -> Void) {
+        let typeId = attachment.hasItemConformingToTypeIdentifier(UTType.fileURL.identifier)
+            ? UTType.fileURL.identifier
+            : UTType.data.identifier
+        attachment.loadItem(forTypeIdentifier: typeId, options: nil) { [weak self] item, _ in
+            guard let self = self else { completion(nil); return }
+            if let url = item as? URL {
+                completion(self.saveFileURL(url))
+            } else if let data = item as? Data {
+                let name = attachment.suggestedName ?? "shared_document"
+                completion(self.saveToSharedMedia(data, fileName: "\(self.uniqueSuffix())_\(name)"))
+            } else {
+                completion(nil)
+            }
+        }
+    }
+
+    private func loadTextOrUrl(textAttachment: NSItemProvider?, urlAttachment: NSItemProvider?,
+                               completion: @escaping (String?) -> Void) {
+        if let textAtt = textAttachment {
+            textAtt.loadItem(forTypeIdentifier: UTType.plainText.identifier, options: nil) { [weak self] item, _ in
+                guard let self = self, let text = item as? String else {
+                    // Testo non leggibile: prova con l'URL.
+                    if let strongSelf = self {
+                        strongSelf.loadUrl(urlAttachment, completion: completion)
+                    } else {
+                        completion(nil)
                     }
-                }
-
-                guard let data = documentData else {
-                    self.closeExtension()
                     return
                 }
-
-                if let documentPath = self.saveDocumentToAppGroup(data: data, fileName: fileName) {
-                    self.saveToAppGroup(text: documentPath, key: "shared_document_path")
-                    self.openMainApp()
-                } else {
-                    self.closeExtension()
+                let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+                if self.extractURL(from: text) != nil || urlAttachment == nil {
+                    // Il testo contiene già il link (o non c'è un URL separato).
+                    completion(trimmed.isEmpty ? nil : text)
+                    return
+                }
+                // Testo senza URL + URL separato: combina.
+                self.loadUrl(urlAttachment) { url in
+                    if let url = url {
+                        completion(trimmed.isEmpty ? url : "\(text)\n\(url)")
+                    } else {
+                        completion(trimmed.isEmpty ? nil : text)
+                    }
                 }
             }
             return
         }
-
-        closeExtension()
+        loadUrl(urlAttachment, completion: completion)
     }
 
-    private func saveDocumentToAppGroup(data: Data, fileName: String) -> String? {
-        guard let containerURL = FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: appGroupId) else {
-            print("❌ Failed to get App Group container")
+    private func loadUrl(_ attachment: NSItemProvider?, completion: @escaping (String?) -> Void) {
+        guard let att = attachment else { completion(nil); return }
+        att.loadItem(forTypeIdentifier: UTType.url.identifier, options: nil) { item, _ in
+            completion((item as? URL)?.absoluteString)
+        }
+    }
+
+    // MARK: - File nel container App Group
+
+    private func readData(_ url: URL) -> Data? {
+        let accessing = url.startAccessingSecurityScopedResource()
+        defer { if accessing { url.stopAccessingSecurityScopedResource() } }
+        return try? Data(contentsOf: url)
+    }
+
+    private func saveFileURL(_ url: URL) -> String? {
+        guard let data = readData(url) else { return nil }
+        return saveToSharedMedia(data, fileName: "\(uniqueSuffix())_\(url.lastPathComponent)")
+    }
+
+    private func uniqueSuffix() -> String {
+        "\(Int(Date().timeIntervalSince1970 * 1000))_\(Int.random(in: 1000...9999))"
+    }
+
+    private func sharedMediaDir() -> URL? {
+        guard let container = FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: appGroupId) else {
             return nil
         }
+        let dir = container.appendingPathComponent("shared_media", isDirectory: true)
+        try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        return dir
+    }
 
-        let sharedDir = containerURL.appendingPathComponent("shared_media", isDirectory: true)
-
+    /// Scrive il file con NSFileProtectionComplete: leggibile solo a telefono
+    /// sbloccato (l'app lo legge in foreground e lo cancella subito dopo).
+    private func saveToSharedMedia(_ data: Data, fileName: String) -> String? {
+        guard let dir = sharedMediaDir() else { return nil }
+        let fileURL = dir.appendingPathComponent(fileName)
         do {
-            try FileManager.default.createDirectory(at: sharedDir, withIntermediateDirectories: true)
-        } catch {
-            print("❌ Failed to create shared_media directory: \(error)")
-            return nil
-        }
-
-        let timestamp = Int(Date().timeIntervalSince1970 * 1000)
-        // Usa il nome file originale con timestamp per evitare conflitti
-        let safeFileName = "\(timestamp)_\(fileName)"
-        let fileURL = sharedDir.appendingPathComponent(safeFileName)
-
-        do {
-            try data.write(to: fileURL)
-            print("✅ Saved document to: \(fileURL.path)")
+            try data.write(to: fileURL, options: [.atomic, .completeFileProtection])
             return fileURL.path
         } catch {
-            print("❌ Failed to save document: \(error)")
+            debugLog("save failed: \(error)")
             return nil
         }
     }
 
-    private func handleImage(_ attachment: NSItemProvider) {
-        attachment.loadItem(forTypeIdentifier: UTType.image.identifier, options: nil) { [weak self] (item, error) in
-            guard let self = self else { return }
-
-            var imageData: Data?
-            var fileExtension = "jpg"
-
-            if let url = item as? URL {
-                // L'immagine è un file URL
-                imageData = try? Data(contentsOf: url)
-                fileExtension = url.pathExtension.isEmpty ? "jpg" : url.pathExtension
-            } else if let image = item as? UIImage {
-                // L'immagine è un UIImage
-                imageData = image.jpegData(compressionQuality: 0.9)
-                fileExtension = "jpg"
-            } else if let data = item as? Data {
-                // L'immagine è già Data
-                imageData = data
-                fileExtension = "jpg"
-            }
-
-            guard let data = imageData else {
-                self.closeExtension()
-                return
-            }
-
-            // Salva l'immagine nel container App Group
-            if let imagePath = self.saveImageToAppGroup(data: data, extension: fileExtension) {
-                self.saveToAppGroup(text: imagePath, key: "shared_image_path")
-                self.openMainApp()
-            } else {
-                self.closeExtension()
-            }
+    /// Accoda gli elementi al file JSON (append: due condivisioni ravvicinate
+    /// non si sovrascrivono più).
+    private func appendToQueue(_ items: [[String: String]]) -> Bool {
+        guard let container = FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: appGroupId) else {
+            return false
         }
-    }
-
-    private func saveImageToAppGroup(data: Data, extension ext: String) -> String? {
-        guard let containerURL = FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: appGroupId) else {
-            print("❌ Failed to get App Group container")
-            return nil
+        let fileURL = container.appendingPathComponent(ShareViewController.queueFileName)
+        var queue: [[String: String]] = []
+        if let data = try? Data(contentsOf: fileURL),
+           let existing = try? JSONSerialization.jsonObject(with: data) as? [[String: String]] {
+            queue = existing
         }
-
-        let sharedDir = containerURL.appendingPathComponent("shared_media", isDirectory: true)
-
+        queue.append(contentsOf: items)
         do {
-            try FileManager.default.createDirectory(at: sharedDir, withIntermediateDirectories: true)
+            let data = try JSONSerialization.data(withJSONObject: queue)
+            try data.write(to: fileURL, options: [.atomic, .completeFileProtection])
+            return true
         } catch {
-            print("❌ Failed to create shared_media directory: \(error)")
-            return nil
-        }
-
-        let timestamp = Int(Date().timeIntervalSince1970 * 1000)
-        let fileName = "shared_\(timestamp).\(ext)"
-        let fileURL = sharedDir.appendingPathComponent(fileName)
-
-        do {
-            try data.write(to: fileURL)
-            print("✅ Saved image to: \(fileURL.path)")
-            return fileURL.path
-        } catch {
-            print("❌ Failed to save image: \(error)")
-            return nil
+            debugLog("queue write failed: \(error)")
+            return false
         }
     }
 
     private func extractURL(from text: String) -> String? {
-        // Cerca tutti gli URL nel testo
         let detector = try? NSDataDetector(types: NSTextCheckingResult.CheckingType.link.rawValue)
-        let matches = detector?.matches(in: text, options: [], range: NSRange(location: 0, length: text.utf16.count))
-
-        guard let matches = matches, !matches.isEmpty else {
-            return nil
-        }
-
-        // Estrai tutti gli URL trovati
-        var urls: [String] = []
+        let matches = detector?.matches(in: text, options: [], range: NSRange(location: 0, length: text.utf16.count)) ?? []
         for match in matches {
             if let range = Range(match.range, in: text) {
-                urls.append(String(text[range]))
+                let s = String(text[range]).lowercased()
+                if s.hasPrefix("http://") || s.hasPrefix("https://") { return String(text[range]) }
             }
         }
-
-        // Se c'è un solo URL, restituiscilo
-        if urls.count == 1 {
-            return urls.first
-        }
-
-        // Se ci sono più URL, preferisci quello con https://
-        if let httpsUrl = urls.first(where: { $0.lowercased().hasPrefix("https://") }) {
-            return httpsUrl
-        }
-
-        // Altrimenti preferisci quello con http://
-        if let httpUrl = urls.first(where: { $0.lowercased().hasPrefix("http://") }) {
-            return httpUrl
-        }
-
-        // Fallback al primo URL trovato
-        return urls.first
+        return matches.isEmpty ? nil : matches.compactMap { Range($0.range, in: text).map { String(text[$0]) } }.first
     }
 
-    private func saveToAppGroup(text: String, key: String) {
-        guard let userDefaults = UserDefaults(suiteName: appGroupId) else {
-            print("❌ Failed to access App Group: \(appGroupId)")
-            return
-        }
-
-        userDefaults.set(text, forKey: key)
-        userDefaults.synchronize()
-        #if DEBUG
-        print("✅ Saved to App Group [\(key)]: \(text)")
-        #endif
-    }
+    // MARK: - Apertura dell'app principale
 
     private func openMainApp() {
-        guard let url = URL(string: "ShareMedia://open") else {
-            debugLog("openMainApp: failed to create URL")
-            closeExtension()
+        guard let url = URL(string: "ShareMedia://open"), let ctx = extensionContext else {
+            showOpenAppHint()
             return
         }
-
-        debugLog("openMainApp: trying extensionContext.open")
-
-        DispatchQueue.main.async { [weak self] in
-            guard let self = self else {
-                self?.debugLog("openMainApp: self is nil")
-                return
-            }
-
-            guard self.extensionContext != nil else {
-                self.debugLog("openMainApp: extensionContext is nil — trying responder chain")
-                self.openViaResponderChain(url)
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
-                    self.closeExtension()
-                }
-                return
-            }
-
-            // 1) Official API
-            self.extensionContext?.open(url) { success in
-                self.debugLog("openMainApp: extensionContext.open result = \(success)")
+        // Solo l'API ufficiale delle estensioni. Se non riesce, il contenuto
+        // resta in coda e l'app lo prende al prossimo avvio: lo diciamo
+        // all'utente invece di usare API private (rischio App Review).
+        ctx.open(url) { [weak self] success in
+            DispatchQueue.main.async {
                 if success {
-                    // Chiudi sempre l'estensione: lasciata viva, alla successiva
-                    // ripresentazione riscriveva il contenuto e lo rimandava.
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
-                        self.closeExtension()
-                    }
-                    return
-                }
-
-                // 2) Responder chain
-                DispatchQueue.main.async {
-                    self.debugLog("openMainApp: trying responder chain")
-                    self.openViaResponderChain(url)
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
-                        self.closeExtension()
-                    }
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { self?.closeExtension() }
+                } else {
+                    self?.showOpenAppHint()
                 }
             }
         }
     }
 
-    private func openViaResponderChain(_ url: URL) {
-        // Try UIApplication.shared via NSClassFromString (direct access)
-        if let appClass = NSClassFromString("UIApplication"),
-           let sharedSel = NSSelectorFromString("sharedApplication") as Selector?,
-           (appClass as AnyObject).responds(to: sharedSel),
-           let appObj = (appClass as AnyObject).perform(sharedSel)?.takeUnretainedValue() as? NSObject {
+    /// Testi localizzati in codice: l'estensione non ha risorse .lproj.
+    private func localized(_ key: String) -> String {
+        let lang = Locale.preferredLanguages.first?.lowercased() ?? "en"
+        let code = lang.hasPrefix("it") ? "it" : lang.hasPrefix("es") ? "es" : lang.hasPrefix("ca") ? "ca" : "en"
+        let table: [String: [String: String]] = [
+            "title": ["it": "Quasi fatto", "en": "Almost done", "es": "Casi listo", "ca": "Gairebé fet"],
+            "body": [
+                "it": "Apri Tuijo per completare l'invio: il contenuto è pronto e verrà inserito appena apri l'app.",
+                "en": "Open Tuijo to finish sending: the content is ready and will be added as soon as you open the app.",
+                "es": "Abre Tuijo para completar el envío: el contenido está listo y se añadirá en cuanto abras la app.",
+                "ca": "Obre Tuijo per completar l'enviament: el contingut està a punt i s'afegirà tan bon punt obris l'app.",
+            ],
+            "ok": ["it": "OK", "en": "OK", "es": "OK", "ca": "D'acord"],
+        ]
+        return table[key]?[code] ?? table[key]?["en"] ?? key
+    }
 
-            let openSel = sel_registerName("openURL:options:completionHandler:")
-            if appObj.responds(to: openSel), let imp = appObj.method(for: openSel) {
-                debugLog("responderChain: found UIApplication.shared — calling open:options:completionHandler:")
-                typealias Fn = @convention(c) (AnyObject, Selector, Any, Any, Any?) -> Void
-                let open = unsafeBitCast(imp, to: Fn.self)
-                let cb: @convention(block) (Bool) -> Void = { [weak self] ok in
-                    self?.debugLog("responderChain: UIApplication.open result = \(ok)")
-                }
-                open(appObj, openSel, url as Any, [:] as NSDictionary as Any, cb as Any)
-                return
-            }
-        }
-
-        // Walk responder chain as fallback
-        let selector = sel_registerName("openURL:options:completionHandler:")
-        var responder: UIResponder? = self as UIResponder
-        var depth = 0
-
-        while let r = responder {
-            depth += 1
-            if r.responds(to: selector), let imp = r.method(for: selector) {
-                debugLog("responderChain: found responder at depth \(depth) (\(type(of: r)))")
-                typealias Fn = @convention(c) (AnyObject, Selector, Any, Any, Any?) -> Void
-                let open = unsafeBitCast(imp, to: Fn.self)
-                let cb: @convention(block) (Bool) -> Void = { [weak self] ok in
-                    self?.debugLog("responderChain: open result = \(ok)")
-                }
-                open(r, selector, url as Any, [:] as NSDictionary as Any, cb as Any)
-                return
-            }
-            responder = r.next
-        }
-
-        debugLog("responderChain: no responder found after \(depth) levels — trying legacy openURL:")
-
-        let legacy = sel_registerName("openURL:")
-        responder = self as UIResponder
-        while let r = responder {
-            if r.responds(to: legacy) {
-                debugLog("responderChain: found legacy responder (\(type(of: r)))")
-                r.perform(legacy, with: url)
-                return
-            }
-            responder = r.next
-        }
-        debugLog("responderChain: nothing worked")
+    private func showOpenAppHint() {
+        let alert = UIAlertController(title: localized("title"), message: localized("body"), preferredStyle: .alert)
+        alert.addAction(UIAlertAction(title: localized("ok"), style: .default) { [weak self] _ in
+            self?.closeExtension()
+        })
+        present(alert, animated: true)
     }
 
     private func closeExtension() {
-        debugLog("closeExtension")
         extensionContext?.completeRequest(returningItems: nil, completionHandler: nil)
     }
 }

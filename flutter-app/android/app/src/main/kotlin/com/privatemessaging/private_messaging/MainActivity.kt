@@ -255,10 +255,19 @@ class MainActivity: FlutterActivity() {
         }
 
         // Solo se NON c'è un file, controlla il testo condiviso (link, URL, etc.)
-        if (intent.action == Intent.ACTION_SEND && intent.type?.startsWith("text/") == true) {
+        val isTextIntent = intent.type?.startsWith("text/") == true
+        if (intent.action == Intent.ACTION_SEND && isTextIntent) {
             intent.getStringExtra(Intent.EXTRA_TEXT)?.let { sharedText ->
                 Log.d(TAG, "Shared text received: $sharedText")
                 handleSharedText(sharedText)
+            }
+        } else if (intent.action == Intent.ACTION_SEND_MULTIPLE && isTextIntent) {
+            // Più testi condivisi insieme: uno per riga, un unico messaggio
+            val texts = intent.getStringArrayListExtra(Intent.EXTRA_TEXT)
+                ?: intent.getStringExtra(Intent.EXTRA_TEXT)?.let { arrayListOf(it) }
+            texts?.filter { it.isNotBlank() }?.takeIf { it.isNotEmpty() }?.let { list ->
+                Log.d(TAG, "Multiple shared texts received: ${list.size}")
+                handleSharedText(list.joinToString("\n"))
             }
         }
     }

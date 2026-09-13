@@ -21,6 +21,12 @@ Tutte le modifiche notevoli a questo progetto saranno documentate in questo file
 - Lato Flutter: lo stesso testo condiviso ricevuto entro 20 s viene ignorato; l'handler del canale viene rimosso alla chiusura della chat.
 - I file copiati dalla Share Extension nel container dell'App Group vengono cancellati dopo l'uso (prima restavano in chiaro per sempre).
 - Nel foglio di condivisione iOS l'estensione si chiama "Tuijo" invece di "ShareExtension".
+- **Più foto insieme**: l'estensione iOS ora accoda tutti gli elementi condivisi (fino a 10 immagini, documenti, testo) invece di prendere solo il primo; due condivisioni ravvicinate non si sovrascrivono più.
+- Rimosso il trucco con API private per aprire l'app dall'estensione (rischio App Review): se l'apertura non riesce, un avviso invita ad aprire Tuijo e il contenuto viene inserito al primo avvio.
+- Il contenuto in attesa nel container condiviso è protetto con NSFileProtectionComplete e cancellato dopo la lettura; niente più log di debug accumulato.
+- Se non sei abbinato o la chat non è pronta, la condivisione non sparisce più in silenzio: un avviso spiega cosa è successo (contenuto lasciato nel campo messaggio / abbina prima i telefoni).
+- Android: dichiarata la condivisione multipla di testo (`SEND_MULTIPLE text/*`), i testi arrivano in un unico messaggio.
+- Rimossa la dipendenza inutilizzata `receive_sharing_intent`.
 
 ### 🖼️ Store e localizzazione
 - **Android**: rimossa `FOREGROUND_SERVICE_CAMERA` (dichiarata dal plugin CallKit per le videochiamate, che TuyJo non ha). Build 45.
