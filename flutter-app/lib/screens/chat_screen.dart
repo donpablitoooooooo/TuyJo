@@ -108,10 +108,19 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   // Method Channel per condivisione file da altre app (iOS)
   static const platform = MethodChannel('com.privatemessaging.tuyjo/shared_media');
 
+  /// Anteprime link in lavorazione (messaggi scritti dalla Share Extension).
+  final Set<String> _linkPreviewInFlight = {};
+  ChatService? _listenedChatService;
+
   @override
   void initState() {
     super.initState();
     // Non chiamiamo _initialize qui, aspettiamo didChangeDependencies
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      _listenedChatService = Provider.of<ChatService>(context, listen: false)
+        ..addListener(_completePendingLinkPreviews);
+    });
 
     // 🔔 Aggiungi observer per lifecycle events (foreground/background)
     WidgetsBinding.instance.addObserver(this);
@@ -364,6 +373,59 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
         }
       });
     });
+  }
+
+  /// I messaggi inviati dalla Share Extension iOS arrivano senza anteprima
+  /// (l'estensione non scarica pagine web): quando l'app li vede, con
+  /// `needs_link_preview`, scarica l'anteprima e aggiorna il messaggio.
+  void _completePendingLinkPreviews() {
+    final chatService = _listenedChatService;
+    if (chatService == null || !mounted) return;
+    if (_familyChatId == null || _myDeviceId == null || _partnerPublicKey == null) return;
+    for (final m in chatService.messages) {
+      if (!m.needsLinkPreview || m.senderId != _myDeviceId) continue;
+      if (m.linkUrl != null || _linkPreviewInFlight.contains(m.id)) continue;
+      final text = m.decryptedContent;
+      if (text == null) continue;
+      _linkPreviewInFlight.add(m.id);
+      _completeLinkPreview(m.id, text);
+    }
+  }
+
+  Future<void> _completeLinkPreview(String messageId, String text) async {
+    final familyChatId = _familyChatId;
+    if (familyChatId == null) return;
+    final doc = FirebaseFirestore.instance
+        .collection('families')
+        .doc(familyChatId)
+        .collection('messages')
+        .doc(messageId);
+    try {
+      final linkService = LinkMetadataService();
+      final urls = linkService.extractUrls(text);
+      if (urls.isNotEmpty) {
+        final url = urls.first;
+        final result = await linkService.fetchLinkPreview(url).timeout(
+          const Duration(seconds: 10),
+          onTimeout: () => (metadata: null, imageFile: null),
+        );
+        if (!mounted) return;
+        if (result.imageFile != null || result.metadata != null) {
+          await _updateMessageWithAttachment(
+            messageId,
+            result.imageFile,
+            linkTitle: result.metadata?.title,
+            linkDescription: result.metadata?.description,
+            linkUrl: url,
+          );
+        }
+      }
+    } catch (e) {
+      if (kDebugMode) print('⚠️ [LINK] preview for shared message failed: $e');
+    } finally {
+      // In ogni caso togli il flag: niente tentativi infiniti.
+      doc.update({'needs_link_preview': FieldValue.delete()}).then((_) {}, onError: (_) {});
+    }
   }
 
   /// Fetch metadata del link e invia messaggio con preview
@@ -1019,6 +1081,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    _listenedChatService?.removeListener(_completePendingLinkPreviews);
     // Il canale è statico: senza questo, lo State smontato continuerebbe a
     // ricevere onTextShared/onMediaShared e a usare un context defunto.
     platform.setMethodCallHandler(null);

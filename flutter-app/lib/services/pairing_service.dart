@@ -5,6 +5,7 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:crypto/crypto.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'backup_service.dart';
+import 'share_bridge_service.dart';
 
 /// Servizio per gestire il pairing tra dispositivi tramite RSA public keys
 /// Architettura RSA-only: ogni dispositivo condivide solo la propria chiave pubblica
@@ -118,6 +119,7 @@ class PairingService extends ChangeNotifier {
       // Salva chiave pubblica del partner
       if (kDebugMode) print('💾 [PAIRING] Saving partner_public_key to secure storage...');
       await _storage.write(key: 'partner_public_key', value: partnerPublicKey);
+      ShareBridgeService().sync();
 
       // Verifica che sia stata salvata correttamente
       final savedKey = await _storage.read(key: 'partner_public_key');
@@ -240,6 +242,7 @@ class PairingService extends ChangeNotifier {
     // Poi elimina i dati locali e ferma il listener della famiglia
     stopListeningToPairingStatus();
     await _storage.delete(key: 'partner_public_key');
+    ShareBridgeService().sync();
 
     _isPaired = false;
     _partnerPublicKey = null;
@@ -281,6 +284,7 @@ class PairingService extends ChangeNotifier {
   Future<bool> restorePairing(String partnerPublicKey) async {
     try {
       await _storage.write(key: 'partner_public_key', value: partnerPublicKey);
+      ShareBridgeService().sync();
       _partnerPublicKey = partnerPublicKey;
       _isPaired = true;
       _familyWasComplete = true;
@@ -327,6 +331,7 @@ class PairingService extends ChangeNotifier {
   /// telefono rientrerà con un nuovo pairing.
   Future<void> unpairLocallyOnly() async {
     await _storage.delete(key: 'partner_public_key');
+    ShareBridgeService().sync();
     _isPaired = false;
     _partnerPublicKey = null;
     _familyWasComplete = false;
@@ -446,6 +451,7 @@ class PairingService extends ChangeNotifier {
         _familyWasComplete = false;
         _initCompleter = null; // Permetti re-inizializzazione al prossimo pairing
         await _storage.delete(key: 'partner_public_key');
+        ShareBridgeService().sync();
         notifyListeners();
 
         // Pulisci la cache locale (messaggi + foto). I messaggi sul SERVER
@@ -571,6 +577,7 @@ class PairingService extends ChangeNotifier {
 
           // Elimina la chiave partner locale
           await _storage.delete(key: 'partner_public_key');
+          ShareBridgeService().sync();
           _partnerPublicKey = null;
           _isPaired = false;
           _familyWasComplete = false;
@@ -662,6 +669,7 @@ class PairingService extends ChangeNotifier {
 
           // Fai unpair locale
           await _storage.delete(key: 'partner_public_key');
+          ShareBridgeService().sync();
           _isPaired = false;
           _partnerPublicKey = null;
           _familyWasComplete = false; // Reset per il prossimo pairing
@@ -689,6 +697,8 @@ class PairingService extends ChangeNotifier {
           }
 
           await _storage.delete(key: 'partner_public_key');
+
+          ShareBridgeService().sync();
           _isPaired = false;
           _partnerPublicKey = null;
           _familyWasComplete = false; // Reset per il prossimo pairing

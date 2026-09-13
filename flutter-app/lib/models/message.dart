@@ -171,6 +171,9 @@ class Message {
   String? linkTitle;
   String? linkDescription;
   String? linkUrl;
+  /// Messaggio scritto dalla Share Extension iOS: l'app deve ancora
+  /// generare l'anteprima del link.
+  final bool needsLinkPreview;
 
   // Reaction al messaggio (solo una reaction per messaggio, l'ultima vince)
   Reaction? reaction;
@@ -213,6 +216,7 @@ class Message {
     this.linkTitle,
     this.linkDescription,
     this.linkUrl,
+    this.needsLinkPreview = false,
     this.reaction,
     this.action,
     this.replyToMessageId,
@@ -297,6 +301,7 @@ class Message {
       linkTitle: data['link_title'],
       linkDescription: data['link_description'],
       linkUrl: data['link_url'],
+      needsLinkPreview: data['needs_link_preview'] == true,
       reaction: reaction,
       action: action,
       replyToMessageId: data['reply_to_message_id'],

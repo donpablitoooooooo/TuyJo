@@ -1,6 +1,9 @@
 import UIKit
 import Social
 import UniformTypeIdentifiers
+import CryptoKit
+import Security
+import CommonCrypto
 
 /// Share Extension di Tuijo.
 ///
@@ -146,16 +149,35 @@ class ShareViewController: UIViewController {
 
         group.notify(queue: .main) { [weak self] in
             guard let self = self else { return }
-            var queue: [[String: String]] = []
-            for p in filePaths { queue.append(["type": "file", "value": p]) }
-            for t in texts { queue.append(["type": "text", "value": t]) }
-            guard !queue.isEmpty, self.appendToQueue(queue) else {
-                self.debugLog("nothing to enqueue or write failed")
-                self.closeExtension()
+
+            // Solo testo/link e identità disponibile: invia direttamente da qui,
+            // senza dipendere dall'apertura dell'app.
+            if filePaths.isEmpty, !texts.isEmpty, let identity = ShareIdentity.load() {
+                self.sendTextsNatively(texts, identity: identity) { ok in
+                    if ok {
+                        self.showSentHudAndClose()
+                    } else {
+                        // Rete assente o errore: metti in coda e prova ad aprire l'app.
+                        self.enqueueAndOpen(files: [], texts: texts)
+                    }
+                }
                 return
             }
-            self.openMainApp()
+
+            self.enqueueAndOpen(files: filePaths, texts: texts)
         }
+    }
+
+    private func enqueueAndOpen(files: [String], texts: [String]) {
+        var queue: [[String: String]] = []
+        for p in files { queue.append(["type": "file", "value": p]) }
+        for t in texts { queue.append(["type": "text", "value": t]) }
+        guard !queue.isEmpty, appendToQueue(queue) else {
+            debugLog("nothing to enqueue or write failed")
+            closeExtension()
+            return
+        }
+        openMainApp()
     }
 
     // MARK: - Caricamento singoli elementi
@@ -310,6 +332,33 @@ class ShareViewController: UIViewController {
         return matches.isEmpty ? nil : matches.compactMap { Range($0.range, in: text).map { String(text[$0]) } }.first
     }
 
+
+    // MARK: - Invio diretto dall'estensione
+
+    /// Invia i testi uno per uno come messaggi cifrati (stesso formato del
+    /// client Flutter). Completa con true solo se TUTTI sono stati scritti.
+    private func sendTextsNatively(_ texts: [String], identity: ShareIdentity, completion: @escaping (Bool) -> Void) {
+        let group = DispatchGroup()
+        var allOk = true
+        let lock = NSLock()
+        for text in texts {
+            group.enter()
+            MessageSender.send(text: text, identity: identity) { ok in
+                if !ok { lock.lock(); allOk = false; lock.unlock() }
+                group.leave()
+            }
+        }
+        group.notify(queue: .main) { completion(allOk) }
+    }
+
+    private func showSentHudAndClose() {
+        let alert = UIAlertController(title: nil, message: "✓ " + localized("sent"), preferredStyle: .alert)
+        present(alert, animated: true)
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.9) { [weak self] in
+            alert.dismiss(animated: true) { self?.closeExtension() }
+        }
+    }
+
     // MARK: - Apertura dell'app principale
 
     private func openMainApp() {
@@ -348,6 +397,7 @@ class ShareViewController: UIViewController {
                 "ca": "Obre Tuijo per completar l'enviament: el contingut està a punt i s'afegirà tan bon punt obris l'app.",
             ],
             "ok": ["it": "OK", "en": "OK", "es": "OK", "ca": "D'acord"],
+            "sent": ["it": "Inviato", "en": "Sent", "es": "Enviado", "ca": "Enviat"],
         ]
         return table[key]?[code] ?? table[key]?["en"] ?? key
     }
@@ -362,5 +412,223 @@ class ShareViewController: UIViewController {
 
     private func closeExtension() {
         extensionContext?.completeRequest(returningItems: nil, completionHandler: nil)
+    }
+}
+
+
+// MARK: - Identità condivisa dall'app (Keychain, access group = App Group)
+
+/// L'app copia nel Keychain condiviso SOLO chiavi pubbliche e identificatori
+/// derivati (ShareBridgeService in Dart): per cifrare un messaggio non serve
+/// la chiave privata. Formato: kSecClassGenericPassword, service
+/// "tuyjo_share", account = nome chiave, access group = App Group.
+struct ShareIdentity {
+    static let accessGroup = "group.com.privatemessaging.tuyjo"
+    static let service = "tuyjo_share"
+
+    let myPublicKey: String       // SPKI DER base64 (formato del client Flutter)
+    let partnerPublicKey: String
+    let myUserId: String          // SHA256(myPublicKey)
+    let familyChatId: String      // SHA256(sorted([my, partner]).join("|"))
+
+    static func load() -> ShareIdentity? {
+        guard let my = read("my_public_key"), let partner = read("partner_public_key") else { return nil }
+        let myUserId = sha256Hex(my)
+        let family = sha256Hex([my, partner].sorted().joined(separator: "|"))
+        return ShareIdentity(myPublicKey: my, partnerPublicKey: partner, myUserId: myUserId, familyChatId: family)
+    }
+
+    private static func read(_ account: String) -> String? {
+        let query: [CFString: Any] = [
+            kSecClass: kSecClassGenericPassword,
+            kSecAttrService: service,
+            kSecAttrAccount: account,
+            kSecAttrAccessGroup: accessGroup,
+            kSecAttrSynchronizable: kSecAttrSynchronizableAny,
+            kSecReturnData: true,
+            kSecMatchLimit: kSecMatchLimitOne,
+        ]
+        var result: CFTypeRef?
+        let status = SecItemCopyMatching(query as CFDictionary, &result)
+        guard status == errSecSuccess, let data = result as? Data else { return nil }
+        return String(data: data, encoding: .utf8)
+    }
+
+    static func sha256Hex(_ s: String) -> String {
+        SHA256.hash(data: Data(s.utf8)).map { String(format: "%02x", $0) }.joined()
+    }
+}
+
+// MARK: - Cifratura compatibile con il client Flutter
+
+/// Dart: `encrypt` package `AES(key)` = AES/SIC (CTR big-endian) + PKCS7,
+/// chiave 32 byte, IV 16 byte; chiave AES avvolta con RSA-OAEP (SHA-1, come
+/// pointycastle `OAEPEncoding(RSAEngine())`) per mittente e destinatario.
+enum TuyjoCrypto {
+    struct Sealed { let encryptedKeyRecipient: String; let encryptedKeySender: String; let iv: String; let message: String }
+
+    static func encryptDual(plaintext: String, senderPublicKey: String, recipientPublicKey: String) -> Sealed? {
+        var aesKey = [UInt8](repeating: 0, count: 32)
+        var iv = [UInt8](repeating: 0, count: 16)
+        guard SecRandomCopyBytes(kSecRandomDefault, aesKey.count, &aesKey) == errSecSuccess,
+              SecRandomCopyBytes(kSecRandomDefault, iv.count, &iv) == errSecSuccess else { return nil }
+
+        guard let cipher = aesCtrPkcs7(Data(plaintext.utf8), key: Data(aesKey), iv: Data(iv)),
+              let wrappedRecipient = rsaOaepSha1(Data(aesKey), publicKeySpkiBase64: recipientPublicKey),
+              let wrappedSender = rsaOaepSha1(Data(aesKey), publicKeySpkiBase64: senderPublicKey) else { return nil }
+
+        return Sealed(
+            encryptedKeyRecipient: wrappedRecipient.base64EncodedString(),
+            encryptedKeySender: wrappedSender.base64EncodedString(),
+            iv: Data(iv).base64EncodedString(),
+            message: cipher.base64EncodedString()
+        )
+    }
+
+    /// PKCS7 manuale + AES-CTR (CommonCrypto, contatore big-endian sull'intero blocco).
+    static func aesCtrPkcs7(_ plain: Data, key: Data, iv: Data) -> Data? {
+        let pad = 16 - (plain.count % 16)
+        var padded = plain
+        padded.append(contentsOf: [UInt8](repeating: UInt8(pad), count: pad))
+
+        var cryptor: CCCryptorRef?
+        let createStatus = key.withUnsafeBytes { k in
+            iv.withUnsafeBytes { v in
+                CCCryptorCreateWithMode(CCOperation(kCCEncrypt), CCMode(kCCModeCTR), CCAlgorithm(kCCAlgorithmAES),
+                                        CCPadding(ccNoPadding), v.baseAddress, k.baseAddress, key.count,
+                                        nil, 0, 0, CCModeOptions(kCCModeOptionCTR_BE), &cryptor)
+            }
+        }
+        guard createStatus == kCCSuccess, let c = cryptor else { return nil }
+        defer { CCCryptorRelease(c) }
+
+        var out = Data(count: padded.count + 16)
+        var moved = 0
+        let updateStatus = padded.withUnsafeBytes { p in
+            out.withUnsafeMutableBytes { o in
+                CCCryptorUpdate(c, p.baseAddress, padded.count, o.baseAddress, o.count, &moved)
+            }
+        }
+        guard updateStatus == kCCSuccess else { return nil }
+        var finalMoved = 0
+        let finalStatus = out.withUnsafeMutableBytes { o in
+            CCCryptorFinal(c, o.baseAddress! + moved, o.count - moved, &finalMoved)
+        }
+        guard finalStatus == kCCSuccess else { return nil }
+        out.count = moved + finalMoved
+        return out
+    }
+
+    /// La chiave pubblica è in formato SPKI (X.509): SecKey vuole il PKCS#1
+    /// RSAPublicKey contenuto nella BIT STRING. Estrazione con un piccolo
+    /// parser DER (SEQUENCE { SEQUENCE {OID, NULL}, BIT STRING { 0x00, PKCS#1 } }).
+    static func rsaOaepSha1(_ data: Data, publicKeySpkiBase64: String) -> Data? {
+        guard let spki = Data(base64Encoded: publicKeySpkiBase64), let pkcs1 = pkcs1FromSpki(spki) else { return nil }
+        let attrs: [CFString: Any] = [
+            kSecAttrKeyType: kSecAttrKeyTypeRSA,
+            kSecAttrKeyClass: kSecAttrKeyClassPublic,
+        ]
+        var error: Unmanaged<CFError>?
+        guard let key = SecKeyCreateWithData(pkcs1 as CFData, attrs as CFDictionary, &error),
+              SecKeyIsAlgorithmSupported(key, .encrypt, .rsaEncryptionOAEPSHA1),
+              let out = SecKeyCreateEncryptedData(key, .rsaEncryptionOAEPSHA1, data as CFData, &error) else { return nil }
+        return out as Data
+    }
+
+    private static func pkcs1FromSpki(_ der: Data) -> Data? {
+        let bytes = [UInt8](der)
+        func readLength(_ i: inout Int) -> Int? {
+            guard i < bytes.count else { return nil }
+            let first = Int(bytes[i]); i += 1
+            if first < 0x80 { return first }
+            let n = first & 0x7f
+            guard n > 0, n <= 4, i + n <= bytes.count else { return nil }
+            var len = 0
+            for _ in 0..<n { len = (len << 8) | Int(bytes[i]); i += 1 }
+            return len
+        }
+        var i = 0
+        guard i < bytes.count, bytes[i] == 0x30 else { return nil }   // SEQUENCE esterna
+        i += 1; guard readLength(&i) != nil else { return nil }
+        guard i < bytes.count, bytes[i] == 0x30 else { return nil }   // AlgorithmIdentifier
+        i += 1; guard let algLen = readLength(&i) else { return nil }
+        i += algLen
+        guard i < bytes.count, bytes[i] == 0x03 else { return nil }   // BIT STRING
+        i += 1; guard let bitLen = readLength(&i), bitLen > 1, i + bitLen <= bytes.count else { return nil }
+        i += 1 // byte "unused bits"
+        return Data(bytes[i..<(i + bitLen - 1)])
+    }
+}
+
+// MARK: - Scrittura del messaggio su Firestore (REST)
+
+enum MessageSender {
+    static let projectId = "youandme-b3b4c"
+    static let apiKey = "AIzaSyBvouGrpQpW3sszEVDYBHncxa8jw7yi0T8"
+    static let appBundleId = "com.privatemessaging.tuyjo"
+
+    /// created_at nel formato di Dart `DateTime.now().toIso8601String()`
+    /// (ora locale, senza fuso): l'app ordina i messaggi su questa stringa.
+    private static func dartIsoNow(_ date: Date) -> String {
+        let f = DateFormatter()
+        f.locale = Locale(identifier: "en_US_POSIX")
+        f.timeZone = TimeZone.current
+        f.dateFormat = "yyyy-MM-dd'T'HH:mm:ss.SSSSSS"
+        return f.string(from: date)
+    }
+
+    static func send(text: String, identity: ShareIdentity, completion: @escaping (Bool) -> Void) {
+        let now = Date()
+        let plaintextObj: [String: Any] = [
+            "sender": identity.myUserId,
+            "timestamp": Int(now.timeIntervalSince1970),
+            "type": "text",
+            "body": text,
+        ]
+        guard let plainData = try? JSONSerialization.data(withJSONObject: plaintextObj),
+              let plaintext = String(data: plainData, encoding: .utf8),
+              let sealed = TuyjoCrypto.encryptDual(plaintext: plaintext,
+                                                   senderPublicKey: identity.myPublicKey,
+                                                   recipientPublicKey: identity.partnerPublicKey) else {
+            completion(false)
+            return
+        }
+
+        let hasLink = text.range(of: #"https?://"#, options: .regularExpression) != nil
+        var fields: [String: Any] = [
+            "sender_id": ["stringValue": identity.myUserId],
+            "encrypted_key_recipient": ["stringValue": sealed.encryptedKeyRecipient],
+            "encrypted_key_sender": ["stringValue": sealed.encryptedKeySender],
+            "iv": ["stringValue": sealed.iv],
+            "message": ["stringValue": sealed.message],
+            "created_at": ["stringValue": dartIsoNow(now)],
+            "message_type": ["stringValue": "text"],
+            "delivered": ["booleanValue": true],
+            "read": ["booleanValue": false],
+            "sent_via": ["stringValue": "ios_share_extension"],
+        ]
+        if hasLink {
+            // L'app completerà l'anteprima del link alla prossima apertura.
+            fields["needs_link_preview"] = ["booleanValue": true]
+        }
+
+        let path = "projects/\(projectId)/databases/(default)/documents/families/\(identity.familyChatId)/messages"
+        guard let url = URL(string: "https://firestore.googleapis.com/v1/\(path)?key=\(apiKey)"),
+              let body = try? JSONSerialization.data(withJSONObject: ["fields": fields]) else {
+            completion(false)
+            return
+        }
+        var req = URLRequest(url: url)
+        req.httpMethod = "POST"
+        req.timeoutInterval = 15
+        req.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        // La chiave API di Firebase è limitata alle app iOS del progetto.
+        req.setValue(appBundleId, forHTTPHeaderField: "X-Ios-Bundle-Identifier")
+        req.httpBody = body
+
+        URLSession.shared.dataTask(with: req) { _, response, error in
+            let code = (response as? HTTPURLResponse)?.statusCode ?? 0
+            completion(error == nil && (200..<300).contains(code))
+        }.resume()
     }
 }

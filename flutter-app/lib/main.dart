@@ -15,6 +15,7 @@ import 'services/couple_selfie_service.dart';
 import 'services/attachment_service.dart';
 import 'services/location_service.dart';
 import 'services/backup_service.dart';
+import 'services/share_bridge_service.dart';
 import 'package:private_messaging/generated/l10n/app_localizations.dart';
 
 void main() async {
@@ -146,6 +147,8 @@ void main() async {
   // così un salvataggio fallito al momento del pairing (Play Services non
   // pronto) o un blob nel vecchio formato vengono recuperati da soli.
   BackupService().cloudBackupNow(); // No await
+  // iOS: chiavi pubbliche nel Keychain condiviso con la Share Extension
+  ShareBridgeService().sync(); // No await
   pairingService.initialize(); // No await
   notificationService.initialize(); // No await
 

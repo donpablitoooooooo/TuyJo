@@ -27,6 +27,7 @@ Tutte le modifiche notevoli a questo progetto saranno documentate in questo file
 - Se non sei abbinato o la chat non è pronta, la condivisione non sparisce più in silenzio: un avviso spiega cosa è successo (contenuto lasciato nel campo messaggio / abbina prima i telefoni).
 - Android: dichiarata la condivisione multipla di testo (`SEND_MULTIPLE text/*`), i testi arrivano in un unico messaggio.
 - Rimossa la dipendenza inutilizzata `receive_sharing_intent`.
+- **iOS: l'estensione di condivisione invia da sola.** Link e testi condivisi da Safari o altre app vengono cifrati (stesso formato del client: AES-CTR + RSA-OAEP per mittente e destinatario) e scritti su Firestore direttamente dall'estensione, senza dover aprire l'app. L'app copia nel Keychain condiviso solo le chiavi pubbliche; la privata non lascia mai lo storage dell'app. L'anteprima del link viene completata dall'app alla prima apertura. Foto e documenti continuano a passare dall'app (serve la pipeline di upload cifrato).
 
 ### 🖼️ Store e localizzazione
 - **Android**: rimossa `FOREGROUND_SERVICE_CAMERA` (dichiarata dal plugin CallKit per le videochiamate, che TuyJo non ha). Build 45.
