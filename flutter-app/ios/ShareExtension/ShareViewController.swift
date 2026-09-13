@@ -323,7 +323,11 @@ class ShareViewController: UIViewController {
         ctx.open(url) { [weak self] success in
             DispatchQueue.main.async {
                 if success {
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { self?.closeExtension() }
+                    // Su iOS 26 chiudere l'estensione subito dopo open() annullava
+                    // l'apertura dell'app (visto a gennaio 2026). Aspetta che l'app
+                    // sia davvero in primo piano prima di completare la richiesta,
+                    // così l'host non resta coperto dalla vista trasparente.
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) { self?.closeExtension() }
                 } else {
                     self?.showOpenAppHint()
                 }
