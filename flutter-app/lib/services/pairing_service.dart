@@ -308,10 +308,12 @@ class PairingService extends ChangeNotifier {
           _firestore.collection('families').doc(familyChatId).collection('users');
 
       bool needWrite = true;
+      bool serverFamilyComplete = false;
       try {
         final snap = await usersRef.get(const GetOptions(source: Source.server));
         final partnerDocs = snap.docs.where((d) => d.id != myUserId).toList();
         final myDocs = snap.docs.where((d) => d.id == myUserId).toList();
+        serverFamilyComplete = partnerDocs.isNotEmpty;
 
         if (partnerDocs.isEmpty && myDocs.isEmpty) {
           if (kDebugMode) print('❌ [PAIRING] restore: famiglia inesistente sul server (backup vecchio?)');
@@ -341,7 +343,10 @@ class PairingService extends ChangeNotifier {
       ShareBridgeService().sync();
       _partnerPublicKey = partnerPublicKey;
       _isPaired = true;
-      _familyWasComplete = true;
+      // Non dichiarare la famiglia "completa" alla cieca: con questo flag a
+      // true uno snapshot parziale (count 1) viene letto come "il partner se
+      // n'è andato". Lo imposta il listener quando vede davvero 2 documenti.
+      _familyWasComplete = serverFamilyComplete;
 
       if (needWrite) {
         await usersRef.doc(myUserId).set({
@@ -474,6 +479,20 @@ class PairingService extends ChangeNotifier {
       if (_partnerPublicKey == null) {
         if (kDebugMode) print('🔇 [PAIRING] Locally unpaired, ignoring family snapshot');
         stopListeningToPairingStatus();
+        return;
+      }
+
+      // GUARDIA: snapshot dalla cache locale o con scritture in attesa.
+      // Con la persistenza Firestore, subito dopo un ripristino la cache
+      // contiene SOLO il mio documento appena scritto: lo snapshot arriva con
+      // userCount = 1 e, con _familyWasComplete = true, faceva scattare
+      // "partner unpaired" → cancellazione del mio documento → il partner
+      // vedeva la famiglia incompleta e si spaiava a sua volta. Nessuna
+      // decisione (né distruttiva né di stato) finché non parla il server.
+      if (snapshot.metadata.isFromCache || snapshot.metadata.hasPendingWrites) {
+        if (kDebugMode) {
+          print('⏭️ [PAIRING] Snapshot locale (cache=${snapshot.metadata.isFromCache}, pending=${snapshot.metadata.hasPendingWrites}), ignorato');
+        }
         return;
       }
 
