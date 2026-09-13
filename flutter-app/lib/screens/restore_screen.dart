@@ -1,6 +1,8 @@
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:private_messaging/generated/l10n/app_localizations.dart';
@@ -38,6 +40,7 @@ class _RestoreScreenState extends State<RestoreScreen> {
   String? _pastedKey; // chiave privata incollata dagli appunti
   String? _pastedPartnerKey; // chiave del partner dal bundle incollato
   bool _working = false; // "Avanti" in corso
+  bool _manualOpen = false; // sezione "Ho un backup manuale" espansa
 
   @override
   void initState() {
@@ -65,8 +68,10 @@ class _RestoreScreenState extends State<RestoreScreen> {
     final restored =
         await BackupService().cloudRestoreIfNeeded(force: priv != null);
     if (mounted) {
-      setState(
-          () => _source = restored ? _CertSource.cloud : _CertSource.missing);
+      setState(() {
+        _source = restored ? _CertSource.cloud : _CertSource.missing;
+        if (!restored) _manualOpen = true;
+      });
     }
   }
 
@@ -90,6 +95,28 @@ class _RestoreScreenState extends State<RestoreScreen> {
       return;
     }
 
+    _applyRaw(raw);
+  }
+
+  /// Importa il certificato da un file (es. tuyjo-certificato.txt salvato
+  /// in Files o nel gestore di password).
+  Future<void> _pickCertificateFile() async {
+    try {
+      final result = await FilePicker.platform.pickFiles(withData: true);
+      final file = result?.files.single;
+      if (file == null) return;
+      final bytes = file.bytes ??
+          (file.path != null ? await File(file.path!).readAsBytes() : null);
+      if (bytes == null) throw Exception('empty');
+      _applyRaw(utf8.decode(bytes).trim());
+    } catch (e) {
+      if (!mounted) return;
+      _showError(AppLocalizations.of(context)!.restoreFileReadError(e.toString()));
+    }
+  }
+
+  /// Bundle base64(json{priv,pub?,partner?}) oppure chiave privata grezza.
+  void _applyRaw(String raw) {
     String key = raw;
     String? partnerKey;
     try {
@@ -101,7 +128,7 @@ class _RestoreScreenState extends State<RestoreScreen> {
     } catch (_) {
       // non è un bundle: chiave privata grezza
     }
-
+    if (!mounted) return;
     setState(() {
       _pastedKey = key;
       _pastedPartnerKey = partnerKey;
@@ -238,12 +265,8 @@ class _RestoreScreenState extends State<RestoreScreen> {
                     const SizedBox(height: 16),
                     _statusCard(),
                     if (_source != _CertSource.checking) ...[
-                      const SizedBox(height: 12),
-                      _gradientButton(
-                        icon: Icons.content_paste,
-                        label: l10n.restorePasteButton,
-                        onTap: _pasteCertificate,
-                      ),
+                      const SizedBox(height: 16),
+                      _manualSection(l10n),
                     ],
                   ],
                 ),
@@ -261,6 +284,51 @@ class _RestoreScreenState extends State<RestoreScreen> {
           ),
         ),
       ),
+    );
+  }
+
+  // ── Backup manuale: scelta secondaria, espandibile ───────────────────────
+  Widget _manualSection(AppLocalizations l10n) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        TextButton.icon(
+          onPressed: () => setState(() => _manualOpen = !_manualOpen),
+          icon: Icon(_manualOpen ? Icons.expand_less : Icons.expand_more,
+              color: Colors.white),
+          label: Text(
+            l10n.restoreManualToggle,
+            style: const TextStyle(color: Colors.white, fontSize: 15),
+          ),
+        ),
+        if (_manualOpen) ...[
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: _cardDecoration(),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Text(
+                  l10n.restoreManualIntro,
+                  style: TextStyle(fontSize: 13, color: Colors.grey.shade700, height: 1.4),
+                ),
+                const SizedBox(height: 12),
+                _gradientButton(
+                  icon: Icons.content_paste,
+                  label: l10n.restorePasteButton,
+                  onTap: _pasteCertificate,
+                ),
+                const SizedBox(height: 8),
+                _gradientButton(
+                  icon: Icons.folder_open,
+                  label: l10n.restorePickFileButton,
+                  onTap: _pickCertificateFile,
+                ),
+              ],
+            ),
+          ),
+        ],
+      ],
     );
   }
 

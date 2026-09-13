@@ -13,6 +13,8 @@ Tutte le modifiche notevoli a questo progetto saranno documentate in questo file
 - **Promemoria backup manuale**: se il certificato è cambiato dopo l'ultima copia (es. dopo un pairing) un banner in chat invita a ricopiarlo, con accesso diretto alla pagina Backup.
 - **"Condividi come file"**: il certificato manuale si può salvare come file di testo (Files, gestore di password, AirDrop) oltre che copiarlo negli appunti.
 - **iOS: backup cloud reale su iCloud Keychain.** La scelta "cloud" ora salva il certificato in un elemento del Keychain sincronizzato con iCloud: cambiando iPhone (stesso Apple ID, iCloud Keychain attivo) il certificato c'è già. Prima l'opzione non salvava nulla e funzionava solo perché il Keychain locale sopravvive alla disinstallazione.
+- **Recupero automatico anche senza rete all'installazione**: se il primo tentativo fallisce, l'app riprova da sola a ogni ritorno in primo piano e ogni 20 secondi finché non è accoppiata; appena il backup cloud è raggiungibile la chat torna senza passare da Ripristino. In Impostazioni una riga lo spiega.
+- Pagina Ripristino: il backup manuale è ora una scelta secondaria ("Ho un backup manuale") con due modi per importarlo, dagli appunti o da file.
 - Backup cloud Android più robusto: se il salvataggio nel Block Store fallisce l'utente viene avvisato (prima passava in silenzio); il blob viene riscritto a ogni avvio; la lettura viene ritentata se Play Services non è pronto; i backup nel formato di giugno 2026 (senza marcatore) vengono ripristinati invece di essere cancellati.
 
 ### 📤 Condivisione verso TuyJo (link/foto da altre app)

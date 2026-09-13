@@ -7,7 +7,10 @@ import '../services/pairing_service.dart';
 import '../services/couple_selfie_service.dart';
 import '../state/ui_state.dart';
 import '../services/notification_service.dart';
+import 'dart:async';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import '../services/backup_service.dart';
+import '../services/encryption_service.dart';
 import 'backup_choice_screen.dart';
 import 'chat_screen.dart';
 import 'media_screen.dart';
@@ -22,7 +25,7 @@ class MainScreen extends StatefulWidget {
   State<MainScreen> createState() => _MainScreenState();
 }
 
-class _MainScreenState extends State<MainScreen> {
+class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
   int _selectedIndex = 0;
   bool _isInitialized = false;
   bool _wasPaired = false; // Traccia lo stato precedente per rilevare i cambiamenti
@@ -30,10 +33,15 @@ class _MainScreenState extends State<MainScreen> {
   /// Chiave SharedPreferences: l'utente ha scelto di non abilitare le notifiche.
   static const String _notificationsOptOutKey = 'notifications_opt_out';
 
+  Timer? _autoRestoreTimer;
+  bool _autoRestoreInFlight = false;
+
   @override
   void initState() {
     super.initState();
     _initializeTab();
+    WidgetsBinding.instance.addObserver(this);
+    _scheduleAutoRestore();
 
     // Aggiungi listener per rilevare quando il pairing cambia
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -44,10 +52,64 @@ class _MainScreenState extends State<MainScreen> {
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _autoRestoreTimer?.cancel();
     // Rimuovi listener
     final pairingService = Provider.of<PairingService>(context, listen: false);
     pairingService.removeListener(_onPairingChanged);
     super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) _tryAutoRestore();
+  }
+
+  /// Recupero automatico dal cloud anche DOPO l'avvio: se l'app è stata
+  /// installata senza rete, il tentativo iniziale fallisce; qui si riprova a
+  /// ogni ritorno in foreground e ogni 20 s finché non si è accoppiati, così
+  /// il comportamento non dipende da quando arriva la connessione.
+  void _scheduleAutoRestore() {
+    _autoRestoreTimer?.cancel();
+    _autoRestoreTimer = Timer.periodic(const Duration(seconds: 20), (_) => _tryAutoRestore());
+    Future.delayed(const Duration(seconds: 2), _tryAutoRestore);
+  }
+
+  Future<void> _tryAutoRestore() async {
+    if (!mounted || _autoRestoreInFlight) return;
+    final pairingService = Provider.of<PairingService>(context, listen: false);
+    if (pairingService.isPaired) {
+      _autoRestoreTimer?.cancel();
+      return;
+    }
+    _autoRestoreInFlight = true;
+    try {
+      const storage = FlutterSecureStorage();
+      // Con una chiave locale già presente non c'è nulla da recuperare
+      // (identità nuova o ripristino manuale già fatto).
+      if (await storage.read(key: 'rsa_private_key') != null) return;
+      final restored = await BackupService().cloudRestoreIfNeeded();
+      if (!restored || !mounted) return;
+      await Provider.of<EncryptionService>(context, listen: false).loadStoredKeyPair();
+      final partner = await storage.read(key: 'partner_public_key');
+      if (partner == null || !mounted) return;
+      final ok = await pairingService.restorePairing(partner);
+      if (!ok || !mounted) return;
+      _autoRestoreTimer?.cancel();
+      final l10n = AppLocalizations.of(context)!;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(l10n.autoRestoreDone),
+          backgroundColor: const Color(0xFF145A60),
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        ),
+      );
+    } catch (e) {
+      debugPrint('⚠️ [AUTO-RESTORE] $e');
+    } finally {
+      _autoRestoreInFlight = false;
+    }
   }
 
   /// Chiamato quando lo stato del pairing cambia

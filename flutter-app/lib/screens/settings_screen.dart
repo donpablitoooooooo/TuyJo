@@ -530,6 +530,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 AppLocalizations.of(context)!.settingsChooseAction,
                 style: const TextStyle(color: Colors.grey, fontSize: 14),
               ),
+              const SizedBox(height: 8),
+              Text(
+                AppLocalizations.of(context)!.settingsAutoRestoreHint,
+                style: TextStyle(color: Colors.grey.shade600, fontSize: 12, height: 1.35),
+              ),
               const SizedBox(height: 16),
               _PurpleButton(
                 onPressed: _startNewPairingFlow,
