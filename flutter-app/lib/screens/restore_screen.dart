@@ -184,7 +184,20 @@ class _RestoreScreenState extends State<RestoreScreen> {
         // Certificato completo → riconnessione diretta, senza QR.
         // La UI passa alla chat via Provider: basta chiudere la pagina.
         final ok = await pairingService.restorePairing(partner);
-        if (!ok) throw Exception('riconnessione non riuscita');
+        if (!ok) {
+          if (!mounted) return;
+          final l10n = AppLocalizations.of(context)!;
+          switch (pairingService.lastRestoreOutcome) {
+            case RestoreOutcome.familyMissing:
+              _showError(l10n.restoreConflictFamilyMissing);
+              return;
+            case RestoreOutcome.keyMismatch:
+              _showError(l10n.restoreConflictKeyMismatch);
+              return;
+            default:
+              throw Exception('riconnessione non riuscita');
+          }
+        }
         if (!mounted) return;
         Navigator.pop(context);
       } else {

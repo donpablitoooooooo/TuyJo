@@ -382,6 +382,8 @@
     "restoreClipboardEmpty": "El porta-retalls és buit: primer copia el certificat de la teva còpia de seguretat",
     "restoreClipboardError": "Error en llegir el porta-retalls: {error}",
     "restoreFailed": "Restauració fallida: {error}",
+    "restoreConflictFamilyMissing": "La còpia fa referència a un xat que ja no existeix al servidor (probablement el teu amor s'ha tornat a aparellar). Torneu-vos a aparellar amb els QR: els missatges actuals es conserven.",
+    "restoreConflictKeyMismatch": "El certificat de la còpia no coincideix amb les claus actuals del xat: és una còpia antiga. Torneu-vos a aparellar amb els QR.",
     "todoSheetTitle": "Nova tasca",
     "todoSheetSave": "Desa",
     "todoSheetNameHint": "Nom de la tasca",

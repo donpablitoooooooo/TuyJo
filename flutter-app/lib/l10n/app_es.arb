@@ -382,6 +382,8 @@
     "restoreClipboardEmpty": "El portapapeles está vacío: copia primero el certificado de tu copia de seguridad",
     "restoreClipboardError": "Error al leer el portapapeles: {error}",
     "restoreFailed": "Restauración fallida: {error}",
+    "restoreConflictFamilyMissing": "La copia se refiere a un chat que ya no existe en el servidor (probablemente tu amor volvió a emparejarse). Volved a emparejaros con los QR: los mensajes actuales se conservan.",
+    "restoreConflictKeyMismatch": "El certificado de la copia no coincide con las claves actuales del chat: es una copia antigua. Volved a emparejaros con los QR.",
     "todoSheetTitle": "Nueva tarea",
     "todoSheetSave": "Guardar",
     "todoSheetNameHint": "Nombre de la tarea",

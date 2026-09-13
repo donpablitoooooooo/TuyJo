@@ -381,6 +381,8 @@
     "restoreClipboardEmpty": "Negli appunti non c'è nulla: copia prima il certificato dal tuo backup",
     "restoreClipboardError": "Errore nel leggere gli appunti: {error}",
     "restoreFailed": "Ripristino non riuscito: {error}",
+    "restoreConflictFamilyMissing": "Il backup si riferisce a una chat che non esiste più sul server (probabilmente il tuo amore ha rifatto il pairing). Rifate il pairing con i QR: i messaggi attuali restano.",
+    "restoreConflictKeyMismatch": "Il certificato nel backup non corrisponde alle chiavi attuali della chat: è un backup vecchio. Rifate il pairing con i QR.",
     "todoSheetTitle": "Nuovo todo",
     "todoSheetSave": "Salva",
     "todoSheetNameHint": "Nome todo",

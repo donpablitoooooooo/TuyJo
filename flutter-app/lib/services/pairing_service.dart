@@ -281,40 +281,87 @@ class PairingService extends ChangeNotifier {
   /// partner, segna come accoppiato, riscrive il documento utente su Firestore
   /// e fa ripartire il listener — senza pairing QR. La UI passa alla chat via
   /// Provider (notifyListeners). Richiede che rsa_public_key sia già salvata.
+  /// Esito dettagliato dell'ultimo restorePairing (per spiegare all'utente).
+  RestoreOutcome lastRestoreOutcome = RestoreOutcome.ok;
+
+  /// Ripristina il pairing da un certificato (cloud o manuale).
+  ///
+  /// PRIMA di dichiararsi accoppiato controlla la famiglia sul server: un
+  /// backup vecchio (chiavi di un'identità precedente) o riferito a una chat
+  /// che il partner ha rifatto porterebbe l'app in una chat sbagliata e, se
+  /// scrivesse il proprio documento con chiavi diverse, farebbe scattare sul
+  /// telefono del partner la pulizia "famiglia corrotta". Il documento viene
+  /// scritto solo se manca o è diverso, per non svegliare inutilmente il
+  /// listener del partner. Senza rete (get fallito) si procede in modo
+  /// ottimistico, come prima.
   Future<bool> restorePairing(String partnerPublicKey) async {
     try {
+      final myPublicKey = await _storage.read(key: 'rsa_public_key');
+      if (myPublicKey == null) {
+        lastRestoreOutcome = RestoreOutcome.error;
+        return false;
+      }
+      final myUserId = sha256.convert(utf8.encode(myPublicKey)).toString();
+      final keys = [myPublicKey, partnerPublicKey]..sort();
+      final familyChatId = sha256.convert(utf8.encode(keys.join('|'))).toString();
+      final usersRef =
+          _firestore.collection('families').doc(familyChatId).collection('users');
+
+      bool needWrite = true;
+      try {
+        final snap = await usersRef.get(const GetOptions(source: Source.server));
+        final partnerDocs = snap.docs.where((d) => d.id != myUserId).toList();
+        final myDocs = snap.docs.where((d) => d.id == myUserId).toList();
+
+        if (partnerDocs.isEmpty && myDocs.isEmpty) {
+          if (kDebugMode) print('❌ [PAIRING] restore: famiglia inesistente sul server (backup vecchio?)');
+          lastRestoreOutcome = RestoreOutcome.familyMissing;
+          return false;
+        }
+        if (partnerDocs.isNotEmpty &&
+            partnerDocs.first.data()['my_public_key'] != partnerPublicKey) {
+          if (kDebugMode) print('❌ [PAIRING] restore: la chiave del partner nel backup non corrisponde');
+          lastRestoreOutcome = RestoreOutcome.keyMismatch;
+          return false;
+        }
+        if (myDocs.isNotEmpty) {
+          final d = myDocs.first.data();
+          if (d['my_public_key'] != myPublicKey) {
+            if (kDebugMode) print('❌ [PAIRING] restore: la mia chiave sul server è diversa');
+            lastRestoreOutcome = RestoreOutcome.keyMismatch;
+            return false;
+          }
+          needWrite = d['partner_public_key'] != partnerPublicKey;
+        }
+      } on FirebaseException catch (e) {
+        if (kDebugMode) print('⚠️ [PAIRING] restore: verifica server non riuscita (${e.code}), procedo in modo ottimistico');
+      }
+
       await _storage.write(key: 'partner_public_key', value: partnerPublicKey);
       ShareBridgeService().sync();
       _partnerPublicKey = partnerPublicKey;
       _isPaired = true;
       _familyWasComplete = true;
 
-      final myUserId = await getMyUserId();
-      final myPublicKey = await _storage.read(key: 'rsa_public_key');
-      final familyChatId = await getFamilyChatId();
-
-      if (myUserId != null && myPublicKey != null && familyChatId != null) {
-        await _firestore
-            .collection('families')
-            .doc(familyChatId)
-            .collection('users')
-            .doc(myUserId)
-            .set({
+      if (needWrite) {
+        await usersRef.doc(myUserId).set({
           'paired_at': FieldValue.serverTimestamp(),
           'my_public_key': myPublicKey,
           'partner_public_key': partnerPublicKey,
         });
-        if (kDebugMode) {
-          print('✅ [PAIRING] restorePairing OK, family: ${familyChatId.substring(0, 10)}...');
-        }
+      }
+      if (kDebugMode) {
+        print('✅ [PAIRING] restorePairing OK, family: ${familyChatId.substring(0, 10)}... (doc ${needWrite ? "scritto" : "già coerente"})');
       }
 
+      lastRestoreOutcome = RestoreOutcome.ok;
       notifyListeners();
       _startBackgroundUnpairListener();
       BackupService().cloudBackupNow();
       return true;
     } catch (e) {
       if (kDebugMode) print('❌ [PAIRING] restorePairing failed: $e');
+      lastRestoreOutcome = RestoreOutcome.error;
       return false;
     }
   }
@@ -769,4 +816,14 @@ class PairingService extends ChangeNotifier {
     stopListeningToPairingStatus();
     super.dispose();
   }
+}
+
+/// Perché un ripristino può essere rifiutato.
+enum RestoreOutcome {
+  ok,
+  /// La famiglia (chat) di quel certificato non esiste più sul server.
+  familyMissing,
+  /// Le chiavi nel backup non corrispondono a quelle attuali della chat.
+  keyMismatch,
+  error,
 }

@@ -94,14 +94,33 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
       final partner = await storage.read(key: 'partner_public_key');
       if (partner == null || !mounted) return;
       final ok = await pairingService.restorePairing(partner);
-      if (!ok || !mounted) return;
+      if (!mounted) return;
       _autoRestoreTimer?.cancel();
       final l10n = AppLocalizations.of(context)!;
+      String text;
+      if (ok) {
+        text = l10n.autoRestoreDone;
+      } else {
+        // Il certificato c'è ma non corrisponde alla chat sul server: meglio
+        // dirlo subito che lasciare l'utente in una chat vuota. Le chiavi
+        // restano in locale: con "Nuovo pairing" il partner rifà il QR.
+        switch (pairingService.lastRestoreOutcome) {
+          case RestoreOutcome.familyMissing:
+            text = l10n.restoreConflictFamilyMissing;
+            break;
+          case RestoreOutcome.keyMismatch:
+            text = l10n.restoreConflictKeyMismatch;
+            break;
+          default:
+            return; // errore generico/rete: si riproverà
+        }
+      }
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(l10n.autoRestoreDone),
-          backgroundColor: const Color(0xFF145A60),
+          content: Text(text),
+          backgroundColor: ok ? const Color(0xFF145A60) : Colors.orange[800],
           behavior: SnackBarBehavior.floating,
+          duration: Duration(seconds: ok ? 4 : 8),
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         ),
       );

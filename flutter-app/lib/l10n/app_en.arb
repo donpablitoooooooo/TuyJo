@@ -385,6 +385,8 @@
     "restoreClipboardEmpty": "The clipboard is empty: first copy the certificate from your backup",
     "restoreClipboardError": "Could not read the clipboard: {error}",
     "restoreFailed": "Restore failed: {error}",
+    "restoreConflictFamilyMissing": "The backup refers to a chat that no longer exists on the server (your love probably paired again). Pair again with the QR codes: current messages are kept.",
+    "restoreConflictKeyMismatch": "The certificate in the backup does not match the chat's current keys: it is an old backup. Pair again with the QR codes.",
     "todoSheetTitle": "New to-do",
     "todoSheetSave": "Save",
     "todoSheetNameHint": "To-do name",
