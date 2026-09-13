@@ -279,8 +279,9 @@ import flutter_callkit_incoming
     if let channel = methodChannel {
       print("📲 Flutter ready, invoking onMediaShared")
       channel.invokeMethod("onMediaShared", arguments: copiedPaths)
-      // Salva anche come initialMediaPaths per getInitialMedia
-      initialMediaPaths = copiedPaths
+      // NON salvare anche in initialMediaPaths: Flutter riceve già il push
+      // (bufferizzato dal canale finché ChatScreen registra l'handler) e poi
+      // chiama getInitialMedia → i file arriverebbero due volte.
     } else {
       // Altrimenti salva per dopo
       print("⏳ Flutter not ready, saving as initialMediaPaths")
@@ -331,6 +332,16 @@ import flutter_callkit_incoming
       try FileManager.default.copyItem(at: url, to: destURL)
       print("✅ Copy successful")
 
+      // L'originale scritto dalla Share Extension nel container dell'App Group
+      // non serve più: rimuovilo, altrimenti il container accumula per sempre
+      // copie in chiaro dei file condivisi.
+      if let groupURL = FileManager.default.containerURL(
+           forSecurityApplicationGroupIdentifier: "group.com.privatemessaging.tuyjo"),
+         url.path.hasPrefix(groupURL.path) {
+        try? FileManager.default.removeItem(at: url)
+        print("🧹 Removed App Group original")
+      }
+
       return destURL.path
     } catch {
       print("❌ Copy error: \(error)")
@@ -346,8 +357,10 @@ import flutter_callkit_incoming
     if let channel = methodChannel {
       print("📲 Flutter ready, invoking onTextShared")
       channel.invokeMethod("onTextShared", arguments: text)
-      // Salva anche come initialSharedText per getInitialSharedText
-      initialSharedText = text
+      // NON salvare anche in initialSharedText: il push viene bufferizzato dal
+      // canale e consegnato appena ChatScreen registra l'handler; con la copia
+      // in initialSharedText, getInitialSharedText lo rimandava una seconda
+      // volta → link duplicato in chat (stesso fix già fatto su Android).
     } else {
       // Altrimenti salva per dopo
       print("⏳ Flutter not ready, saving as initialSharedText")

@@ -242,11 +242,26 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     }
   }
 
+  /// Testi condivisi gestiti di recente: lo stesso payload può arrivare due
+  /// volte (push onTextShared + pull getInitialSharedText, oppure estensione
+  /// ripresentata). Entro questa finestra il duplicato viene ignorato.
+  final Map<String, DateTime> _recentSharedTexts = {};
+  static const Duration _sharedTextDedupWindow = Duration(seconds: 20);
+
   /// Gestisce il testo condiviso da altre app (crea messaggio direttamente)
   Future<void> _handleSharedText(String text) async {
     if (kDebugMode) {
       print("📝 [SHARED-TEXT] Received shared text: $text");
     }
+
+    final now = DateTime.now();
+    _recentSharedTexts.removeWhere(
+        (_, t) => now.difference(t) > _sharedTextDedupWindow);
+    if (_recentSharedTexts.containsKey(text)) {
+      if (kDebugMode) print("⏭️ [SHARED-TEXT] Duplicate within window, ignored");
+      return;
+    }
+    _recentSharedTexts[text] = now;
 
     // ⏳ IMPORTANTE: Aspetta che la chat sia inizializzata
     // Controlla ogni 100ms per max 5 secondi
@@ -260,6 +275,8 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       await Future.delayed(const Duration(milliseconds: 100));
       attempts++;
     }
+
+    if (!mounted) return;
 
     // Se dopo 5 secondi la chat non è pronta, abbandona
     if (_familyChatId == null || _myDeviceId == null || _partnerPublicKey == null) {
@@ -976,6 +993,9 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    // Il canale è statico: senza questo, lo State smontato continuerebbe a
+    // ricevere onTextShared/onMediaShared e a usare un context defunto.
+    platform.setMethodCallHandler(null);
     Provider.of<ChatService>(context, listen: false).chatScreenMounted = false;
     _messageController.dispose();
     _scrollController.dispose();

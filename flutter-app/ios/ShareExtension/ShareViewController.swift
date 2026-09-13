@@ -22,8 +22,18 @@ class ShareViewController: UIViewController {
         view.superview?.backgroundColor = .clear
     }
 
+    /// viewDidAppear può scattare più volte (l'utente torna sull'app host e
+    /// l'estensione viene ripresentata): il contenuto va gestito UNA volta,
+    /// altrimenti viene riscritto nell'App Group e rimandato in chat.
+    private var didHandle = false
+
     override func viewDidAppear(_ animated: Bool) {
         super.viewDidAppear(animated)
+        guard !didHandle else {
+            debugLog("viewDidAppear — already handled, ignoring")
+            return
+        }
+        didHandle = true
         debugLog("viewDidAppear — starting")
         handleSharedContent()
     }
@@ -403,7 +413,9 @@ class ShareViewController: UIViewController {
 
         userDefaults.set(text, forKey: key)
         userDefaults.synchronize()
+        #if DEBUG
         print("✅ Saved to App Group [\(key)]: \(text)")
+        #endif
     }
 
     private func openMainApp() {
@@ -433,7 +445,14 @@ class ShareViewController: UIViewController {
             // 1) Official API
             self.extensionContext?.open(url) { success in
                 self.debugLog("openMainApp: extensionContext.open result = \(success)")
-                if success { return }
+                if success {
+                    // Chiudi sempre l'estensione: lasciata viva, alla successiva
+                    // ripresentazione riscriveva il contenuto e lo rimandava.
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                        self.closeExtension()
+                    }
+                    return
+                }
 
                 // 2) Responder chain
                 DispatchQueue.main.async {

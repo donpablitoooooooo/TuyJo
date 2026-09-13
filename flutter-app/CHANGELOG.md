@@ -15,6 +15,13 @@ Tutte le modifiche notevoli a questo progetto saranno documentate in questo file
 - **iOS: backup cloud reale su iCloud Keychain.** La scelta "cloud" ora salva il certificato in un elemento del Keychain sincronizzato con iCloud: cambiando iPhone (stesso Apple ID, iCloud Keychain attivo) il certificato c'è già. Prima l'opzione non salvava nulla e funzionava solo perché il Keychain locale sopravvive alla disinstallazione.
 - Backup cloud Android più robusto: se il salvataggio nel Block Store fallisce l'utente viene avvisato (prima passava in silenzio); il blob viene riscritto a ogni avvio; la lettura viene ritentata se Play Services non è pronto; i backup nel formato di giugno 2026 (senza marcatore) vengono ripristinati invece di essere cancellati.
 
+### 📤 Condivisione verso TuyJo (link/foto da altre app)
+- **iOS: link condiviso arrivava due volte in chat.** L'AppDelegate inviava il testo a Flutter e lo teneva anche per la richiesta successiva (`getInitialSharedText`): entrambi finivano in un messaggio. Allineato ad Android, che era già corretto.
+- L'estensione di condivisione gestisce il contenuto una sola volta e si chiude sempre dopo aver aperto l'app (prima restava viva e poteva rimandare il contenuto).
+- Lato Flutter: lo stesso testo condiviso ricevuto entro 20 s viene ignorato; l'handler del canale viene rimosso alla chiusura della chat.
+- I file copiati dalla Share Extension nel container dell'App Group vengono cancellati dopo l'uso (prima restavano in chiaro per sempre).
+- Nel foglio di condivisione iOS l'estensione si chiama "Tuijo" invece di "ShareExtension".
+
 ### 🖼️ Store e localizzazione
 - **Android**: rimossa `FOREGROUND_SERVICE_CAMERA` (dichiarata dal plugin CallKit per le videochiamate, che TuyJo non ha). Build 45.
 - **Nuovi screenshot per App Store e Google Play** (iPhone 6,9", iPad 13", telefono e tablet Android, immagine in evidenza) in it/en/es/ca, generati da `store/screenshots/` con lo stile del sito.
