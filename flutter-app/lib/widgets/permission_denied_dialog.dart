@@ -8,11 +8,14 @@ import 'package:private_messaging/generated/l10n/app_localizations.dart';
 /// [title] - Titolo del dialog (es. "Microfono non disponibile")
 /// [message] - Messaggio che spiega perché il permesso è necessario
 /// [isPermanentlyDenied] - Se true, mostra il pulsante "Apri Impostazioni"
+/// [onOpenSettings] - Azione alternativa per il pulsante "Apri Impostazioni"
+///   (es. impostazioni di localizzazione del sistema invece di quelle dell'app)
 Future<void> showPermissionDeniedDialog({
   required BuildContext context,
   required String title,
   required String message,
   bool isPermanentlyDenied = false,
+  Future<void> Function()? onOpenSettings,
 }) async {
   final l10n = AppLocalizations.of(context)!;
 
@@ -54,11 +57,15 @@ Future<void> showPermissionDeniedDialog({
               style: const TextStyle(color: Colors.white54),
             ),
           ),
-          if (isPermanentlyDenied)
+          if (isPermanentlyDenied || onOpenSettings != null)
             TextButton(
               onPressed: () {
                 Navigator.of(dialogContext).pop();
-                openAppSettings();
+                if (onOpenSettings != null) {
+                  onOpenSettings();
+                } else {
+                  openAppSettings();
+                }
               },
               child: Text(
                 l10n.permissionOpenSettings,
