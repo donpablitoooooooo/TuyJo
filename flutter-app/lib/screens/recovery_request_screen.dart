@@ -3,19 +3,18 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:private_messaging/generated/l10n/app_localizations.dart';
 import 'package:provider/provider.dart';
-import 'package:qr_flutter/qr_flutter.dart';
 
 import '../services/encryption_service.dart';
 import '../services/pairing_service.dart';
 import '../services/recovery_service.dart';
+import 'recovery_style.dart';
 
-enum _Phase { preparing, waiting, received, expired, failed }
+enum _Phase { choosing, preparing, waiting, received, done, expired, failed }
 
-/// "Recupera la chat" (telefono nuovo): mostra un QR con una richiesta di
-/// recupero. Il telefono del partner (Aiuta il partner a recuperare) o il
-/// vecchio telefono (Trasferisci a un nuovo telefono) lo inquadra e risponde
-/// con il certificato, cifrato per questo telefono. Ricevuto il certificato,
-/// la chat si ricompone da sola con lo stesso ID di prima.
+/// "Recupera i messaggi" (telefono nuovo), stesso stile del wizard di pairing:
+/// 1) da chi recuperare (partner / un altro mio telefono), 2) QR da far
+/// inquadrare, 3) recupero. Il certificato arriva cifrato per una chiave
+/// temporanea di questo telefono; la chat si ricompone con lo stesso ID.
 class RecoveryRequestScreen extends StatefulWidget {
   const RecoveryRequestScreen({super.key});
 
@@ -24,23 +23,14 @@ class RecoveryRequestScreen extends StatefulWidget {
 }
 
 class _RecoveryRequestScreenState extends State<RecoveryRequestScreen> {
-  static const Color _teal = Color(0xFF3BA8B0);
-  static const Color _tealDark = Color(0xFF145A60);
-  static const Color _ink = Color(0xFF2d3436);
-
   final RecoveryService _recovery = RecoveryService();
+  RecoverySource? _source;
   RecoveryRequest? _request;
   StreamSubscription<RecoveryBundle?>? _sub;
   Timer? _expiryTimer;
-  _Phase _phase = _Phase.preparing;
+  _Phase _phase = _Phase.choosing;
   String? _errorText;
   bool _answered = false;
-
-  @override
-  void initState() {
-    super.initState();
-    _start();
-  }
 
   @override
   void dispose() {
@@ -51,7 +41,14 @@ class _RecoveryRequestScreenState extends State<RecoveryRequestScreen> {
     super.dispose();
   }
 
+  Future<void> _choose(RecoverySource source) async {
+    setState(() => _source = source);
+    await _start();
+  }
+
   Future<void> _start() async {
+    final source = _source;
+    if (source == null) return;
     _sub?.cancel();
     _expiryTimer?.cancel();
     final old = _request;
@@ -66,7 +63,7 @@ class _RecoveryRequestScreenState extends State<RecoveryRequestScreen> {
       final crypto = Provider.of<EncryptionService>(context, listen: false);
       // La generazione RSA-2048 dura 1–3 s sul telefono: lo spinner lo copre.
       await Future.delayed(const Duration(milliseconds: 50));
-      final req = await _recovery.createRequest(crypto);
+      final req = await _recovery.createRequest(crypto, source: source);
       if (!mounted) return;
       setState(() {
         _request = req;
@@ -119,16 +116,7 @@ class _RecoveryRequestScreenState extends State<RecoveryRequestScreen> {
             return;
         }
       }
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(l10n.recoveryRequestDone),
-          backgroundColor: _tealDark,
-          behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        ),
-      );
-      // La UI passa alla chat via Provider: basta chiudere la pagina.
-      Navigator.of(context).pop();
+      setState(() => _phase = _Phase.done);
     } catch (e) {
       _fail(e.toString());
     }
@@ -146,65 +134,131 @@ class _RecoveryRequestScreenState extends State<RecoveryRequestScreen> {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
-    return Scaffold(
-      backgroundColor: _tealDark,
-      body: Container(
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [_teal, _tealDark],
-          ),
-        ),
-        child: SafeArea(
+    final source = _source;
+    final step1Done = source != null;
+    final step2Done = _phase == _Phase.received || _phase == _Phase.done;
+    final step3Done = _phase == _Phase.done;
+
+    return RecoveryScaffold(
+      title: l10n.recoveryRequestTitle,
+      subtitle: l10n.recoveryRequestSubtitle,
+      children: [
+        // STEP 1: da chi recuperare
+        RecoveryStepCard(
+          title: l10n.recoveryRequestStep1Title,
+          description: l10n.recoveryRequestStep1Description,
+          isCompleted: step1Done,
           child: Column(
             children: [
-              Padding(
-                padding: const EdgeInsets.fromLTRB(8, 8, 16, 0),
-                child: Row(
-                  children: [
-                    IconButton(
-                      icon: const Icon(Icons.close, color: Colors.white),
-                      onPressed: () => Navigator.pop(context),
-                    ),
-                    Expanded(
-                      child: Text(
-                        l10n.recoveryRequestTitle,
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 22,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
+              _sourceTile(
+                source: RecoverySource.partner,
+                icon: Icons.favorite,
+                title: l10n.recoveryRequestSourcePartner,
+                subtitle: l10n.recoveryRequestSourcePartnerSubtitle,
               ),
+              const SizedBox(height: 10),
+              _sourceTile(
+                source: RecoverySource.self,
+                icon: Icons.phonelink,
+                title: l10n.recoveryRequestSourceSelf,
+                subtitle: l10n.recoveryRequestSourceSelfSubtitle,
+              ),
+            ],
+          ),
+        ),
+        if (step1Done) ...[
+          const SizedBox(height: 24),
+          // STEP 2: QR da far inquadrare
+          RecoveryStepCard(
+            title: l10n.recoveryRequestStep2Title,
+            description: source == RecoverySource.partner
+                ? l10n.recoveryRequestStep2DescriptionPartner
+                : l10n.recoveryRequestStep2DescriptionSelf,
+            isCompleted: step2Done,
+            child: _step2Body(l10n),
+          ),
+        ],
+        if (step2Done) ...[
+          const SizedBox(height: 24),
+          // STEP 3: recupero
+          RecoveryStepCard(
+            title: l10n.recoveryRequestStep3Title,
+            description: l10n.recoveryRequestStep3Description,
+            isCompleted: step3Done,
+            child: _step3Body(l10n),
+          ),
+        ],
+        if (_phase == _Phase.failed) ...[
+          const SizedBox(height: 24),
+          RecoveryStepCard(
+            title: l10n.recoveryRequestFailedTitle,
+            description: _errorText ?? '',
+            isCompleted: false,
+            child: RecoveryGradientButton(
+              icon: Icons.refresh,
+              label: l10n.recoveryRequestNewQr,
+              onTap: _start,
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+
+  Widget _sourceTile({
+    required RecoverySource source,
+    required IconData icon,
+    required String title,
+    required String subtitle,
+  }) {
+    final selected = _source == source;
+    final locked = _phase != _Phase.choosing &&
+        _phase != _Phase.waiting &&
+        _phase != _Phase.expired &&
+        _phase != _Phase.failed;
+    return Material(
+      color: selected
+          ? RecoveryStyle.teal.withValues(alpha: 0.1)
+          : const Color(0xFFF7F8F8),
+      borderRadius: BorderRadius.circular(12),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(12),
+        onTap: locked || selected ? null : () => _choose(source),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color: selected ? RecoveryStyle.teal : Colors.grey.shade300,
+              width: selected ? 2 : 1,
+            ),
+          ),
+          child: Row(
+            children: [
+              Icon(icon, color: RecoveryStyle.teal, size: 26),
+              const SizedBox(width: 12),
               Expanded(
-                child: ListView(
-                  padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      l10n.recoveryRequestIntro,
+                      title,
                       style: const TextStyle(
-                          color: Colors.white70, fontSize: 14, height: 1.4),
+                        fontSize: 15,
+                        fontWeight: FontWeight.bold,
+                        color: RecoveryStyle.ink,
+                      ),
                     ),
-                    const SizedBox(height: 16),
-                    _qrCard(),
-                    const SizedBox(height: 16),
-                    _statusCard(l10n),
+                    const SizedBox(height: 2),
+                    Text(
+                      subtitle,
+                      style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+                    ),
                   ],
                 ),
               ),
-              if (_phase == _Phase.expired || _phase == _Phase.failed)
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
-                  child: _gradientButton(
-                    icon: Icons.refresh,
-                    label: l10n.recoveryRequestNewQr,
-                    onTap: _start,
-                  ),
-                ),
+              if (selected)
+                const Icon(Icons.check_circle, color: RecoveryStyle.teal),
             ],
           ),
         ),
@@ -212,171 +266,105 @@ class _RecoveryRequestScreenState extends State<RecoveryRequestScreen> {
     );
   }
 
-  Widget _qrCard() {
+  Widget _step2Body(AppLocalizations l10n) {
     final req = _request;
-    final showQr = req != null && _phase == _Phase.waiting;
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: _cardDecoration(),
-      child: AspectRatio(
-        aspectRatio: 1,
-        child: Center(
-          child: showQr
-              ? QrImageView(
-                  data: req.qrData,
-                  version: QrVersions.auto,
-                  errorCorrectionLevel: QrErrorCorrectLevel.M,
-                  backgroundColor: Colors.white,
-                )
-              : _phase == _Phase.preparing
-                  ? const CircularProgressIndicator(color: _teal)
-                  : Icon(
-                      _phase == _Phase.received
-                          ? Icons.check_circle
-                          : Icons.qr_code_2,
-                      size: 96,
-                      color: _phase == _Phase.received
-                          ? _teal
-                          : Colors.grey.shade300,
-                    ),
-        ),
-      ),
-    );
-  }
-
-  Widget _statusCard(AppLocalizations l10n) {
-    IconData icon;
-    String title;
-    String subtitle;
-    bool busy = false;
-    Color color = _teal;
     switch (_phase) {
       case _Phase.preparing:
-        icon = Icons.hourglass_top;
-        title = l10n.recoveryRequestPreparing;
-        subtitle = '';
-        busy = true;
-        break;
+        return const Padding(
+          padding: EdgeInsets.symmetric(vertical: 24),
+          child: CircularProgressIndicator(color: RecoveryStyle.teal),
+        );
       case _Phase.waiting:
-        icon = Icons.phonelink_ring;
-        title = l10n.recoveryRequestWaiting;
-        subtitle = l10n.recoveryRequestWaitingSubtitle;
-        busy = true;
-        break;
-      case _Phase.received:
-        icon = Icons.download_done;
-        title = l10n.recoveryRequestReceived;
-        subtitle = '';
-        busy = true;
-        break;
-      case _Phase.expired:
-        icon = Icons.timer_off;
-        title = l10n.recoveryRequestExpired;
-        subtitle = l10n.recoveryRequestExpiredSubtitle;
-        color = Colors.orange.shade700;
-        break;
-      case _Phase.failed:
-        icon = Icons.error_outline;
-        title = l10n.recoveryRequestFailedTitle;
-        subtitle = _errorText ?? '';
-        color = Colors.red.shade600;
-        break;
-    }
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: _cardDecoration(),
-      child: Row(
-        children: [
-          if (busy)
-            const SizedBox(
-              width: 30,
-              height: 30,
-              child: CircularProgressIndicator(strokeWidth: 3, color: _teal),
-            )
-          else
-            Icon(icon, color: color, size: 30),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+        return Column(
+          children: [
+            RecoveryQrBox(data: req!.qrData),
+            const SizedBox(height: 14),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Text(
-                  title,
-                  style: const TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                    color: _ink,
+                const SizedBox(
+                  width: 16,
+                  height: 16,
+                  child: CircularProgressIndicator(
+                      strokeWidth: 2, color: RecoveryStyle.teal),
+                ),
+                const SizedBox(width: 10),
+                Flexible(
+                  child: Text(
+                    l10n.recoveryRequestWaitingSubtitle,
+                    style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
                   ),
                 ),
-                if (subtitle.isNotEmpty) ...[
-                  const SizedBox(height: 4),
-                  Text(
-                    subtitle,
-                    style: TextStyle(
-                        fontSize: 13, color: Colors.grey.shade600, height: 1.35),
-                  ),
-                ],
               ],
             ),
-          ),
-        ],
-      ),
-    );
+          ],
+        );
+      case _Phase.expired:
+        return Column(
+          children: [
+            Text(
+              l10n.recoveryRequestExpiredSubtitle,
+              textAlign: TextAlign.center,
+              style: TextStyle(fontSize: 13, color: Colors.orange.shade800),
+            ),
+            const SizedBox(height: 12),
+            RecoveryGradientButton(
+              icon: Icons.refresh,
+              label: l10n.recoveryRequestNewQr,
+              onTap: _start,
+            ),
+          ],
+        );
+      case _Phase.received:
+      case _Phase.done:
+        return RecoveryCompletedBox(text: l10n.recoveryRequestQrScanned);
+      case _Phase.choosing:
+      case _Phase.failed:
+        return const SizedBox.shrink();
+    }
   }
 
-  BoxDecoration _cardDecoration() => BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.1),
-            blurRadius: 12,
-            offset: const Offset(0, 4),
+  Widget _step3Body(AppLocalizations l10n) {
+    if (_phase == _Phase.done) {
+      return Column(
+        children: [
+          const Icon(Icons.check_circle, color: RecoveryStyle.teal, size: 48),
+          const SizedBox(height: 12),
+          Text(
+            l10n.recoveryRequestDone,
+            textAlign: TextAlign.center,
+            style: const TextStyle(
+              color: RecoveryStyle.teal,
+              fontWeight: FontWeight.bold,
+              fontSize: 18,
+            ),
+          ),
+          const SizedBox(height: 16),
+          RecoveryGradientButton(
+            icon: Icons.chat_bubble,
+            label: l10n.recoveryRequestGoToChat,
+            // La UI sotto è già in chat (Provider): basta chiudere la pagina.
+            onTap: () => Navigator.of(context).pop(),
           ),
         ],
       );
-
-  Widget _gradientButton({
-    required IconData icon,
-    required String label,
-    required VoidCallback? onTap,
-  }) {
-    final enabled = onTap != null;
-    return SizedBox(
-      width: double.infinity,
-      child: Container(
-        decoration: BoxDecoration(
-          gradient:
-              enabled ? const LinearGradient(colors: [_teal, _tealDark]) : null,
-          color: enabled ? null : Colors.white24,
-          borderRadius: BorderRadius.circular(12),
+    }
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        const SizedBox(
+          width: 20,
+          height: 20,
+          child: CircularProgressIndicator(strokeWidth: 2, color: RecoveryStyle.teal),
         ),
-        child: Material(
-          color: Colors.transparent,
-          child: InkWell(
-            borderRadius: BorderRadius.circular(12),
-            onTap: onTap,
-            child: Container(
-              padding: const EdgeInsets.symmetric(vertical: 16),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(icon, color: Colors.white),
-                  const SizedBox(width: 12),
-                  Text(
-                    label,
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ],
-              ),
-            ),
+        const SizedBox(width: 12),
+        Flexible(
+          child: Text(
+            l10n.recoveryRequestReceived,
+            style: const TextStyle(fontSize: 14, color: RecoveryStyle.ink),
           ),
         ),
-      ),
+      ],
     );
   }
 }

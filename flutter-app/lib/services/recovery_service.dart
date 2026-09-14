@@ -132,13 +132,20 @@ class RecoveryService {
 
   /// Crea una richiesta di recupero: chiavi temporanee + documento sul
   /// server. Il QR contiene id e chiave pubblica temporanea.
-  Future<RecoveryRequest> createRequest(EncryptionService crypto) async {
+  /// [source] dice da chi il telefono nuovo si aspetta il certificato; viaggia
+  /// nel QR così il telefono che aiuta rifiuta un invio con il ruolo sbagliato
+  /// (es. "Trasferisci" quando il nuovo telefono voleva quello del partner).
+  Future<RecoveryRequest> createRequest(
+    EncryptionService crypto, {
+    required RecoverySource source,
+  }) async {
     final keys = crypto.generateEphemeralKeyPair();
     final id = _randomHex(32);
     final expiresAt = DateTime.now().add(requestTtl);
     await _requestRef(id).set({
       'v': version,
       'status': 'pending',
+      'wants': source.wire,
       'temp_public_key': keys['publicKey'],
       'created_at': FieldValue.serverTimestamp(),
       'expires_at': Timestamp.fromDate(expiresAt),
@@ -147,6 +154,7 @@ class RecoveryService {
       't': qrType,
       'v': version,
       'id': id,
+      'w': source.wire,
       'pub': keys['publicKey'],
     });
     return RecoveryRequest(
@@ -199,7 +207,9 @@ class RecoveryService {
       final pub = obj['pub'];
       if (id is! String || pub is! String) return null;
       if (!RegExp(r'^[0-9a-f]{64}$').hasMatch(id)) return null;
-      return RecoveryQr(id: id, tempPublicKey: pub);
+      final wants = RecoverySource.fromWire(obj['w']);
+      if (wants == null) return null;
+      return RecoveryQr(id: id, tempPublicKey: pub, wants: wants);
     } catch (_) {
       return null;
     }
@@ -235,6 +245,13 @@ class RecoveryService {
       if (req['temp_public_key'] != qr.tempPublicKey) {
         return RecoveryAnswerResult.invalid;
       }
+      // Il telefono nuovo ha detto da chi vuole il certificato: il ruolo con
+      // cui si risponde deve corrispondere, altrimenti gli arriverebbe
+      // l'identità sbagliata (es. una copia del partner invece della sua).
+      final expectedRole = qr.wants == RecoverySource.partner
+          ? RecoveryRole.helpPartner
+          : RecoveryRole.transferSelf;
+      if (role != expectedRole) return RecoveryAnswerResult.roleMismatch;
 
       String bundleJson;
       if (role == RecoveryRole.transferSelf) {
@@ -280,12 +297,44 @@ class RecoveryService {
 
 enum RecoveryRole { helpPartner, transferSelf }
 
-enum RecoveryAnswerResult { sent, notPaired, expired, invalid, noDeposit, error }
+enum RecoveryAnswerResult {
+  sent,
+  notPaired,
+  expired,
+  invalid,
+  noDeposit,
+  roleMismatch,
+  error,
+}
+
+/// Da chi il telefono nuovo si aspetta il certificato.
+enum RecoverySource {
+  /// Dal partner (il suo telefono usa "Aiuta il partner a recuperare").
+  partner('partner'),
+
+  /// Da un altro telefono dello stesso utente ("Trasferisci a un nuovo telefono").
+  self('self');
+
+  const RecoverySource(this.wire);
+  final String wire;
+
+  static RecoverySource? fromWire(Object? v) {
+    for (final s in RecoverySource.values) {
+      if (s.wire == v) return s;
+    }
+    return null;
+  }
+}
 
 class RecoveryQr {
   final String id;
   final String tempPublicKey;
-  const RecoveryQr({required this.id, required this.tempPublicKey});
+  final RecoverySource wants;
+  const RecoveryQr({
+    required this.id,
+    required this.tempPublicKey,
+    required this.wants,
+  });
 }
 
 class RecoveryRequest {

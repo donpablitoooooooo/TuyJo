@@ -7,17 +7,17 @@ import 'package:provider/provider.dart';
 import '../services/encryption_service.dart';
 import '../services/recovery_service.dart';
 import '../widgets/permission_denied_dialog.dart';
+import 'recovery_style.dart';
 
-enum _Phase { scanning, confirming, sending, sent, failed }
+enum _Phase { idle, scanning, sending, sent, failed }
 
-/// Telefono che AIUTA il recupero. Due ruoli:
-/// - [RecoveryRole.helpPartner]: il partner ha un telefono nuovo. Inquadro
-///   il suo QR e gli invio il SUO certificato (dal deposito che ha lasciato
-///   per me, apribile solo con la mia chiave).
-/// - [RecoveryRole.transferSelf]: sono io ad avere un telefono nuovo e ho
-///   ancora il vecchio. Inquadro il QR del nuovo e gli invio il MIO
-///   certificato.
-/// Solo in presenza: la richiesta si trova solo inquadrando il QR.
+/// Telefono che AIUTA il recupero, stesso stile del wizard di pairing:
+/// 1) inquadra il QR del telefono nuovo, 2) invio del certificato.
+/// - [RecoveryRole.helpPartner]: invio il certificato del PARTNER (dal suo
+///   deposito, apribile solo con la mia chiave).
+/// - [RecoveryRole.transferSelf]: invio il MIO certificato (vecchio telefono).
+/// Il QR dice da chi il telefono nuovo si aspetta il certificato: se non
+/// corrisponde al ruolo di questo pulsante l'invio viene rifiutato.
 class RecoveryHelperScreen extends StatefulWidget {
   final RecoveryRole role;
   const RecoveryHelperScreen({super.key, required this.role});
@@ -27,24 +27,14 @@ class RecoveryHelperScreen extends StatefulWidget {
 }
 
 class _RecoveryHelperScreenState extends State<RecoveryHelperScreen> {
-  static const Color _teal = Color(0xFF3BA8B0);
-  static const Color _tealDark = Color(0xFF145A60);
-  static const Color _ink = Color(0xFF2d3436);
-
   MobileScannerController? _controller;
-  _Phase _phase = _Phase.scanning;
-  bool _cameraReady = false;
+  _Phase _phase = _Phase.idle;
   bool _handling = false;
+  bool _scanned = false;
   String? _resultText;
   DateTime _lastInvalidToast = DateTime.fromMillisecondsSinceEpoch(0);
 
   bool get _isTransfer => widget.role == RecoveryRole.transferSelf;
-
-  @override
-  void initState() {
-    super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) => _requestCamera());
-  }
 
   @override
   void dispose() {
@@ -52,7 +42,7 @@ class _RecoveryHelperScreenState extends State<RecoveryHelperScreen> {
     super.dispose();
   }
 
-  Future<void> _requestCamera() async {
+  Future<void> _openScannerOrExplain() async {
     final current = await Permission.camera.status;
     if (!mounted) return;
     final l10n = AppLocalizations.of(context)!;
@@ -65,18 +55,15 @@ class _RecoveryHelperScreenState extends State<RecoveryHelperScreen> {
         title: l10n.permissionCameraRationaleTitle,
         message: l10n.permissionCameraRationaleMessage,
       );
-      if (!mounted) return;
-      if (!ok) {
-        Navigator.pop(context);
-        return;
-      }
+      if (!mounted || !ok) return;
     }
     final status = await Permission.camera.request();
     if (!mounted) return;
     if (status.isGranted || status.isLimited) {
+      _controller?.dispose();
       setState(() {
         _controller = MobileScannerController();
-        _cameraReady = true;
+        _phase = _Phase.scanning;
       });
       return;
     }
@@ -86,7 +73,12 @@ class _RecoveryHelperScreenState extends State<RecoveryHelperScreen> {
       message: l10n.permissionCameraPairingMessage,
       isPermanentlyDenied: true,
     );
-    if (mounted) Navigator.pop(context);
+  }
+
+  void _closeScanner() {
+    _controller?.dispose();
+    _controller = null;
+    setState(() => _phase = _Phase.idle);
   }
 
   Future<void> _onDetect(BarcodeCapture capture) async {
@@ -99,21 +91,34 @@ class _RecoveryHelperScreenState extends State<RecoveryHelperScreen> {
       }
     }
     if (raw == null) return;
+    final l10n = AppLocalizations.of(context)!;
     final qr = RecoveryService.parseQr(raw);
     if (qr == null) {
       final now = DateTime.now();
       if (now.difference(_lastInvalidToast).inSeconds >= 3) {
         _lastInvalidToast = now;
-        _snack(AppLocalizations.of(context)!.recoveryHelperInvalidQr, error: true);
+        _snack(l10n.recoveryHelperInvalidQr, error: true);
       }
       return;
     }
     _handling = true;
-    await _controller?.stop();
-    if (!mounted) return;
-    setState(() => _phase = _Phase.confirming);
+    _controller?.dispose();
+    _controller = null;
+    setState(() => _phase = _Phase.idle);
 
-    final l10n = AppLocalizations.of(context)!;
+    // Ruolo sbagliato: il telefono nuovo ha scelto l'altra sorgente.
+    final expected = _isTransfer ? RecoverySource.self : RecoverySource.partner;
+    if (qr.wants != expected) {
+      _handling = false;
+      await _showInfo(
+        l10n.recoveryHelperConfirmTitle,
+        _isTransfer
+            ? l10n.recoveryHelperRoleMismatchTransfer
+            : l10n.recoveryHelperRoleMismatchPartner,
+      );
+      return;
+    }
+
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -131,7 +136,7 @@ class _RecoveryHelperScreenState extends State<RecoveryHelperScreen> {
             child: Text(l10n.cancel),
           ),
           FilledButton(
-            style: FilledButton.styleFrom(backgroundColor: _teal),
+            style: FilledButton.styleFrom(backgroundColor: RecoveryStyle.teal),
             onPressed: () => Navigator.of(ctx).pop(true),
             child: Text(l10n.recoveryHelperSend),
           ),
@@ -141,12 +146,13 @@ class _RecoveryHelperScreenState extends State<RecoveryHelperScreen> {
     if (!mounted) return;
     if (confirmed != true) {
       _handling = false;
-      setState(() => _phase = _Phase.scanning);
-      await _controller?.start();
       return;
     }
 
-    setState(() => _phase = _Phase.sending);
+    setState(() {
+      _scanned = true;
+      _phase = _Phase.sending;
+    });
     final crypto = Provider.of<EncryptionService>(context, listen: false);
     final result = await RecoveryService().answerRequest(
       qr: qr,
@@ -167,6 +173,11 @@ class _RecoveryHelperScreenState extends State<RecoveryHelperScreen> {
       case RecoveryAnswerResult.noDeposit:
         text = l10n.recoveryHelperNoDeposit;
         break;
+      case RecoveryAnswerResult.roleMismatch:
+        text = _isTransfer
+            ? l10n.recoveryHelperRoleMismatchTransfer
+            : l10n.recoveryHelperRoleMismatchPartner;
+        break;
       case RecoveryAnswerResult.notPaired:
       case RecoveryAnswerResult.invalid:
         text = l10n.recoveryHelperInvalidQr;
@@ -175,19 +186,29 @@ class _RecoveryHelperScreenState extends State<RecoveryHelperScreen> {
         text = l10n.recoveryHelperError;
         break;
     }
+    _handling = false;
     setState(() {
       _phase = ok ? _Phase.sent : _Phase.failed;
       _resultText = text;
+      if (!ok) _scanned = false;
     });
   }
 
-  Future<void> _scanAgain() async {
-    _handling = false;
-    setState(() {
-      _phase = _Phase.scanning;
-      _resultText = null;
-    });
-    await _controller?.start();
+  Future<void> _showInfo(String title, String message) async {
+    await showDialog<void>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: Text(title),
+        content: Text(message, style: const TextStyle(height: 1.4)),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(),
+            child: Text(AppLocalizations.of(context)!.close),
+          ),
+        ],
+      ),
+    );
   }
 
   void _snack(String message, {bool error = false}) {
@@ -195,7 +216,7 @@ class _RecoveryHelperScreenState extends State<RecoveryHelperScreen> {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(message),
-        backgroundColor: error ? Colors.red[600] : _teal,
+        backgroundColor: error ? Colors.red[600] : RecoveryStyle.teal,
         behavior: SnackBarBehavior.floating,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       ),
@@ -205,171 +226,116 @@ class _RecoveryHelperScreenState extends State<RecoveryHelperScreen> {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
-    final title = _isTransfer
-        ? l10n.recoveryHelperTitleTransfer
-        : l10n.recoveryHelperTitlePartner;
-    final showScanner =
-        _cameraReady && (_phase == _Phase.scanning || _phase == _Phase.confirming);
-
-    return Scaffold(
-      backgroundColor: _tealDark,
-      body: Container(
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [_teal, _tealDark],
-          ),
-        ),
-        child: SafeArea(
-          child: Column(
-            children: [
-              Padding(
-                padding: const EdgeInsets.fromLTRB(8, 8, 16, 0),
-                child: Row(
-                  children: [
-                    IconButton(
-                      icon: const Icon(Icons.close, color: Colors.white),
-                      onPressed: () => Navigator.pop(context),
-                    ),
-                    Expanded(
-                      child: Text(
-                        title,
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 22,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ),
-                    if (showScanner)
-                      IconButton(
-                        icon: const Icon(Icons.flashlight_on, color: Colors.white),
-                        onPressed: () => _controller?.toggleTorch(),
-                      ),
-                  ],
-                ),
-              ),
-              Padding(
-                padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
-                child: Text(
-                  _isTransfer
-                      ? l10n.recoveryHelperIntroTransfer
-                      : l10n.recoveryHelperIntroPartner,
-                  style: const TextStyle(
-                      color: Colors.white70, fontSize: 14, height: 1.4),
-                ),
-              ),
-              Expanded(
-                child: Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: showScanner ? _scanner() : _resultCard(l10n),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _scanner() {
     final controller = _controller;
-    if (controller == null) return const SizedBox.shrink();
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(16),
-      child: Stack(
-        fit: StackFit.expand,
-        children: [
-          MobileScanner(controller: controller, onDetect: _onDetect),
-          IgnorePointer(
-            child: Center(
-              child: Container(
-                width: 240,
-                height: 240,
-                decoration: BoxDecoration(
-                  border: Border.all(color: Colors.white, width: 3),
-                  borderRadius: BorderRadius.circular(16),
+    if (_phase == _Phase.scanning && controller != null) {
+      return RecoveryScannerView(
+        controller: controller,
+        onDetect: _onDetect,
+        onClose: _closeScanner,
+        hint: l10n.recoveryHelperScanHint,
+      );
+    }
+
+    return RecoveryScaffold(
+      title: _isTransfer
+          ? l10n.recoveryHelperTitleTransfer
+          : l10n.recoveryHelperTitlePartner,
+      subtitle: _isTransfer
+          ? l10n.recoveryHelperSubtitleTransfer
+          : l10n.recoveryHelperSubtitlePartner,
+      children: [
+        // STEP 1: inquadra il QR
+        RecoveryStepCard(
+          title: l10n.recoveryHelperStep1Title,
+          description: _isTransfer
+              ? l10n.recoveryHelperStep1DescriptionTransfer
+              : l10n.recoveryHelperStep1DescriptionPartner,
+          isCompleted: _scanned,
+          child: _scanned
+              ? RecoveryCompletedBox(text: l10n.recoveryHelperQrScanned)
+              : RecoveryGradientButton(
+                  icon: Icons.qr_code_scanner,
+                  label: l10n.recoveryHelperScanButton,
+                  onTap: _openScannerOrExplain,
                 ),
-              ),
-            ),
-          ),
-          Positioned(
-            left: 0,
-            right: 0,
-            bottom: 16,
-            child: Text(
-              AppLocalizations.of(context)!.recoveryHelperScanHint,
-              textAlign: TextAlign.center,
-              style: const TextStyle(
-                color: Colors.white,
-                fontWeight: FontWeight.w600,
-                shadows: [Shadow(blurRadius: 6, color: Colors.black54)],
-              ),
-            ),
+        ),
+        if (_scanned || _phase == _Phase.failed) ...[
+          const SizedBox(height: 24),
+          // STEP 2: invio
+          RecoveryStepCard(
+            title: l10n.recoveryHelperStep2Title,
+            description: l10n.recoveryHelperStep2Description,
+            isCompleted: _phase == _Phase.sent,
+            child: _step2Body(l10n),
           ),
         ],
-      ),
+      ],
     );
   }
 
-  Widget _resultCard(AppLocalizations l10n) {
-    final sending = _phase == _Phase.sending || !_cameraReady;
-    final ok = _phase == _Phase.sent;
-    return Column(
-      children: [
-        Container(
-          padding: const EdgeInsets.all(20),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(16),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.1),
-                blurRadius: 12,
-                offset: const Offset(0, 4),
-              ),
-            ],
-          ),
-          child: Column(
-            children: [
-              if (sending)
-                const CircularProgressIndicator(color: _teal)
-              else
-                Icon(
-                  ok ? Icons.check_circle : Icons.error_outline,
-                  size: 56,
-                  color: ok ? _teal : Colors.red.shade600,
-                ),
-              const SizedBox(height: 16),
-              Text(
-                sending
-                    ? l10n.recoveryHelperSending
-                    : (_resultText ?? ''),
-                textAlign: TextAlign.center,
-                style: const TextStyle(fontSize: 16, color: _ink, height: 1.4),
-              ),
-            ],
-          ),
-        ),
-        const Spacer(),
-        if (!sending)
-          SizedBox(
-            width: double.infinity,
-            child: FilledButton.icon(
-              style: FilledButton.styleFrom(
-                backgroundColor: Colors.white,
-                foregroundColor: _tealDark,
-                padding: const EdgeInsets.symmetric(vertical: 16),
-                shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12)),
-              ),
-              onPressed: ok ? () => Navigator.pop(context) : _scanAgain,
-              icon: Icon(ok ? Icons.check : Icons.qr_code_scanner),
-              label: Text(ok ? l10n.close : l10n.recoveryHelperScanAgain),
+  Widget _step2Body(AppLocalizations l10n) {
+    switch (_phase) {
+      case _Phase.sending:
+        return Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const SizedBox(
+              width: 20,
+              height: 20,
+              child: CircularProgressIndicator(
+                  strokeWidth: 2, color: RecoveryStyle.teal),
             ),
-          ),
-      ],
-    );
+            const SizedBox(width: 12),
+            Text(
+              l10n.recoveryHelperSending,
+              style: const TextStyle(fontSize: 14, color: RecoveryStyle.ink),
+            ),
+          ],
+        );
+      case _Phase.sent:
+        return Column(
+          children: [
+            const Icon(Icons.check_circle, color: RecoveryStyle.teal, size: 48),
+            const SizedBox(height: 12),
+            Text(
+              _resultText ?? '',
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                color: RecoveryStyle.teal,
+                fontWeight: FontWeight.bold,
+                fontSize: 16,
+                height: 1.35,
+              ),
+            ),
+            const SizedBox(height: 16),
+            RecoveryGradientButton(
+              icon: Icons.check,
+              label: l10n.close,
+              onTap: () => Navigator.of(context).pop(),
+            ),
+          ],
+        );
+      case _Phase.failed:
+        return Column(
+          children: [
+            Icon(Icons.error_outline, color: Colors.red.shade600, size: 40),
+            const SizedBox(height: 10),
+            Text(
+              _resultText ?? '',
+              textAlign: TextAlign.center,
+              style: TextStyle(fontSize: 13, color: Colors.red.shade700, height: 1.4),
+            ),
+            const SizedBox(height: 14),
+            RecoveryGradientButton(
+              icon: Icons.qr_code_scanner,
+              label: l10n.recoveryHelperScanAgain,
+              onTap: _openScannerOrExplain,
+            ),
+          ],
+        );
+      case _Phase.idle:
+      case _Phase.scanning:
+        return const SizedBox.shrink();
+    }
   }
 }

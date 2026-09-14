@@ -64,8 +64,11 @@ void main() {
 
   test('parseQr accetta solo QR di recupero ben formati', () {
     final id = List.filled(64, 'a').join();
-    final ok = jsonEncode({'t': 'tuyjo_recovery', 'v': 1, 'id': id, 'pub': 'X'});
+    final ok = jsonEncode({'t': 'tuyjo_recovery', 'v': 1, 'id': id, 'w': 'partner', 'pub': 'X'});
     expect(RecoveryService.parseQr(ok)?.id, id);
+    expect(RecoveryService.parseQr(ok)?.wants, RecoverySource.partner);
+    // senza "w" (da chi si aspetta il certificato) il QR non è valido
+    expect(RecoveryService.parseQr(jsonEncode({'t': 'tuyjo_recovery', 'v': 1, 'id': id, 'pub': 'X'})), isNull);
     expect(RecoveryService.parseQr(jsonEncode({'public_key': 'X', 'version': '2.0'})), isNull);
     expect(RecoveryService.parseQr(jsonEncode({'t': 'tuyjo_recovery', 'id': 'short', 'pub': 'X'})), isNull);
     expect(RecoveryService.parseQr('garbage'), isNull);

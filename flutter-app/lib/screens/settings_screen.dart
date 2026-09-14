@@ -442,7 +442,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
               _OutlineButton(
                 onPressed: _openRecoveryRequest,
                 icon: Icons.qr_code_2,
-                label: AppLocalizations.of(context)!.settingsRecoverWithPartnerButton,
+                label: AppLocalizations.of(context)!.settingsRecoverMessagesButton,
               ),
             ],
           ],
