@@ -4,14 +4,19 @@ import UniformTypeIdentifiers
 import CryptoKit
 import Security
 import CommonCrypto
+import ImageIO
 
 /// Share Extension di Tuijo.
 ///
 /// Raccoglie TUTTI gli elementi condivisi (fino a 10 immagini, documenti,
-/// testo/URL), li mette in coda nel container dell'App Group e apre l'app
-/// principale con lo schema `ShareMedia://open`. L'app svuota la coda in
-/// `application(_:open:)` e, come rete di sicurezza, in
-/// `applicationDidBecomeActive`.
+/// testo/URL) e, se l'app ha lasciato l'identità nel Keychain condiviso, li
+/// INVIA DA QUI: testo/link come messaggio cifrato, foto e documenti cifrati
+/// AES-GCM e caricati su Firebase Storage (stesso formato dell'app, quindi
+/// leggibili da entrambi i telefoni). Nessuna apertura dell'app.
+///
+/// Solo se manca l'identità o la rete, ripiega sulla coda nel container
+/// dell'App Group e prova ad aprire l'app con `ShareMedia://open`; l'app
+/// svuota la coda in `application(_:open:)` e in `applicationDidBecomeActive`.
 ///
 /// Coda: file JSON `shared_queue.json` nel container (protezione
 /// NSFileProtectionComplete, cancellato dall'app dopo la lettura), array di
@@ -150,18 +155,24 @@ class ShareViewController: UIViewController {
         group.notify(queue: .main) { [weak self] in
             guard let self = self else { return }
 
-            // Solo testo/link e identità disponibile: invia direttamente da qui,
-            // senza dipendere dall'apertura dell'app.
-            if filePaths.isEmpty, !texts.isEmpty, let identity = ShareIdentity.load() {
-                self.sendTextsNatively(texts, identity: identity) { ok in
-                    if ok {
-                        self.showSentHudAndClose()
-                    } else {
-                        // Rete assente o errore: metti in coda e prova ad aprire l'app.
-                        self.enqueueAndOpen(files: [], texts: texts)
+            // Identità disponibile: invia direttamente da qui, senza dipendere
+            // dall'apertura dell'app (che iOS non concede alle estensioni).
+            if let identity = ShareIdentity.load() {
+                if filePaths.isEmpty, !texts.isEmpty {
+                    self.sendTextsNatively(texts, identity: identity) { ok in
+                        if ok {
+                            self.showSentHudAndClose()
+                        } else {
+                            // Rete assente o errore: metti in coda e prova ad aprire l'app.
+                            self.enqueueAndOpen(files: [], texts: texts)
+                        }
                     }
+                    return
                 }
-                return
+                if !filePaths.isEmpty {
+                    self.sendFilesNatively(filePaths, caption: texts.joined(separator: "\n"), identity: identity)
+                    return
+                }
             }
 
             self.enqueueAndOpen(files: filePaths, texts: texts)
@@ -351,6 +362,38 @@ class ShareViewController: UIViewController {
         group.notify(queue: .main) { completion(allOk) }
     }
 
+    /// Foto e documenti: cifra, carica su Storage e scrive il messaggio,
+    /// con un HUD di avanzamento. In caso di errore ripiega sulla coda.
+    private func sendFilesNatively(_ paths: [String], caption: String, identity: ShareIdentity) {
+        let hud = UIAlertController(title: nil, message: localized("sending"), preferredStyle: .alert)
+        present(hud, animated: true)
+        let total = paths.count
+        AttachmentSender.send(
+            filePaths: paths,
+            caption: caption,
+            identity: identity,
+            progress: { [weak self] index in
+                DispatchQueue.main.async {
+                    guard let self = self else { return }
+                    hud.message = total > 1 ? "\(self.localized("sending")) \(index)/\(total)" : self.localized("sending")
+                }
+            },
+            completion: { [weak self] ok in
+                DispatchQueue.main.async {
+                    guard let self = self else { return }
+                    hud.dismiss(animated: false) {
+                        if ok {
+                            for p in paths { try? FileManager.default.removeItem(atPath: p) }
+                            self.showSentHudAndClose()
+                        } else {
+                            self.enqueueAndOpen(files: paths, texts: caption.isEmpty ? [] : [caption])
+                        }
+                    }
+                }
+            }
+        )
+    }
+
     private func showSentHudAndClose() {
         let alert = UIAlertController(title: nil, message: "✓ " + localized("sent"), preferredStyle: .alert)
         present(alert, animated: true)
@@ -398,6 +441,7 @@ class ShareViewController: UIViewController {
             ],
             "ok": ["it": "OK", "en": "OK", "es": "OK", "ca": "D'acord"],
             "sent": ["it": "Inviato", "en": "Sent", "es": "Enviado", "ca": "Enviat"],
+            "sending": ["it": "Invio in corso…", "en": "Sending…", "es": "Enviando…", "ca": "Enviant…"],
         ]
         return table[key]?[code] ?? table[key]?["en"] ?? key
     }
@@ -577,7 +621,8 @@ enum MessageSender {
         return f.string(from: date)
     }
 
-    static func send(text: String, identity: ShareIdentity, completion: @escaping (Bool) -> Void) {
+    static func send(text: String, identity: ShareIdentity, attachments: [[String: Any]] = [],
+                     completion: @escaping (Bool) -> Void) {
         let now = Date()
         let plaintextObj: [String: Any] = [
             "sender": identity.myUserId,
@@ -611,6 +656,10 @@ enum MessageSender {
             // L'app completerà l'anteprima del link alla prossima apertura.
             fields["needs_link_preview"] = ["booleanValue": true]
         }
+        if !attachments.isEmpty {
+            let values: [[String: Any]] = attachments.map { ["mapValue": ["fields": $0]] }
+            fields["attachments"] = ["arrayValue": ["values": values]]
+        }
 
         let path = "projects/\(projectId)/databases/(default)/documents/families/\(identity.familyChatId)/messages"
         guard let url = URL(string: "https://firestore.googleapis.com/v1/\(path)?key=\(apiKey)"),
@@ -630,5 +679,187 @@ enum MessageSender {
             let code = (response as? HTTPURLResponse)?.statusCode ?? 0
             completion(error == nil && (200..<300).contains(code))
         }.resume()
+    }
+}
+
+// MARK: - Allegati: cifratura AES-GCM + upload su Firebase Storage (REST)
+
+/// Stesso formato di AttachmentService (Dart):
+/// - foto ridotte a max 4096 px, JPEG q0.85; thumbnail con lato corto 300 px;
+/// - file cifrato AES-256-GCM (`cipherText + tag`, nonce 12 byte nel campo
+///   `iv`), thumbnail con la STESSA chiave e un nonce nuovo (`thumbnailIv`);
+/// - chiave AES avvolta RSA-OAEP-SHA1 per mittente e destinatario;
+/// - Storage: `families/{fid}/attachments/{type}/{id}` e
+///   `.../thumbnails/{id}`; l'URL di download è quello standard con token.
+enum AttachmentSender {
+    static let bucket = "youandme-b3b4c.firebasestorage.app"
+
+    struct Prepared {
+        let data: Data
+        let fileName: String
+        let mimeType: String
+        let type: String       // "photo" | "document"
+        let thumbnail: Data?
+    }
+
+    static func send(filePaths: [String], caption: String, identity: ShareIdentity,
+                     progress: @escaping (Int) -> Void, completion: @escaping (Bool) -> Void) {
+        DispatchQueue.global(qos: .userInitiated).async {
+            var attachments: [[String: Any]] = []
+            for (i, path) in filePaths.enumerated() {
+                progress(i + 1)
+                guard let prepared = prepare(path: path),
+                      let fields = encryptAndUpload(prepared, identity: identity) else {
+                    completion(false)
+                    return
+                }
+                attachments.append(fields)
+            }
+            MessageSender.send(text: caption, identity: identity, attachments: attachments, completion: completion)
+        }
+    }
+
+    // MARK: Preparazione (ridimensionamento / thumbnail)
+
+    static func prepare(path: String) -> Prepared? {
+        let url = URL(fileURLWithPath: path)
+        guard let raw = try? Data(contentsOf: url) else { return nil }
+        let ext = url.pathExtension.lowercased()
+        let utType = UTType(filenameExtension: ext)
+        var isImage = utType?.conforms(to: .image) ?? false
+        if !isImage, let src = CGImageSourceCreateWithData(raw as CFData, nil) {
+            isImage = CGImageSourceGetCount(src) > 0
+        }
+
+        if isImage, let size = pixelSize(raw),
+           let full = jpeg(raw, maxPixel: 4096, quality: 0.85) {
+            // Lato corto 300 px preservando le proporzioni (come l'app).
+            let (w, h) = size
+            let ratio = Double(max(w, h)) / Double(max(1, min(w, h)))
+            let thumbMax = Int((300.0 * ratio).rounded(.up))
+            let thumb = jpeg(raw, maxPixel: thumbMax, quality: 0.85)
+            let name = url.deletingPathExtension().lastPathComponent + ".jpg"
+            return Prepared(data: full, fileName: name, mimeType: "image/jpeg", type: "photo", thumbnail: thumb)
+        }
+        let mime = utType?.preferredMIMEType ?? "application/octet-stream"
+        return Prepared(data: raw, fileName: url.lastPathComponent, mimeType: mime, type: "document", thumbnail: nil)
+    }
+
+    private static func pixelSize(_ data: Data) -> (Int, Int)? {
+        guard let src = CGImageSourceCreateWithData(data as CFData, nil),
+              let props = CGImageSourceCopyPropertiesAtIndex(src, 0, nil) as? [CFString: Any],
+              let w = props[kCGImagePropertyPixelWidth] as? Int,
+              let h = props[kCGImagePropertyPixelHeight] as? Int else { return nil }
+        return (w, h)
+    }
+
+    /// Decodifica + ridimensiona in un passaggio (ImageIO, memoria contenuta,
+    /// orientamento EXIF applicato, metadati EXIF non copiati).
+    private static func jpeg(_ data: Data, maxPixel: Int, quality: CGFloat) -> Data? {
+        guard let src = CGImageSourceCreateWithData(data as CFData, nil) else { return nil }
+        let opts: [CFString: Any] = [
+            kCGImageSourceCreateThumbnailFromImageAlways: true,
+            kCGImageSourceCreateThumbnailWithTransform: true,
+            kCGImageSourceShouldCacheImmediately: true,
+            kCGImageSourceThumbnailMaxPixelSize: maxPixel,
+        ]
+        guard let cg = CGImageSourceCreateThumbnailAtIndex(src, 0, opts as CFDictionary) else { return nil }
+        return UIImage(cgImage: cg).jpegData(compressionQuality: quality)
+    }
+
+    // MARK: Cifratura + upload
+
+    /// Ritorna i campi dell'allegato già nel formato Firestore REST.
+    private static func encryptAndUpload(_ file: Prepared, identity: ShareIdentity) -> [String: Any]? {
+        let key = SymmetricKey(size: .bits256)
+        let keyData = key.withUnsafeBytes { Data($0) }
+        guard let sealedFull = gcmSeal(file.data, key: key),
+              let wrappedRecipient = TuyjoCrypto.rsaOaepSha1(keyData, publicKeySpkiBase64: identity.partnerPublicKey),
+              let wrappedSender = TuyjoCrypto.rsaOaepSha1(keyData, publicKeySpkiBase64: identity.myPublicKey) else {
+            return nil
+        }
+
+        let attachmentId = UUID().uuidString.lowercased()
+        let basePath = "families/\(identity.familyChatId)/attachments/\(file.type)"
+        let metadata = [
+            "senderId": identity.myUserId,
+            "originalFileName": file.fileName,
+            "originalMimeType": file.mimeType,
+            "encrypted": "true",
+        ]
+        guard let url = upload(sealedFull.blob, path: "\(basePath)/\(attachmentId)", metadata: metadata) else { return nil }
+
+        var fields: [String: Any] = [
+            "id": ["stringValue": attachmentId],
+            "type": ["stringValue": file.type],
+            "url": ["stringValue": url],
+            "fileName": ["stringValue": file.fileName],
+            "fileSize": ["integerValue": "\(file.data.count)"],
+            "mimeType": ["stringValue": file.mimeType],
+            "encryptedKeyRecipient": ["stringValue": wrappedRecipient.base64EncodedString()],
+            "encryptedKeySender": ["stringValue": wrappedSender.base64EncodedString()],
+            "iv": ["stringValue": sealedFull.nonce.base64EncodedString()],
+            "encryptVersion": ["stringValue": "gcm-v1"],
+        ]
+
+        // Thumbnail: stessa chiave, nonce nuovo (GCM vieta il riuso).
+        if let thumb = file.thumbnail, let sealedThumb = gcmSeal(thumb, key: key) {
+            var thumbMeta = metadata
+            thumbMeta["type"] = "thumbnail"
+            if let thumbUrl = upload(sealedThumb.blob, path: "\(basePath)/thumbnails/\(attachmentId)", metadata: thumbMeta) {
+                fields["thumbnailUrl"] = ["stringValue": thumbUrl]
+                fields["thumbnailIv"] = ["stringValue": sealedThumb.nonce.base64EncodedString()]
+            }
+        }
+        return fields
+    }
+
+    /// AES-256-GCM: ritorna `cipherText + tag` e il nonce (12 byte).
+    private static func gcmSeal(_ data: Data, key: SymmetricKey) -> (blob: Data, nonce: Data)? {
+        let nonce = AES.GCM.Nonce()
+        guard let box = try? AES.GCM.seal(data, using: key, nonce: nonce) else { return nil }
+        return (blob: box.ciphertext + box.tag, nonce: Data(nonce))
+    }
+
+    /// Upload multipart come l'SDK Firebase (metadata JSON + bytes). Sincrono:
+    /// gira sulla coda di background di `send`. Ritorna l'URL di download.
+    private static func upload(_ bytes: Data, path: String, metadata: [String: String]) -> String? {
+        let allowed = CharacterSet.alphanumerics.union(CharacterSet(charactersIn: "-._~"))
+        guard let encodedName = path.addingPercentEncoding(withAllowedCharacters: allowed),
+              let url = URL(string: "https://firebasestorage.googleapis.com/v0/b/\(bucket)/o?name=\(encodedName)") else {
+            return nil
+        }
+        let contentType = "application/octet-stream"
+        let meta: [String: Any] = ["name": path, "contentType": contentType, "metadata": metadata]
+        guard let metaData = try? JSONSerialization.data(withJSONObject: meta) else { return nil }
+
+        let boundary = "tuyjo-" + UUID().uuidString
+        var body = Data()
+        body.append(Data("--\(boundary)\r\nContent-Type: application/json; charset=utf-8\r\n\r\n".utf8))
+        body.append(metaData)
+        body.append(Data("\r\n--\(boundary)\r\nContent-Type: \(contentType)\r\n\r\n".utf8))
+        body.append(bytes)
+        body.append(Data("\r\n--\(boundary)--\r\n".utf8))
+
+        var req = URLRequest(url: url)
+        req.httpMethod = "POST"
+        req.timeoutInterval = 120
+        req.setValue("multipart/related; boundary=\(boundary)", forHTTPHeaderField: "Content-Type")
+        req.setValue("multipart", forHTTPHeaderField: "X-Goog-Upload-Protocol")
+        req.setValue(MessageSender.appBundleId, forHTTPHeaderField: "X-Ios-Bundle-Identifier")
+
+        let semaphore = DispatchSemaphore(value: 0)
+        var downloadUrl: String?
+        URLSession.shared.uploadTask(with: req, from: body) { data, response, _ in
+            defer { semaphore.signal() }
+            guard let http = response as? HTTPURLResponse, (200..<300).contains(http.statusCode),
+                  let data = data,
+                  let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+                  let tokens = json["downloadTokens"] as? String,
+                  let token = tokens.split(separator: ",").first else { return }
+            downloadUrl = "https://firebasestorage.googleapis.com/v0/b/\(bucket)/o/\(encodedName)?alt=media&token=\(token)"
+        }.resume()
+        semaphore.wait()
+        return downloadUrl
     }
 }
