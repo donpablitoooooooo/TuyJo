@@ -9,6 +9,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:timezone/data/latest_all.dart' as tz;
 import 'package:timezone/timezone.dart' as tz;
 import 'dart:ui' as ui;
@@ -841,14 +842,22 @@ class NotificationService {
       final locale = ui.PlatformDispatcher.instance.locale;
       String languageCode = locale.languageCode; // es: 'it', 'en', 'es', 'ca'
 
-      // 🔧 FIX: Crea sempre il documento user, anche senza token
-      // Questo è necessario per typing indicator e altri features
+      // Le chiavi viaggiano SEMPRE con il token: se il documento era stato
+      // cancellato (incidente, reinstallazione a metà) questo set(merge) lo
+      // ricreava "vuoto", senza my_public_key, e la famiglia restava per
+      // sempre a 1 membro fantasma. Con le chiavi il documento è completo.
+      const storage = FlutterSecureStorage();
+      final myPublicKey = await storage.read(key: 'rsa_public_key');
+      final partnerPublicKey = await storage.read(key: 'partner_public_key');
+
       await _firestore
           .collection('families')
           .doc(familyChatId)
           .collection('users')
           .doc(userId)
           .set({
+        if (myPublicKey != null) 'my_public_key': myPublicKey,
+        if (partnerPublicKey != null) 'partner_public_key': partnerPublicKey,
         if (token != null) 'fcm_token': token,
         if (voipToken != null) 'voip_token': voipToken,
         'platform': Platform.isIOS ? 'ios' : 'android',

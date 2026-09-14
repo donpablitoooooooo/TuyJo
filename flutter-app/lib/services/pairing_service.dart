@@ -17,6 +17,7 @@ class PairingService extends ChangeNotifier {
   bool _isPaired = false;
   String? _partnerPublicKey;
   bool _familyWasComplete = false; // Traccia se abbiamo mai visto 2 users
+  bool _selfHealInFlight = false; // Riscrittura del mio documento in corso
   Completer<void>? _initCompleter; // Evita doppia inizializzazione
 
   /// Callback invocato quando il partner fa "Elimina Tutto" oppure richiede
@@ -311,14 +312,30 @@ class PairingService extends ChangeNotifier {
       bool serverFamilyComplete = false;
       try {
         final snap = await usersRef.get(const GetOptions(source: Source.server));
-        final partnerDocs = snap.docs.where((d) => d.id != myUserId).toList();
-        final myDocs = snap.docs.where((d) => d.id == myUserId).toList();
+        // Solo i documenti con chiavi contano: uno senza (creato da un
+        // set(merge) dopo una cancellazione) non è né una prova che la
+        // famiglia esista né un motivo per rifiutare il ripristino.
+        final keyedDocs = snap.docs.where(_docHasIdentity).toList();
+        final partnerDocs = keyedDocs.where((d) => d.id != myUserId).toList();
+        final myDocs = keyedDocs.where((d) => d.id == myUserId).toList();
         serverFamilyComplete = partnerDocs.isNotEmpty;
 
-        if (partnerDocs.isEmpty && myDocs.isEmpty) {
-          if (kDebugMode) print('❌ [PAIRING] restore: famiglia inesistente sul server (backup vecchio?)');
-          lastRestoreOutcome = RestoreOutcome.familyMissing;
-          return false;
+        if (keyedDocs.isEmpty) {
+          // Nessuna identità sul server: la famiglia esiste solo se ha ancora
+          // messaggi (documenti persi in un incidente). Altrimenti il backup
+          // punta a una chat che non c'è più.
+          final msgs = await _firestore
+              .collection('families')
+              .doc(familyChatId)
+              .collection('messages')
+              .limit(1)
+              .get(const GetOptions(source: Source.server));
+          if (msgs.docs.isEmpty) {
+            if (kDebugMode) print('❌ [PAIRING] restore: famiglia inesistente sul server (backup vecchio?)');
+            lastRestoreOutcome = RestoreOutcome.familyMissing;
+            return false;
+          }
+          if (kDebugMode) print('🩹 [PAIRING] restore: documenti utente persi ma messaggi presenti, ricostruisco il mio');
         }
         if (partnerDocs.isNotEmpty &&
             partnerDocs.first.data()['my_public_key'] != partnerPublicKey) {
@@ -349,11 +366,12 @@ class PairingService extends ChangeNotifier {
       _familyWasComplete = serverFamilyComplete;
 
       if (needWrite) {
+        // merge: non cancellare fcm_token/voip_token già salvati nel documento
         await usersRef.doc(myUserId).set({
           'paired_at': FieldValue.serverTimestamp(),
           'my_public_key': myPublicKey,
           'partner_public_key': partnerPublicKey,
-        });
+        }, SetOptions(merge: true));
       }
       if (kDebugMode) {
         print('✅ [PAIRING] restorePairing OK, family: ${familyChatId.substring(0, 10)}... (doc ${needWrite ? "scritto" : "già coerente"})');
@@ -461,10 +479,16 @@ class PairingService extends ChangeNotifier {
         .snapshots()
         .listen(
       (snapshot) async {
-      final userCount = snapshot.docs.length;
+      // Conta SOLO i documenti "con identità" (my_public_key valorizzata).
+      // Un documento senza chiavi non è un membro della famiglia: nasce da un
+      // set(merge) (token FCM, flag delete_cache_requested) eseguito dopo che
+      // il documento originale era stato cancellato. Contarlo come utente
+      // portava a famiglie "1/2" fantasma e a ripristini rifiutati.
+      final keyedDocs = snapshot.docs.where(_docHasIdentity).toList();
+      final userCount = keyedDocs.length;
 
       if (kDebugMode) {
-        print('👥 [PAIRING] Family users count: $userCount');
+        print('👥 [PAIRING] Family users count: $userCount (documenti totali: ${snapshot.docs.length})');
         print('   chatId: ${chatId.substring(0, 10)}...');
         print('   myUserId: ${myUserId.substring(0, 10)}...');
         print('   _partnerPublicKey: ${_partnerPublicKey != null ? "YES" : "NULL"}');
@@ -550,6 +574,22 @@ class PairingService extends ChangeNotifier {
         return; // Esci dal listener
       }
 
+      // AUTO-RIPARAZIONE: il mio documento manca o è senza chiavi, ma questo
+      // telefono ha ancora l'identità completa (mia chiave + chiave partner).
+      // Succede dopo un incidente che ha cancellato i documenti (famiglia
+      // "corrotta", reinstallazione a metà) quando poi il salvataggio del
+      // token FCM ha ricreato un documento vuoto. Riscrivo il mio documento e
+      // aspetto lo snapshot successivo: nessuna decisione su questo.
+      final myKeyedDocs = keyedDocs.where((d) => d.id == myUserId).toList();
+      if (myKeyedDocs.isEmpty) {
+        final healed = await _selfHealMyDocument(
+          chatId: chatId,
+          myUserId: myUserId,
+          keyedDocs: keyedDocs,
+        );
+        if (healed) return;
+      }
+
       // LOGICA ROBUSTA: isPaired = true SOLO se:
       // 1. userCount == 2
       // 2. Entrambi i documenti hanno chiavi valide che si corrispondono
@@ -559,7 +599,7 @@ class PairingService extends ChangeNotifier {
       // Verifica le chiavi SOLO se userCount >= 2
       if (userCount >= 2) {
         try {
-          final myDocList = snapshot.docs.where((doc) => doc.id == myUserId).toList();
+          final myDocList = myKeyedDocs;
 
           if (myDocList.isNotEmpty) {
             final myDoc = myDocList.first;
@@ -568,7 +608,7 @@ class PairingService extends ChangeNotifier {
             final myDocPublicKey = myDocData['my_public_key'] as String?;
 
             // Trova il documento del partner
-            final partnerDocs = snapshot.docs.where((doc) => doc.id != myUserId).toList();
+            final partnerDocs = keyedDocs.where((doc) => doc.id != myUserId).toList();
 
             if (partnerDocs.isNotEmpty) {
               final partnerDoc = partnerDocs.first;
@@ -686,7 +726,7 @@ class PairingService extends ChangeNotifier {
       // Fai unpair completo (rimuovi chiave partner) SOLO se eravamo completi e ora non lo siamo più
       if (userCount < 2 && _partnerPublicKey != null && _familyWasComplete) {
         // Verifica che IO sia ancora presente (potrei essere l'unico rimasto)
-        final iAmPresent = snapshot.docs.any((doc) => doc.id == myUserId);
+        final iAmPresent = myKeyedDocs.isNotEmpty;
 
         if (iAmPresent && userCount == 1) {
           // Solo io presente → partner ha fatto unpair
@@ -790,6 +830,82 @@ class PairingService extends ChangeNotifier {
       // Mantieni _isPaired e _partnerPublicKey invariati
     },
   );
+  }
+
+  /// Un documento users rappresenta un membro solo se porta la sua chiave.
+  static bool _docHasIdentity(QueryDocumentSnapshot<Map<String, dynamic>> doc) {
+    final key = doc.data()['my_public_key'];
+    return key is String && key.isNotEmpty;
+  }
+
+  /// Riscrive il mio documento nella famiglia quando manca o è senza chiavi.
+  ///
+  /// Lo fa solo se è plausibile che io sia ancora membro:
+  /// - il documento del partner è presente e porta proprio la chiave che ho
+  ///   in locale (il partner è lì, manco solo io), oppure
+  /// - la famiglia non ha nessun documento con chiavi ma ha ancora messaggi
+  ///   (i documenti sono stati persi, la chat no).
+  /// Se invece la famiglia è davvero vuota (messaggi cancellati) lascia che la
+  /// logica "famiglia vuota" faccia l'unpair. Ritorna true se ha scritto (o
+  /// una scrittura è già in corso): il chiamante deve attendere il prossimo
+  /// snapshot invece di decidere su questo.
+  Future<bool> _selfHealMyDocument({
+    required String chatId,
+    required String myUserId,
+    required List<QueryDocumentSnapshot<Map<String, dynamic>>> keyedDocs,
+  }) async {
+    final partnerKey = _partnerPublicKey;
+    if (partnerKey == null) return false;
+    if (_selfHealInFlight) return true;
+
+    final myPublicKey = await _storage.read(key: 'rsa_public_key');
+    if (myPublicKey == null) return false;
+
+    final partnerDocs = keyedDocs.where((d) => d.id != myUserId).toList();
+    bool plausible = false;
+    if (partnerDocs.isNotEmpty) {
+      plausible = partnerDocs.first.data()['my_public_key'] == partnerKey;
+    } else if (keyedDocs.isEmpty) {
+      try {
+        final msgs = await _firestore
+            .collection('families')
+            .doc(chatId)
+            .collection('messages')
+            .limit(1)
+            .get(const GetOptions(source: Source.server));
+        plausible = msgs.docs.isNotEmpty;
+      } catch (e) {
+        if (kDebugMode) print('⚠️ [PAIRING] self-heal: verifica messaggi fallita: $e');
+        return false;
+      }
+    }
+
+    if (!plausible) {
+      if (kDebugMode) print('   ℹ️ [PAIRING] Mio documento assente ma famiglia non ricostruibile, nessuna riparazione');
+      return false;
+    }
+
+    _selfHealInFlight = true;
+    try {
+      if (kDebugMode) print('🩹 [PAIRING] Mio documento assente/senza chiavi → lo riscrivo');
+      await _firestore
+          .collection('families')
+          .doc(chatId)
+          .collection('users')
+          .doc(myUserId)
+          .set({
+        'paired_at': FieldValue.serverTimestamp(),
+        'my_public_key': myPublicKey,
+        'partner_public_key': partnerKey,
+      }, SetOptions(merge: true));
+      if (kDebugMode) print('   ✅ [PAIRING] Documento riparato, attendo il prossimo snapshot');
+      return true;
+    } catch (e) {
+      if (kDebugMode) print('   ❌ [PAIRING] Riparazione fallita: $e');
+      return false;
+    } finally {
+      _selfHealInFlight = false;
+    }
   }
 
   /// Signals that we scanned someone's QR code

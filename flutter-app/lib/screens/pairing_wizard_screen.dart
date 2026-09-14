@@ -70,7 +70,12 @@ class _PairingWizardScreenState extends State<PairingWizardScreen> {
         .collection('users')
         .snapshots()
         .listen((snapshot) {
-      final userCount = snapshot.docs.length;
+      // Conta solo i documenti con chiavi (come il listener del pairing):
+      // un documento senza my_public_key non è un membro.
+      final userCount = snapshot.docs.where((d) {
+        final k = d.data()['my_public_key'];
+        return k is String && k.isNotEmpty;
+      }).length;
 
       if (kDebugMode) print('👥 Wizard family users count: $userCount');
 
