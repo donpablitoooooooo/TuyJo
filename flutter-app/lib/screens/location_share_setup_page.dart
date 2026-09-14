@@ -101,6 +101,7 @@ class _LocationShareSetupPageState extends State<LocationShareSetupPage>
           context: context,
           title: l10n.permissionLocationGpsDisabledTitle,
           message: l10n.permissionLocationGpsDisabledMessage,
+          onOpenSettings: () => Geolocator.openLocationSettings(),
         );
       } else {
         await showPermissionDeniedDialog(

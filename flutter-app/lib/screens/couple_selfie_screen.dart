@@ -230,10 +230,11 @@ class _CoupleSelfieScreenState extends State<CoupleSelfieScreen> {
           setState(() => _isProcessing = false);
           if (mounted) {
             final l10n = AppLocalizations.of(context)!;
+            final isPhotos = e.code == 'photo_access_denied';
             showPermissionDeniedDialog(
               context: context,
-              title: l10n.permissionCameraDeniedTitle,
-              message: l10n.permissionCameraDeniedMessage,
+              title: isPhotos ? l10n.permissionPhotosDeniedTitle : l10n.permissionCameraDeniedTitle,
+              message: isPhotos ? l10n.permissionPhotosDeniedMessage : l10n.permissionCameraDeniedMessage,
               isPermanentlyDenied: true,
             );
           }

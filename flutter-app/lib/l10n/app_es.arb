@@ -306,6 +306,8 @@
     "permissionCameraDeniedTitle": "Cámara no disponible",
     "permissionCameraDeniedMessage": "El acceso a la cámara es necesario para tomar fotos. Habilita el permiso de cámara en los ajustes del dispositivo.",
     "permissionCameraPairingMessage": "El acceso a la cámara es necesario para escanear el código QR de tu pareja y vincularos. Habilita el permiso de cámara en los ajustes del dispositivo.",
+    "permissionPhotosDeniedTitle": "Fotos no accesibles",
+    "permissionPhotosDeniedMessage": "El acceso a las fotos es necesario para elegir imágenes de la galería. Habilita el permiso de Fotos en los ajustes del dispositivo.",
     "permissionRationaleContinue": "Continuar",
     "permissionRationaleNotNow": "Ahora no",
     "permissionLocationRationaleTitle": "Uso de la ubicación",

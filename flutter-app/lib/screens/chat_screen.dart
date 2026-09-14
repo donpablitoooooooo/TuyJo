@@ -1602,8 +1602,8 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                     if (mounted) {
                       showPermissionDeniedDialog(
                         context: context,
-                        title: l10n.permissionCameraDeniedTitle,
-                        message: l10n.permissionCameraDeniedMessage,
+                        title: l10n.permissionPhotosDeniedTitle,
+                        message: l10n.permissionPhotosDeniedMessage,
                         isPermanentlyDenied: true,
                       );
                     }

@@ -306,6 +306,8 @@
     "permissionCameraDeniedTitle": "Càmera no disponible",
     "permissionCameraDeniedMessage": "L'accés a la càmera és necessari per fer fotos. Habilita el permís de càmera a la configuració del dispositiu.",
     "permissionCameraPairingMessage": "L'accés a la càmera és necessari per escanejar el codi QR de la teva parella i vincular-vos. Habilita el permís de càmera a la configuració del dispositiu.",
+    "permissionPhotosDeniedTitle": "Fotos no accessibles",
+    "permissionPhotosDeniedMessage": "L'accés a les fotos és necessari per triar imatges de la galeria. Habilita el permís de Fotos a la configuració del dispositiu.",
     "permissionRationaleContinue": "Continua",
     "permissionRationaleNotNow": "Ara no",
     "permissionLocationRationaleTitle": "Ús de la ubicació",
