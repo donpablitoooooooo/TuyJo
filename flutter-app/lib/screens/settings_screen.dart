@@ -207,16 +207,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
   }
 
-  Future<void> _startPairingWizard() async {
-    await Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (context) => const PairingWizardScreen(),
-      ),
-    );
-    // Non serve più _checkPairingStatus() - il build() si aggiorna automaticamente via Provider
-  }
-
   /// Pagina "Elimina Messaggi" (full page, stile wizard): la pagina ritorna
   /// la modalità scelta e l'esecuzione resta qui.
   Future<void> _openDeleteMessagesScreen() async {
@@ -413,14 +403,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     ),
                   ],
                 ),
-              ),
-              const SizedBox(height: 16),
-              // Ricollega il nuovo telefono del partner (cambio telefono,
-              // wipe, chiave persa): apre direttamente il wizard QR.
-              _OutlineButton(
-                onPressed: _startPairingWizard,
-                icon: Icons.qr_code,
-                label: AppLocalizations.of(context)!.settingsRestorePartnerButton,
               ),
               const SizedBox(height: 20),
               Text(
