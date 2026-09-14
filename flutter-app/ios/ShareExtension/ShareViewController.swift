@@ -197,21 +197,55 @@ class ShareViewController: UIViewController {
 
     // MARK: - Caricamento singoli elementi
 
+    /// Le foto vanno prese come FILE (loadFileRepresentation): `loadItem`
+    /// su "public.image" consegna spesso una UIImage già decodificata
+    /// (12 MP ≈ 50 MB), e con due foto l'estensione supera il limite di
+    /// memoria (~120 MB) prima ancora di iniziare l'invio. Il file viene
+    /// copiato nel container senza mai decodificarlo qui.
     private func loadImage(_ attachment: NSItemProvider, completion: @escaping (String?) -> Void) {
-        attachment.loadItem(forTypeIdentifier: UTType.image.identifier, options: nil) { [weak self] item, _ in
+        let preferred = [UTType.jpeg.identifier, UTType.heic.identifier, UTType.png.identifier, UTType.image.identifier]
+        let typeId = preferred.first { attachment.hasItemConformingToTypeIdentifier($0) } ?? UTType.image.identifier
+        attachment.loadFileRepresentation(forTypeIdentifier: typeId) { [weak self] url, error in
             guard let self = self else { completion(nil); return }
-            var data: Data?
-            var ext = "jpg"
-            if let url = item as? URL {
-                data = self.readData(url)
-                ext = url.pathExtension.isEmpty ? "jpg" : url.pathExtension
-            } else if let image = item as? UIImage {
-                data = image.jpegData(compressionQuality: 0.9)
-            } else if let d = item as? Data {
-                data = d
+            if let url = url, let path = self.copyToSharedMedia(url) {
+                completion(path)
+                return
             }
-            guard let bytes = data else { completion(nil); return }
-            completion(self.saveToSharedMedia(bytes, fileName: "shared_\(self.uniqueSuffix()).\(ext)"))
+            self.debugLog("loadFileRepresentation failed (\(error?.localizedDescription ?? "-")), fallback in-memory")
+            // Fallback (es. screenshot senza file): elemento in memoria, in un pool.
+            attachment.loadItem(forTypeIdentifier: UTType.image.identifier, options: nil) { item, _ in
+                let path: String? = autoreleasepool {
+                    var data: Data?
+                    var ext = "jpg"
+                    if let url = item as? URL {
+                        data = self.readData(url)
+                        ext = url.pathExtension.isEmpty ? "jpg" : url.pathExtension
+                    } else if let image = item as? UIImage {
+                        data = image.jpegData(compressionQuality: 0.9)
+                    } else if let d = item as? Data {
+                        data = d
+                    }
+                    guard let bytes = data else { return nil }
+                    return self.saveToSharedMedia(bytes, fileName: "shared_\(self.uniqueSuffix()).\(ext)")
+                }
+                completion(path)
+            }
+        }
+    }
+
+    /// Copia un file temporaneo del provider nel container (streaming, senza
+    /// caricarlo in memoria) con protezione NSFileProtectionComplete.
+    private func copyToSharedMedia(_ src: URL) -> String? {
+        guard let dir = sharedMediaDir() else { return nil }
+        let ext = src.pathExtension.isEmpty ? "jpg" : src.pathExtension
+        let dest = dir.appendingPathComponent("shared_\(uniqueSuffix()).\(ext)")
+        do {
+            try FileManager.default.copyItem(at: src, to: dest)
+            try FileManager.default.setAttributes([.protectionKey: FileProtectionType.complete], ofItemAtPath: dest.path)
+            return dest.path
+        } catch {
+            debugLog("copy failed: \(error)")
+            return nil
         }
     }
 
@@ -369,7 +403,7 @@ class ShareViewController: UIViewController {
     /// Foto e documenti: cifra, carica su Storage e scrive il messaggio,
     /// con un HUD di avanzamento. In caso di errore ripiega sulla coda.
     private func sendFilesNatively(_ paths: [String], caption: String, identity: ShareIdentity) {
-        debugLog("native send: \(paths.count) file(s)")
+        debugLog("native send: \(paths.count) file(s), resident \(AttachmentSender.residentMemoryMB()) MB")
         let hud = UIAlertController(title: nil, message: localized("sending"), preferredStyle: .alert)
         present(hud, animated: true)
         let total = paths.count
@@ -720,6 +754,25 @@ enum AttachmentSender {
     /// Ultimo errore (per l'avviso di fallback in build di debug).
     static var lastError: String?
 
+    static func log(_ msg: String) {
+        #if DEBUG
+        NSLog("📤 [ShareExtension] %@", msg)
+        #endif
+    }
+
+    /// Memoria residente del processo (MB), per capire quanto siamo vicini
+    /// al limite dell'estensione.
+    static func residentMemoryMB() -> Int {
+        var info = mach_task_basic_info()
+        var count = mach_msg_type_number_t(MemoryLayout<mach_task_basic_info>.size) / 4
+        let kr = withUnsafeMutablePointer(to: &info) {
+            $0.withMemoryRebound(to: integer_t.self, capacity: Int(count)) {
+                task_info(mach_task_self_, task_flavor_t(MACH_TASK_BASIC_INFO), $0, &count)
+            }
+        }
+        return kr == KERN_SUCCESS ? Int(info.resident_size / 1_048_576) : -1
+    }
+
     struct Prepared {
         let data: Data
         let fileName: String
@@ -743,8 +796,10 @@ enum AttachmentSender {
                         lastError = "prepare failed: \(path.split(separator: "/").last ?? "")"
                         return nil
                     }
+                    log("prepared \(prepared.fileName): \(prepared.data.count / 1024) KB, thumb \((prepared.thumbnail?.count ?? 0) / 1024) KB, resident \(residentMemoryMB()) MB")
                     return encryptAndUpload(prepared, identity: identity)
                 }
+                log("uploaded \(i + 1)/\(filePaths.count), resident \(residentMemoryMB()) MB")
                 guard let f = fields else {
                     completion(false)
                     return
