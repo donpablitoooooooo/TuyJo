@@ -816,12 +816,14 @@ enum AttachmentSender {
     // MARK: Preparazione (ridimensionamento / thumbnail)
 
     /// Limite di memoria dell'estensione: ~120 MB, sorvegliato dal kernel
-    /// (visto: kill a 131 MB decodificando una HEIC da 12 MP). Regole:
-    /// un solo bitmap vivo per volta (pool separati), thumbnail ricavata
-    /// dal JPEG già ridotto e non dall'originale, codifica via ImageIO senza
-    /// passare da UIImage (che duplica il bitmap), lato massimo 3072 px
-    /// (≈7 MP: bitmap ≈ 28 MB) invece dei 4096 dell'app.
-    static let maxPhotoPixels = 3072
+    /// (visto: kill a 122–131 MB decodificando una HEIC da 12 MP: ImageIO
+    /// la decodifica INTERA, ≈50 MB, e solo dopo la riduce). Regole:
+    /// foto presa da Foto come file JPEG (loadFileRepresentation), decodifica
+    /// sottocampionata (kCGImageSourceSubsampleFactor: riduce già in
+    /// decodifica), un solo bitmap vivo per volta (pool separati), thumbnail
+    /// ricavata dal JPEG ridotto, codifica via ImageIO senza UIImage, lato
+    /// massimo 2048 px (bitmap ≈ 12 MB) invece dei 4096 dell'app.
+    static let maxPhotoPixels = 2048
 
     static func prepare(path: String) -> Prepared? {
         let url = URL(fileURLWithPath: path)
@@ -872,14 +874,29 @@ enum AttachmentSender {
         return jpeg(source: src, maxPixel: maxPixel, quality: quality)
     }
 
-    /// Decodifica + ridimensiona in un passaggio (ImageIO decodifica già
-    /// sottocampionato, orientamento EXIF applicato) e ricodifica JPEG con
-    /// CGImageDestination: nessun passaggio da UIImage, nessun EXIF copiato.
+    /// Decodifica + ridimensiona in un passaggio e ricodifica JPEG con
+    /// CGImageDestination: nessun passaggio da UIImage, nessun EXIF copiato,
+    /// orientamento applicato. Il fattore di sottocampionamento (1/2/4/8,
+    /// supportato per JPEG/HEIF/PNG/TIFF) fa decodificare l'immagine già
+    /// ridotta: è quello che tiene il picco di memoria basso.
     private static func jpeg(source src: CGImageSource, maxPixel: Int, quality: CGFloat) -> Data? {
+        var subsample = 1
+        if let props = CGImageSourceCopyPropertiesAtIndex(src, 0, nil) as? [CFString: Any],
+           let w = props[kCGImagePropertyPixelWidth] as? Int,
+           let h = props[kCGImagePropertyPixelHeight] as? Int {
+            let longSide = max(w, h)
+            // Il più grande fattore che lascia il lato lungo ≥ ~95% del target
+            // (un 2016 al posto di 2048 è impercettibile, un 1008 no).
+            for f in [8, 4, 2] where longSide / f >= Int(Double(maxPixel) * 0.95) {
+                subsample = f
+                break
+            }
+        }
         let opts: [CFString: Any] = [
             kCGImageSourceCreateThumbnailFromImageAlways: true,
             kCGImageSourceCreateThumbnailWithTransform: true,
             kCGImageSourceShouldCacheImmediately: false,
+            kCGImageSourceSubsampleFactor: subsample,
             kCGImageSourceThumbnailMaxPixelSize: maxPixel,
         ]
         guard let cg = CGImageSourceCreateThumbnailAtIndex(src, 0, opts as CFDictionary) else { return nil }
