@@ -2,17 +2,16 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:package_info_plus/package_info_plus.dart';
-import 'package:intl/intl.dart';
 import 'package:private_messaging/generated/l10n/app_localizations.dart';
 import '../services/pairing_service.dart';
 import '../services/chat_service.dart';
 import '../services/notification_service.dart';
-import '../services/backup_service.dart';
+import '../services/recovery_service.dart';
 import '../services/couple_selfie_service.dart';
 import 'pairing_wizard_screen.dart';
-import 'backup_choice_screen.dart';
+import 'recovery_request_screen.dart';
+import 'recovery_helper_screen.dart';
 import 'couple_selfie_screen.dart';
-import 'restore_screen.dart';
 import 'delete_messages_screen.dart';
 
 class SettingsScreen extends StatefulWidget {
@@ -58,6 +57,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
         if (chatId != null && mounted) {
           // Elimina messaggi + foto da Firestore e Storage
           await chatService.deleteMessagesAndCoupleSelfie(chatId);
+          // Senza chat i depositi per il recupero non servono più
+          await RecoveryService().deleteAllDeposits(chatId);
         }
 
         // Unpair + pulisci cache locale
@@ -181,115 +182,25 @@ class _SettingsScreenState extends State<SettingsScreen> {
     }
   }
 
-  /// Ripristino (pagina intera): cerca il certificato sul telefono e nel
-  /// cloud, oppure lo fa caricare da file; con il certificato completo
-  /// riconnette direttamente alla chat, altrimenti prosegue col wizard QR.
-  Future<void> _openRestoreScreen() async {
+  /// "Recupera con il partner" (telefono nuovo): mostra il QR di recupero.
+  Future<void> _openRecoveryRequest() async {
     await Navigator.push(
       context,
-      MaterialPageRoute(builder: (_) => const RestoreScreen()),
+      MaterialPageRoute(builder: (_) => const RecoveryRequestScreen()),
     );
   }
 
-  Future<void> _showBackupChoice() async {
+  /// "Aiuta il partner a recuperare" / "Trasferisci a un nuovo telefono":
+  /// inquadra il QR del telefono nuovo e gli invia il certificato.
+  Future<void> _openRecoveryHelper(RecoveryRole role) async {
     await Navigator.push(
       context,
-      MaterialPageRoute(builder: (_) => const BackupChoiceScreen()),
-    );
-    if (mounted) setState(() {});
-  }
-
-  /// Verifica attiva del backup: riscrive e rilegge il blob cloud, oppure
-  /// controlla che il certificato copiato a mano sia ancora aggiornato.
-  Future<void> _verifyBackup() async {
-    final l10n = AppLocalizations.of(context)!;
-    showDialog<void>(
-      context: context,
-      barrierDismissible: false,
-      builder: (_) => const Center(child: CircularProgressIndicator()),
-    );
-    final status = await BackupService().checkStatus();
-    if (!mounted) return;
-    Navigator.of(context).pop(); // chiude lo spinner
-
-    final locale = Localizations.localeOf(context).toString();
-    final when = status.savedAt != null
-        ? DateFormat.yMd(locale).add_Hm().format(status.savedAt!.toLocal())
-        : '—';
-    final cloudName = Theme.of(context).platform == TargetPlatform.iOS ||
-            Theme.of(context).platform == TargetPlatform.macOS
-        ? 'iCloud'
-        : 'Google';
-    String message;
-    bool ok;
-    switch (status.health) {
-      case BackupHealth.cloudOk:
-        ok = true;
-        message = l10n.backupCheckCloudOk(cloudName, when);
-        break;
-      case BackupHealth.cloudIncomplete:
-        ok = false;
-        message = l10n.backupCheckCloudIncomplete;
-        break;
-      case BackupHealth.cloudMissing:
-        ok = false;
-        message = l10n.backupCheckCloudMissing;
-        break;
-      case BackupHealth.manualOk:
-        ok = true;
-        message = l10n.backupCheckManualOk(when);
-        break;
-      case BackupHealth.manualOutdated:
-        ok = false;
-        message = l10n.backupCheckManualOutdated;
-        break;
-      case BackupHealth.none:
-        ok = false;
-        message = l10n.backupCheckNone;
-        break;
-    }
-    if (!mounted) return;
-    await showDialog<void>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: Row(
-          children: [
-            Icon(ok ? Icons.verified : Icons.warning_amber_rounded,
-                color: ok ? const Color(0xFF3BA8B0) : Colors.orange[700]),
-            const SizedBox(width: 10),
-            Expanded(child: Text(l10n.backupCheckTitle)),
-          ],
-        ),
-        content: Text(message, style: const TextStyle(height: 1.4)),
-        actions: [
-          if (!ok)
-            TextButton(
-              onPressed: () {
-                Navigator.of(ctx).pop();
-                _showBackupChoice();
-              },
-              child: Text(l10n.settingsBackupCertificateButton),
-            ),
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(),
-            child: Text(l10n.close),
-          ),
-        ],
-      ),
+      MaterialPageRoute(builder: (_) => RecoveryHelperScreen(role: role)),
     );
   }
 
-  /// Flusso "Nuovo pairing": 1) scelta backup obbligatoria (full page) →
-  /// 2) scambio QR.
+  /// "Nuovo pairing": scambio QR. Le chiavi vengono generate dal wizard.
   Future<void> _startNewPairingFlow() async {
-    final strategy = await Navigator.push<BackupStrategy>(
-      context,
-      MaterialPageRoute(
-        builder: (_) => const BackupChoiceScreen(mandatory: true),
-      ),
-    );
-    if (strategy == null || !mounted) return;
     await Navigator.push(
       context,
       MaterialPageRoute(builder: (_) => const PairingWizardScreen()),
@@ -511,18 +422,22 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 icon: Icons.qr_code,
                 label: AppLocalizations.of(context)!.settingsRestorePartnerButton,
               ),
-              const SizedBox(height: 12),
-              _OutlineButton(
-                onPressed: _showBackupChoice,
-                icon: Icons.cloud,
-                label:
-                    AppLocalizations.of(context)!.settingsBackupCertificateButton,
+              const SizedBox(height: 20),
+              Text(
+                AppLocalizations.of(context)!.settingsRecoverySectionHint,
+                style: TextStyle(color: Colors.grey.shade600, fontSize: 12, height: 1.35),
               ),
               const SizedBox(height: 12),
               _OutlineButton(
-                onPressed: _verifyBackup,
-                icon: Icons.verified_outlined,
-                label: AppLocalizations.of(context)!.settingsVerifyBackupButton,
+                onPressed: () => _openRecoveryHelper(RecoveryRole.helpPartner),
+                icon: Icons.qr_code_scanner,
+                label: AppLocalizations.of(context)!.settingsHelpPartnerRecoverButton,
+              ),
+              const SizedBox(height: 12),
+              _OutlineButton(
+                onPressed: () => _openRecoveryHelper(RecoveryRole.transferSelf),
+                icon: Icons.phonelink,
+                label: AppLocalizations.of(context)!.settingsTransferToNewPhoneButton,
               ),
             ] else ...[
               // Unpaired: scelta Nuovo vs Ripristino
@@ -532,7 +447,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
               ),
               const SizedBox(height: 8),
               Text(
-                AppLocalizations.of(context)!.settingsAutoRestoreHint,
+                AppLocalizations.of(context)!.settingsRecoveryHint,
                 style: TextStyle(color: Colors.grey.shade600, fontSize: 12, height: 1.35),
               ),
               const SizedBox(height: 16),
@@ -543,9 +458,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
               ),
               const SizedBox(height: 12),
               _OutlineButton(
-                onPressed: _openRestoreScreen,
-                icon: Icons.restore,
-                label: AppLocalizations.of(context)!.settingsRestoreFromBackupButton,
+                onPressed: _openRecoveryRequest,
+                icon: Icons.qr_code_2,
+                label: AppLocalizations.of(context)!.settingsRecoverWithPartnerButton,
               ),
             ],
           ],

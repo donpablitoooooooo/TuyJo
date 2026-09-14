@@ -58,6 +58,15 @@ service cloud.firestore {
       }
 
       // ───────────────────────────────────────────────────────────
+      // ESCROW SUBCOLLECTION (Recupero tramite il partner)
+      // ───────────────────────────────────────────────────────────
+      match /escrow/{userId} {
+        // Certificato dell'utente cifrato per il partner (AES + RSA-OAEP):
+        // solo la chiave privata del partner lo apre. userId = SHA256(pubKey)
+        allow read, write: if true;
+      }
+
+      // ───────────────────────────────────────────────────────────
       // CALLS SUBCOLLECTION (Voice call signaling + WebRTC)
       // ───────────────────────────────────────────────────────────
       match /calls/{callId} {
@@ -70,6 +79,20 @@ service cloud.firestore {
           allow read, write: if true;
         }
       }
+    }
+
+    // ═══════════════════════════════════════════════════════════
+    // RECOVERY REQUESTS (telefono nuovo ↔ telefono che aiuta)
+    // ═══════════════════════════════════════════════════════════
+    match /recovery_requests/{requestId} {
+      // ❌ BLOCCA list() - l'id (256 bit casuali) viaggia SOLO nel QR
+      // mostrato di persona; nessuno può trovare una richiesta altrui
+      allow list: if false;
+      // ✅ get/create/update/delete SE conosci l'id. La risposta è cifrata
+      // per la chiave temporanea del telefono nuovo. Campo expires_at:
+      // abilitare la policy TTL su questa collezione (console Firestore)
+      allow get: if true;
+      allow create, update, delete: if true;
     }
 
     // ═══════════════════════════════════════════════════════════

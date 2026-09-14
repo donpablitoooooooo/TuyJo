@@ -5,7 +5,7 @@ import 'package:private_messaging/generated/l10n/app_localizations.dart';
 /// scelta tra le 3 modalità di eliminazione. Non esegue nulla da sola —
 /// ritorna la modalità scelta ('all' | 'mine' | 'partner') via Navigator.pop
 /// e l'esecuzione resta in SettingsScreen (stesso pattern di
-/// BackupChoiceScreen). Per "Tutti" (irreversibile) chiede una conferma.
+/// wizard). Per "Tutti" (irreversibile) chiede una conferma.
 class DeleteMessagesScreen extends StatefulWidget {
   const DeleteMessagesScreen({super.key});
 

@@ -25,22 +25,44 @@ class EncryptionService {
 
   // Genera una coppia di chiavi RSA (pubblica/privata)
   Future<Map<String, String>> generateKeyPair() async {
-    final keyGen = RSAKeyGenerator()
-      ..init(ParametersWithRandom(
-        RSAKeyGeneratorParameters(BigInt.parse('65537'), 2048, 64),
-        _getSecureRandom(),
-      ));
-
-    final pair = keyGen.generateKeyPair();
+    final pair = _newRsaPair();
     _keyPair = pair;
 
-    final publicKey = _keyPair!.publicKey as RSAPublicKey;
-    final privateKey = _keyPair!.privateKey as RSAPrivateKey;
+    final publicKey = pair.publicKey as RSAPublicKey;
+    final privateKey = pair.privateKey as RSAPrivateKey;
 
     return {
       'publicKey': _encodePublicKey(publicKey),
       'privateKey': _encodePrivateKey(privateKey),
     };
+  }
+
+  /// Coppia di chiavi usa-e-getta (es. richiesta di recupero): NON tocca
+  /// l'identità caricata né lo storage.
+  Map<String, String> generateEphemeralKeyPair() {
+    final pair = _newRsaPair();
+    return {
+      'publicKey': _encodePublicKey(pair.publicKey as RSAPublicKey),
+      'privateKey': _encodePrivateKey(pair.privateKey as RSAPrivateKey),
+    };
+  }
+
+  AsymmetricKeyPair<PublicKey, PrivateKey> _newRsaPair() {
+    final keyGen = RSAKeyGenerator()
+      ..init(ParametersWithRandom(
+        RSAKeyGeneratorParameters(BigInt.parse('65537'), 2048, 64),
+        _getSecureRandom(),
+      ));
+    return keyGen.generateKeyPair();
+  }
+
+  /// Decifra con una chiave privata esplicita (RSA-OAEP), senza toccare
+  /// l'identità caricata. Usato dal recupero: il telefono nuovo apre la
+  /// risposta con la chiave temporanea della richiesta.
+  Uint8List rsaDecryptWithPrivateKey(String privateKeyStr, Uint8List data) {
+    final decryptor = OAEPEncoding(RSAEngine())
+      ..init(false, PrivateKeyParameter<RSAPrivateKey>(_decodePrivateKey(privateKeyStr)));
+    return _processInBlocks(decryptor, data);
   }
 
   // Carica la chiave privata
@@ -148,6 +170,9 @@ class EncryptionService {
       throw Exception('AES key decryption failed: $e');
     }
   }
+
+  /// Come [decryptAesKeyOnly] ma su bytes già decodificati.
+  Uint8List decryptAesKeyOnlyBytes(Uint8List wrapped) => _rsaDecrypt(wrapped);
 
   /// Genera una chiave AES-256 random (base64) da usare come chiave di
   /// sessione simmetrica (es. signaling WebRTC cifrato con AES-GCM).

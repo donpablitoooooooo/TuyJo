@@ -1,6 +1,7 @@
 TuyJo v1.36.0
 
 NOVITÀ:
+🔑 Cambio telefono senza perdere nulla: sul telefono nuovo tocca "Recupera con il partner", il tuo partner (o il tuo vecchio telefono) inquadra il QR e la chat torna com'era. Niente file, niente password
 📞 Chiamate vocali riscritte: più stabili, con riconnessione automatica se cambi rete (Wi-Fi/4G) e audio migliore
 📞 Se non è possibile chiamare in peer-to-peer te lo diciamo chiaramente con un avviso
 📞 Le chiamate arrivano anche a iPhone bloccato o con app chiusa, come una chiamata normale
@@ -9,6 +10,7 @@ NOVITÀ:
 📍 Pulsante per interrompere la condivisione direttamente dalla schermata di navigazione
 
 CORREZIONI:
+🔐 Dopo una reinstallazione i vecchi messaggi non vanno più persi e i due telefoni non si spaiano più da soli
 🔴 Il pallino sull'icona mostra il numero reale di messaggi non letti e sparisce quando li leggi
 ✅ I messaggi non risultano più letti mentre l'app è in background
 📱 Schermata condivisione posizione che appariva a metà schermo

@@ -5,6 +5,7 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:crypto/crypto.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'backup_service.dart';
+import 'recovery_service.dart';
 import 'share_bridge_service.dart';
 
 /// Servizio per gestire il pairing tra dispositivi tramite RSA public keys
@@ -72,6 +73,10 @@ class PairingService extends ChangeNotifier {
       // UNPAIR SYNC: Avvia listener per monitorare cambiamenti
       // Il listener imposterà _isPaired = false se userCount < 2
       _startBackgroundUnpairListener();
+
+      // Deposito del certificato per il partner: idempotente, ripara i
+      // depositi mancanti (utenti accoppiati prima di questa versione).
+      RecoveryService().depositForPartner();
     } else {
       if (kDebugMode) {
         print('❌ [PAIRING] No pairing found in storage');
@@ -204,8 +209,9 @@ class PairingService extends ChangeNotifier {
       // Avvia il listener per monitorare lo stato della famiglia
       _startBackgroundUnpairListener();
 
-      // Aggiorna il backup cloud (se attivo) con la chiave del partner.
+      // Copia locale (Block Store) e deposito del certificato per il partner.
       BackupService().cloudBackupNow();
+      RecoveryService().depositForPartner();
 
       return true;
     } catch (e) {
@@ -218,6 +224,10 @@ class PairingService extends ChangeNotifier {
   /// Rimuove anche il documento dalla collezione users su Firestore
   /// così l'altro telefono vede il cambiamento e fa auto-unpair
   Future<void> resetPairing() async {
+    // Unpair esplicito: il partner non deve più poter far recuperare questa
+    // identità. Va fatto PRIMA di cancellare la chiave del partner (serve a
+    // calcolare famiglia e documento).
+    await RecoveryService().deleteMyDeposit();
     try {
       // Prima rimuovi il documento users da Firestore se esiste
       final chatId = await getFamilyChatId();
@@ -401,6 +411,7 @@ class PairingService extends ChangeNotifier {
       notifyListeners();
       _startBackgroundUnpairListener();
       BackupService().cloudBackupNow();
+      RecoveryService().depositForPartner();
       return true;
     } catch (e) {
       if (kDebugMode) print('❌ [PAIRING] restorePairing failed: $e');
