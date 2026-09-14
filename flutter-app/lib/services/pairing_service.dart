@@ -309,7 +309,10 @@ class PairingService extends ChangeNotifier {
           _firestore.collection('families').doc(familyChatId).collection('users');
 
       bool needWrite = true;
+      bool needPartnerWrite = false;
       bool serverFamilyComplete = false;
+      final partnerUserId =
+          sha256.convert(utf8.encode(partnerPublicKey)).toString();
       try {
         final snap = await usersRef.get(const GetOptions(source: Source.server));
         // Solo i documenti con chiavi contano: uno senza (creato da un
@@ -335,7 +338,16 @@ class PairingService extends ChangeNotifier {
             lastRestoreOutcome = RestoreOutcome.familyMissing;
             return false;
           }
-          if (kDebugMode) print('🩹 [PAIRING] restore: documenti utente persi ma messaggi presenti, ricostruisco il mio');
+          if (kDebugMode) print('🩹 [PAIRING] restore: documenti utente persi ma messaggi presenti, ricostruisco la famiglia');
+        }
+        // Il certificato contiene ENTRAMBE le chiavi: il documento del
+        // partner è interamente determinato da esso. Se manca (perso in un
+        // incidente) lo ricostruisco io, così la famiglia torna 2/2 subito,
+        // senza aspettare che il partner apra l'app o rifaccia i QR. Il
+        // listener del partner vedrà due documenti con chiavi coerenti.
+        if (partnerDocs.isEmpty) {
+          needPartnerWrite = true;
+          serverFamilyComplete = true;
         }
         if (partnerDocs.isNotEmpty &&
             partnerDocs.first.data()['my_public_key'] != partnerPublicKey) {
@@ -372,6 +384,14 @@ class PairingService extends ChangeNotifier {
           'my_public_key': myPublicKey,
           'partner_public_key': partnerPublicKey,
         }, SetOptions(merge: true));
+      }
+      if (needPartnerWrite) {
+        await usersRef.doc(partnerUserId).set({
+          'paired_at': FieldValue.serverTimestamp(),
+          'my_public_key': partnerPublicKey,
+          'partner_public_key': myPublicKey,
+        }, SetOptions(merge: true));
+        if (kDebugMode) print('🩹 [PAIRING] restore: documento del partner ricostruito dal certificato');
       }
       if (kDebugMode) {
         print('✅ [PAIRING] restorePairing OK, family: ${familyChatId.substring(0, 10)}... (doc ${needWrite ? "scritto" : "già coerente"})');
