@@ -410,5 +410,6 @@
     "recoveryHelperStep2Title": "Envío del certificado",
     "recoveryHelperStep2Description": "El certificado se cifra para el móvil nuevo y se envía. Solo él puede abrirlo.",
     "recoveryHelperRoleMismatchPartner": "El móvil nuevo eligió \"De otro móvil mío\", no \"De mi pareja\". Si ese móvil es tuyo, usa \"Transferir a un móvil nuevo\"; si es de tu pareja, en el móvil nuevo elige \"De mi pareja\".",
-    "recoveryHelperRoleMismatchTransfer": "El móvil nuevo eligió \"De mi pareja\", no \"De otro móvil mío\". Si ese móvil es de tu pareja, usa \"Ayudar a tu pareja a recuperar\"; si es tuyo, en el móvil nuevo elige \"De otro móvil mío\"."
+    "recoveryHelperRoleMismatchTransfer": "El móvil nuevo eligió \"De mi pareja\", no \"De otro móvil mío\". Si ese móvil es de tu pareja, usa \"Ayudar a tu pareja a recuperar\"; si es tuyo, en el móvil nuevo elige \"De otro móvil mío\".",
+    "permissionLocationViewerRationaleMessage": "Para mostrarte la distancia hasta tu amor, TuyJo usa la ubicación de este móvil solo mientras este mapa está abierto, y la envía cifrada a tu amor para que también vea a qué distancia estáis. Al cerrar el mapa, la ubicación deja de leerse. Si prefieres no compartirla, seguirás viendo a tu amor en el mapa. En el siguiente paso te pediremos el permiso del sistema."
 }

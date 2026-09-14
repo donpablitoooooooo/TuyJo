@@ -14,6 +14,7 @@ import '../services/chat_service.dart';
 import '../services/encryption_service.dart';
 import '../services/location_service.dart';
 import '../services/pairing_service.dart';
+import '../widgets/permission_denied_dialog.dart';
 
 /// Schermata minimal per navigazione verso il partner
 class LocationSharingScreen extends StatefulWidget {
@@ -80,6 +81,25 @@ class _LocationSharingScreenState extends State<LocationSharingScreen> {
       }
 
       locationService.startTrackingPartner();
+
+      // Spiegazione in-app PRIMA del prompt di sistema anche per chi RICEVE
+      // la condivisione (Google Play la richiede per ogni accesso alla
+      // posizione): qui la posizione serve solo a mostrare la distanza e,
+      // per il destinatario, a farla vedere al partner finché la mappa è
+      // aperta. Se rifiuta, la mappa mostra comunque il partner.
+      if (await Geolocator.checkPermission() == LocationPermission.denied) {
+        if (!mounted) return;
+        final l10n = AppLocalizations.of(context)!;
+        final ok = await showPermissionRationaleDialog(
+          context: context,
+          icon: Icons.location_on_outlined,
+          title: l10n.permissionLocationRationaleTitle,
+          message: widget.isSender
+              ? l10n.permissionLocationRationaleMessage
+              : l10n.permissionLocationViewerRationaleMessage,
+        );
+        if (!mounted || !ok) return;
+      }
 
       // Prima posizione subito, poi stream con filtro di distanza
       final first = await locationService.getCurrentPosition();

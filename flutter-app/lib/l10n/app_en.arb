@@ -427,5 +427,6 @@
     "recoveryHelperStep2Title": "Sending the certificate",
     "recoveryHelperStep2Description": "The certificate is encrypted for the new phone and sent. Only that phone can open it.",
     "recoveryHelperRoleMismatchPartner": "The new phone chose \"From another phone of mine\", not \"From my partner\". If that phone is yours, use \"Transfer to a new phone\"; if it is your partner's, on the new phone choose \"From my partner\".",
-    "recoveryHelperRoleMismatchTransfer": "The new phone chose \"From my partner\", not \"From another phone of mine\". If that phone is your partner's, use \"Help your partner recover\"; if it is yours, on the new phone choose \"From another phone of mine\"."
+    "recoveryHelperRoleMismatchTransfer": "The new phone chose \"From my partner\", not \"From another phone of mine\". If that phone is your partner's, use \"Help your partner recover\"; if it is yours, on the new phone choose \"From another phone of mine\".",
+    "permissionLocationViewerRationaleMessage": "To show you the distance to your love, TuyJo uses this phone's location only while this map is open, and sends it encrypted to your love so they can see how far apart you are too. Once the map is closed, the location is no longer read. If you prefer not to share it, you will still see your love on the map. In the next step we will ask for the system permission."
 }
