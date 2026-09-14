@@ -1,7 +1,8 @@
-TuyJo v1.36.0
+TuyJo v1.37.0
 
 NOVITÀ:
-🔑 Cambio telefono senza perdere nulla: sul telefono nuovo tocca "Recupera con il partner", il tuo partner (o il tuo vecchio telefono) inquadra il QR e la chat torna com'era. Niente file, niente password
+🔑 Cambio telefono senza perdere nulla: sul telefono nuovo tocca "Recupera i messaggi", il tuo partner (o il tuo vecchio telefono) inquadra il QR e la chat torna com'era. Niente file, niente password
+📤 Condividi su iPhone: link, foto e documenti da altre app arrivano in chat direttamente dal foglio di condivisione, senza aprire Tuijo
 📞 Chiamate vocali riscritte: più stabili, con riconnessione automatica se cambi rete (Wi-Fi/4G) e audio migliore
 📞 Se non è possibile chiamare in peer-to-peer te lo diciamo chiaramente con un avviso
 📞 Le chiamate arrivano anche a iPhone bloccato o con app chiusa, come una chiamata normale

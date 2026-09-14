@@ -2,7 +2,10 @@
 
 Tutte le modifiche notevoli a questo progetto saranno documentate in questo file.
 
-## [1.36.0] - 2026-09-11
+## [1.37.0] - 2026-09-14
+
+Sostituisce la 1.36.0 (build 45, caricata solo in test interno / TestFlight e mai pubblicata).
+
 
 ### 🔐 Recupero della chat tramite il partner (nuovo modello di backup)
 - **Un solo modo di recuperare la chat, senza file né password: il partner.** I messaggi stanno sul server, cifrati; per rileggerli serve solo il certificato. A pairing completato ogni telefono deposita il proprio certificato cifrato per il partner (AES casuale + RSA-OAEP, stesso schema dei messaggi) in `families/{id}/escrow/{userId}`: lo apre solo la chiave privata del partner, che già legge ogni messaggio della chat.
