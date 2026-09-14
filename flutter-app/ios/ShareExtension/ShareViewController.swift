@@ -447,7 +447,11 @@ class ShareViewController: UIViewController {
     }
 
     private func showOpenAppHint() {
-        let alert = UIAlertController(title: localized("title"), message: localized("body"), preferredStyle: .alert)
+        var body = localized("body")
+        #if DEBUG
+        if let err = AttachmentSender.lastError { body += "\n\n[debug] \(err)" }
+        #endif
+        let alert = UIAlertController(title: localized("title"), message: body, preferredStyle: .alert)
         alert.addAction(UIAlertAction(title: localized("ok"), style: .default) { [weak self] _ in
             self?.closeExtension()
         })
@@ -693,6 +697,8 @@ enum MessageSender {
 ///   `.../thumbnails/{id}`; l'URL di download è quello standard con token.
 enum AttachmentSender {
     static let bucket = "youandme-b3b4c.firebasestorage.app"
+    /// Ultimo errore (per l'avviso di fallback in build di debug).
+    static var lastError: String?
 
     struct Prepared {
         let data: Data
@@ -704,18 +710,31 @@ enum AttachmentSender {
 
     static func send(filePaths: [String], caption: String, identity: ShareIdentity,
                      progress: @escaping (Int) -> Void, completion: @escaping (Bool) -> Void) {
+        lastError = nil
         DispatchQueue.global(qos: .userInitiated).async {
             var attachments: [[String: Any]] = []
             for (i, path) in filePaths.enumerated() {
                 progress(i + 1)
-                guard let prepared = prepare(path: path),
-                      let fields = encryptAndUpload(prepared, identity: identity) else {
+                // Un pool per foto: i bitmap intermedi vengono liberati subito,
+                // altrimenti l'estensione supera il limite di memoria (~120 MB)
+                // e iOS la termina senza avviso.
+                let fields: [String: Any]? = autoreleasepool {
+                    guard let prepared = prepare(path: path) else {
+                        lastError = "prepare failed: \(path.split(separator: "/").last ?? "")"
+                        return nil
+                    }
+                    return encryptAndUpload(prepared, identity: identity)
+                }
+                guard let f = fields else {
                     completion(false)
                     return
                 }
-                attachments.append(fields)
+                attachments.append(f)
             }
-            MessageSender.send(text: caption, identity: identity, attachments: attachments, completion: completion)
+            MessageSender.send(text: caption, identity: identity, attachments: attachments) { ok in
+                if !ok { lastError = "firestore write failed" }
+                completion(ok)
+            }
         }
     }
 
@@ -760,7 +779,6 @@ enum AttachmentSender {
         let opts: [CFString: Any] = [
             kCGImageSourceCreateThumbnailFromImageAlways: true,
             kCGImageSourceCreateThumbnailWithTransform: true,
-            kCGImageSourceShouldCacheImmediately: true,
             kCGImageSourceThumbnailMaxPixelSize: maxPixel,
         ]
         guard let cg = CGImageSourceCreateThumbnailAtIndex(src, 0, opts as CFDictionary) else { return nil }
@@ -787,7 +805,10 @@ enum AttachmentSender {
             "originalMimeType": file.mimeType,
             "encrypted": "true",
         ]
-        guard let url = upload(sealedFull.blob, path: "\(basePath)/\(attachmentId)", metadata: metadata) else { return nil }
+        guard let url = upload(sealedFull.blob, path: "\(basePath)/\(attachmentId)", metadata: metadata) else {
+            if lastError == nil { lastError = "upload failed" }
+            return nil
+        }
 
         var fields: [String: Any] = [
             "id": ["stringValue": attachmentId],
@@ -850,13 +871,24 @@ enum AttachmentSender {
 
         let semaphore = DispatchSemaphore(value: 0)
         var downloadUrl: String?
-        URLSession.shared.uploadTask(with: req, from: body) { data, response, _ in
+        URLSession.shared.uploadTask(with: req, from: body) { data, response, error in
             defer { semaphore.signal() }
-            guard let http = response as? HTTPURLResponse, (200..<300).contains(http.statusCode),
-                  let data = data,
-                  let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+            if let error = error {
+                lastError = "upload: \(error.localizedDescription)"
+                return
+            }
+            let code = (response as? HTTPURLResponse)?.statusCode ?? 0
+            guard (200..<300).contains(code), let data = data else {
+                let bodyText = data.flatMap { String(data: $0, encoding: .utf8) }?.prefix(200) ?? ""
+                lastError = "upload HTTP \(code) \(bodyText)"
+                return
+            }
+            guard let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
                   let tokens = json["downloadTokens"] as? String,
-                  let token = tokens.split(separator: ",").first else { return }
+                  let token = tokens.split(separator: ",").first else {
+                lastError = "upload: no downloadTokens"
+                return
+            }
             downloadUrl = "https://firebasestorage.googleapis.com/v0/b/\(bucket)/o/\(encodedName)?alt=media&token=\(token)"
         }.resume()
         semaphore.wait()
