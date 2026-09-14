@@ -760,26 +760,39 @@ enum AttachmentSender {
 
     // MARK: Preparazione (ridimensionamento / thumbnail)
 
+    /// Limite di memoria dell'estensione: ~120 MB, sorvegliato dal kernel
+    /// (visto: kill a 131 MB decodificando una HEIC da 12 MP). Regole:
+    /// un solo bitmap vivo per volta (pool separati), thumbnail ricavata
+    /// dal JPEG già ridotto e non dall'originale, codifica via ImageIO senza
+    /// passare da UIImage (che duplica il bitmap), lato massimo 3072 px
+    /// (≈7 MP: bitmap ≈ 28 MB) invece dei 4096 dell'app.
+    static let maxPhotoPixels = 3072
+
     static func prepare(path: String) -> Prepared? {
         let url = URL(fileURLWithPath: path)
-        guard let raw = try? Data(contentsOf: url) else { return nil }
         let ext = url.pathExtension.lowercased()
         let utType = UTType(filenameExtension: ext)
+
         var isImage = utType?.conforms(to: .image) ?? false
-        if !isImage, let src = CGImageSourceCreateWithData(raw as CFData, nil) {
+        if !isImage, let src = CGImageSourceCreateWithURL(url as CFURL, nil) {
             isImage = CGImageSourceGetCount(src) > 0
         }
 
-        if isImage, let size = pixelSize(raw),
-           let full = jpeg(raw, maxPixel: 4096, quality: 0.85) {
-            // Lato corto 300 px preservando le proporzioni (come l'app).
+        if isImage {
+            // 1) Foto intera ridotta (l'originale viene letto da file, mai
+            //    tenuto in memoria oltre questo pool).
+            let full: Data? = autoreleasepool { jpeg(sourceURL: url, maxPixel: maxPhotoPixels, quality: 0.85) }
+            guard let fullData = full, let size = pixelSize(fullData) else { return nil }
+            // 2) Thumbnail dal JPEG ridotto: lato corto 300 px, proporzioni
+            //    preservate (come l'app).
             let (w, h) = size
             let ratio = Double(max(w, h)) / Double(max(1, min(w, h)))
             let thumbMax = Int((300.0 * ratio).rounded(.up))
-            let thumb = jpeg(raw, maxPixel: thumbMax, quality: 0.85)
+            let thumb: Data? = autoreleasepool { jpeg(sourceData: fullData, maxPixel: thumbMax, quality: 0.85) }
             let name = url.deletingPathExtension().lastPathComponent + ".jpg"
-            return Prepared(data: full, fileName: name, mimeType: "image/jpeg", type: "photo", thumbnail: thumb)
+            return Prepared(data: fullData, fileName: name, mimeType: "image/jpeg", type: "photo", thumbnail: thumb)
         }
+        guard let raw = try? Data(contentsOf: url) else { return nil }
         let mime = utType?.preferredMIMEType ?? "application/octet-stream"
         return Prepared(data: raw, fileName: url.lastPathComponent, mimeType: mime, type: "document", thumbnail: nil)
     }
@@ -792,17 +805,35 @@ enum AttachmentSender {
         return (w, h)
     }
 
-    /// Decodifica + ridimensiona in un passaggio (ImageIO, memoria contenuta,
-    /// orientamento EXIF applicato, metadati EXIF non copiati).
-    private static func jpeg(_ data: Data, maxPixel: Int, quality: CGFloat) -> Data? {
-        guard let src = CGImageSourceCreateWithData(data as CFData, nil) else { return nil }
+    private static func jpeg(sourceURL: URL, maxPixel: Int, quality: CGFloat) -> Data? {
+        let srcOpts: [CFString: Any] = [kCGImageSourceShouldCache: false]
+        guard let src = CGImageSourceCreateWithURL(sourceURL as CFURL, srcOpts as CFDictionary) else { return nil }
+        return jpeg(source: src, maxPixel: maxPixel, quality: quality)
+    }
+
+    private static func jpeg(sourceData: Data, maxPixel: Int, quality: CGFloat) -> Data? {
+        let srcOpts: [CFString: Any] = [kCGImageSourceShouldCache: false]
+        guard let src = CGImageSourceCreateWithData(sourceData as CFData, srcOpts as CFDictionary) else { return nil }
+        return jpeg(source: src, maxPixel: maxPixel, quality: quality)
+    }
+
+    /// Decodifica + ridimensiona in un passaggio (ImageIO decodifica già
+    /// sottocampionato, orientamento EXIF applicato) e ricodifica JPEG con
+    /// CGImageDestination: nessun passaggio da UIImage, nessun EXIF copiato.
+    private static func jpeg(source src: CGImageSource, maxPixel: Int, quality: CGFloat) -> Data? {
         let opts: [CFString: Any] = [
             kCGImageSourceCreateThumbnailFromImageAlways: true,
             kCGImageSourceCreateThumbnailWithTransform: true,
+            kCGImageSourceShouldCacheImmediately: false,
             kCGImageSourceThumbnailMaxPixelSize: maxPixel,
         ]
         guard let cg = CGImageSourceCreateThumbnailAtIndex(src, 0, opts as CFDictionary) else { return nil }
-        return UIImage(cgImage: cg).jpegData(compressionQuality: quality)
+        let out = NSMutableData()
+        guard let dest = CGImageDestinationCreateWithData(out, UTType.jpeg.identifier as CFString, 1, nil) else { return nil }
+        let destOpts: [CFString: Any] = [kCGImageDestinationLossyCompressionQuality: quality]
+        CGImageDestinationAddImage(dest, cg, destOpts as CFDictionary)
+        guard CGImageDestinationFinalize(dest) else { return nil }
+        return out as Data
     }
 
     // MARK: Cifratura + upload
