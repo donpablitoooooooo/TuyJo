@@ -93,7 +93,17 @@ class ShareViewController: UIViewController {
         }
 
         // 1) Immagini: tutte, non solo la prima (il plist ne dichiara fino a 10).
-        for attachment in attachments where attachment.hasItemConformingToTypeIdentifier(UTType.image.identifier) {
+        //    Alcuni elementi di Foto registrano solo un file URL: lo si
+        //    riconosce dall'estensione.
+        func looksLikeImage(_ a: NSItemProvider) -> Bool {
+            if a.hasItemConformingToTypeIdentifier(UTType.image.identifier) { return true }
+            let imageExts = ["jpg", "jpeg", "heic", "heif", "png", "gif", "webp", "tif", "tiff", "bmp"]
+            if let name = a.suggestedName?.lowercased(), let ext = name.split(separator: ".").last, imageExts.contains(String(ext)) {
+                return true
+            }
+            return false
+        }
+        for attachment in attachments where looksLikeImage(attachment) {
             handledAny = true
             group.enter()
             loadImage(attachment) { path in
@@ -103,7 +113,7 @@ class ShareViewController: UIViewController {
         }
 
         // 2) Documenti (prima di URL/testo: un documento conforma anche a UTType.url).
-        for attachment in attachments where !attachment.hasItemConformingToTypeIdentifier(UTType.image.identifier) {
+        for attachment in attachments where !looksLikeImage(attachment) {
             let isDocument = documentTypes.contains { attachment.hasItemConformingToTypeIdentifier($0) }
             guard isDocument else { continue }
             handledAny = true
@@ -148,7 +158,8 @@ class ShareViewController: UIViewController {
         }
 
         guard handledAny else {
-            closeExtension(reason: "no supported attachment types")
+            let types = attachments.map { $0.registeredTypeIdentifiers.joined(separator: ", ") }.joined(separator: " | ")
+            closeExtension(reason: "no supported attachment types: \(types)")
             return
         }
 
@@ -203,7 +214,8 @@ class ShareViewController: UIViewController {
     /// memoria (~120 MB) prima ancora di iniziare l'invio. Il file viene
     /// copiato nel container senza mai decodificarlo qui.
     private func loadImage(_ attachment: NSItemProvider, completion: @escaping (String?) -> Void) {
-        let preferred = [UTType.jpeg.identifier, UTType.heic.identifier, UTType.png.identifier, UTType.image.identifier]
+        let preferred = [UTType.jpeg.identifier, UTType.heic.identifier, UTType.png.identifier,
+                         UTType.image.identifier, UTType.fileURL.identifier, UTType.data.identifier]
         let typeId = preferred.first { attachment.hasItemConformingToTypeIdentifier($0) } ?? UTType.image.identifier
         attachment.loadFileRepresentation(forTypeIdentifier: typeId) { [weak self] url, error in
             guard let self = self else { completion(nil); return }
