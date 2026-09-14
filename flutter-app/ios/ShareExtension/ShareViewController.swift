@@ -61,7 +61,7 @@ class ShareViewController: UIViewController {
 
     private func debugLog(_ msg: String) {
         #if DEBUG
-        print("📤 [ShareExtension] \(msg)")
+        NSLog("📤 [ShareExtension] %@", msg) // NSLog: visibile in Console.app, print no
         #endif
     }
 
