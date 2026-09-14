@@ -14,10 +14,11 @@
     &amp;&amp; SUBQUERY (
         $extensionItem.attachments,
         $attachment,
-        ANY $attachment.registeredTypeIdentifiers UTI-CONFORMS-TO "public.image"
+        (ANY $attachment.registeredTypeIdentifiers UTI-CONFORMS-TO "public.image"
         || ANY $attachment.registeredTypeIdentifiers UTI-CONFORMS-TO "public.url"
         || ANY $attachment.registeredTypeIdentifiers UTI-CONFORMS-TO "public.text"
-        || ANY $attachment.registeredTypeIdentifiers UTI-CONFORMS-TO "public.data"
+        || ANY $attachment.registeredTypeIdentifiers UTI-CONFORMS-TO "public.data")
+        &amp;&amp; NOT (ANY $attachment.registeredTypeIdentifiers UTI-CONFORMS-TO "public.movie")
     ).@count == $extensionItem.attachments.@count
 ).@count &gt;= 1</string>
 		</dict>
