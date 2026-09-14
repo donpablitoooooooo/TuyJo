@@ -69,15 +69,15 @@ class ShareViewController: UIViewController {
 
     private func handleSharedContent() {
         guard let items = extensionContext?.inputItems as? [NSExtensionItem] else {
-            closeExtension()
+            closeExtension(reason: "no input items")
             return
         }
         let attachments = items.compactMap { $0.attachments }.flatMap { $0 }
         guard !attachments.isEmpty else {
-            closeExtension()
+            closeExtension(reason: "no attachments")
             return
         }
-        debugLog("found \(attachments.count) attachment(s)")
+        debugLog("found \(attachments.count) attachment(s): \(attachments.map { $0.registeredTypeIdentifiers })")
 
         let group = DispatchGroup()
         let lock = NSLock()
@@ -148,12 +148,17 @@ class ShareViewController: UIViewController {
         }
 
         guard handledAny else {
-            closeExtension()
+            closeExtension(reason: "no supported attachment types")
             return
         }
 
         group.notify(queue: .main) { [weak self] in
             guard let self = self else { return }
+            self.debugLog("collected files=\(filePaths.count) texts=\(texts.count) identity=\(ShareIdentity.load() != nil)")
+            if filePaths.isEmpty && texts.isEmpty {
+                self.closeExtension(reason: "nothing loaded from the shared items")
+                return
+            }
 
             // Identità disponibile: invia direttamente da qui, senza dipendere
             // dall'apertura dell'app (che iOS non concede alle estensioni).
@@ -184,8 +189,7 @@ class ShareViewController: UIViewController {
         for p in files { queue.append(["type": "file", "value": p]) }
         for t in texts { queue.append(["type": "text", "value": t]) }
         guard !queue.isEmpty, appendToQueue(queue) else {
-            debugLog("nothing to enqueue or write failed")
-            closeExtension()
+            closeExtension(reason: "queue write failed")
             return
         }
         openMainApp()
@@ -365,6 +369,7 @@ class ShareViewController: UIViewController {
     /// Foto e documenti: cifra, carica su Storage e scrive il messaggio,
     /// con un HUD di avanzamento. In caso di errore ripiega sulla coda.
     private func sendFilesNatively(_ paths: [String], caption: String, identity: ShareIdentity) {
+        debugLog("native send: \(paths.count) file(s)")
         let hud = UIAlertController(title: nil, message: localized("sending"), preferredStyle: .alert)
         present(hud, animated: true)
         let total = paths.count
@@ -381,6 +386,7 @@ class ShareViewController: UIViewController {
             completion: { [weak self] ok in
                 DispatchQueue.main.async {
                     guard let self = self else { return }
+                    self.debugLog("native send done ok=\(ok) error=\(AttachmentSender.lastError ?? "-")")
                     hud.dismiss(animated: false) {
                         if ok {
                             for p in paths { try? FileManager.default.removeItem(atPath: p) }
@@ -414,6 +420,7 @@ class ShareViewController: UIViewController {
         // all'utente invece di usare API private (rischio App Review).
         ctx.open(url) { [weak self] success in
             DispatchQueue.main.async {
+                self?.debugLog("open() success=\(success)")
                 if success {
                     // Su iOS 26 chiudere l'estensione subito dopo open() annullava
                     // l'apertura dell'app (visto a gennaio 2026). Aspetta che l'app
@@ -460,6 +467,19 @@ class ShareViewController: UIViewController {
 
     private func closeExtension() {
         extensionContext?.completeRequest(returningItems: nil, completionHandler: nil)
+    }
+
+    /// Uscita "silenziosa" spiegata: in build di debug mostra il motivo
+    /// prima di chiudere, in release chiude e basta.
+    private func closeExtension(reason: String) {
+        debugLog("close: \(reason)")
+        #if DEBUG
+        let alert = UIAlertController(title: "Tuijo [debug]", message: reason, preferredStyle: .alert)
+        alert.addAction(UIAlertAction(title: "OK", style: .default) { [weak self] _ in self?.closeExtension() })
+        present(alert, animated: true)
+        #else
+        closeExtension()
+        #endif
     }
 }
 
