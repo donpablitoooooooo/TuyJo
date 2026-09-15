@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
@@ -43,6 +44,7 @@ class _PairingWizardScreenState extends State<PairingWizardScreen> {
   void dispose() {
     _pairingStatusSubscription?.cancel();
     _qrScannedSubscription?.cancel();
+    _debugPayloadController.dispose();
     super.dispose();
   }
 
@@ -155,6 +157,90 @@ class _PairingWizardScreenState extends State<PairingWizardScreen> {
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         margin: const EdgeInsets.all(16),
         duration: Duration(seconds: isError ? 3 : 2),
+      ),
+    );
+  }
+
+  // MARK: - Aiuti per il test su simulatore (solo build di debug)
+  //
+  // Il simulatore iOS non ha fotocamera, quindi lo step "scansiona il QR del
+  // partner" è impossibile. Questi due blocchi esistono solo in kDebugMode e
+  // permettono di scambiare a mano lo stesso payload che viaggia nel QR:
+  // il proprio si copia dallo step 1, quello del partner si incolla nello
+  // step 2. Non vengono compilati nelle build di release.
+
+  final TextEditingController _debugPayloadController = TextEditingController();
+
+  Widget _buildDebugCopyPayload() {
+    return Padding(
+      padding: const EdgeInsets.only(top: 12),
+      child: OutlinedButton.icon(
+        onPressed: () async {
+          final payload = _myQrData;
+          if (payload == null) return;
+          await Clipboard.setData(ClipboardData(text: payload));
+          // Anche in console: dal simulatore la clipboard non è condivisa col
+          // Mac, quindi il modo più comodo è copiarlo dai log.
+          debugPrint('🔧 [DEBUG] Payload QR di questo dispositivo:\n$payload');
+          if (mounted) {
+            _showFloatingSnackBar('Payload copiato (anche nei log)');
+          }
+        },
+        icon: const Icon(Icons.copy, size: 18),
+        label: const Text('DEBUG: copia il mio payload'),
+      ),
+    );
+  }
+
+  Widget _buildDebugPasteField() {
+    return Padding(
+      padding: const EdgeInsets.only(top: 16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'DEBUG: incolla il payload del partner',
+            style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+          ),
+          const SizedBox(height: 8),
+          TextField(
+            controller: _debugPayloadController,
+            maxLines: 3,
+            minLines: 1,
+            style: const TextStyle(fontSize: 11, fontFamily: 'Courier'),
+            decoration: const InputDecoration(
+              border: OutlineInputBorder(),
+              isDense: true,
+              hintText: '{"public_key":"...","version":"2.0"}',
+            ),
+          ),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              OutlinedButton.icon(
+                onPressed: () async {
+                  final clip = await Clipboard.getData(Clipboard.kTextPlain);
+                  final text = clip?.text;
+                  if (text != null && text.isNotEmpty) {
+                    _debugPayloadController.text = text;
+                  }
+                },
+                icon: const Icon(Icons.paste, size: 18),
+                label: const Text('Incolla'),
+              ),
+              const SizedBox(width: 8),
+              FilledButton(
+                onPressed: () {
+                  final payload = _debugPayloadController.text.trim();
+                  if (payload.isEmpty) return;
+                  // Stessa chiamata che fa onDetect dello scanner reale.
+                  _handlePartnerQRCode(payload);
+                },
+                child: const Text('Usa'),
+              ),
+            ],
+          ),
+        ],
       ),
     );
   }
@@ -351,6 +437,7 @@ class _PairingWizardScreenState extends State<PairingWizardScreen> {
                                       ),
                                     ),
                                   ),
+                                  if (kDebugMode) _buildDebugCopyPayload(),
                                 ] else if (_myQrWasScanned) ...[
                                   Container(
                                     padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
@@ -438,6 +525,7 @@ class _PairingWizardScreenState extends State<PairingWizardScreen> {
                                       ),
                                     ),
                                   ),
+                                  if (kDebugMode) _buildDebugPasteField(),
                                 ] else ...[
                                   Container(
                                     padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
