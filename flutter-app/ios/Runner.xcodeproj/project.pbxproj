@@ -3,16 +3,16 @@
 	archiveVersion = 1;
 	classes = {
 	};
-	objectVersion = 54;
+	objectVersion = 70;
 	objects = {
 
 /* Begin PBXBuildFile section */
-		AABB00062F30A00100000006 /* InfoPlist.strings in Resources */ = {isa = PBXBuildFile; fileRef = AABB00052F30A00100000005 /* InfoPlist.strings */; };
 		011E04922F18E86B00F61FED /* Main.strings in Resources */ = {isa = PBXBuildFile; fileRef = 011E04902F18E86A00F61FED /* Main.strings */; };
 		011E04932F18E86B00F61FED /* LaunchScreen.strings in Resources */ = {isa = PBXBuildFile; fileRef = 011E048C2F18E86A00F61FED /* LaunchScreen.strings */; };
 		011E04942F18E86B00F61FED /* Localizable.strings in Resources */ = {isa = PBXBuildFile; fileRef = 011E048E2F18E86A00F61FED /* Localizable.strings */; };
 		011E04962F18E87E00F61FED /* GoogleService-Info.plist in Resources */ = {isa = PBXBuildFile; fileRef = 011E04952F18E87E00F61FED /* GoogleService-Info.plist */; };
 		0154FCAC2F1798DD006B9BE6 /* Localizable.strings in Resources */ = {isa = PBXBuildFile; fileRef = 0154FCAA2F1798DD006B9BE6 /* Localizable.strings */; };
+		01686C5D305991FC0028F3CF /* SceneDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 01686C5C305991FC0028F3CF /* SceneDelegate.swift */; };
 		017E7C2A2F17F2C700FD1264 /* Main.strings in Resources */ = {isa = PBXBuildFile; fileRef = 017E7C212F17F2C700FD1264 /* Main.strings */; };
 		017E7C2B2F17F2C700FD1264 /* Localizable.strings in Resources */ = {isa = PBXBuildFile; fileRef = 017E7C262F17F2C700FD1264 /* Localizable.strings */; };
 		017E7C2C2F17F2C700FD1264 /* Main.strings in Resources */ = {isa = PBXBuildFile; fileRef = 017E7C1A2F17F2C700FD1264 /* Main.strings */; };
@@ -32,6 +32,7 @@
 		97C146FC1CF9000F007C117D /* Main.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 97C146FA1CF9000F007C117D /* Main.storyboard */; };
 		97C146FE1CF9000F007C117D /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 97C146FD1CF9000F007C117D /* Assets.xcassets */; };
 		97C147011CF9000F007C117D /* LaunchScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 97C146FF1CF9000F007C117D /* LaunchScreen.storyboard */; };
+		AABB00062F30A00100000006 /* InfoPlist.strings in Resources */ = {isa = PBXBuildFile; fileRef = AABB00052F30A00100000005 /* InfoPlist.strings */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -76,10 +77,6 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
-		AABB00012F30A00100000001 /* en */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = en; path = en.lproj/InfoPlist.strings; sourceTree = "<group>"; };
-		AABB00022F30A00100000002 /* it */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = it; path = it.lproj/InfoPlist.strings; sourceTree = "<group>"; };
-		AABB00032F30A00100000003 /* es */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = es; path = es.lproj/InfoPlist.strings; sourceTree = "<group>"; };
-		AABB00042F30A00100000004 /* ca */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = ca; path = ca.lproj/InfoPlist.strings; sourceTree = "<group>"; };
 		009A3DBE01C2DE2948016401 /* Pods-Runner.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-Runner.release.xcconfig"; path = "Target Support Files/Pods-Runner/Pods-Runner.release.xcconfig"; sourceTree = "<group>"; };
 		011E048B2F18E86A00F61FED /* ca */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = ca; path = LaunchScreen.strings; sourceTree = "<group>"; };
 		011E048D2F18E86A00F61FED /* ca */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = ca; path = Localizable.strings; sourceTree = "<group>"; };
@@ -96,6 +93,7 @@
 		0154FCB32F179B2D006B9BE6 /* es */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = es; path = es.lproj/Main.strings; sourceTree = "<group>"; };
 		0154FCB42F179B2F006B9BE6 /* es */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = es; path = es.lproj/LaunchScreen.strings; sourceTree = "<group>"; };
 		0154FCB52F179B30006B9BE6 /* es */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = es; path = es.lproj/Localizable.strings; sourceTree = "<group>"; };
+		01686C5C305991FC0028F3CF /* SceneDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SceneDelegate.swift; sourceTree = "<group>"; };
 		017E7C152F17F2C700FD1264 /* en */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = en; path = LaunchScreen.strings; sourceTree = "<group>"; };
 		017E7C172F17F2C700FD1264 /* en */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = en; path = Localizable.strings; sourceTree = "<group>"; };
 		017E7C192F17F2C700FD1264 /* en */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = en; path = Main.strings; sourceTree = "<group>"; };
@@ -126,13 +124,17 @@
 		97C147001CF9000F007C117D /* Base */ = {isa = PBXFileReference; lastKnownFileType = file.storyboard; name = Base; path = Base.lproj/LaunchScreen.storyboard; sourceTree = "<group>"; };
 		97C147021CF9000F007C117D /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		A64108B57A4962B90F139CE1 /* Pods_Runner.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = Pods_Runner.framework; sourceTree = BUILT_PRODUCTS_DIR; };
+		AABB00012F30A00100000001 /* en */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = en; path = en.lproj/InfoPlist.strings; sourceTree = "<group>"; };
+		AABB00022F30A00100000002 /* it */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = it; path = it.lproj/InfoPlist.strings; sourceTree = "<group>"; };
+		AABB00032F30A00100000003 /* es */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = es; path = es.lproj/InfoPlist.strings; sourceTree = "<group>"; };
+		AABB00042F30A00100000004 /* ca */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = ca; path = ca.lproj/InfoPlist.strings; sourceTree = "<group>"; };
 		AEB6F23F933001EB488A9878 /* Pods-RunnerTests.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-RunnerTests.release.xcconfig"; path = "Target Support Files/Pods-RunnerTests/Pods-RunnerTests.release.xcconfig"; sourceTree = "<group>"; };
 		ED7425A5BD67E1D0E5D3E7D8 /* Pods-RunnerTests.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-RunnerTests.debug.xcconfig"; path = "Target Support Files/Pods-RunnerTests/Pods-RunnerTests.debug.xcconfig"; sourceTree = "<group>"; };
 		F1EFDC63F97FA741431D3D64 /* Pods-Runner.profile.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-Runner.profile.xcconfig"; path = "Target Support Files/Pods-Runner/Pods-Runner.profile.xcconfig"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
-		01F7BFD42F28D15900E8DF3F /* Exceptions for "ShareExtension" folder in "ShareExtension" target */ = {
+		01F7BFD42F28D15900E8DF3F /* PBXFileSystemSynchronizedBuildFileExceptionSet */ = {
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
 				Info.plist,
@@ -142,18 +144,7 @@
 /* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
-		01F7BFC62F28D15900E8DF3F /* ShareExtension */ = {
-			isa = PBXFileSystemSynchronizedRootGroup;
-			exceptions = (
-				01F7BFD42F28D15900E8DF3F /* Exceptions for "ShareExtension" folder in "ShareExtension" target */,
-			);
-			explicitFileTypes = {
-			};
-			explicitFolders = (
-			);
-			path = ShareExtension;
-			sourceTree = "<group>";
-		};
+		01F7BFC62F28D15900E8DF3F /* ShareExtension */ = {isa = PBXFileSystemSynchronizedRootGroup; exceptions = (01F7BFD42F28D15900E8DF3F /* PBXFileSystemSynchronizedBuildFileExceptionSet */, ); explicitFileTypes = {}; explicitFolders = (); path = ShareExtension; sourceTree = "<group>"; };
 /* End PBXFileSystemSynchronizedRootGroup section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -186,7 +177,6 @@
 		011E04912F18E86A00F61FED /* ca.lproj */ = {
 			isa = PBXGroup;
 			children = (
-				AABB00042F30A00100000004 /* InfoPlist.strings */,
 				011E048C2F18E86A00F61FED /* LaunchScreen.strings */,
 				011E048E2F18E86A00F61FED /* Localizable.strings */,
 				011E04902F18E86A00F61FED /* Main.strings */,
@@ -197,7 +187,6 @@
 		017E7C1B2F17F2C700FD1264 /* en.lproj */ = {
 			isa = PBXGroup;
 			children = (
-				AABB00012F30A00100000001 /* InfoPlist.strings */,
 				017E7C162F17F2C700FD1264 /* LaunchScreen.strings */,
 				017E7C182F17F2C700FD1264 /* Localizable.strings */,
 				017E7C1A2F17F2C700FD1264 /* Main.strings */,
@@ -208,7 +197,6 @@
 		017E7C222F17F2C700FD1264 /* es.lproj */ = {
 			isa = PBXGroup;
 			children = (
-				AABB00032F30A00100000003 /* InfoPlist.strings */,
 				017E7C1D2F17F2C700FD1264 /* LaunchScreen.strings */,
 				017E7C1F2F17F2C700FD1264 /* Localizable.strings */,
 				017E7C212F17F2C700FD1264 /* Main.strings */,
@@ -219,7 +207,6 @@
 		017E7C292F17F2C700FD1264 /* it.lproj */ = {
 			isa = PBXGroup;
 			children = (
-				AABB00022F30A00100000002 /* InfoPlist.strings */,
 				017E7C242F17F2C700FD1264 /* LaunchScreen.strings */,
 				017E7C262F17F2C700FD1264 /* Localizable.strings */,
 				017E7C282F17F2C700FD1264 /* Main.strings */,
@@ -298,6 +285,7 @@
 				74858FAD1ED2DC5600515810 /* Runner-Bridging-Header.h */,
 				0154FCAA2F1798DD006B9BE6 /* Localizable.strings */,
 				AABB00052F30A00100000005 /* InfoPlist.strings */,
+				01686C5C305991FC0028F3CF /* SceneDelegate.swift */,
 			);
 			path = Runner;
 			sourceTree = "<group>";
@@ -499,6 +487,21 @@
 			shellScript = "diff \"${PODS_PODFILE_DIR_PATH}/Podfile.lock\" \"${PODS_ROOT}/Manifest.lock\" > /dev/null\nif [ $? != 0 ] ; then\n    # print error to STDERR\n    echo \"error: The sandbox is not in sync with the Podfile.lock. Run 'pod install' or update your CocoaPods installation.\" >&2\n    exit 1\nfi\n# This output is used by Xcode 'outputs' to avoid re-running this script phase.\necho \"SUCCESS\" > \"${SCRIPT_OUTPUT_FILE_0}\"\n";
 			showEnvVarsInLog = 0;
 		};
+		3B06AD1E1E4923F5004D2608 /* Thin Binary */ = {
+			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputPaths = (
+			);
+			name = "Thin Binary";
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "/bin/sh \"$FLUTTER_ROOT/packages/flutter_tools/bin/xcode_backend.sh\" embed_and_thin\n";
+		};
 		3B0CA7FF0C6636742D73A6DB /* [CP] Copy Pods Resources */ = {
 			isa = PBXShellScriptBuildPhase;
 			buildActionMask = 2147483647;
@@ -507,9 +510,13 @@
 			inputFileListPaths = (
 				"${PODS_ROOT}/Target Support Files/Pods-Runner/Pods-Runner-resources-${CONFIGURATION}-input-files.xcfilelist",
 			);
+			inputPaths = (
+			);
 			name = "[CP] Copy Pods Resources";
 			outputFileListPaths = (
 				"${PODS_ROOT}/Target Support Files/Pods-Runner/Pods-Runner-resources-${CONFIGURATION}-output-files.xcfilelist",
+			);
+			outputPaths = (
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
@@ -561,29 +568,18 @@
 			inputFileListPaths = (
 				"${PODS_ROOT}/Target Support Files/Pods-Runner/Pods-Runner-frameworks-${CONFIGURATION}-input-files.xcfilelist",
 			);
+			inputPaths = (
+			);
 			name = "[CP] Embed Pods Frameworks";
 			outputFileListPaths = (
 				"${PODS_ROOT}/Target Support Files/Pods-Runner/Pods-Runner-frameworks-${CONFIGURATION}-output-files.xcfilelist",
+			);
+			outputPaths = (
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
 			shellScript = "\"${PODS_ROOT}/Target Support Files/Pods-Runner/Pods-Runner-frameworks.sh\"\n";
 			showEnvVarsInLog = 0;
-		};
-		3B06AD1E1E4923F5004D2608 /* Thin Binary */ = {
-			isa = PBXShellScriptBuildPhase;
-			alwaysOutOfDate = 1;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			inputPaths = (
-			);
-			name = "Thin Binary";
-			outputPaths = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-			shellPath = /bin/sh;
-			shellScript = "/bin/sh \"$FLUTTER_ROOT/packages/flutter_tools/bin/xcode_backend.sh\" embed_and_thin\n";
 		};
 /* End PBXShellScriptBuildPhase section */
 
@@ -609,6 +605,7 @@
 			files = (
 				74858FAF1ED2DC5600515810 /* AppDelegate.swift in Sources */,
 				1498D2341E8E89220040F4C2 /* GeneratedPluginRegistrant.m in Sources */,
+				01686C5D305991FC0028F3CF /* SceneDelegate.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
