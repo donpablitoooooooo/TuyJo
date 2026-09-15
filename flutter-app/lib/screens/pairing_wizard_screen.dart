@@ -192,6 +192,18 @@ class _PairingWizardScreenState extends State<PairingWizardScreen> {
     );
   }
 
+  void _useDebugPayload() {
+    final payload = _debugPayloadController.text.trim();
+    if (payload.isEmpty) {
+      _showFloatingSnackBar('Nessun payload da usare', isError: true);
+      return;
+    }
+    // Chiudi la tastiera: copriva i pulsanti e bloccava la conferma.
+    FocusScope.of(context).unfocus();
+    // Stessa chiamata che fa onDetect dello scanner reale.
+    _handlePartnerQRCode(payload);
+  }
+
   Widget _buildDebugPasteField() {
     return Padding(
       padding: const EdgeInsets.only(top: 16),
@@ -205,37 +217,42 @@ class _PairingWizardScreenState extends State<PairingWizardScreen> {
           const SizedBox(height: 8),
           TextField(
             controller: _debugPayloadController,
-            maxLines: 3,
-            minLines: 1,
+            // Una riga sola: con più righe il tasto Invio inserisce un newline
+            // invece di confermare, e la tastiera copre i pulsanti qui sotto.
+            maxLines: 1,
+            textInputAction: TextInputAction.done,
+            onSubmitted: (_) => _useDebugPayload(),
             style: const TextStyle(fontSize: 11, fontFamily: 'Courier'),
             decoration: const InputDecoration(
               border: OutlineInputBorder(),
               isDense: true,
               hintText: '{"public_key":"...","version":"2.0"}',
+              helperText: 'Invio conferma, senza dover chiudere la tastiera',
+              helperStyle: TextStyle(fontSize: 10),
             ),
           ),
           const SizedBox(height: 8),
           Row(
             children: [
-              OutlinedButton.icon(
+              // Incolla + usa in un colpo: è il percorso normale e non richiede
+              // mai di aprire la tastiera, quindi i pulsanti restano visibili.
+              FilledButton.icon(
                 onPressed: () async {
                   final clip = await Clipboard.getData(Clipboard.kTextPlain);
-                  final text = clip?.text;
-                  if (text != null && text.isNotEmpty) {
-                    _debugPayloadController.text = text;
+                  final text = clip?.text?.trim();
+                  if (text == null || text.isEmpty) {
+                    _showFloatingSnackBar('Clipboard vuota', isError: true);
+                    return;
                   }
+                  _debugPayloadController.text = text;
+                  _useDebugPayload();
                 },
                 icon: const Icon(Icons.paste, size: 18),
-                label: const Text('Incolla'),
+                label: const Text('Incolla e usa'),
               ),
               const SizedBox(width: 8),
-              FilledButton(
-                onPressed: () {
-                  final payload = _debugPayloadController.text.trim();
-                  if (payload.isEmpty) return;
-                  // Stessa chiamata che fa onDetect dello scanner reale.
-                  _handlePartnerQRCode(payload);
-                },
+              OutlinedButton(
+                onPressed: _useDebugPayload,
                 child: const Text('Usa'),
               ),
             ],
