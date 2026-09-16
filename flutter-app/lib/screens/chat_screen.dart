@@ -3,7 +3,6 @@ import 'dart:io';
 import 'package:path/path.dart' as path;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/cupertino.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter/gestures.dart';
 import 'package:provider/provider.dart';
@@ -73,7 +72,6 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   // ecc.): viene committato solo quando l'utente chiude con la X bianca o
   // preme invio dall'input bar.
   bool _calOverlayOpen = false;
-  DateTime _calOverlayFocused = DateTime.now();
   DateTime _calOverlaySelected = DateTime.now(); // include ora/minuto correnti
   DateTime? _calOverlayDayToShow;
   DateTime? _calOverlayRangeStart;
@@ -1711,7 +1709,6 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
 
     setState(() {
       _calOverlayOpen = true;
-      _calOverlayFocused = selDate;
       _calOverlaySelected = selDate;
       _calOverlayDayToShow = isEditing ? _selectedTodoDate : null;
       _calOverlayRangeStart = isEditing ? _selectedRangeStart : null;
