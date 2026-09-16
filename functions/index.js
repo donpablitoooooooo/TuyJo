@@ -80,7 +80,7 @@ async function sendApnsVoip(deviceToken, payload, creds) {
       let reason;
       try {
         reason = body ? JSON.parse(body).reason : undefined;
-      } catch (e) {
+      } catch {
         reason = body;
       }
       finish({ok: status === 200, status, reason, env});
