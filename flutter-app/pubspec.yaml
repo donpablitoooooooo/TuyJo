@@ -67,13 +67,7 @@ dependencies:
   image: ^4.7.2
   flutter_image_compress: ^2.3.0
   open_filex: ^4.7.0
-  # Bloccata alla 2.9.2: con la 2.11.0 il build Android fallisce con
-  # "package io.scer.pdfx does not exist" da GeneratedPluginRegistrant.java.
-  # Il pacchetto dichiara ancora io.scer.pdfx/PdfxPlugin (verificato su
-  # pub.dev), quindi il registrant e' corretto: e' il modulo Android di pdfx a
-  # non produrre le sue classi sotto AGP 9.1. Rigenerare il registrant non
-  # cambia nulla. Da riprovare quando esce una versione nuova.
-  pdfx: 2.9.2
+  pdfx: ^2.9.2
   share_plus: ^13.3.0
   flutter_staggered_grid_view: ^0.7.0
   package_info_plus: ^10.2.1
