@@ -323,6 +323,10 @@ class NotificationService {
   bool _notificationPermissionDenied = false;
   bool get isNotificationPermissionDenied => _notificationPermissionDenied;
 
+  /// True quando token e listener FCM sono già stati configurati, così
+  /// `_configureMessaging()` resta idempotente.
+  bool _messagingConfigured = false;
+
   // Inizializza le notifiche
   Future<void> initialize() async {
     // 0. Inizializza timezone
@@ -373,10 +377,53 @@ class NotificationService {
     if (settings.authorizationStatus != AuthorizationStatus.authorized) {
       _notificationPermissionDenied = true;
       if (kDebugMode) print('❌ FCM permission denied: ${settings.authorizationStatus}');
+      // Non è definitivo: l'utente può concedere il permesso dalle impostazioni
+      // di sistema. Al ritorno in foreground `refreshPermissionStatus()`
+      // rilegge lo stato e completa l'init rimasta in sospeso.
       return;
     }
 
     if (kDebugMode) print('✅ FCM permission granted');
+    await _configureMessaging();
+  }
+
+  /// Rilegge lo stato del permesso notifiche SENZA mostrare alcun prompt e, se
+  /// ora è concesso, completa l'inizializzazione che era stata interrotta.
+  ///
+  /// Copre il caso "l'utente abilita le notifiche dalle impostazioni di sistema
+  /// e torna nell'app": prima il flag restava negato per tutta la sessione e il
+  /// token FCM non veniva mai richiesto, quindi le notifiche non arrivavano
+  /// comunque fino al riavvio dell'app.
+  ///
+  /// Ritorna true se il permesso risulta concesso.
+  Future<bool> refreshPermissionStatus() async {
+    try {
+      final settings = await _firebaseMessaging.getNotificationSettings();
+      final granted =
+          settings.authorizationStatus == AuthorizationStatus.authorized;
+      _notificationPermissionDenied = !granted;
+      if (!granted) return false;
+
+      await _configureMessaging();
+
+      // Se sappiamo già a quale chat appartiene questo dispositivo, riallineiamo
+      // subito Firestore: il token non era mai stato salvato.
+      if (_savedFamilyChatId != null && _savedUserId != null) {
+        await saveTokenToFirestore(_savedFamilyChatId!, _savedUserId!);
+      }
+      return true;
+    } catch (e) {
+      if (kDebugMode) print('⚠️ refreshPermissionStatus failed: $e');
+      return !_notificationPermissionDenied;
+    }
+  }
+
+  /// Parte dell'inizializzazione che ha senso solo con il permesso concesso:
+  /// token FCM e listener dei messaggi. Eseguita all'avvio oppure più tardi,
+  /// quando il permesso arriva dalle impostazioni di sistema.
+  Future<void> _configureMessaging() async {
+    if (_messagingConfigured) return;
+    _messagingConfigured = true;
 
     // Prova a ottenere il token FCM con retry (Play Services potrebbe non essere subito disponibile)
     String? token;

@@ -6,7 +6,7 @@ import UserNotifications
 import flutter_callkit_incoming
 
 @main
-@objc class AppDelegate: FlutterAppDelegate, PKPushRegistryDelegate {
+@objc class AppDelegate: FlutterAppDelegate, PKPushRegistryDelegate, FlutterImplicitEngineDelegate {
   private let CHANNEL = "com.privatemessaging.tuyjo/shared_media"
   private let TONE_CHANNEL = "com.privatemessaging.tuyjo/tone_generator"
   private let PROXIMITY_CHANNEL = "com.privatemessaging.tuyjo/proximity"
@@ -23,11 +23,27 @@ import flutter_callkit_incoming
     _ application: UIApplication,
     didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?
   ) -> Bool {
-    GeneratedPluginRegistrant.register(with: self)
+    // PushKit VoIP: unico modo affidabile per far squillare una chiamata
+    // su iOS con app in background o terminata. Il push arriva qui e va
+    // riportato SUBITO a CallKit (obbligo iOS 13+, altrimenti l'app viene
+    // terminata e il push VoIP non viene più consegnato).
+    let voipRegistry = PKPushRegistry(queue: DispatchQueue.main)
+    voipRegistry.delegate = self
+    voipRegistry.desiredPushTypes = [PKPushType.voIP]
+
+    return super.application(application, didFinishLaunchingWithOptions: launchOptions)
+  }
+
+  // Con il lifecycle a scene la finestra non esiste ancora a fine lancio, quindi
+  // i canali non possono più essere creati dal rootViewController. Flutter chiama
+  // questo metodo appena l'engine implicito (creato da Main.storyboard) è pronto.
+  func didInitializeImplicitFlutterEngine(_ engineBridge: any FlutterImplicitEngineBridge) {
+    GeneratedPluginRegistrant.register(with: engineBridge.pluginRegistry)
+
+    let messenger = engineBridge.applicationRegistrar.messenger()
 
     // Configura il Method Channel
-    let controller = window?.rootViewController as! FlutterViewController
-    methodChannel = FlutterMethodChannel(name: CHANNEL, binaryMessenger: controller.binaryMessenger)
+    methodChannel = FlutterMethodChannel(name: CHANNEL, binaryMessenger: messenger)
 
     methodChannel?.setMethodCallHandler({ [weak self] (call: FlutterMethodCall, result: @escaping FlutterResult) in
       if call.method == "getInitialMedia" {
@@ -42,7 +58,7 @@ import flutter_callkit_incoming
     })
 
     // Ringback tone (chiamata in uscita): stesso canale usato su Android
-    toneChannel = FlutterMethodChannel(name: TONE_CHANNEL, binaryMessenger: controller.binaryMessenger)
+    toneChannel = FlutterMethodChannel(name: TONE_CHANNEL, binaryMessenger: messenger)
     toneChannel?.setMethodCallHandler({ [weak self] (call: FlutterMethodCall, result: @escaping FlutterResult) in
       switch call.method {
       case "startRingback":
@@ -58,7 +74,7 @@ import flutter_callkit_incoming
 
     // Sensore di prossimità durante la chiamata: iOS spegne da solo lo
     // schermo quando il telefono è all'orecchio finché il monitoring è attivo.
-    proximityChannel = FlutterMethodChannel(name: PROXIMITY_CHANNEL, binaryMessenger: controller.binaryMessenger)
+    proximityChannel = FlutterMethodChannel(name: PROXIMITY_CHANNEL, binaryMessenger: messenger)
     proximityChannel?.setMethodCallHandler({ (call: FlutterMethodCall, result: @escaping FlutterResult) in
       switch call.method {
       case "enable":
@@ -74,7 +90,7 @@ import flutter_callkit_incoming
 
     // Badge sull'icona: il push lo imposta al numero di non letti, l'app lo
     // azzera quando i messaggi vengono letti. Senza questo restava fisso.
-    badgeChannel = FlutterMethodChannel(name: BADGE_CHANNEL, binaryMessenger: controller.binaryMessenger)
+    badgeChannel = FlutterMethodChannel(name: BADGE_CHANNEL, binaryMessenger: messenger)
     badgeChannel?.setMethodCallHandler({ (call: FlutterMethodCall, result: @escaping FlutterResult) in
       guard call.method == "set" else {
         result(FlutterMethodNotImplemented)
@@ -94,16 +110,6 @@ import flutter_callkit_incoming
         result(true)
       }
     })
-
-    // PushKit VoIP: unico modo affidabile per far squillare una chiamata
-    // su iOS con app in background o terminata. Il push arriva qui e va
-    // riportato SUBITO a CallKit (obbligo iOS 13+, altrimenti l'app viene
-    // terminata e il push VoIP non viene più consegnato).
-    let voipRegistry = PKPushRegistry(queue: DispatchQueue.main)
-    voipRegistry.delegate = self
-    voipRegistry.desiredPushTypes = [PKPushType.voIP]
-
-    return super.application(application, didFinishLaunchingWithOptions: launchOptions)
   }
 
   // MARK: - PKPushRegistryDelegate (VoIP push)
@@ -148,19 +154,13 @@ import flutter_callkit_incoming
     }
   }
 
-  override func applicationDidBecomeActive(_ application: UIApplication) {
-    super.applicationDidBecomeActive(application)
-
-    // Rete di sicurezza: se l'estensione non è riuscita ad aprire l'app,
-    // la coda viene svuotata al primo passaggio in foreground.
-    drainSharedQueue()
-  }
-
   /// Legge e cancella la coda scritta dalla Share Extension
   /// (`shared_queue.json` nel container App Group) e consegna tutto a Flutter:
   /// i file in un'unica chiamata, i testi uno per uno. Gestisce anche le
   /// chiavi UserDefaults del formato precedente.
-  private func drainSharedQueue() {
+  ///
+  /// Chiamata da `SceneDelegate.sceneDidBecomeActive(_:)`.
+  func drainSharedQueue() {
     let appGroupId = "group.com.privatemessaging.tuyjo"
     var files: [URL] = []
     var texts: [String] = []
@@ -202,9 +202,12 @@ import flutter_callkit_incoming
     for text in texts { handleSharedText(text) }
   }
 
-  // Gestisce l'apertura di file/foto/URL condivisi (iOS 9+)
-  override func application(_ app: UIApplication, open url: URL, options: [UIApplication.OpenURLOptionsKey : Any] = [:]) -> Bool {
-    print("📱 AppDelegate: application:open:options called with URL: \(url)")
+  /// Gestisce l'apertura di file/foto/URL condivisi.
+  ///
+  /// Chiamata da `SceneDelegate`: con il lifecycle a scene gli URL arrivano a
+  /// `scene(_:openURLContexts:)` invece che all'AppDelegate.
+  func handleIncomingURL(_ url: URL) -> Bool {
+    print("📱 AppDelegate: handleIncomingURL called with URL: \(url)")
     print("📱 URL scheme: \(url.scheme ?? "nil"), pathExtension: \(url.pathExtension)")
 
     // Viene dalla Share Extension: svuota la coda nel container App Group
@@ -227,12 +230,16 @@ import flutter_callkit_incoming
       return true
     }
 
-    return super.application(app, open: url, options: options)
+    // Non gestito qui: il `SceneDelegate` ha già inoltrato l'URL ai plugin.
+    return false
   }
 
-  // iOS 13+ per Universal Links e handoff
-  override func application(_ application: UIApplication, continue userActivity: NSUserActivity, restorationHandler: @escaping ([UIUserActivityRestoring]?) -> Void) -> Bool {
-    print("📱 AppDelegate: application:continue:restorationHandler called")
+  /// Universal Links e handoff.
+  ///
+  /// Chiamata da `SceneDelegate`: con il lifecycle a scene le user activity
+  /// arrivano a `scene(_:continue:)` invece che all'AppDelegate.
+  func handleUserActivity(_ userActivity: NSUserActivity) -> Bool {
+    print("📱 AppDelegate: handleUserActivity called")
     print("📱 Activity type: \(userActivity.activityType)")
 
     if userActivity.activityType == NSUserActivityTypeBrowsingWeb,
@@ -250,7 +257,8 @@ import flutter_callkit_incoming
         return true
       }
     }
-    return super.application(application, continue: userActivity, restorationHandler: restorationHandler)
+    // Non gestita qui: il `SceneDelegate` ha già inoltrato l'activity ai plugin.
+    return false
   }
 
   private func isMediaFile(_ url: URL) -> Bool {

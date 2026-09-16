@@ -32,6 +32,10 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
   /// Chiave SharedPreferences: l'utente ha scelto di non abilitare le notifiche.
   static const String _notificationsOptOutKey = 'notifications_opt_out';
 
+  /// Il MaterialBanner delle notifiche è attualmente a schermo: evita di
+  /// impilarne più di uno a ogni ritorno in foreground.
+  bool _notificationBannerVisible = false;
+
   Timer? _autoRestoreTimer;
   bool _autoRestoreInFlight = false;
 
@@ -61,7 +65,12 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state == AppLifecycleState.resumed) _tryAutoRestore();
+    if (state != AppLifecycleState.resumed) return;
+    _tryAutoRestore();
+    // L'utente può aver abilitato le notifiche dalle impostazioni di sistema
+    // mentre l'app era in background: rileggiamo lo stato invece di fidarci
+    // di quello letto una sola volta all'avvio.
+    _refreshNotificationPermission();
   }
 
   /// Recupero automatico dal cloud anche DOPO l'avvio: se l'app è stata
@@ -209,12 +218,37 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
     if (!mounted) return;
 
     final notificationService = Provider.of<NotificationService>(context, listen: false);
+    if (!notificationService.isNotificationPermissionDenied) return;
+    await _showNotificationBanner();
+  }
+
+  /// Rilegge il permesso al ritorno in foreground: se nel frattempo l'utente
+  /// l'ha concesso dalle impostazioni di sistema, il banner va via da solo e il
+  /// token FCM viene finalmente salvato; se è ancora negato e il banner era
+  /// stato chiuso, lo rimostriamo.
+  Future<void> _refreshNotificationPermission() async {
+    if (!mounted) return;
+    final notificationService = Provider.of<NotificationService>(context, listen: false);
+    final granted = await notificationService.refreshPermissionStatus();
+    if (!mounted) return;
+
+    if (granted) {
+      if (_notificationBannerVisible) {
+        ScaffoldMessenger.of(context).hideCurrentMaterialBanner();
+        _notificationBannerVisible = false;
+      }
+      return;
+    }
+    await _showNotificationBanner();
+  }
+
+  Future<void> _showNotificationBanner() async {
     // Le notifiche sono un permesso "degradante": l'app funziona anche senza
     // (i messaggi arrivano via Firestore quando l'app è aperta). Se negate
     // mostriamo un avviso NON bloccante e NON una SnackBar: usiamo un
     // MaterialBanner che resta finché l'utente non sceglie. Se ha già detto
     // "non le voglio" (opt-out persistente), non mostriamo più nulla.
-    if (!notificationService.isNotificationPermissionDenied) return;
+    if (_notificationBannerVisible) return;
 
     final prefs = await SharedPreferences.getInstance();
     if (prefs.getBool(_notificationsOptOutKey) ?? false) return;
@@ -222,6 +256,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
 
     final l10n = AppLocalizations.of(context)!;
     final messenger = ScaffoldMessenger.of(context);
+    _notificationBannerVisible = true;
     messenger.showMaterialBanner(
       MaterialBanner(
         backgroundColor: Colors.red[700],
@@ -242,6 +277,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
           TextButton(
             onPressed: () async {
               await prefs.setBool(_notificationsOptOutKey, true);
+              _notificationBannerVisible = false;
               messenger.hideCurrentMaterialBanner();
             },
             child: Text(
