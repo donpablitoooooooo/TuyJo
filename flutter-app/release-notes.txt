@@ -19,5 +19,5 @@ CORREZIONI:
 📷 Permesso fotocamera su iPhone: ora la richiesta compare correttamente
 
 NOTE:
-📱 Compatibilità: Android 6.0+ e iOS 15.0+
+📱 Compatibilità: Android 7.0+ e iOS 15.0+
 🔐 Crittografia end-to-end garantita, anche per chiamate e posizione

@@ -50,7 +50,11 @@ android {
 
     defaultConfig {
         applicationId "com.privatemessaging.private_messaging"
-        minSdkVersion flutter.minSdkVersion
+        // Esplicito, non flutter.minSdkVersion: quel valore sale da solo a ogni
+        // upgrade dell'SDK (23 -> 24 con Flutter 3.47) e toglie in silenzio
+        // l'app ai telefoni piu' vecchi. Qui vale 24, come oggi: alzarlo deve
+        // essere una decisione, non un effetto collaterale.
+        minSdkVersion 24
         targetSdkVersion 36
         versionCode flutterVersionCode.toInteger()
         versionName flutterVersionName
