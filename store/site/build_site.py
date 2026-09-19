@@ -26,7 +26,7 @@ T['it'] = dict(
     lang='it', title='Tuijo — Per due. La chat privata cifrata end-to-end',
     desc="Tuijo è la chat per due persone: messaggi, promemoria condivisi, ricordi e chiamate, cifrati end-to-end. Nessun account, nessun numero di telefono.",
     og_title='Tuijo. Per due.', og_desc='Una chat privata che vive solo sui vostri due telefoni.',
-    nav=('Funzioni', 'Sicurezza', 'Domande'), nav_cta='Scarica',
+    nav=('Funzioni', 'Sicurezza', 'Domande'),
     h1='Tuijo. Per due.', lead='Una chat privata che vive solo sui vostri due telefoni.',
     note='iPhone e Android · italiano, inglese, spagnolo, catalano',
     apple_alt='Scarica su App Store', play_alt='Disponibile su Google Play',
@@ -75,7 +75,7 @@ T['en'] = dict(
     lang='en', title='Tuijo — For two. The private end-to-end encrypted chat',
     desc="Tuijo is the chat for two people: messages, shared reminders, memories and calls, encrypted end-to-end. No account, no phone number.",
     og_title='Tuijo. For two.', og_desc='A private chat that lives only on your two phones.',
-    nav=('Features', 'Security', 'Questions'), nav_cta='Download',
+    nav=('Features', 'Security', 'Questions'),
     h1='Tuijo. For two.', lead='A private chat that lives only on your two phones.',
     note='iPhone and Android · English, Italian, Spanish, Catalan',
     apple_alt='Download on the App Store', play_alt='Get it on Google Play',
@@ -124,7 +124,7 @@ T['es'] = dict(
     lang='es', title='Tuijo — Para dos. El chat privado cifrado de extremo a extremo',
     desc="Tuijo es el chat para dos personas: mensajes, recordatorios compartidos, recuerdos y llamadas, cifrados de extremo a extremo. Sin cuenta y sin número de teléfono.",
     og_title='Tuijo. Para dos.', og_desc='Un chat privado que vive solo en vuestros dos móviles.',
-    nav=('Funciones', 'Seguridad', 'Preguntas'), nav_cta='Descargar',
+    nav=('Funciones', 'Seguridad', 'Preguntas'),
     h1='Tuijo. Para dos.', lead='Un chat privado que vive solo en vuestros dos móviles.',
     note='iPhone y Android · español, italiano, inglés, catalán',
     apple_alt='Consíguelo en el App Store', play_alt='Disponible en Google Play',
@@ -173,7 +173,7 @@ T['ca'] = dict(
     lang='ca', title='Tuijo — Per a dos. El xat privat xifrat d\'extrem a extrem',
     desc="Tuijo és el xat per a dues persones: missatges, recordatoris compartits, records i trucades, xifrats d'extrem a extrem. Sense compte i sense número de telèfon.",
     og_title='Tuijo. Per a dos.', og_desc='Un xat privat que viu només als vostres dos mòbils.',
-    nav=('Funcions', 'Seguretat', 'Preguntes'), nav_cta='Baixa-la',
+    nav=('Funcions', 'Seguretat', 'Preguntes'),
     h1='Tuijo. Per a dos.', lead='Un xat privat que viu només als vostres dos mòbils.',
     note='iPhone i Android · català, italià, anglès, castellà',
     apple_alt="Baixa-la a l'App Store", play_alt='Disponible a Google Play',
@@ -429,7 +429,6 @@ def build(code):
     <div class="nav-right">
       <div class="lang">{langs}
       </div>
-      <a class="nav-cta" href="#scarica">{t['nav_cta']}</a>
     </div>
   </div>
 </nav>
@@ -439,7 +438,6 @@ def build(code):
   <div class="wrap">
     <h1 class="reveal">{t['h1']}</h1>
     <p class="lead reveal d1">{t['lead']}</p>
-    <span id="scarica"></span>
     {badges(t, s, 'reveal d2')}
     <p class="hero-note reveal d2">{t['note']}</p>
     <div class="hero-shot reveal d2">

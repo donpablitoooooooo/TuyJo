@@ -63,8 +63,7 @@ a { color: inherit; text-decoration: none; }
 .nav-right { display: flex; align-items: center; gap: 16px; }
 .lang { display: flex; gap: 8px; font-size: 12px; letter-spacing: .04em; color: var(--ink-faint); }
 .lang a.on { color: var(--teal-deep); font-weight: 700; }
-.nav-cta { font-size: 13px; font-weight: 600; color: #fff; background: var(--teal-deep); padding: 6px 14px; border-radius: 999px; }
-.nav-cta:hover { background: var(--teal-ink); }
+
 
 /* ---------------- Tipografia di sezione ---------------- */
 h1 {
