@@ -27,19 +27,34 @@ si lanciano con `--out ../../../public/assets`:
 | `web-pair` | PNG trasparente, due telefoni | `assets/shots/<lingua>/pair-01-<lingua>.png` — apertura della homepage |
 | `og` | 1200 × 630 px | `assets/og-<lingua>.png` — anteprima social (`og:image`) |
 
-Le schermate **7, 8 e 9** (`--shot 7,8,9`) esistono solo per il sito: sono i tre
-fotogrammi della scena dell'abbinamento, tutti presi dall'app vera
-(`pairing_wizard_screen.dart`).
+Le schermate **7, 8, 9 e 10** (`--shot 7,8,9,10`) esistono solo per il sito e
+servono alla scena dell'abbinamento. Sono tutte schermate vere dell'app
+(`pairing_wizard_screen.dart`), non disegni:
 
 | # | Cosa mostra |
 |---|---|
-| 7 | Lo scanner (`_buildQRScanner`) mentre cerca: dentro la fotocamera c'è il telefono dell'altra persona, con la sua vera schermata di pairing, di sbieco e fuori fuoco |
+| 7 | Lo scanner (`_buildQRScanner`) mentre cerca: dentro la fotocamera c'è il telefono dell'altra persona, di sbieco e fuori fuoco |
 | 8 | Lo stesso scanner con il telefono inquadrato e a fuoco |
-| 9 | Il wizard con il secondo passo completato (`_step2Completed`): la pillola "Completato" e lo snackbar di conferma |
+| 9 | Il wizard con il secondo passo completato (`_step2Completed`): pillola "Completato" e snackbar di conferma |
+| 10 | La chat vista **dall'altro telefono**: i lati si scambiano, le spunte seguono chi guarda, e al posto di "sta scrivendo" c'è la bozza nella barra di scrittura |
 
-Il telefono dentro la fotocamera non è un disegno: è la stessa funzione
-`pairingScreen()`, rimpicciolita e inclinata in 3D. Gli store si fermano a sei
-schermate, quindi il target predefinito non genera queste tre.
+Il telefono dentro la fotocamera è la stessa funzione `pairingScreen()`,
+rimpicciolita e inclinata in 3D: quello che la fotocamera inquadra coincide con
+il telefono che il sito mostra lì accanto. Gli store si fermano a sei schermate,
+quindi il target predefinito non genera queste quattro.
+
+## Alleggerire per il web
+
+I PNG del sito pesano troppo (13,8 MB per quattro lingue). `webp.js` li converte
+in WebP usando Chromium come codificatore — così non serve installare `cwebp` —
+e cancella i PNG:
+
+```bash
+node webp.js ../../../public/assets/shots      # 13,8 MB → 2,4 MB
+```
+
+Va rilanciato ogni volta che si rigenerano le immagini `web*`. Gli screenshot
+per gli store restano PNG: Play Console e App Store Connect vogliono quelli.
 
 A differenza degli screenshot per gli store, le immagini `web` **non contengono
 il titolo marketing**: sul sito il testo è HTML, così resta selezionabile,

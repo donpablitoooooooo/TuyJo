@@ -24,7 +24,7 @@ T = {}
 
 T['it'] = dict(
     lang='it', title='Tuijo — Per due. La chat privata cifrata end-to-end',
-    desc="Tuijo è la chat per due persone: messaggi, chiamate, posizione, promemoria e ricordi cifrati end-to-end. Nessun account, nessun numero di telefono.",
+    desc="Tuijo è la chat per due persone: messaggi, promemoria condivisi, ricordi e chiamate, cifrati end-to-end. Nessun account, nessun numero di telefono.",
     og_title='Tuijo. Per due.', og_desc='Una chat privata che vive solo sui vostri due telefoni.',
     nav=('Funzioni', 'Sicurezza', 'Domande'), nav_cta='Scarica',
     h1='Tuijo. Per due.', lead='Una chat privata che vive solo sui vostri due telefoni.',
@@ -43,11 +43,8 @@ T['it'] = dict(
         ('Quando scrivere non basta', 'Due tocchi e <span class="serif-em">vi sentite.</span>',
          "La chiamata parte dalla chat e viaggia peer-to-peer, diretta da un telefono all'altro.",
          'La schermata di chiamata vocale di Tuijo con durata e qualità della connessione.'),
-        ('E quando uno dei due è in giro', 'Sapere quanto manca.',
-         "Posizione live per un'ora o per otto, con la distanza al metro. Poi si spegne da sola.",
-         'La schermata della posizione live di Tuijo con la distanza in metri.'),
         ('Primo avvio', 'Si comincia con <span class="serif-em">un QR.</span>',
-         "Niente email, niente numero di telefono, niente password. Un telefono mostra il codice, l'altro lo inquadra: da lì in poi esistete solo voi due.",
+         "Ognuno mostra il suo codice e inquadra quello dell'altro. Niente email, niente numero di telefono, niente password: da lì in poi esistete solo voi due.",
          'La schermata di abbinamento di Tuijo con il codice QR.'),
     ],
     band=('Due telefoni, una conversazione.', 'Niente gruppi, niente contatti, niente feed: Tuijo si collega a una persona sola.'),
@@ -68,13 +65,13 @@ T['it'] = dict(
     ],
     cta='Scaricatela e abbinate i telefoni.',
     foot_privacy='Privacy', foot_support='Supporto', foot_tag='tu i jo, tu e io',
-    scene=dict(steps=('Mostra il codice', 'Inquadra', 'Abbinati'), alt_qr="Il telefono che mostra il codice QR da far inquadrare.", alt_scan="Lo scanner di Tuijo mentre inquadra il telefono dell'altra persona.", alt_lock="Il codice QR dell'altro telefono a fuoco dentro lo scanner.", alt_done="Il secondo passo dell'abbinamento completato, con la conferma dell'app."),
-    hero_alt='Due telefoni affiancati: la chat di Tuijo e la schermata della posizione condivisa.',
+    scene=dict(steps=('Uno inquadra', "L'altro inquadra", 'Siete in chat'), alt_qr="Il telefono che mostra il proprio codice QR.", alt_scan="Lo scanner di Tuijo mentre inquadra il telefono dell'altra persona.", alt_lock="Il codice QR dell'altro telefono a fuoco dentro lo scanner.", alt_done="Il passo completato, con la conferma dell'app.", alt_chat="La chat aperta sul primo telefono, ad abbinamento fatto.", alt_chat2="La stessa chat vista dal secondo telefono, con il messaggio che l'altra persona sta scrivendo."),
+    hero_alt='Due telefoni affiancati: la chat di Tuijo e il calendario dei promemoria condivisi.',
 )
 
 T['en'] = dict(
     lang='en', title='Tuijo — For two. The private end-to-end encrypted chat',
-    desc="Tuijo is the chat for two people: messages, calls, location, reminders and memories, encrypted end-to-end. No account, no phone number.",
+    desc="Tuijo is the chat for two people: messages, shared reminders, memories and calls, encrypted end-to-end. No account, no phone number.",
     og_title='Tuijo. For two.', og_desc='A private chat that lives only on your two phones.',
     nav=('Features', 'Security', 'Questions'), nav_cta='Download',
     h1='Tuijo. For two.', lead='A private chat that lives only on your two phones.',
@@ -93,11 +90,8 @@ T['en'] = dict(
         ('When writing is not enough', 'Two taps and <span class="serif-em">you hear each other.</span>',
          "The call starts from the chat and travels peer-to-peer, straight from one phone to the other.",
          'The Tuijo voice call screen with duration and connection quality.'),
-        ('And when one of you is out', 'Knowing how far away they are.',
-         "Live location for one hour or eight, with the distance to the metre. Then it switches itself off.",
-         'The Tuijo live location screen with the distance in metres.'),
         ('Getting started', 'It starts with <span class="serif-em">a QR code.</span>',
-         "No email, no phone number, no password. One phone shows the code, the other scans it: from then on it is just the two of you.",
+         "Each of you shows their code and scans the other's. No email, no phone number, no password: from then on it is just the two of you.",
          'The Tuijo pairing screen with the QR code.'),
     ],
     band=('Two phones, one conversation.', 'No groups, no contacts, no feed: Tuijo connects to a single person.'),
@@ -118,13 +112,13 @@ T['en'] = dict(
     ],
     cta='Download it and pair your phones.',
     foot_privacy='Privacy', foot_support='Support', foot_tag='tu i jo — you and me',
-    scene=dict(steps=('Show the code', 'Scan it', 'Paired'), alt_qr="The phone showing the QR code to be scanned.", alt_scan="The Tuijo scanner framing the other person's phone.", alt_lock="The other phone's QR code in focus inside the scanner.", alt_done="The second pairing step completed, with the app's confirmation."),
-    hero_alt='Two phones side by side: the Tuijo chat and the shared location screen.',
+    scene=dict(steps=('One scans', 'The other scans', 'You are in the chat'), alt_qr="The phone showing its own QR code.", alt_scan="The Tuijo scanner framing the other person's phone.", alt_lock="The other phone's QR code in focus inside the scanner.", alt_done="The step completed, with the app's confirmation.", alt_chat="The chat open on the first phone, once paired.", alt_chat2="The same chat seen from the second phone, with the message the other person is typing."),
+    hero_alt='Two phones side by side: the Tuijo chat and the shared reminders calendar.',
 )
 
 T['es'] = dict(
     lang='es', title='Tuijo — Para dos. El chat privado cifrado de extremo a extremo',
-    desc="Tuijo es el chat para dos personas: mensajes, llamadas, ubicación, recordatorios y recuerdos cifrados de extremo a extremo. Sin cuenta y sin número de teléfono.",
+    desc="Tuijo es el chat para dos personas: mensajes, recordatorios compartidos, recuerdos y llamadas, cifrados de extremo a extremo. Sin cuenta y sin número de teléfono.",
     og_title='Tuijo. Para dos.', og_desc='Un chat privado que vive solo en vuestros dos móviles.',
     nav=('Funciones', 'Seguridad', 'Preguntas'), nav_cta='Descargar',
     h1='Tuijo. Para dos.', lead='Un chat privado que vive solo en vuestros dos móviles.',
@@ -143,11 +137,8 @@ T['es'] = dict(
         ('Cuando escribir no basta', 'Dos toques y <span class="serif-em">os oís.</span>',
          "La llamada sale del chat y viaja peer-to-peer, directa de un móvil al otro.",
          'La pantalla de llamada de voz de Tuijo con duración y calidad de conexión.'),
-        ('Y cuando uno de los dos está fuera', 'Saber cuánto falta.',
-         "Ubicación en directo durante una hora u ocho, con la distancia al metro. Después se apaga sola.",
-         'La pantalla de ubicación en directo de Tuijo con la distancia en metros.'),
         ('Primer inicio', 'Se empieza con <span class="serif-em">un QR.</span>',
-         "Sin correo, sin número de teléfono, sin contraseña. Un móvil muestra el código, el otro lo escanea: a partir de ahí estáis solo vosotros dos.",
+         "Cada uno muestra su código y escanea el del otro. Sin correo, sin número de teléfono, sin contraseña: a partir de ahí estáis solo vosotros dos.",
          'La pantalla de emparejamiento de Tuijo con el código QR.'),
     ],
     band=('Dos móviles, una conversación.', 'Sin grupos, sin contactos, sin feed: Tuijo se conecta con una sola persona.'),
@@ -168,13 +159,13 @@ T['es'] = dict(
     ],
     cta='Descargadla y emparejad los móviles.',
     foot_privacy='Privacidad', foot_support='Soporte', foot_tag='tu i jo — tú y yo',
-    scene=dict(steps=('Muestra el código', 'Escanea', 'Emparejados'), alt_qr="El móvil que muestra el código QR para escanear.", alt_scan="El escáner de Tuijo enfocando el móvil de la otra persona.", alt_lock="El código QR del otro móvil enfocado dentro del escáner.", alt_done="El segundo paso del emparejamiento completado, con la confirmación de la app."),
-    hero_alt='Dos móviles uno al lado del otro: el chat de Tuijo y la pantalla de ubicación compartida.',
+    scene=dict(steps=('Uno escanea', 'El otro escanea', 'Estáis en el chat'), alt_qr="El móvil que muestra su propio código QR.", alt_scan="El escáner de Tuijo enfocando el móvil de la otra persona.", alt_lock="El código QR del otro móvil enfocado dentro del escáner.", alt_done="El paso completado, con la confirmación de la app.", alt_chat="El chat abierto en el primer móvil, una vez emparejados.", alt_chat2="El mismo chat visto desde el segundo móvil, con el mensaje que la otra persona está escribiendo."),
+    hero_alt='Dos móviles uno al lado del otro: el chat de Tuijo y el calendario de recordatorios compartidos.',
 )
 
 T['ca'] = dict(
     lang='ca', title='Tuijo — Per a dos. El xat privat xifrat d\'extrem a extrem',
-    desc="Tuijo és el xat per a dues persones: missatges, trucades, ubicació, recordatoris i records xifrats d'extrem a extrem. Sense compte i sense número de telèfon.",
+    desc="Tuijo és el xat per a dues persones: missatges, recordatoris compartits, records i trucades, xifrats d'extrem a extrem. Sense compte i sense número de telèfon.",
     og_title='Tuijo. Per a dos.', og_desc='Un xat privat que viu només als vostres dos mòbils.',
     nav=('Funcions', 'Seguretat', 'Preguntes'), nav_cta='Baixa-la',
     h1='Tuijo. Per a dos.', lead='Un xat privat que viu només als vostres dos mòbils.',
@@ -193,11 +184,8 @@ T['ca'] = dict(
         ("Quan escriure no n'hi ha prou", 'Dos tocs i <span class="serif-em">us sentiu.</span>',
          "La trucada surt del xat i viatja peer-to-peer, directa d'un mòbil a l'altre.",
          'La pantalla de trucada de veu de Tuijo amb durada i qualitat de connexió.'),
-        ('I quan un dels dos és fora', 'Saber quant falta.',
-         "Ubicació en directe durant una hora o vuit, amb la distància al metre. Després s'apaga sola.",
-         "La pantalla d'ubicació en directe de Tuijo amb la distància en metres."),
         ('Primer inici', 'Es comença amb <span class="serif-em">un QR.</span>',
-         "Sense correu, sense número de telèfon, sense contrasenya. Un mòbil mostra el codi, l'altre l'escaneja: a partir d'aquí només hi sou vosaltres dos.",
+         "Cadascú mostra el seu codi i escaneja el de l'altre. Sense correu, sense número de telèfon, sense contrasenya: a partir d'aquí només hi sou vosaltres dos.",
          "La pantalla d'aparellament de Tuijo amb el codi QR."),
     ],
     band=('Dos mòbils, una conversa.', 'Sense grups, sense contactes, sense feed: Tuijo es connecta amb una sola persona.'),
@@ -218,8 +206,8 @@ T['ca'] = dict(
     ],
     cta='Baixeu-la i aparelleu els mòbils.',
     foot_privacy='Privacitat', foot_support='Suport', foot_tag='tu i jo',
-    scene=dict(steps=('Mostra el codi', 'Escaneja', 'Aparellats'), alt_qr="El mòbil que mostra el codi QR per escanejar.", alt_scan="L'escàner de Tuijo enfocant el mòbil de l'altra persona.", alt_lock="El codi QR de l'altre mòbil enfocat dins l'escàner.", alt_done="El segon pas de l'aparellament completat, amb la confirmació de l'app."),
-    hero_alt="Dos mòbils l'un al costat de l'altre: el xat de Tuijo i la pantalla d'ubicació compartida.",
+    scene=dict(steps=('Un escaneja', "L'altre escaneja", 'Sou al xat'), alt_qr="El mòbil que mostra el seu propi codi QR.", alt_scan="L'escàner de Tuijo enfocant el mòbil de l'altra persona.", alt_lock="El codi QR de l'altre mòbil enfocat dins l'escàner.", alt_done="El pas completat, amb la confirmació de l'app.", alt_chat="El xat obert al primer mòbil, un cop aparellats.", alt_chat2="El mateix xat vist des del segon mòbil, amb el missatge que l'altra persona està escrivint."),
+    hero_alt="Dos mòbils l'un al costat de l'altre: el xat de Tuijo i el calendari de recordatoris compartits.",
 )
 
 SEC_IDS = ['chat', 'sicurezza', 'faq']   # ancore uguali in tutte le lingue
@@ -229,23 +217,40 @@ SEC_IDS = ['chat', 'sicurezza', 'faq']   # ancore uguali in tutte le lingue
 #   split rev  → immagine a sinistra, testo a destra
 #   center     → immagine grande centrata, poggiata sul bordo inferiore
 #   cardshot   → ritaglio largo dell'interfaccia, centrato sotto al testo
-#   scene      → due telefoni che si avvicinano man mano che si scorre (sticky)
+#   scene      → i due telefoni che si abbinano mentre si scorre (sticky)
+# 'sec' è l'indice nel blocco dei testi: l'ordine visivo si cambia qui, non lì.
 # 'img' dice quale file usare: il telefono (0N) o il ritaglio a scheda (card-0N).
 LAYOUT = [
-    dict(cls='split',         shot=1, img='phone', dark=False),   # chat
-    dict(cls='split rev',     shot=4, img='phone', dark=True),    # promemoria
-    dict(cls='cardshot',      shot=5, img='card',  dark=False),   # galleria
-    dict(cls='split',         shot=2, img='phone', dark=True),    # chiamate
-    dict(cls='split rev compact', shot=3, img='phone', dark=False),  # posizione
-    dict(cls='scene',         shot=6, img='scene', dark=True),    # abbinamento
+    dict(sec=4, cls='scene',    shot=6, img='scene', dark=True),    # abbinamento
+    dict(sec=0, cls='split',    shot=1, img='phone', dark=False),   # chat
+    dict(sec=1, cls='split rev', shot=4, img='phone', dark=True),   # promemoria
+    dict(sec=2, cls='cardshot', shot=5, img='card',  dark=False),   # galleria
+    dict(sec=3, cls='split',    shot=2, img='phone', dark=True),    # chiamate
 ]
 
 
-def png_size(path):
-    """Larghezza e altezza di un PNG, lette dall'header (niente dipendenze)."""
+def img_size(path):
+    """Larghezza e altezza di un PNG o di un WebP, lette dall'header.
+
+    Serve a scrivere width/height nel markup (niente salti di layout mentre
+    l'immagine carica) senza tirarsi dietro una libreria di immagini.
+    """
     with open(path, 'rb') as fh:
-        head = fh.read(24)
-    return int.from_bytes(head[16:20], 'big'), int.from_bytes(head[20:24], 'big')
+        d = fh.read(32)
+    if d[:8] == b'\x89PNG\r\n\x1a\n':
+        return int.from_bytes(d[16:20], 'big'), int.from_bytes(d[20:24], 'big')
+    if d[:4] == b'RIFF' and d[8:12] == b'WEBP':
+        kind = d[12:16]
+        if kind == b'VP8X':      # esteso (è il caso dei file con trasparenza)
+            return (int.from_bytes(d[24:27], 'little') + 1,
+                    int.from_bytes(d[27:30], 'little') + 1)
+        if kind == b'VP8 ':      # lossy semplice
+            return (int.from_bytes(d[26:28], 'little') & 0x3FFF,
+                    int.from_bytes(d[28:30], 'little') & 0x3FFF)
+        if kind == b'VP8L':      # lossless
+            bits = int.from_bytes(d[21:25], 'little')
+            return (bits & 0x3FFF) + 1, ((bits >> 14) & 0x3FFF) + 1
+    raise ValueError('formato non riconosciuto: %s' % path)
 
 def badges(t, s, cls):
     return f'''<div class="badges {cls}">
@@ -264,23 +269,36 @@ def build(code):
         on = ' class="on"' if c == code else ''
         langs += '\n        <a href="%s"%s>%s</a>' % (STORE[c]['page'], on, c.upper())
 
-    hero_w, hero_h = png_size(os.path.join(OUT, 'assets', 'shots', code, f'pair-01-{code}.png'))
+    hero_w, hero_h = img_size(os.path.join(OUT, 'assets', 'shots', code, f'pair-01-{code}.webp'))
 
     stages = []
-    for i, (eyebrow, h2, lead, alt) in enumerate(t['sections'], start=1):
-        lay = LAYOUT[i - 1]
+    for i, lay in enumerate(LAYOUT, start=1):
+        eyebrow, h2, lead, alt = t['sections'][lay['sec']]
         if lay['img'] == 'scene':
             sn = t['scene']
-            qw, qh = png_size(os.path.join(OUT, 'assets', 'shots', code, f"{lay['shot']:02d}-{code}.png"))
-            fw, fh = png_size(os.path.join(OUT, 'assets', 'shots', code, f'07-{code}.png'))
             steps = ''.join(f'<li>{x}</li>' for x in sn['steps'])
-            # I tre fotogrammi sono schermate vere dell'app: lo scanner che cerca,
-            # lo scanner che ha inquadrato, e il passo completato con la conferma.
-            frames = ''.join(
-                f'''
-            <img class="fr fr{n}" src="assets/shots/{code}/{f:02d}-{code}.png" width="{fw}" height="{fh}" loading="lazy" alt="{a}">'''
-                for n, (f, a) in enumerate([(7, sn['alt_scan']), (8, sn['alt_lock']), (9, sn['alt_done'])], start=1))
-            stages.append(f'''
+            # Il racconto in tre battute, tutto con schermate vere dell'app:
+            #   1. il telefono di destra inquadra il codice di sinistra
+            #   2. si scambiano i ruoli: sinistra inquadra destra
+            #   3. abbinati, tutti e due nella stessa chat
+            # --in e --out dicono a site.css quando ogni fotogramma entra ed esce.
+            LEFT = [(6, -1, .42, sn['alt_qr']), (7, .40, .58, sn['alt_scan']),
+                    (8, .56, .74, sn['alt_lock']), (9, .72, .86, sn['alt_done']),
+                    (1, .84, 2, sn['alt_chat'])]
+            RIGHT = [(7, -1, .18, sn['alt_scan']), (8, .16, .36, sn['alt_lock']),
+                     (9, .34, .86, sn['alt_done']), (10, .84, 2, sn['alt_chat2'])]
+
+            def frames(spec):
+                out = []
+                for shot, fin, fout, alt_txt in spec:
+                    w, h = img_size(os.path.join(OUT, 'assets', 'shots', code, f'{shot:02d}-{code}.webp'))
+                    out.append(
+                        f'\n            <img class="fr" style="--in:{fin};--out:{fout}" '
+                        f'src="assets/shots/{code}/{shot:02d}-{code}.webp" width="{w}" height="{h}" '
+                        f'loading="lazy" alt="{alt_txt}">')
+                return ''.join(out)
+
+            stages.append(f"""
 <section class="stage dark scene" data-scene data-step="2">
   <div class="scene-track">
     <div class="scene-sticky">
@@ -292,19 +310,22 @@ def build(code):
           <ol class="scene-steps">{steps}</ol>
         </div>
         <div class="scene-stage">
-          <img class="ph ph-qr" src="assets/shots/{code}/{lay['shot']:02d}-{code}.png" width="{qw}" height="{qh}" loading="lazy" alt="{sn['alt_qr']}">
-          <span class="ph ph-scan">{frames}
+          <span class="ph ph-l">{frames(LEFT)}
           </span>
-          <span class="scene-glow"></span>
+          <span class="ph ph-r">{frames(RIGHT)}
+          </span>
+          <span class="flash flash-l" style="--in:.18;--out:.34"></span>
+          <span class="flash flash-r" style="--in:.56;--out:.74"></span>
+          <span class="scene-link"></span>
         </div>
       </div>
     </div>
   </div>
-</section>''')
+</section>""")
             continue
         card = lay['img'] == 'card'
-        name = f"{'card-' if card else ''}{lay['shot']:02d}-{code}.png"
-        w, h = png_size(os.path.join(OUT, 'assets', 'shots', code, name))
+        name = f"{'card-' if card else ''}{lay['shot']:02d}-{code}.webp"
+        w, h = img_size(os.path.join(OUT, 'assets', 'shots', code, name))
         stages.append(f'''
 <section class="stage {lay['cls']}{' dark' if lay['dark'] else ''}"{' id="chat"' if i == 1 else ''}>
   <div class="wrap">
@@ -385,7 +406,7 @@ def build(code):
     {badges(t, s, 'reveal d2')}
     <p class="hero-note reveal d2">{t['note']}</p>
     <div class="hero-shot reveal d2">
-      <img src="assets/shots/{code}/pair-01-{code}.png" width="{hero_w}" height="{hero_h}" data-move="16" alt="{t['hero_alt']}" fetchpriority="high">
+      <img src="assets/shots/{code}/pair-01-{code}.webp" width="{hero_w}" height="{hero_h}" data-move="16" alt="{t['hero_alt']}" fetchpriority="high">
     </div>
   </div>
 </header>

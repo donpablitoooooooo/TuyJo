@@ -39,7 +39,7 @@ Il sito sara' disponibile su:
 | `ca.html` | Homepage catalana |
 | `site.css` / `site.js` | Stile e interazioni delle **quattro homepage** |
 | `styles.css` / `app.js` | Stile e interazioni delle **pagine privacy** (impianto precedente) |
-| `assets/shots/<lingua>/` | Schermate dell'app per il sito, generate da `store/screenshots` |
+| `assets/shots/<lingua>/` | Schermate dell'app per il sito (WebP), generate da `store/screenshots` |
 | `assets/og-<lingua>.png` | Immagine di anteprima social (`og:image`), 1200 × 630 |
 | `assets/photo/` | Slot per la foto della banda — vedi il README lì dentro |
 | `privacy-it-v1.1.html` | Privacy policy italiana |
@@ -67,8 +67,14 @@ Le immagini delle schermate si rigenerano dal progetto degli screenshot:
 
 ```bash
 cd store/screenshots/src
-node render.js --target web,web-pair,og --out ../../../public/assets
+node render.js --target web,web-pair,web-card,og --out ../../../public/assets
+node render.js --target web --shot 7,8,9,10 --out ../../../public/assets   # scena abbinamento
+node webp.js ../../../public/assets/shots                                  # PNG → WebP
 ```
+
+L'ultimo passaggio non è facoltativo: senza, le immagini del sito pesano sei
+volte tanto. L'`og:image` resta PNG, perché non tutti i servizi di anteprima
+social leggono WebP.
 
 ## Checklist Prima del Deploy
 

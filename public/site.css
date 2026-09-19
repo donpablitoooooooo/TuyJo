@@ -148,36 +148,46 @@ h2 {
 .stage.cardshot .shot img { border-radius: 16px; }
 
 /* ---------------- Scena dell'abbinamento ----------------
-   La sezione resta ferma mentre si scorre e la composizione avanza:
-   il telefono che inquadra sale verso quello che mostra il codice.
-   Tutto è guidato da --p (0 → 1), scritto da site.js. Senza JS, o con
-   prefers-reduced-motion, la scena resta ferma sul fotogramma finale. */
-/* niente overflow:hidden qui: annullerebbe il position:sticky interno */
-.scene { padding: 0; overflow: visible; --p: 1; }   /* senza JS resta il fotogramma finale */
-.scene-track { position: relative; height: 280vh; }
-.scene-sticky { position: sticky; top: 0; display: grid; align-items: center; min-height: 100vh; padding: 80px 0; overflow: hidden; }
+   Tre battute guidate dallo scorrimento: il telefono di destra inquadra il
+   codice di sinistra, poi i ruoli si scambiano, poi sono tutti e due nella
+   stessa chat. Ogni fotogramma è una schermata vera dell'app e porta scritto
+   in --in/--out quando entra e quando esce; --p (0 → 1) lo scrive site.js.
+   Senza JavaScript la scena resta sull'ultimo fotogramma. */
+.scene { padding: 0; overflow: visible; --p: 1; }
+.scene-track { position: relative; height: 320vh; }
+.scene-sticky { position: sticky; top: 0; display: grid; align-items: center; min-height: 100vh; padding: 78px 0; overflow: hidden; }
 .scene-inner {
-  display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.05fr);
-  align-items: center; gap: clamp(30px, 5vw, 70px);
+  display: grid; grid-template-columns: minmax(0, .88fr) minmax(0, 1.12fr);
+  align-items: center; gap: clamp(28px, 4.5vw, 62px);
 }
-.scene-stage { position: relative; width: 100%; aspect-ratio: 1 / 1.14; }
-.scene .ph { position: absolute; width: 43%; filter: drop-shadow(0 26px 36px rgba(0,0,0,.5)); }
-.scene .ph-qr { left: 0; bottom: 0;
-  transform: translate(calc(var(--p) * -4%), calc((1 - var(--p)) * 7%)) rotate(calc(-3deg + var(--p) * 1deg)); }
-.scene .ph-scan { right: 0; top: 0; display: block;
-  transform: translate(calc((1 - var(--p)) * 13%), calc((1 - var(--p)) * 30%)) rotate(calc(7deg - var(--p) * 4deg)) scale(calc(.9 + var(--p) * .1)); }
-/* Tre schermate vere in dissolvenza: cerca → legge → completato.
-   Le soglie sono le stesse dei passi illuminati accanto al testo. */
-.scene .fr { display: block; width: 100%; }
-.scene .fr1 { position: relative; opacity: clamp(0, (.52 - var(--p)) * 10, 1); }
-.scene .fr2, .scene .fr3 { position: absolute; left: 0; top: 0; }
-.scene .fr2 { opacity: clamp(0, min((var(--p) - .42) * 10, (.80 - var(--p)) * 10), 1); }
-.scene .fr3 { opacity: clamp(0, (var(--p) - .70) * 10, 1); }
-/* il bagliore che conferma la lettura del codice */
-.scene-glow { position: absolute; left: 4%; bottom: 20%; width: 36%; aspect-ratio: 1; border-radius: 50%;
-  background: radial-gradient(circle, rgba(160,255,244,.75), rgba(124,224,215,.25) 45%, transparent 72%);
-  mix-blend-mode: screen; pointer-events: none;
-  opacity: clamp(0, min((var(--p) - .46) * 7, (.84 - var(--p)) * 7), 1); }
+.scene-stage { position: relative; display: grid; grid-template-columns: 1fr 1fr; gap: 7%; align-items: center; }
+
+.scene .ph { position: relative; display: block; }
+.scene .fr { display: block; width: 100%; filter: drop-shadow(0 22px 30px rgba(0,0,0,.5));
+  opacity: clamp(0, min((var(--p) - var(--in)) * 16, (var(--out) - var(--p)) * 16), 1); }
+.scene .fr + .fr { position: absolute; left: 0; top: 0; }
+/* i due telefoni partono distanti e storti, e finiscono dritti e vicini */
+.scene .ph-l { transform: translate(calc((1 - var(--p)) * -7%), calc((1 - var(--p)) * 5%))
+  rotate(calc(-6deg * (1 - var(--p)))) scale(calc(.93 + var(--p) * .07)); }
+.scene .ph-r { transform: translate(calc((1 - var(--p)) * 7%), calc((1 - var(--p)) * -4%))
+  rotate(calc(6deg * (1 - var(--p)))) scale(calc(.93 + var(--p) * .07)); }
+
+/* il lampo nel momento in cui il codice viene letto */
+.scene .flash { position: absolute; top: 30%; width: 34%; aspect-ratio: 1; border-radius: 50%;
+  pointer-events: none; mix-blend-mode: screen;
+  background: radial-gradient(circle, rgba(170,255,246,.85), rgba(124,224,215,.28) 45%, transparent 72%);
+  opacity: clamp(0, min((var(--p) - var(--in)) * 9, (var(--out) - var(--p)) * 9), 1); }
+.scene .flash-l { left: 5%; }
+.scene .flash-r { right: 5%; }
+
+/* a cose fatte, il filo fra i due telefoni */
+.scene-link { position: absolute; left: 46.8%; right: 46.8%; top: 50%; height: 2px; transform: translateY(-50%);
+  background: linear-gradient(90deg, transparent, var(--teal-bright), transparent);
+  opacity: clamp(0, (var(--p) - .88) * 10, 1); }
+.scene-link::after { content: ""; position: absolute; top: -3px; left: 0; width: 8px; height: 8px;
+  border-radius: 50%; background: #fff; box-shadow: 0 0 12px 4px rgba(124,224,215,.75);
+  animation: tuijo-travel 2.6s ease-in-out infinite; }
+@keyframes tuijo-travel { 0%, 100% { left: 0; } 50% { left: calc(100% - 8px); } }
 
 .scene-steps { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 30px; list-style: none; counter-reset: step; }
 .scene-steps li {
@@ -200,10 +210,10 @@ h2 {
 .scene[data-step="2"] .scene-steps li::before { background: var(--teal-bright); color: #06282C; }
 
 @media (max-width: 860px) {
-  .scene-track { height: 240vh; }
-  .scene-inner { grid-template-columns: 1fr; text-align: center; gap: clamp(26px, 6vw, 40px); }
+  .scene-track { height: 300vh; }
+  .scene-inner { grid-template-columns: 1fr; text-align: center; gap: clamp(24px, 6vw, 38px); }
   .scene-steps { justify-content: center; }
-  .scene-stage { width: min(430px, 92%); margin: 0 auto; }
+  .scene-stage { width: min(440px, 100%); margin: 0 auto; gap: 6%; }
 }
 
 /* ---------------- Sicurezza ---------------- */
@@ -278,6 +288,7 @@ h2 {
   .scene { --p: 1 !important; }
   .scene-track { height: auto; }
   .scene-sticky { position: static; min-height: 0; }
+  .scene-link::after { animation: none; }
 }
 
 /* ---------------- Responsive ---------------- */
