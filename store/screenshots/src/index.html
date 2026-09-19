@@ -424,7 +424,8 @@ const lang = COPY[q.get('lang')] ? q.get('lang') : 'it';
 const shot = parseInt(q.get('shot') || '1', 10);
 const OFFSET = parseInt(q.get('off') || '0', 10);
 const PHOTOS_REAL = (q.get('photos') || '').split(',').filter(Boolean);   // file in img/photos/
-const LINKS_REAL = (q.get('links') || '').split(',').filter(Boolean);     // file in img/links/   // px logici saltati dall'alto (device=card)
+const LINKS_REAL = (q.get('links') || '').split(',').filter(Boolean);     // file in img/links/
+const CHAT_PHOTO = q.get('chatphoto') || '';                             // la foto dentro la chat   // px logici saltati dall'alto (device=card)
 const t = UI[lang];
 const isCard = device === 'card';                        // ritaglio a scheda
 const isWeb = device === 'web' || device === 'webpair' || isCard;   // render per il sito
@@ -505,8 +506,8 @@ function chatScreen(mirror, tapCall) {
   // propria bozza al posto dell'indicatore "sta scrivendo".
   const sd = (side) => (mirror ? (side === 'me' ? 'them' : 'me') : side);
   // la foto del messaggio: la prima di img/photos/ se c'è, altrimenti disegnata
-  const pic = PHOTOS_REAL[0]
-    ? `background:url('img/photos/${PHOTOS_REAL[0]}') center/cover`
+  const pic = CHAT_PHOTO
+    ? `background:url('img/photos/${CHAT_PHOTO}') center/cover`
     : `background:radial-gradient(circle at 62% 30%,#FFE9A8 0 12%,transparent 13%),linear-gradient(180deg,#F6C88B 0%,#E98C6B 46%,#8E4A52 100%)`;
   const earlier = isTablet ? `${datesep(t.yesterday)}
     ${bubble(sd('me'), t.e1, '08:12', 'read')}
@@ -647,7 +648,9 @@ function mediaScreen(tab) {
     const [a, b] = PHOTOS[i % PHOTOS.length].split('|');
     return `<div class="ph" style="background:${b},${a}">${vid ? `<div class="vid">${mi('play_circle_filled', 36, '#fff')}</div>` : ''}<span class="badge ${mine ? '' : 'p'}">${date}</span></div>`;
   };
-  const sept = [['10/09', 1], ['10/09', 0], ['08/09', 1, 1], ['06/09', 0], ['05/09', 1], ['02/09', 0]];
+  // il badge "video" sta solo sulle tessere disegnate: marcarlo su una foto
+  // vera la farebbe passare per un video che non è
+  const sept = [['10/09', 1], ['10/09', 0], ['08/09', 1], ['06/09', 0], ['05/09', 1], ['02/09', 0]];
   const aug = [['29/08', 1], ['24/08', 0], ['21/08', 1], ['17/08', 0, 1], ['15/08', 1], ['09/08', 0], ['05/08', 1], ['02/08', 0], ['01/08', 1]];
   return `<div class="media">${fabs(false)}${tabs}
     ${sep(t.month)}<div class="pgrid">${sept.map((p, i) => tile(i, p[0], p[1], p[2])).join('')}</div>

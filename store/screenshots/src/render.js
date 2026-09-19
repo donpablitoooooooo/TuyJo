@@ -69,16 +69,21 @@ const outRoot = path.resolve(__dirname, opt('out', '../out'));
         // foto vere per la galleria, se qualcuno ne ha messe in src/img/photos/
         const photoDir = path.join(__dirname, 'img', 'photos');
         const real = fs.existsSync(photoDir)
-          ? fs.readdirSync(photoDir).filter((f) => /\.(jpe?g|png|webp)$/i.test(f)).sort()
+          ? fs.readdirSync(photoDir)
+              .filter((f) => /\.(jpe?g|png|webp)$/i.test(f) && !f.startsWith('_'))
+              .sort()
           : [];
         const photos = real.length ? `&photos=${real.join(',')}` : '';
+        // la foto che compare dentro la chat: quella col nome che contiene "chat"
+        const chatPic = real.find((f) => /chat/i.test(f)) || real[0];
+        const chatPhoto = chatPic ? `&chatphoto=${chatPic}` : '';
         // anteprime vere per la scheda dei link, se ce ne sono
         const linkDir = path.join(__dirname, 'img', 'links');
         const realLinks = fs.existsSync(linkDir)
           ? fs.readdirSync(linkDir).filter((f) => /\.(jpe?g|png|webp)$/i.test(f)).sort()
           : [];
         const links = realLinks.length ? `&links=${realLinks.join(',')}` : '';
-        const url = `${html}?device=${cfg.device}&lang=${lang}&shot=${shot}${shot2}${off}${photos}${links}`;
+        const url = `${html}?device=${cfg.device}&lang=${lang}&shot=${shot}${shot2}${off}${photos}${chatPhoto}${links}`;
         await page.addInitScript((sel) => { window.__clipSel = sel; }, cfg.clipSel || '.device');
         await page.goto(url, { waitUntil: 'load' });
         await page.evaluate(() => document.fonts.ready);
