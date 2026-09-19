@@ -23,8 +23,14 @@ si lanciano con `--out ../../../public/assets`:
 | Target | Formato | A cosa serve |
 |---|---|---|
 | `web` | PNG trasparente, ritagliato sul telefono | `assets/shots/<lingua>/0N-<lingua>.png` — una schermata per sezione del sito |
+| `web-card` | PNG trasparente, ritaglio largo | `assets/shots/<lingua>/card-0N-<lingua>.png` — una porzione di schermata senza cornice (oggi: la galleria) |
 | `web-pair` | PNG trasparente, due telefoni | `assets/shots/<lingua>/pair-01-<lingua>.png` — apertura della homepage |
 | `og` | 1200 × 630 px | `assets/og-<lingua>.png` — anteprima social (`og:image`) |
+
+La schermata **7** (`--shot 7`) esiste solo per il sito: è lo scanner QR
+(`pairing_wizard_screen.dart` → `_buildQRScanner`), e serve alla scena
+dell'abbinamento, dove un telefono mostra il codice e l'altro lo inquadra. Gli
+store si fermano a sei schermate, quindi il target predefinito non la genera.
 
 A differenza degli screenshot per gli store, le immagini `web` **non contengono
 il titolo marketing**: sul sito il testo è HTML, così resta selezionabile,
@@ -62,6 +68,7 @@ Per controllare una schermata nel browser:
   `og` usa invece l'oggetto `OG`, allineato al claim del sito.
 - Testi dentro l'app: oggetto `UI` (stringhe reali dell'app + messaggi demo).
 - Schermate: funzioni `chatScreen`, `callScreen`, `locationScreen`,
-  `calendarScreen`, `mediaScreen`, `pairingScreen`. Le misure sono in px
+  `calendarScreen`, `mediaScreen`, `pairingScreen`, `scannerScreen` (la settima,
+  solo per il sito). Le misure sono in px
   logici Flutter (larghezza 390 su telefono) e vengono scalate con `zoom`.
 - Font e icone sono in `src/fonts/` (Google Fonts + Material Icons, uso offline).

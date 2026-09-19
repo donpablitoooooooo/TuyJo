@@ -68,6 +68,7 @@ T['it'] = dict(
     ],
     cta='Scaricatela e abbinate i telefoni.',
     foot_privacy='Privacy', foot_support='Supporto', foot_tag='tu i jo, tu e io',
+    scene=dict(steps=('Mostra il codice', 'Inquadra', 'Abbinati'), alt_qr="Il telefono che mostra il codice QR da far inquadrare.", alt_scan="Il secondo telefono che, con la fotocamera, inquadra il QR mostrato dal primo."),
     hero_alt='Due telefoni affiancati: la chat di Tuijo e la schermata della posizione condivisa.',
 )
 
@@ -117,6 +118,7 @@ T['en'] = dict(
     ],
     cta='Download it and pair your phones.',
     foot_privacy='Privacy', foot_support='Support', foot_tag='tu i jo — you and me',
+    scene=dict(steps=('Show the code', 'Scan it', 'Paired'), alt_qr="The phone showing the QR code to be scanned.", alt_scan="The second phone framing, with its camera, the QR code shown by the first one."),
     hero_alt='Two phones side by side: the Tuijo chat and the shared location screen.',
 )
 
@@ -166,6 +168,7 @@ T['es'] = dict(
     ],
     cta='Descargadla y emparejad los móviles.',
     foot_privacy='Privacidad', foot_support='Soporte', foot_tag='tu i jo — tú y yo',
+    scene=dict(steps=('Muestra el código', 'Escanea', 'Emparejados'), alt_qr="El móvil que muestra el código QR para escanear.", alt_scan="El segundo móvil enfocando con la cámara el código QR que muestra el primero."),
     hero_alt='Dos móviles uno al lado del otro: el chat de Tuijo y la pantalla de ubicación compartida.',
 )
 
@@ -215,6 +218,7 @@ T['ca'] = dict(
     ],
     cta='Baixeu-la i aparelleu els mòbils.',
     foot_privacy='Privacitat', foot_support='Suport', foot_tag='tu i jo',
+    scene=dict(steps=('Mostra el codi', 'Escaneja', 'Aparellats'), alt_qr="El mòbil que mostra el codi QR per escanejar.", alt_scan="El segon mòbil enfocant amb la càmera el codi QR que mostra el primer."),
     hero_alt="Dos mòbils l'un al costat de l'altre: el xat de Tuijo i la pantalla d'ubicació compartida.",
 )
 
@@ -225,6 +229,7 @@ SEC_IDS = ['chat', 'sicurezza', 'faq']   # ancore uguali in tutte le lingue
 #   split rev  → immagine a sinistra, testo a destra
 #   center     → immagine grande centrata, poggiata sul bordo inferiore
 #   cardshot   → ritaglio largo dell'interfaccia, centrato sotto al testo
+#   scene      → due telefoni che si avvicinano man mano che si scorre (sticky)
 # 'img' dice quale file usare: il telefono (0N) o il ritaglio a scheda (card-0N).
 LAYOUT = [
     dict(cls='split',        img='phone', dark=False),
@@ -232,7 +237,7 @@ LAYOUT = [
     dict(cls='center',       img='phone', dark=False),
     dict(cls='split',        img='phone', dark=True),
     dict(cls='cardshot',     img='card',  dark=False),
-    dict(cls='split rev',    img='card',  dark=True),
+    dict(cls='scene',        img='scene', dark=True),
 ]
 
 
@@ -264,6 +269,32 @@ def build(code):
     stages = []
     for i, (eyebrow, h2, lead, alt) in enumerate(t['sections'], start=1):
         lay = LAYOUT[i - 1]
+        if lay['img'] == 'scene':
+            sn = t['scene']
+            qw, qh = png_size(os.path.join(OUT, 'assets', 'shots', code, f'{i:02d}-{code}.png'))
+            sw, sh = png_size(os.path.join(OUT, 'assets', 'shots', code, f'07-{code}.png'))
+            steps = ''.join(f'<li>{x}</li>' for x in sn['steps'])
+            stages.append(f'''
+<section class="stage dark scene" data-scene data-step="2">
+  <div class="scene-track">
+    <div class="scene-sticky">
+      <div class="wrap scene-inner">
+        <div class="copy">
+          <span class="eyebrow">{eyebrow}</span>
+          <h2>{h2}</h2>
+          <p class="lead">{lead}</p>
+          <ol class="scene-steps">{steps}</ol>
+        </div>
+        <div class="scene-stage">
+          <img class="ph ph-qr" src="assets/shots/{code}/{i:02d}-{code}.png" width="{qw}" height="{qh}" loading="lazy" alt="{sn['alt_qr']}">
+          <img class="ph ph-scan" src="assets/shots/{code}/07-{code}.png" width="{sw}" height="{sh}" loading="lazy" alt="{sn['alt_scan']}">
+          <span class="scene-glow"></span>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>''')
+            continue
         card = lay['img'] == 'card'
         name = f"{'card-' if card else ''}{i:02d}-{code}.png"
         w, h = png_size(os.path.join(OUT, 'assets', 'shots', code, name))

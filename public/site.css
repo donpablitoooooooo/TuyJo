@@ -138,6 +138,58 @@ h2 {
 .stage.cardshot .shot { margin: clamp(38px, 5vw, 62px) auto 0; width: min(660px, 100%); }
 .stage.cardshot .shot img { border-radius: 16px; }
 
+/* ---------------- Scena dell'abbinamento ----------------
+   La sezione resta ferma mentre si scorre e la composizione avanza:
+   il telefono che inquadra sale verso quello che mostra il codice.
+   Tutto è guidato da --p (0 → 1), scritto da site.js. Senza JS, o con
+   prefers-reduced-motion, la scena resta ferma sul fotogramma finale. */
+/* niente overflow:hidden qui: annullerebbe il position:sticky interno */
+.scene { padding: 0; overflow: visible; --p: 1; }   /* senza JS resta il fotogramma finale */
+.scene-track { position: relative; height: 280vh; }
+.scene-sticky { position: sticky; top: 0; display: grid; align-items: center; min-height: 100vh; padding: 80px 0; overflow: hidden; }
+.scene-inner {
+  display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.05fr);
+  align-items: center; gap: clamp(30px, 5vw, 70px);
+}
+.scene-stage { position: relative; width: 100%; aspect-ratio: 1 / 1.14; }
+.scene .ph { position: absolute; width: 43%; filter: drop-shadow(0 26px 36px rgba(0,0,0,.5)); }
+.scene .ph-qr { left: 0; bottom: 0;
+  transform: translate(calc(var(--p) * -4%), calc((1 - var(--p)) * 7%)) rotate(calc(-3deg + var(--p) * 1deg)); }
+.scene .ph-scan { right: 0; top: 0;
+  transform: translate(calc((1 - var(--p)) * 13%), calc((1 - var(--p)) * 30%)) rotate(calc(7deg - var(--p) * 4deg)) scale(calc(.9 + var(--p) * .1)); }
+/* il bagliore che conferma la lettura del codice */
+.scene-glow { position: absolute; left: 4%; bottom: 20%; width: 36%; aspect-ratio: 1; border-radius: 50%;
+  background: radial-gradient(circle, rgba(160,255,244,.75), rgba(124,224,215,.25) 45%, transparent 72%);
+  mix-blend-mode: screen; pointer-events: none;
+  opacity: clamp(0, (var(--p) - .62) * 3.4, 1); }
+
+.scene-steps { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 30px; list-style: none; counter-reset: step; }
+.scene-steps li {
+  counter-increment: step; display: inline-flex; align-items: center; gap: 9px;
+  padding: 8px 16px 8px 10px; border-radius: 999px; font-size: 14px; font-weight: 600;
+  color: rgba(255,255,255,.5); border: 1px solid rgba(255,255,255,.16);
+  transition: color .35s ease, border-color .35s ease, background .35s ease;
+}
+.scene-steps li::before {
+  content: counter(step); display: grid; place-items: center; width: 22px; height: 22px;
+  border-radius: 50%; background: rgba(255,255,255,.12); font-size: 12px; transition: inherit;
+}
+.scene[data-step="0"] .scene-steps li:nth-child(1),
+.scene[data-step="1"] .scene-steps li:nth-child(-n+2),
+.scene[data-step="2"] .scene-steps li {
+  color: #fff; border-color: rgba(124,224,215,.5); background: rgba(124,224,215,.12);
+}
+.scene[data-step="0"] .scene-steps li:nth-child(1)::before,
+.scene[data-step="1"] .scene-steps li:nth-child(-n+2)::before,
+.scene[data-step="2"] .scene-steps li::before { background: var(--teal-bright); color: #06282C; }
+
+@media (max-width: 860px) {
+  .scene-track { height: 240vh; }
+  .scene-inner { grid-template-columns: 1fr; text-align: center; gap: clamp(26px, 6vw, 40px); }
+  .scene-steps { justify-content: center; }
+  .scene-stage { width: min(430px, 92%); margin: 0 auto; }
+}
+
 /* ---------------- Sicurezza ---------------- */
 .security { padding: clamp(90px, 11vw, 160px) 0; text-align: center; background: var(--paper-2); }
 .sec-grid {
@@ -207,6 +259,9 @@ h2 {
   .reveal { opacity: 1; transform: none; transition: none; }
   [data-move] { --shift: 0px !important; }
   .stage.split .shot img, .stage.split.rev .shot img { --tilt: 0deg; }
+  .scene { --p: 1 !important; }
+  .scene-track { height: auto; }
+  .scene-sticky { position: static; min-height: 0; }
 }
 
 /* ---------------- Responsive ---------------- */

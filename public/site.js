@@ -54,6 +54,33 @@
     place();
   }
 
+  /* Scena dell'abbinamento: lo scorrimento fa avanzare la composizione */
+  var scenes = [].slice.call(document.querySelectorAll("[data-scene]"));
+  if (scenes.length && !still) {
+    scenes.forEach(function (sc) { sc.style.setProperty("--p", "0"); });
+    var advance = function () {
+      scenes.forEach(function (sc) {
+        var track = sc.querySelector(".scene-track");
+        var r = track.getBoundingClientRect();
+        var run = r.height - window.innerHeight;
+        var p = run > 0 ? Math.min(1, Math.max(0, -r.top / run)) : 1;
+        sc.style.setProperty("--p", p.toFixed(3));
+        sc.setAttribute("data-step", p < 0.38 ? "0" : p < 0.72 ? "1" : "2");
+      });
+    };
+    var scenePending = false;
+    var queueScene = function () {
+      if (scenePending) return;
+      scenePending = true;
+      requestAnimationFrame(function () { scenePending = false; advance(); });
+    };
+    window.addEventListener("scroll", queueScene, { passive: true });
+    window.addEventListener("resize", queueScene, { passive: true });
+    advance();
+  } else {
+    scenes.forEach(function (sc) { sc.setAttribute("data-step", "2"); });
+  }
+
   /* FAQ: apre una domanda alla volta */
   var faqs = document.querySelectorAll(".faq");
   faqs.forEach(function (d) {

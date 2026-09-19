@@ -64,7 +64,7 @@ const outRoot = path.resolve(__dirname, opt('out', '../out'));
       for (const shot of list) {
         const shot2 = cfg.device === 'webpair' ? `&shot2=${shot === 1 ? 3 : 1}` : '';
         // quanto scendere dentro la schermata per inquadrare la parte interessante
-        const CARD_OFF = { 5: 192, 6: 206 };
+        const CARD_OFF = { 5: 192 };
         const off = cfg.device === 'card' ? `&off=${CARD_OFF[shot] || 0}` : '';
         const url = `${html}?device=${cfg.device}&lang=${lang}&shot=${shot}${shot2}${off}`;
         await page.addInitScript((sel) => { window.__clipSel = sel; }, cfg.clipSel || '.device');
