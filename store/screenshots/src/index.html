@@ -179,7 +179,7 @@ h1 { font-family: var(--display); font-weight: 800; font-size: 9.4vw; line-heigh
 .cal .tpanel .bubble { max-width: 78%; }
 
 /* Media */
-.media { position: absolute; inset: 0; background: #FAFAFA; display: flex; flex-direction: column; padding-top: 100px; }
+.media { position: absolute; inset: 0; background: #FAFAFA; display: flex; flex-direction: column; padding-top: 100px; padding-bottom: calc(6px + var(--safe-b)); }
 .tabs { margin: 0 80px; padding: 6px; border-radius: 30px; background: var(--grad); box-shadow: 0 4px 12px rgba(59,168,176,.3); display: flex; justify-content: space-evenly; }
 .tabs .t { width: 48px; height: 48px; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: #fff; background: rgba(255,255,255,.2); border: 1px solid rgba(255,255,255,.3); }
 .tabs .t.on { background: #fff; color: #3BA8B0; border: none; box-shadow: 0 2px 4px rgba(0,0,0,.15); }
@@ -192,16 +192,21 @@ h1 { font-family: var(--display); font-weight: 800; font-size: 9.4vw; line-heigh
 .ph .badge.p { background: rgba(158,158,158,.9); }
 .ph .vid { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; color: #fff; background: linear-gradient(180deg, transparent, rgba(0,0,0,.4)); }
 
-/* Link e documenti (media_screen.dart: _LinkCard e _DocumentListItem) */
-.lgrid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; padding: 4px 12px 8px; }
-.lcard { background: #fff; border-radius: 12px; border: 1.5px solid rgba(59,168,176,.3); box-shadow: 0 2px 6px rgba(0,0,0,.06); overflow: hidden; }
+/* Link e documenti (media_screen.dart: _LinkGridItem e _DocumentListItem).
+   I link stanno in una masonry a due colonne — nell'app è MasonryGridView.count
+   — quindi le schede hanno altezze diverse a seconda della miniatura. */
+.lgrid { column-count: 2; column-gap: 8px; padding: 4px 12px 8px; }
+.lcard { break-inside: avoid; margin-bottom: 8px; background: #fff; border-radius: 12px;
+  border: 1.5px solid rgba(59,168,176,.3); box-shadow: 0 2px 6px rgba(0,0,0,.06); overflow: hidden; }
 .lcard.p { border-color: rgba(158,158,158,.35); }
-.lcard .thumb { height: 62px; display: flex; align-items: center; justify-content: center; background: rgba(59,168,176,.1); color: #3BA8B0; }
-.lcard.p .thumb { background: rgba(158,158,158,.12); color: #9E9E9E; }
+.lcard .thumb { position: relative; overflow: hidden; }
+.lcard .noimg { display: flex; align-items: center; justify-content: center; height: 60px; background: rgba(59,168,176,.1); color: #3BA8B0; }
+.lcard.p .noimg { background: rgba(158,158,158,.12); color: #9E9E9E; }
 .lcard .body { padding: 10px; }
 .lcard .tt { font-size: 13px; font-weight: 600; line-height: 1.25; color: #424242; }
-.lcard .dm { display: flex; align-items: center; gap: 4px; margin-top: 6px; font-size: 11px; color: #9E9E9E; }
-.lcard .dm span { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.lcard .ds { margin-top: 4px; font-size: 11px; line-height: 1.3; color: #757575; }
+.lcard .dm { display: flex; align-items: center; gap: 3px; margin-top: 6px; font-size: 10px; color: #9E9E9E; }
+.lcard .dm .site { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .dlist { display: flex; flex-direction: column; gap: 10px; padding: 4px 12px 8px; }
 .drow { display: flex; align-items: center; gap: 12px; padding: 12px; background: #fff; border-radius: 12px; border: 1.5px solid rgba(59,168,176,.3); box-shadow: 0 2px 4px rgba(0,0,0,.04); }
 .drow.p { border-color: rgba(158,158,158,.35); }
@@ -362,7 +367,7 @@ const UI = {
     locActive: 'Condivisione attiva', callTitle: 'Chiamata Vocale', good: 'Connessione buona', mute: 'Muto', speaker: 'Altoparlante', end: 'Fine',
     ago: '12s fa', add: 'Aggiungi', wd: ['L','M','M','G','V','S','D'], month: 'Settembre 2026', month2: 'Agosto 2026',
     todo1: 'Cena da Marco e Giulia 🍝', todo2: 'Prenotare il treno per Roma 🚄', todo3: 'Comprare i fiori per la mamma 💐',
-    links: [['Trattoria da Marco — il menù','trattoriadamarco.it'],['Casa sul mare, agosto','case-vacanza.it'],['Ricetta: tiramisù classico','ricettedicasa.it'],['Concerto al parco, biglietti','biglietteria.it']], docs: [['Contratto affitto.pdf','1,2 MB','10/09'],['Biglietti treno Roma.pdf','340 KB','08/09'],['Preventivo cucina.pdf','2,1 MB','05/09'],['Ricette della nonna.docx','88 KB','02/09']],
+    links: [['Hotel Villa Fiorita, Sorrento','Camera vista mare, colazione inclusa · 2 notti','booking.com','10/09'],['Casa sul mare, agosto','Intera casa · 4 ospiti · Gallipoli','airbnb.it','09/09'],['Trattoria da Marco','Via Roma 12 · aperto fino alle 23','maps.google.com','06/09'],['Tiramisù della nonna','Ricetta in 20 minuti, senza forno','ricettedicasa.it','28/08'],['Concerto al parco, 12 settembre','Biglietti ancora disponibili','biglietteria.it','21/08']], docs: [['Contratto affitto.pdf','1,2 MB','10/09'],['Biglietti treno Roma.pdf','340 KB','08/09'],['Preventivo cucina.pdf','2,1 MB','05/09'],['Ricette della nonna.docx','88 KB','02/09']],
     pairTitle: 'Pairing con il tuo amore', pairSub: 'Completa entrambi i passaggi per accoppiare i dispositivi',
     s1t: 'Mostra il tuo QR', s1d: 'Fai scansionare questo QR al tuo amore', s2t: 'Leggi il QR del tuo amore', s2d: 'Scansiona il QR mostrato dal tuo amore', scan: 'Scansiona QR', scanHint: 'Inquadra il QR Code del tuo amore', done: 'Completato', okMsg: 'QR del partner scansionato con successo!' },
   en: { yesterday: 'Yesterday', e1: 'Morning love ☕ running late tonight', e2: 'No worries, I\'ll cook dinner 🍝', e3: 'You\'re the best ❤️', e4: 'Booked a table for Saturday, ok?',
@@ -371,7 +376,7 @@ const UI = {
     locActive: 'Sharing active', callTitle: 'Voice Call', good: 'Good connection', mute: 'Mute', speaker: 'Speaker', end: 'End',
     ago: '12s ago', add: 'Add', wd: ['M','T','W','T','F','S','S'], month: 'September 2026', month2: 'August 2026',
     todo1: 'Dinner at Marco & Giulia\'s 🍝', todo2: 'Book the train to Rome 🚄', todo3: 'Buy flowers for mum 💐',
-    links: [['Trattoria da Marco — the menu','trattoriadamarco.it'],['House by the sea, August','holiday-lets.com'],['Recipe: classic tiramisu','homerecipes.com'],['Concert in the park, tickets','ticketdesk.com']], docs: [['Rental agreement.pdf','1.2 MB','10/09'],['Train tickets to Rome.pdf','340 KB','08/09'],['Kitchen quote.pdf','2.1 MB','05/09'],['Grandma\'s recipes.docx','88 KB','02/09']],
+    links: [['Hotel Villa Fiorita, Sorrento','Sea view room, breakfast included · 2 nights','booking.com','10/09'],['House by the sea, August','Entire home · 4 guests · Gallipoli','airbnb.com','09/09'],['Trattoria da Marco','Via Roma 12 · open until 11pm','maps.google.com','06/09'],["Grandma's tiramisu",'Ready in 20 minutes, no baking','homerecipes.com','28/08'],['Concert in the park, 12 September','Tickets still available','ticketdesk.com','21/08']], docs: [['Rental agreement.pdf','1.2 MB','10/09'],['Train tickets to Rome.pdf','340 KB','08/09'],['Kitchen quote.pdf','2.1 MB','05/09'],['Grandma\'s recipes.docx','88 KB','02/09']],
     pairTitle: 'Pairing with your love', pairSub: 'Complete both steps to pair the devices',
     s1t: 'Show your QR code', s1d: 'Have your love scan this QR code', s2t: 'Read your love\'s QR code', s2d: 'Scan the QR code shown by your love', scan: 'Scan QR', scanHint: 'Frame the QR Code of your love', done: 'Completed', okMsg: 'Partner QR code scanned successfully!' },
   es: { yesterday: 'Ayer', e1: 'Buenos días amor ☕ hoy acabo tarde', e2: 'Tranquila, preparo yo la cena 🍝', e3: 'Eres el mejor ❤️', e4: 'He reservado para el sábado, ¿te va?',
@@ -380,7 +385,7 @@ const UI = {
     locActive: 'Compartir activo', callTitle: 'Llamada de Voz', good: 'Buena conexión', mute: 'Silenciar', speaker: 'Altavoz', end: 'Finalizar',
     ago: 'hace 12s', add: 'Añadir', wd: ['L','M','X','J','V','S','D'], month: 'Septiembre 2026', month2: 'Agosto 2026',
     todo1: 'Cena en casa de Marco y Giulia 🍝', todo2: 'Reservar el tren a Roma 🚄', todo3: 'Comprar flores para mamá 💐',
-    links: [['Trattoria da Marco — el menú','trattoriadamarco.it'],['Casa junto al mar, agosto','casas-vacaciones.es'],['Receta: tiramisú clásico','recetasdecasa.es'],['Concierto en el parque, entradas','entradas.es']], docs: [['Contrato de alquiler.pdf','1,2 MB','10/09'],['Billetes de tren a Roma.pdf','340 KB','08/09'],['Presupuesto cocina.pdf','2,1 MB','05/09'],['Recetas de la abuela.docx','88 KB','02/09']],
+    links: [['Hotel Villa Fiorita, Sorrento','Habitación con vistas al mar, desayuno incluido · 2 noches','booking.com','10/09'],['Casa junto al mar, agosto','Casa entera · 4 huéspedes · Gallipoli','airbnb.es','09/09'],['Trattoria da Marco','Via Roma 12 · abierto hasta las 23','maps.google.com','06/09'],['Tiramisú de la abuela','Receta en 20 minutos, sin horno','recetasdecasa.es','28/08'],['Concierto en el parque, 12 de septiembre','Quedan entradas','entradas.es','21/08']], docs: [['Contrato de alquiler.pdf','1,2 MB','10/09'],['Billetes de tren a Roma.pdf','340 KB','08/09'],['Presupuesto cocina.pdf','2,1 MB','05/09'],['Recetas de la abuela.docx','88 KB','02/09']],
     pairTitle: 'Pairing con tu amor', pairSub: 'Complete ambos pasos para emparejar los dispositivos',
     s1t: 'Muestra tu código QR', s1d: 'Haz que tu amor escanee este código QR', s2t: 'Lee el código QR de tu amor', s2d: 'Escanea el código QR que te muestra tu amor', scan: 'Escanear QR', scanHint: 'Enmarca el Código QR de tu amor', done: 'Completado', okMsg: '¡Código QR de socio escaneado exitosamente!' },
   ca: { yesterday: 'Ahir', e1: 'Bon dia amor ☕ avui acabo tard', e2: 'Tranquil·la, ja faig jo el sopar 🍝', e3: 'Ets el millor ❤️', e4: 'He reservat per dissabte, et va bé?',
@@ -389,7 +394,7 @@ const UI = {
     locActive: 'Compartir actiu', callTitle: 'Trucada de Veu', good: 'Bona connexió', mute: 'Silenciar', speaker: 'Altaveu', end: 'Finalitzar',
     ago: 'fa 12s', add: 'Afegeix', wd: ['DL','DT','DC','DJ','DV','DS','DG'], month: 'Setembre 2026', month2: 'Agost 2026',
     todo1: 'Sopar a casa d\'en Marco i la Giulia 🍝', todo2: 'Reservar el tren a Roma 🚄', todo3: 'Comprar flors per a la mama 💐',
-    links: [['Trattoria da Marco — el menú','trattoriadamarco.it'],['Casa a la vora del mar, agost','cases-vacances.cat'],['Recepta: tiramisú clàssic','receptesdecasa.cat'],['Concert al parc, entrades','entrades.cat']], docs: [['Contracte de lloguer.pdf','1,2 MB','10/09'],['Bitllets de tren a Roma.pdf','340 KB','08/09'],['Pressupost cuina.pdf','2,1 MB','05/09'],['Receptes de l\'àvia.docx','88 KB','02/09']],
+    links: [['Hotel Villa Fiorita, Sorrento','Habitació amb vistes al mar, esmorzar inclòs · 2 nits','booking.com','10/09'],['Casa a la vora del mar, agost','Casa sencera · 4 hostes · Gallipoli','airbnb.es','09/09'],['Trattoria da Marco','Via Roma 12 · obert fins a les 23','maps.google.com','06/09'],["Tiramisú de l'àvia",'Recepta en 20 minuts, sense forn','receptesdecasa.cat','28/08'],['Concert al parc, 12 de setembre','Encara queden entrades','entrades.cat','21/08']], docs: [['Contracte de lloguer.pdf','1,2 MB','10/09'],['Bitllets de tren a Roma.pdf','340 KB','08/09'],['Pressupost cuina.pdf','2,1 MB','05/09'],['Receptes de l\'àvia.docx','88 KB','02/09']],
     pairTitle: 'Pairing amb el teu amor', pairSub: 'Completeu els dos passos per emparellar els dispositius',
     s1t: 'Mostra el teu codi QR', s1d: 'Fes que el teu amor escanegi aquest codi QR', s2t: 'Llegeix el codi QR del teu amor', s2d: 'Escaneja el codi QR que et mostra el teu amor', scan: 'Escaneja un codi QR', scanHint: 'Emmarca el codi QR del teu amor', done: 'Completat', okMsg: 'Codi QR del soci escanejat correctament!' },
 };
@@ -560,15 +565,26 @@ function mediaScreen(tab) {
   const sep = (label) => `<div class="msep"><span class="ln"></span><span class="pill">${mi('flag', 14, '#fff', 'mir')}${label}</span><span class="ln r"></span></div>`;
 
   if (tab === 1) {
+    // Anteprime: nell'app sono le thumbnail scaricate dal link. Qui sono
+    // disegnate, con altezze diverse — è quello che dà la masonry.
+    const THUMB = [
+      [120, 'linear-gradient(180deg,#BFE6F2 0 46%,#3BA8B0 46%,#145A60)', 'radial-gradient(circle at 74% 20%,#FFF3C4 0 10%,transparent 11%)'],
+      [96,  'linear-gradient(180deg,#CFE6EF 0 52%,#E8D9BC 52%)', 'linear-gradient(135deg,transparent 40%,#B07A4E 40% 47%,transparent 47%),radial-gradient(circle at 24% 74%,#7CA01E 0 13%,transparent 14%)'],
+      [74,  'linear-gradient(180deg,#EDF1EA,#DCE4D6)', 'linear-gradient(0deg,transparent 42%,#fff 42% 52%,transparent 52%),linear-gradient(72deg,transparent 44%,#fff 44% 51%,transparent 51%),radial-gradient(circle at 24% 26%,#C9DDB6 0 18%,transparent 19%),radial-gradient(circle at 63% 56%,#D81F2C 0 7%,transparent 8%)'],
+      [108, 'linear-gradient(160deg,#F6E7CE,#C9A06B)', 'radial-gradient(circle at 50% 56%,#5B3A22 0 21%,#F2E2C6 22% 26%,transparent 27%)'],
+      [88,  'linear-gradient(180deg,#241C35,#0E0A18)', 'radial-gradient(ellipse at 30% 100%,rgba(255,220,130,.5),transparent 55%),radial-gradient(ellipse at 70% 100%,rgba(124,224,215,.45),transparent 55%)'],
+    ];
     const card = (i, mine) => {
-      const [title, domain] = t.links[i];
-      return `<div class="lcard ${mine ? '' : 'p'}"><div class="thumb">${mi('link', 28, 'currentColor', 'mir')}</div>
-        <div class="body"><div class="tt">${title}</div>
-        <div class="dm">${mi('lock_outline', 11, 'currentColor', 'mio')}<span>${domain}</span></div></div></div>`;
+      const [title, desc, domain, date] = t.links[i];
+      const [h, bg, deco] = THUMB[i % THUMB.length];
+      return `<div class="lcard ${mine ? '' : 'p'}">
+        <div class="thumb" style="height:${h}px;background:${deco},${bg}"></div>
+        <div class="body"><div class="tt">${title}</div><div class="ds">${desc}</div>
+        <div class="dm">${mi('public', 10, mine ? '#3BA8B0' : '#9E9E9E')}<span class="site">${domain}</span><span>${date}</span></div></div></div>`;
     };
     return `<div class="media">${fabs(false)}${tabs}
-      ${sep(t.month)}<div class="lgrid">${card(0, 1)}${card(1, 0)}</div>
-      ${sep(t.month2)}<div class="lgrid">${card(2, 1)}${card(3, 0)}</div></div>`;
+      ${sep(t.month)}<div class="lgrid">${card(0, 1)}${card(1, 0)}${card(2, 1)}</div>
+      ${sep(t.month2)}<div class="lgrid">${card(3, 0)}${card(4, 1)}</div></div>`;
   }
 
   if (tab === 2) {
