@@ -76,21 +76,23 @@
           <ol class="scene-steps"><li>One scans</li><li>The other scans</li><li>You are in the chat</li></ol>
         </div>
         <div class="scene-stage">
+          <span class="beam beam-1" style="--in:.04;--out:.36"></span>
+          <span class="beam beam-2" style="--in:.44;--out:.74"></span>
           <span class="ph ph-l">
             <img class="fr" style="--in:-1;--out:0.42" src="assets/shots/en/06-en.webp" width="828" height="1728" loading="lazy" alt="The phone showing its own QR code.">
             <img class="fr" style="--in:0.4;--out:0.58" src="assets/shots/en/07-en.webp" width="828" height="1728" loading="lazy" alt="The Tuijo scanner framing the other person's phone.">
             <img class="fr" style="--in:0.56;--out:0.74" src="assets/shots/en/08-en.webp" width="828" height="1728" loading="lazy" alt="The other phone's QR code in focus inside the scanner.">
             <img class="fr" style="--in:0.72;--out:0.86" src="assets/shots/en/09-en.webp" width="828" height="1728" loading="lazy" alt="The step completed, with the app's confirmation.">
             <img class="fr" style="--in:0.84;--out:2" src="assets/shots/en/01-en.webp" width="828" height="1728" loading="lazy" alt="The chat open on the first phone, once paired.">
+            <span class="flash" style="--in:.18;--out:.34"></span>
           </span>
           <span class="ph ph-r">
             <img class="fr" style="--in:-1;--out:0.18" src="assets/shots/en/07-en.webp" width="828" height="1728" loading="lazy" alt="The Tuijo scanner framing the other person's phone.">
             <img class="fr" style="--in:0.16;--out:0.36" src="assets/shots/en/08-en.webp" width="828" height="1728" loading="lazy" alt="The other phone's QR code in focus inside the scanner.">
             <img class="fr" style="--in:0.34;--out:0.86" src="assets/shots/en/09-en.webp" width="828" height="1728" loading="lazy" alt="The step completed, with the app's confirmation.">
             <img class="fr" style="--in:0.84;--out:2" src="assets/shots/en/10-en.webp" width="828" height="1728" loading="lazy" alt="The same chat seen from the second phone, with the message the other person is typing.">
+            <span class="flash" style="--in:.56;--out:.74"></span>
           </span>
-          <span class="flash flash-l" style="--in:.18;--out:.34"></span>
-          <span class="flash flash-r" style="--in:.56;--out:.74"></span>
           <span class="scene-link"></span>
         </div>
       </div>
@@ -128,8 +130,10 @@
       <h2 class="reveal">A year of your things, <span class="serif-em">in order.</span></h2>
       <p class="lead reveal d1">The photos, videos, links and files you have sent each other are gathered month by month. No more scrolling back to find that photo from August.</p>
     </div>
-    <div class="shot reveal d1">
-      <img src="assets/shots/en/card-05-en.webp" width="958" height="706" loading="lazy" data-move="20" alt="The Tuijo gallery with photos gathered by month.">
+    <div class="shot reel reveal d1" data-reel>
+        <img class="fr on" data-hold="2600" src="assets/shots/en/card-05-en.webp" width="958" height="706" loading="lazy" alt="The Tuijo gallery with photos gathered by month.">
+        <img class="fr" data-hold="2600" src="assets/shots/en/card-11-en.webp" width="958" height="706" loading="lazy" alt="The tab with the links saved in the chat, with title and domain.">
+        <img class="fr" data-hold="2600" src="assets/shots/en/card-12-en.webp" width="958" height="706" loading="lazy" alt="The tab with the shared documents, with size and date.">
     </div>
   </div>
 </section>
@@ -137,20 +141,14 @@
   <div class="wrap">
     <div class="copy">
       <span class="eyebrow reveal">When writing is not enough</span>
-      <h2 class="reveal">Two taps and <span class="serif-em">you hear each other.</span></h2>
-      <p class="lead reveal d1">The call starts from the chat and travels peer-to-peer, straight from one phone to the other.</p>
+      <h2 class="reveal">One tap and <span class="serif-em">you hear each other.</span></h2>
+      <p class="lead reveal d1">The handset sits inside the chat: one tap and the call starts, peer-to-peer, straight from one phone to the other.</p>
     </div>
-    <div class="shot reveal d1">
-      <img src="assets/shots/en/02-en.webp" width="828" height="1728" loading="lazy" data-move="26" alt="The Tuijo voice call screen with duration and connection quality.">
+    <div class="shot reel reveal d1" data-reel>
+        <img class="fr on" data-hold="1700" src="assets/shots/en/01-en.webp" width="828" height="1728" loading="lazy" alt="The Tuijo chat with the handset button next to the menu.">
+        <img class="fr" data-hold="700" src="assets/shots/en/13-en.webp" width="828" height="1728" loading="lazy" alt="A finger tapping the handset inside the chat.">
+        <img class="fr" data-hold="2600" src="assets/shots/en/02-en.webp" width="828" height="1728" loading="lazy" alt="The Tuijo voice call screen.">
     </div>
-  </div>
-</section>
-
-<!-- ============ BANDA FOTOGRAFICA ============ -->
-<section class="band">
-  <img src="assets/photo/couple.jpg" alt="" loading="lazy">
-  <div class="band-copy">
-    <p>Two phones, one conversation.<span>No groups, no contacts, no feed: Tuijo connects to a single person.</span></p>
   </div>
 </section>
 
@@ -201,6 +199,14 @@
       <details class="faq">
         <summary>Can three people use it?</summary>
         <p>No, and that is by design: one device pairs with one other device. There are no groups and no address book.</p>
+      </details>
+      <details class="faq">
+        <summary>I lost my phone, or I bought a new one. Can I get the chat back?</summary>
+        <p>Yes. On the new phone open Settings → Recover messages and choose where from: your partner's phone, or your own old phone. The new phone shows a QR code valid for ten minutes, the other one scans it from Settings → Help your partner (or Transfer), and the certificate arrives encrypted for that device only: the chat rebuilds itself.</p>
+      </details>
+      <details class="faq">
+        <summary>How do I delete messages?</summary>
+        <p>Settings → Delete Messages, at three levels: from this phone only, from your partner's phone only, or from both phones and the server as well. The first two leave the chat on the server, so pairing again brings it back; the last one cannot be undone.</p>
       </details>
     </div>
   </div>

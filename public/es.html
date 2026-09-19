@@ -76,21 +76,23 @@
           <ol class="scene-steps"><li>Uno escanea</li><li>El otro escanea</li><li>Estáis en el chat</li></ol>
         </div>
         <div class="scene-stage">
+          <span class="beam beam-1" style="--in:.04;--out:.36"></span>
+          <span class="beam beam-2" style="--in:.44;--out:.74"></span>
           <span class="ph ph-l">
             <img class="fr" style="--in:-1;--out:0.42" src="assets/shots/es/06-es.webp" width="828" height="1728" loading="lazy" alt="El móvil que muestra su propio código QR.">
             <img class="fr" style="--in:0.4;--out:0.58" src="assets/shots/es/07-es.webp" width="828" height="1728" loading="lazy" alt="El escáner de Tuijo enfocando el móvil de la otra persona.">
             <img class="fr" style="--in:0.56;--out:0.74" src="assets/shots/es/08-es.webp" width="828" height="1728" loading="lazy" alt="El código QR del otro móvil enfocado dentro del escáner.">
             <img class="fr" style="--in:0.72;--out:0.86" src="assets/shots/es/09-es.webp" width="828" height="1728" loading="lazy" alt="El paso completado, con la confirmación de la app.">
             <img class="fr" style="--in:0.84;--out:2" src="assets/shots/es/01-es.webp" width="828" height="1728" loading="lazy" alt="El chat abierto en el primer móvil, una vez emparejados.">
+            <span class="flash" style="--in:.18;--out:.34"></span>
           </span>
           <span class="ph ph-r">
             <img class="fr" style="--in:-1;--out:0.18" src="assets/shots/es/07-es.webp" width="828" height="1728" loading="lazy" alt="El escáner de Tuijo enfocando el móvil de la otra persona.">
             <img class="fr" style="--in:0.16;--out:0.36" src="assets/shots/es/08-es.webp" width="828" height="1728" loading="lazy" alt="El código QR del otro móvil enfocado dentro del escáner.">
             <img class="fr" style="--in:0.34;--out:0.86" src="assets/shots/es/09-es.webp" width="828" height="1728" loading="lazy" alt="El paso completado, con la confirmación de la app.">
             <img class="fr" style="--in:0.84;--out:2" src="assets/shots/es/10-es.webp" width="828" height="1728" loading="lazy" alt="El mismo chat visto desde el segundo móvil, con el mensaje que la otra persona está escribiendo.">
+            <span class="flash" style="--in:.56;--out:.74"></span>
           </span>
-          <span class="flash flash-l" style="--in:.18;--out:.34"></span>
-          <span class="flash flash-r" style="--in:.56;--out:.74"></span>
           <span class="scene-link"></span>
         </div>
       </div>
@@ -128,8 +130,10 @@
       <h2 class="reveal">Un año de cosas vuestras, <span class="serif-em">en orden.</span></h2>
       <p class="lead reveal d1">Las fotos, los vídeos, los enlaces y los documentos que os habéis enviado se reúnen mes a mes. Se acabó rebuscar hacia atrás aquella foto de agosto.</p>
     </div>
-    <div class="shot reveal d1">
-      <img src="assets/shots/es/card-05-es.webp" width="958" height="706" loading="lazy" data-move="20" alt="La galería de Tuijo con las fotos reunidas por mes.">
+    <div class="shot reel reveal d1" data-reel>
+        <img class="fr on" data-hold="2600" src="assets/shots/es/card-05-es.webp" width="958" height="706" loading="lazy" alt="La galería de Tuijo con las fotos reunidas por mes.">
+        <img class="fr" data-hold="2600" src="assets/shots/es/card-11-es.webp" width="958" height="706" loading="lazy" alt="La pestaña de los enlaces guardados en el chat, con título y dominio.">
+        <img class="fr" data-hold="2600" src="assets/shots/es/card-12-es.webp" width="958" height="706" loading="lazy" alt="La pestaña de los documentos compartidos, con peso y fecha.">
     </div>
   </div>
 </section>
@@ -137,20 +141,14 @@
   <div class="wrap">
     <div class="copy">
       <span class="eyebrow reveal">Cuando escribir no basta</span>
-      <h2 class="reveal">Dos toques y <span class="serif-em">os oís.</span></h2>
-      <p class="lead reveal d1">La llamada sale del chat y viaja peer-to-peer, directa de un móvil al otro.</p>
+      <h2 class="reveal">Un toque y <span class="serif-em">os oís.</span></h2>
+      <p class="lead reveal d1">El teléfono está dentro del chat: un toque y sale la llamada, peer-to-peer, directa de un móvil al otro.</p>
     </div>
-    <div class="shot reveal d1">
-      <img src="assets/shots/es/02-es.webp" width="828" height="1728" loading="lazy" data-move="26" alt="La pantalla de llamada de voz de Tuijo con duración y calidad de conexión.">
+    <div class="shot reel reveal d1" data-reel>
+        <img class="fr on" data-hold="1700" src="assets/shots/es/01-es.webp" width="828" height="1728" loading="lazy" alt="El chat de Tuijo con el botón de llamada junto al menú.">
+        <img class="fr" data-hold="700" src="assets/shots/es/13-es.webp" width="828" height="1728" loading="lazy" alt="Un dedo tocando el botón de llamada dentro del chat.">
+        <img class="fr" data-hold="2600" src="assets/shots/es/02-es.webp" width="828" height="1728" loading="lazy" alt="La pantalla de llamada de voz de Tuijo.">
     </div>
-  </div>
-</section>
-
-<!-- ============ BANDA FOTOGRAFICA ============ -->
-<section class="band">
-  <img src="assets/photo/couple.jpg" alt="" loading="lazy">
-  <div class="band-copy">
-    <p>Dos móviles, una conversación.<span>Sin grupos, sin contactos, sin feed: Tuijo se conecta con una sola persona.</span></p>
   </div>
 </section>
 
@@ -201,6 +199,14 @@
       <details class="faq">
         <summary>¿Se puede usar entre tres?</summary>
         <p>No, y es una decisión de diseño: un dispositivo se empareja con otro dispositivo. No hay grupos ni agenda.</p>
+      </details>
+      <details class="faq">
+        <summary>He perdido el móvil, o tengo uno nuevo. ¿Recupero el chat?</summary>
+        <p>Sí. En el móvil nuevo abre Ajustes → Recuperar los mensajes y elige de dónde: del móvil de tu pareja o de tu móvil antiguo. El nuevo muestra un QR válido diez minutos, el otro lo escanea desde Ajustes → Ayudar a tu pareja (o Transferir), y el certificado llega cifrado solo para ese dispositivo: el chat se recompone solo.</p>
+      </details>
+      <details class="faq">
+        <summary>¿Cómo se borran los mensajes?</summary>
+        <p>En Ajustes → Eliminar mensajes, con tres niveles: solo de este móvil, solo del móvil de tu pareja, o de los dos y también del servidor. Los dos primeros dejan el chat en el servidor, así que al volver a emparejaros reaparece; el último es irreversible.</p>
       </details>
     </div>
   </div>

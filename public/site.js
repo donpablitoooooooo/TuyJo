@@ -54,6 +54,26 @@
     place();
   }
 
+  /* Sequenze: le schermate si alternano finché la sezione è in vista */
+  [].slice.call(document.querySelectorAll("[data-reel]")).forEach(function (reel) {
+    var frames = [].slice.call(reel.querySelectorAll(".fr"));
+    if (frames.length < 2 || still) return;
+    var i = 0, timer = null;
+    var hold = function (n) { return parseInt(frames[n].getAttribute("data-hold"), 10) || 2400; };
+    var step = function () {
+      frames[i].classList.remove("on");
+      i = (i + 1) % frames.length;
+      frames[i].classList.add("on");
+      timer = setTimeout(step, hold(i));
+    };
+    new IntersectionObserver(function (entries) {
+      entries.forEach(function (e) {
+        if (e.isIntersecting && !timer) timer = setTimeout(step, hold(i));
+        if (!e.isIntersecting && timer) { clearTimeout(timer); timer = null; }
+      });
+    }, { threshold: 0.3 }).observe(reel);
+  });
+
   /* Scena dell'abbinamento: lo scorrimento fa avanzare la composizione */
   var scenes = [].slice.call(document.querySelectorAll("[data-scene]"));
   if (scenes.length && !still) {

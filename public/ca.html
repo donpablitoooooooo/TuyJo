@@ -76,21 +76,23 @@
           <ol class="scene-steps"><li>Un escaneja</li><li>L'altre escaneja</li><li>Sou al xat</li></ol>
         </div>
         <div class="scene-stage">
+          <span class="beam beam-1" style="--in:.04;--out:.36"></span>
+          <span class="beam beam-2" style="--in:.44;--out:.74"></span>
           <span class="ph ph-l">
             <img class="fr" style="--in:-1;--out:0.42" src="assets/shots/ca/06-ca.webp" width="828" height="1728" loading="lazy" alt="El mòbil que mostra el seu propi codi QR.">
             <img class="fr" style="--in:0.4;--out:0.58" src="assets/shots/ca/07-ca.webp" width="828" height="1728" loading="lazy" alt="L'escàner de Tuijo enfocant el mòbil de l'altra persona.">
             <img class="fr" style="--in:0.56;--out:0.74" src="assets/shots/ca/08-ca.webp" width="828" height="1728" loading="lazy" alt="El codi QR de l'altre mòbil enfocat dins l'escàner.">
             <img class="fr" style="--in:0.72;--out:0.86" src="assets/shots/ca/09-ca.webp" width="828" height="1728" loading="lazy" alt="El pas completat, amb la confirmació de l'app.">
             <img class="fr" style="--in:0.84;--out:2" src="assets/shots/ca/01-ca.webp" width="828" height="1728" loading="lazy" alt="El xat obert al primer mòbil, un cop aparellats.">
+            <span class="flash" style="--in:.18;--out:.34"></span>
           </span>
           <span class="ph ph-r">
             <img class="fr" style="--in:-1;--out:0.18" src="assets/shots/ca/07-ca.webp" width="828" height="1728" loading="lazy" alt="L'escàner de Tuijo enfocant el mòbil de l'altra persona.">
             <img class="fr" style="--in:0.16;--out:0.36" src="assets/shots/ca/08-ca.webp" width="828" height="1728" loading="lazy" alt="El codi QR de l'altre mòbil enfocat dins l'escàner.">
             <img class="fr" style="--in:0.34;--out:0.86" src="assets/shots/ca/09-ca.webp" width="828" height="1728" loading="lazy" alt="El pas completat, amb la confirmació de l'app.">
             <img class="fr" style="--in:0.84;--out:2" src="assets/shots/ca/10-ca.webp" width="828" height="1728" loading="lazy" alt="El mateix xat vist des del segon mòbil, amb el missatge que l'altra persona està escrivint.">
+            <span class="flash" style="--in:.56;--out:.74"></span>
           </span>
-          <span class="flash flash-l" style="--in:.18;--out:.34"></span>
-          <span class="flash flash-r" style="--in:.56;--out:.74"></span>
           <span class="scene-link"></span>
         </div>
       </div>
@@ -128,8 +130,10 @@
       <h2 class="reveal">Un any de coses vostres, <span class="serif-em">en ordre.</span></h2>
       <p class="lead reveal d1">Les fotos, els vídeos, els enllaços i els documents que us heu enviat es recullen mes a mes. S'ha acabat buscar enrere aquella foto d'agost.</p>
     </div>
-    <div class="shot reveal d1">
-      <img src="assets/shots/ca/card-05-ca.webp" width="958" height="706" loading="lazy" data-move="20" alt="La galeria de Tuijo amb les fotos recollides per mes.">
+    <div class="shot reel reveal d1" data-reel>
+        <img class="fr on" data-hold="2600" src="assets/shots/ca/card-05-ca.webp" width="958" height="706" loading="lazy" alt="La galeria de Tuijo amb les fotos recollides per mes.">
+        <img class="fr" data-hold="2600" src="assets/shots/ca/card-11-ca.webp" width="958" height="706" loading="lazy" alt="La pestanya dels enllaços desats al xat, amb títol i domini.">
+        <img class="fr" data-hold="2600" src="assets/shots/ca/card-12-ca.webp" width="958" height="706" loading="lazy" alt="La pestanya dels documents compartits, amb pes i data.">
     </div>
   </div>
 </section>
@@ -137,20 +141,14 @@
   <div class="wrap">
     <div class="copy">
       <span class="eyebrow reveal">Quan escriure no n'hi ha prou</span>
-      <h2 class="reveal">Dos tocs i <span class="serif-em">us sentiu.</span></h2>
-      <p class="lead reveal d1">La trucada surt del xat i viatja peer-to-peer, directa d'un mòbil a l'altre.</p>
+      <h2 class="reveal">Un toc i <span class="serif-em">us sentiu.</span></h2>
+      <p class="lead reveal d1">L'auricular és dins el xat: un toc i surt la trucada, peer-to-peer, directa d'un mòbil a l'altre.</p>
     </div>
-    <div class="shot reveal d1">
-      <img src="assets/shots/ca/02-ca.webp" width="828" height="1728" loading="lazy" data-move="26" alt="La pantalla de trucada de veu de Tuijo amb durada i qualitat de connexió.">
+    <div class="shot reel reveal d1" data-reel>
+        <img class="fr on" data-hold="1700" src="assets/shots/ca/01-ca.webp" width="828" height="1728" loading="lazy" alt="El xat de Tuijo amb el botó de trucada al costat del menú.">
+        <img class="fr" data-hold="700" src="assets/shots/ca/13-ca.webp" width="828" height="1728" loading="lazy" alt="Un dit tocant el botó de trucada dins el xat.">
+        <img class="fr" data-hold="2600" src="assets/shots/ca/02-ca.webp" width="828" height="1728" loading="lazy" alt="La pantalla de trucada de veu de Tuijo.">
     </div>
-  </div>
-</section>
-
-<!-- ============ BANDA FOTOGRAFICA ============ -->
-<section class="band">
-  <img src="assets/photo/couple.jpg" alt="" loading="lazy">
-  <div class="band-copy">
-    <p>Dos mòbils, una conversa.<span>Sense grups, sense contactes, sense feed: Tuijo es connecta amb una sola persona.</span></p>
   </div>
 </section>
 
@@ -201,6 +199,14 @@
       <details class="faq">
         <summary>Es pot fer servir entre tres?</summary>
         <p>No, i és una decisió de disseny: un dispositiu s'aparella amb un altre dispositiu. No hi ha grups ni agenda.</p>
+      </details>
+      <details class="faq">
+        <summary>He perdut el mòbil, o en tinc un de nou. Recupero el xat?</summary>
+        <p>Sí. Al mòbil nou obre Configuració → Recupera els missatges i tria d'on: del mòbil de la parella o del teu mòbil antic. El nou mostra un QR que val deu minuts, l'altre l'escaneja des de Configuració → Ajuda la teva parella (o Transfereix), i el certificat arriba xifrat només per a aquell dispositiu: el xat es recompon sol.</p>
+      </details>
+      <details class="faq">
+        <summary>Com se suprimeixen els missatges?</summary>
+        <p>A Configuració → Suprimeix els missatges, amb tres nivells: només d'aquest mòbil, només del mòbil de la parella, o de tots dos i també del servidor. Els dos primers deixen el xat al servidor, així que en tornar-vos a aparellar torna; l'últim és irreversible.</p>
       </details>
     </div>
   </div>

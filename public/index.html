@@ -76,21 +76,23 @@
           <ol class="scene-steps"><li>Uno inquadra</li><li>L'altro inquadra</li><li>Siete in chat</li></ol>
         </div>
         <div class="scene-stage">
+          <span class="beam beam-1" style="--in:.04;--out:.36"></span>
+          <span class="beam beam-2" style="--in:.44;--out:.74"></span>
           <span class="ph ph-l">
             <img class="fr" style="--in:-1;--out:0.42" src="assets/shots/it/06-it.webp" width="828" height="1728" loading="lazy" alt="Il telefono che mostra il proprio codice QR.">
             <img class="fr" style="--in:0.4;--out:0.58" src="assets/shots/it/07-it.webp" width="828" height="1728" loading="lazy" alt="Lo scanner di Tuijo mentre inquadra il telefono dell'altra persona.">
             <img class="fr" style="--in:0.56;--out:0.74" src="assets/shots/it/08-it.webp" width="828" height="1728" loading="lazy" alt="Il codice QR dell'altro telefono a fuoco dentro lo scanner.">
             <img class="fr" style="--in:0.72;--out:0.86" src="assets/shots/it/09-it.webp" width="828" height="1728" loading="lazy" alt="Il passo completato, con la conferma dell'app.">
             <img class="fr" style="--in:0.84;--out:2" src="assets/shots/it/01-it.webp" width="828" height="1728" loading="lazy" alt="La chat aperta sul primo telefono, ad abbinamento fatto.">
+            <span class="flash" style="--in:.18;--out:.34"></span>
           </span>
           <span class="ph ph-r">
             <img class="fr" style="--in:-1;--out:0.18" src="assets/shots/it/07-it.webp" width="828" height="1728" loading="lazy" alt="Lo scanner di Tuijo mentre inquadra il telefono dell'altra persona.">
             <img class="fr" style="--in:0.16;--out:0.36" src="assets/shots/it/08-it.webp" width="828" height="1728" loading="lazy" alt="Il codice QR dell'altro telefono a fuoco dentro lo scanner.">
             <img class="fr" style="--in:0.34;--out:0.86" src="assets/shots/it/09-it.webp" width="828" height="1728" loading="lazy" alt="Il passo completato, con la conferma dell'app.">
             <img class="fr" style="--in:0.84;--out:2" src="assets/shots/it/10-it.webp" width="828" height="1728" loading="lazy" alt="La stessa chat vista dal secondo telefono, con il messaggio che l'altra persona sta scrivendo.">
+            <span class="flash" style="--in:.56;--out:.74"></span>
           </span>
-          <span class="flash flash-l" style="--in:.18;--out:.34"></span>
-          <span class="flash flash-r" style="--in:.56;--out:.74"></span>
           <span class="scene-link"></span>
         </div>
       </div>
@@ -128,8 +130,10 @@
       <h2 class="reveal">Un anno di cose vostre, <span class="serif-em">in ordine.</span></h2>
       <p class="lead reveal d1">Le foto, i video, i link e i documenti che vi siete mandati si raccolgono mese per mese. Niente più scroll all'indietro per ritrovare quella foto di agosto.</p>
     </div>
-    <div class="shot reveal d1">
-      <img src="assets/shots/it/card-05-it.webp" width="958" height="706" loading="lazy" data-move="20" alt="La galleria di Tuijo con le foto raccolte per mese.">
+    <div class="shot reel reveal d1" data-reel>
+        <img class="fr on" data-hold="2600" src="assets/shots/it/card-05-it.webp" width="958" height="706" loading="lazy" alt="La galleria di Tuijo con le foto raccolte per mese.">
+        <img class="fr" data-hold="2600" src="assets/shots/it/card-11-it.webp" width="958" height="706" loading="lazy" alt="La scheda dei link salvati nella chat, con titolo e dominio.">
+        <img class="fr" data-hold="2600" src="assets/shots/it/card-12-it.webp" width="958" height="706" loading="lazy" alt="La scheda dei documenti condivisi, con peso e data.">
     </div>
   </div>
 </section>
@@ -137,20 +141,14 @@
   <div class="wrap">
     <div class="copy">
       <span class="eyebrow reveal">Quando scrivere non basta</span>
-      <h2 class="reveal">Due tocchi e <span class="serif-em">vi sentite.</span></h2>
-      <p class="lead reveal d1">La chiamata parte dalla chat e viaggia peer-to-peer, diretta da un telefono all'altro.</p>
+      <h2 class="reveal">Un tocco e <span class="serif-em">vi sentite.</span></h2>
+      <p class="lead reveal d1">La cornetta è dentro la chat: un tocco e parte la chiamata, peer-to-peer, diretta da un telefono all'altro.</p>
     </div>
-    <div class="shot reveal d1">
-      <img src="assets/shots/it/02-it.webp" width="828" height="1728" loading="lazy" data-move="26" alt="La schermata di chiamata vocale di Tuijo con durata e qualità della connessione.">
+    <div class="shot reel reveal d1" data-reel>
+        <img class="fr on" data-hold="1700" src="assets/shots/it/01-it.webp" width="828" height="1728" loading="lazy" alt="La chat di Tuijo con la cornetta accanto al menù.">
+        <img class="fr" data-hold="700" src="assets/shots/it/13-it.webp" width="828" height="1728" loading="lazy" alt="Il dito che tocca la cornetta dentro la chat.">
+        <img class="fr" data-hold="2600" src="assets/shots/it/02-it.webp" width="828" height="1728" loading="lazy" alt="La schermata di chiamata vocale di Tuijo.">
     </div>
-  </div>
-</section>
-
-<!-- ============ BANDA FOTOGRAFICA ============ -->
-<section class="band">
-  <img src="assets/photo/couple.jpg" alt="" loading="lazy">
-  <div class="band-copy">
-    <p>Due telefoni, una conversazione.<span>Niente gruppi, niente contatti, niente feed: Tuijo si collega a una persona sola.</span></p>
   </div>
 </section>
 
@@ -201,6 +199,14 @@
       <details class="faq">
         <summary>Si può usare in tre?</summary>
         <p>No, ed è una scelta di progetto: un dispositivo si abbina a un altro dispositivo. Non ci sono gruppi né rubrica.</p>
+      </details>
+      <details class="faq">
+        <summary>Ho perso il telefono, o ne ho comprato uno nuovo. Recupero la chat?</summary>
+        <p>Sì. Sul telefono nuovo apri Impostazioni → Recupera i messaggi e scegli da dove: dal telefono del partner o dal tuo vecchio telefono. Il telefono nuovo mostra un QR che vale dieci minuti, l'altro lo inquadra da Impostazioni → Aiuta il partner a recuperare (oppure Trasferisci), e il certificato arriva cifrato solo per quel dispositivo: la chat si ricompone da sola.</p>
+      </details>
+      <details class="faq">
+        <summary>Come si cancellano i messaggi?</summary>
+        <p>Da Impostazioni → Elimina Messaggi, a tre livelli: solo da questo telefono, solo dal telefono del partner, oppure da tutti e due e anche dal server. I primi due lasciano la chat sul server, quindi rifacendo il pairing torna; l'ultimo è irreversibile.</p>
       </details>
     </div>
   </div>

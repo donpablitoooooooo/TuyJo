@@ -64,9 +64,15 @@ const outRoot = path.resolve(__dirname, opt('out', '../out'));
       for (const shot of list) {
         const shot2 = cfg.device === 'webpair' ? `&shot2=${shot === 1 ? 4 : 1}` : '';
         // quanto scendere dentro la schermata per inquadrare la parte interessante
-        const CARD_OFF = { 5: 192 };
+        const CARD_OFF = { 5: 192, 11: 192, 12: 192 };
         const off = cfg.device === 'card' ? `&off=${CARD_OFF[shot] || 0}` : '';
-        const url = `${html}?device=${cfg.device}&lang=${lang}&shot=${shot}${shot2}${off}`;
+        // foto vere per la galleria, se qualcuno ne ha messe in src/img/photos/
+        const photoDir = path.join(__dirname, 'img', 'photos');
+        const real = fs.existsSync(photoDir)
+          ? fs.readdirSync(photoDir).filter((f) => /\.(jpe?g|png|webp)$/i.test(f)).sort()
+          : [];
+        const photos = real.length ? `&photos=${real.join(',')}` : '';
+        const url = `${html}?device=${cfg.device}&lang=${lang}&shot=${shot}${shot2}${off}${photos}`;
         await page.addInitScript((sel) => { window.__clipSel = sel; }, cfg.clipSel || '.device');
         await page.goto(url, { waitUntil: 'load' });
         await page.evaluate(() => document.fonts.ready);

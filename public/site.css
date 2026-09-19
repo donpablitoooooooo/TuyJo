@@ -88,7 +88,9 @@ h2 {
 }
 
 /* ---------------- Hero ---------------- */
-.hero { padding: calc(var(--nav-h) + 76px) 0 0; text-align: center; }
+/* Il fondo non è zero: senza, i telefoni dell'apertura finiscono appiccicati
+   alla sezione scura che segue e la loro ombra ci cade sopra. */
+.hero { padding: calc(var(--nav-h) + 76px) 0 clamp(52px, 7vw, 104px); text-align: center; }
 .hero .lead { max-width: 30ch; }
 .badges { display: flex; justify-content: center; align-items: center; gap: 14px; margin-top: 30px; flex-wrap: wrap; }
 .badges img { height: 48px; width: auto; }
@@ -141,11 +143,19 @@ h2 {
 .stage.center .lead { margin: 20px auto 0; }
 .stage.center .shot { margin: clamp(34px, 5vw, 58px) auto 0; width: min(346px, 70vw); }
 
+/* -- reel: più schermate che si alternano da sole quando la sezione è in vista.
+      Senza JavaScript resta la prima, che è già marcata .on nel markup. -- */
+.reel { position: relative; }
+.reel .fr { opacity: 0; transition: opacity .55s ease; }
+.reel .fr.on { opacity: 1; }
+.reel .fr + .fr { position: absolute; left: 0; top: 0; }
+
 /* -- card: un ritaglio largo dell'interfaccia, forma diversa dai telefoni -- */
 .stage.cardshot { text-align: center; }
 .stage.cardshot .lead { margin: 20px auto 0; }
 .stage.cardshot .shot { margin: clamp(38px, 5vw, 62px) auto 0; width: min(660px, 100%); }
 .stage.cardshot .shot img { border-radius: 16px; }
+.stage.cardshot .reel .fr { border-radius: 16px; }
 
 /* ---------------- Scena dell'abbinamento ----------------
    Tre battute guidate dallo scorrimento: il telefono di destra inquadra il
@@ -160,28 +170,53 @@ h2 {
   display: grid; grid-template-columns: minmax(0, .88fr) minmax(0, 1.12fr);
   align-items: center; gap: clamp(28px, 4.5vw, 62px);
 }
-.scene-stage { position: relative; display: grid; grid-template-columns: 1fr 1fr; gap: 7%; align-items: center; }
+/* La scena è uno spazio in prospettiva, non due immagini affiancate: il
+   telefono che inquadra sta davanti e angolato, con il dorso rivolto verso
+   l'altro, che resta indietro e mostra lo schermo. A metà i ruoli — e le
+   profondità — si scambiano; alla fine tornano paralleli, in piano.
+   --b1, --b2, --b3 dicono quanto pesa ciascuna delle tre battute. */
+.scene-stage { position: relative; aspect-ratio: 1 / 1.02;
+  perspective: 1500px; perspective-origin: 50% 44%; transform-style: preserve-3d;
+  --b1: clamp(0, (.42 - var(--p)) * 8, 1);
+  --b3: clamp(0, (var(--p) - .74) * 8, 1);
+  --b2: calc(1 - var(--b1) - var(--b3)); }
 
-.scene .ph { position: relative; display: block; }
-.scene .fr { display: block; width: 100%; filter: drop-shadow(0 22px 30px rgba(0,0,0,.5));
+.scene .ph { position: absolute; top: 4%; width: 44%; transform-style: preserve-3d; }
+.scene .ph-l { left: 0;
+  transform: translateX(calc(var(--b1) * 3% + var(--b2) * 8%))
+             translateY(calc(var(--b1) * -5% + var(--b2) * 7%))
+             translateZ(calc(var(--b1) * -230px + var(--b2) * 215px))
+             rotateY(calc(var(--b1) * 15deg + var(--b2) * -19deg))
+             rotateZ(calc(var(--b1) * -2deg + var(--b2) * 3deg)); }
+.scene .ph-r { right: 0;
+  transform: translateX(calc(var(--b1) * -8% + var(--b2) * -3%))
+             translateY(calc(var(--b1) * 7% + var(--b2) * -5%))
+             translateZ(calc(var(--b1) * 215px + var(--b2) * -230px))
+             rotateY(calc(var(--b1) * 19deg + var(--b2) * -15deg))
+             rotateZ(calc(var(--b1) * 3deg + var(--b2) * -2deg)); }
+
+.scene .fr { display: block; width: 100%; filter: drop-shadow(0 26px 34px rgba(0,0,0,.55));
   opacity: clamp(0, min((var(--p) - var(--in)) * 16, (var(--out) - var(--p)) * 16), 1); }
 .scene .fr + .fr { position: absolute; left: 0; top: 0; }
-/* i due telefoni partono distanti e storti, e finiscono dritti e vicini */
-.scene .ph-l { transform: translate(calc((1 - var(--p)) * -7%), calc((1 - var(--p)) * 5%))
-  rotate(calc(-6deg * (1 - var(--p)))) scale(calc(.93 + var(--p) * .07)); }
-.scene .ph-r { transform: translate(calc((1 - var(--p)) * 7%), calc((1 - var(--p)) * -4%))
-  rotate(calc(6deg * (1 - var(--p)))) scale(calc(.93 + var(--p) * .07)); }
 
-/* il lampo nel momento in cui il codice viene letto */
-.scene .flash { position: absolute; top: 30%; width: 34%; aspect-ratio: 1; border-radius: 50%;
-  pointer-events: none; mix-blend-mode: screen;
-  background: radial-gradient(circle, rgba(170,255,246,.85), rgba(124,224,215,.28) 45%, transparent 72%);
+/* il lampo vive sullo schermo del telefono letto, quindi ruota con lui */
+.scene .flash { position: absolute; left: 6%; right: 6%; top: 26%; height: 46%;
+  border-radius: 50%; pointer-events: none; mix-blend-mode: screen;
+  background: radial-gradient(closest-side, rgba(170,255,246,.9), rgba(124,224,215,.3) 55%, transparent 78%);
   opacity: clamp(0, min((var(--p) - var(--in)) * 9, (var(--out) - var(--p)) * 9), 1); }
-.scene .flash-l { left: 5%; }
-.scene .flash-r { right: 5%; }
+
+/* il cono di scansione: stretto dal lato della fotocamera, largo sul bersaglio.
+   Sta a profondità zero, quindi passa davanti al telefono dietro e dietro a
+   quello davanti — come farebbe nello spazio vero. */
+.scene .beam { position: absolute; top: 26%; left: 24%; width: 52%; height: 34%;
+  pointer-events: none; filter: blur(8px);
+  background: linear-gradient(to left, rgba(140,235,226,.34), rgba(140,235,226,.03) 88%);
+  clip-path: polygon(100% 40%, 0 10%, 0 90%, 100% 60%);
+  opacity: clamp(0, min((var(--p) - var(--in)) * 7, (var(--out) - var(--p)) * 7), 1); }
+.scene .beam-2 { transform: scaleX(-1); }
 
 /* a cose fatte, il filo fra i due telefoni */
-.scene-link { position: absolute; left: 46.8%; right: 46.8%; top: 50%; height: 2px; transform: translateY(-50%);
+.scene-link { position: absolute; left: 47%; right: 47%; top: 52%; height: 2px; transform: translateY(-50%);
   background: linear-gradient(90deg, transparent, var(--teal-bright), transparent);
   opacity: clamp(0, (var(--p) - .88) * 10, 1); }
 .scene-link::after { content: ""; position: absolute; top: -3px; left: 0; width: 8px; height: 8px;
@@ -227,17 +262,6 @@ h2 {
 .sec-item .n { display: block; font-size: 12px; font-weight: 700; letter-spacing: .16em; color: var(--teal); margin-bottom: 10px; }
 .sec-foot { margin-top: clamp(44px, 5vw, 64px); font-size: 14px; color: var(--ink-faint); }
 .sec-foot b { color: var(--ink-soft); font-weight: 600; }
-
-/* ---------------- Banda fotografica ----------------
-   Slot pronto: se la foto non c'è, resta il fondo teal e nulla si rompe. */
-.band { position: relative; min-height: clamp(360px, 46vw, 560px); display: grid; place-items: center;
-  background: linear-gradient(160deg, var(--teal-deep), var(--teal-ink) 70%); overflow: hidden; }
-.band img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
-.band::after { content: ""; position: absolute; inset: 0; background: linear-gradient(180deg, rgba(12,46,50,.15), rgba(12,46,50,.68)); }
-.band.no-photo::after { background: none; }
-.band-copy { position: relative; z-index: 2; text-align: center; color: #fff; padding: 64px 24px; max-width: min(660px, 90vw); }
-.band-copy p { font-family: var(--display); font-weight: 700; font-size: clamp(27px, 3.6vw, 42px); line-height: 1.12; letter-spacing: -.025em; text-wrap: balance; }
-.band-copy span { display: block; max-width: 42ch; margin: 16px auto 0; font-family: var(--sans); font-size: 16.5px; font-weight: 400; line-height: 1.5; color: rgba(255,255,255,.78); letter-spacing: 0; }
 
 /* ---------------- FAQ ---------------- */
 .faq-sec { padding: clamp(80px, 10vw, 140px) 0; }
