@@ -8,8 +8,11 @@ firebase-debug.log
 *.log
 
 # Cartelle di lavoro locali (non fanno parte del progetto)
-public_old/
-screenshots/
+# Lo slash iniziale è necessario: senza, la regola prende QUALSIASI cartella
+# chiamata screenshots, compresa store/screenshots, che invece è del progetto
+# (generatore delle immagini per store e sito).
+/public_old/
+/screenshots/
 
 # Build Android (già ignorata dentro flutter-app, qui per il root)
 flutter-app/android/build/
