@@ -27,6 +27,33 @@
     els.forEach(function (el) { io.observe(el); });
   }
 
+  /* Le immagini scorrono un po' più lentamente del testo che le accompagna */
+  var moving = [].slice.call(document.querySelectorAll("[data-move]"));
+  var still = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  if (moving.length && !still) {
+    var pending = false;
+    var place = function () {
+      pending = false;
+      var h = window.innerHeight;
+      moving.forEach(function (el) {
+        var r = el.getBoundingClientRect();
+        if (r.bottom < -200 || r.top > h + 200) return;
+        var amount = parseFloat(el.getAttribute("data-move")) || 20;
+        // -1 quando l'elemento entra dal basso, +1 quando esce dall'alto
+        var progress = (h / 2 - (r.top + r.height / 2)) / h;
+        el.style.setProperty("--shift", (progress * amount).toFixed(1) + "px");
+      });
+    };
+    var queue = function () {
+      if (pending) return;
+      pending = true;
+      requestAnimationFrame(place);
+    };
+    window.addEventListener("scroll", queue, { passive: true });
+    window.addEventListener("resize", queue, { passive: true });
+    place();
+  }
+
   /* FAQ: apre una domanda alla volta */
   var faqs = document.querySelectorAll(".faq");
   faqs.forEach(function (d) {

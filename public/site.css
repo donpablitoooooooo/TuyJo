@@ -39,7 +39,7 @@ body {
   overflow-x: hidden;
   -webkit-font-smoothing: antialiased;
 }
-img { display: block; max-width: 100%; }
+img { display: block; max-width: 100%; height: auto; }
 a { color: inherit; text-decoration: none; }
 
 .wrap { width: 100%; max-width: var(--maxw); margin: 0 auto; padding: 0 24px; }
@@ -96,19 +96,47 @@ h2 {
 .badges a:hover { opacity: .8; }
 .hero-note { margin-top: 16px; font-size: 13px; color: var(--ink-faint); }
 .hero-shot { margin: clamp(38px, 5vw, 62px) auto 0; width: min(760px, 100%); }
-.hero-shot img { width: 100%; filter: drop-shadow(0 26px 34px rgba(12,46,50,.24)); }
+.hero-shot img { width: 100%; filter: drop-shadow(0 26px 34px rgba(12,46,50,.24));
+  transform: translateY(var(--shift, 0px)); }
 
-/* ---------------- Sezioni prodotto ---------------- */
-.stage { padding: clamp(78px, 10vw, 150px) 0 0; text-align: center; overflow: hidden; }
-.stage .shot { margin: clamp(34px, 5vw, 58px) auto 0; width: min(368px, 72vw); }
-.stage .shot img { width: 100%; filter: drop-shadow(0 24px 30px rgba(12,46,50,.22)); }
-.stage.dark .shot img { filter: drop-shadow(0 24px 34px rgba(0,0,0,.45)); }
+/* ---------------- Sezioni prodotto ----------------
+   Tre impianti che si alternano: split (testo di lato), center (telefono
+   che poggia sul bordo inferiore) e card (ritaglio largo dell'interfaccia). */
+.stage { padding: clamp(78px, 9vw, 140px) 0; overflow: hidden; }
 .stage.dark { background: var(--teal-ink); color: #fff; }
 .stage.dark h2 { color: #fff; }
 .stage.dark .lead { color: rgba(255,255,255,.72); }
 .stage.dark .eyebrow { color: var(--teal-bright); }
 .stage.dark .serif-em { color: var(--cherry-soft); }
-/* il telefono poggia sul bordo inferiore della sezione, come su apple.com */
+.stage .shot img { width: 100%; filter: drop-shadow(0 24px 30px rgba(12,46,50,.22));
+  transform: translateY(var(--shift, 0px)) rotate(var(--tilt, 0deg)); }
+.stage.dark .shot img { filter: drop-shadow(0 24px 34px rgba(0,0,0,.45)); }
+
+/* -- split: testo a un lato, telefono all'altro -- */
+.stage.split .wrap {
+  display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, .82fr);
+  align-items: center; gap: clamp(30px, 5vw, 76px);
+}
+.stage.split .lead { margin: 20px 0 0; max-width: 36ch; }
+.stage.split .shot { width: min(300px, 64vw); margin: 0 auto; }
+.stage.split .shot img { --tilt: 2.5deg; }
+.stage.split.rev .copy { order: 2; }
+.stage.split.rev .shot { order: 1; }
+.stage.split.rev .shot img { --tilt: -2.5deg; }
+/* nella colonna può starci anche un ritaglio largo invece del telefono */
+.stage.split .shot.wide { width: min(440px, 78vw); }
+.stage.split .shot.wide img { --tilt: 0deg; border-radius: 14px; }
+
+/* -- center: il telefono poggia sul bordo inferiore, come su apple.com -- */
+.stage.center { padding-bottom: 0; text-align: center; }
+.stage.center .lead { margin: 20px auto 0; }
+.stage.center .shot { margin: clamp(34px, 5vw, 58px) auto 0; width: min(346px, 70vw); }
+
+/* -- card: un ritaglio largo dell'interfaccia, forma diversa dai telefoni -- */
+.stage.cardshot { text-align: center; }
+.stage.cardshot .lead { margin: 20px auto 0; }
+.stage.cardshot .shot { margin: clamp(38px, 5vw, 62px) auto 0; width: min(660px, 100%); }
+.stage.cardshot .shot img { border-radius: 16px; }
 
 /* ---------------- Sicurezza ---------------- */
 .security { padding: clamp(90px, 11vw, 160px) 0; text-align: center; background: var(--paper-2); }
@@ -171,19 +199,30 @@ h2 {
 .reveal.d1 { transition-delay: .08s; }
 .reveal.d2 { transition-delay: .16s; }
 
+/* Scorrimento: le immagini si muovono un po' più lentamente del testo. */
+[data-move] { will-change: transform; }
+
 @media (prefers-reduced-motion: reduce) {
   html { scroll-behavior: auto; }
   .reveal { opacity: 1; transform: none; transition: none; }
+  [data-move] { --shift: 0px !important; }
+  .stage.split .shot img, .stage.split.rev .shot img { --tilt: 0deg; }
 }
 
 /* ---------------- Responsive ---------------- */
 @media (max-width: 860px) {
   .nav-links { display: none; }
+  .stage.split .wrap { grid-template-columns: 1fr; gap: clamp(30px, 6vw, 48px); text-align: center; }
+  .stage.split .lead { margin: 20px auto 0; }
+  .stage.split.rev .copy { order: 1; }
+  .stage.split.rev .shot { order: 2; }
+  .stage.split .shot { width: min(280px, 62vw); }
   .sec-grid { grid-template-columns: 1fr; gap: 34px; max-width: 460px; margin-left: auto; margin-right: auto; }
 }
 @media (max-width: 520px) {
   body { font-size: 16px; }
   .badges img { height: 42px; }
   .lang { gap: 6px; }
-  .stage .shot { width: 78vw; }
+  .stage.center .shot { width: 74vw; }
+  .stage.split .shot { width: 66vw; }
 }

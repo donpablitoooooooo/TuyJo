@@ -220,6 +220,28 @@ T['ca'] = dict(
 
 SEC_IDS = ['chat', 'sicurezza', 'faq']   # ancore uguali in tutte le lingue
 
+# Impianto di ciascuna delle sei sezioni prodotto, nell'ordine.
+#   split      → testo a sinistra, immagine a destra
+#   split rev  → immagine a sinistra, testo a destra
+#   center     → immagine grande centrata, poggiata sul bordo inferiore
+#   cardshot   → ritaglio largo dell'interfaccia, centrato sotto al testo
+# 'img' dice quale file usare: il telefono (0N) o il ritaglio a scheda (card-0N).
+LAYOUT = [
+    dict(cls='split',        img='phone', dark=False),
+    dict(cls='split rev',    img='phone', dark=True),
+    dict(cls='center',       img='phone', dark=False),
+    dict(cls='split',        img='phone', dark=True),
+    dict(cls='cardshot',     img='card',  dark=False),
+    dict(cls='split rev',    img='card',  dark=True),
+]
+
+
+def png_size(path):
+    """Larghezza e altezza di un PNG, lette dall'header (niente dipendenze)."""
+    with open(path, 'rb') as fh:
+        head = fh.read(24)
+    return int.from_bytes(head[16:20], 'big'), int.from_bytes(head[20:24], 'big')
+
 def badges(t, s, cls):
     return f'''<div class="badges {cls}">
       <a href="{s['apple']}" target="_blank" rel="noopener noreferrer">
@@ -237,18 +259,24 @@ def build(code):
         on = ' class="on"' if c == code else ''
         langs += '\n        <a href="%s"%s>%s</a>' % (STORE[c]['page'], on, c.upper())
 
+    hero_w, hero_h = png_size(os.path.join(OUT, 'assets', 'shots', code, f'pair-01-{code}.png'))
+
     stages = []
     for i, (eyebrow, h2, lead, alt) in enumerate(t['sections'], start=1):
-        dark = ' dark' if i % 2 == 0 else ''
-        sid = ' id="chat"' if i == 1 else ''
+        lay = LAYOUT[i - 1]
+        card = lay['img'] == 'card'
+        name = f"{'card-' if card else ''}{i:02d}-{code}.png"
+        w, h = png_size(os.path.join(OUT, 'assets', 'shots', code, name))
         stages.append(f'''
-<section class="stage{dark}"{sid}>
+<section class="stage {lay['cls']}{' dark' if lay['dark'] else ''}"{' id="chat"' if i == 1 else ''}>
   <div class="wrap">
-    <span class="eyebrow reveal">{eyebrow}</span>
-    <h2 class="reveal">{h2}</h2>
-    <p class="lead reveal d1">{lead}</p>
-    <div class="shot reveal d1">
-      <img src="assets/shots/{code}/{i:02d}-{code}.png" width="828" height="1728" loading="lazy" alt="{alt}">
+    <div class="copy">
+      <span class="eyebrow reveal">{eyebrow}</span>
+      <h2 class="reveal">{h2}</h2>
+      <p class="lead reveal d1">{lead}</p>
+    </div>
+    <div class="shot{' wide' if card and 'split' in lay['cls'] else ''} reveal d1">
+      <img src="assets/shots/{code}/{name}" width="{w}" height="{h}" loading="lazy" data-move="{20 if card else 26}" alt="{alt}">
     </div>
   </div>
 </section>''')
@@ -319,7 +347,7 @@ def build(code):
     {badges(t, s, 'reveal d2')}
     <p class="hero-note reveal d2">{t['note']}</p>
     <div class="hero-shot reveal d2">
-      <img src="assets/shots/{code}/pair-01-{code}.png" width="1418" height="1810" alt="{t['hero_alt']}" fetchpriority="high">
+      <img src="assets/shots/{code}/pair-01-{code}.png" width="{hero_w}" height="{hero_h}" data-move="16" alt="{t['hero_alt']}" fetchpriority="high">
     </div>
   </div>
 </header>

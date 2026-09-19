@@ -27,6 +27,8 @@ const TARGETS = {
   feature: { w: 1024, h: 500, dpr: 1, device: 'feature', dir: 'android/feature-graphic' },
   // Anteprima social del sito (og:image).
   og: { w: 1200, h: 630, dpr: 1, device: 'og', dir: '', flat: true, single: true },
+  // Ritagli a scheda: una porzione di schermata, per variare la forma delle immagini.
+  'web-card': { w: 980, h: 720, dpr: 2, device: 'card', dir: 'shots', transparent: true, prefix: 'card-', clipSel: '.uicard' },
   // Immagini per il sito: solo il dispositivo, sfondo trasparente, senza titolo.
   web: { w: 1000, h: 2140, dpr: 2, device: 'web', dir: 'shots', transparent: true },
   'web-pair': { w: 1700, h: 1980, dpr: 2, device: 'webpair', dir: 'shots', transparent: true, prefix: 'pair-', single: true },
@@ -61,7 +63,11 @@ const outRoot = path.resolve(__dirname, opt('out', '../out'));
       fs.mkdirSync(dir, { recursive: true });
       for (const shot of list) {
         const shot2 = cfg.device === 'webpair' ? `&shot2=${shot === 1 ? 3 : 1}` : '';
-        const url = `${html}?device=${cfg.device}&lang=${lang}&shot=${shot}${shot2}`;
+        // quanto scendere dentro la schermata per inquadrare la parte interessante
+        const CARD_OFF = { 5: 192, 6: 206 };
+        const off = cfg.device === 'card' ? `&off=${CARD_OFF[shot] || 0}` : '';
+        const url = `${html}?device=${cfg.device}&lang=${lang}&shot=${shot}${shot2}${off}`;
+        await page.addInitScript((sel) => { window.__clipSel = sel; }, cfg.clipSel || '.device');
         await page.goto(url, { waitUntil: 'load' });
         await page.evaluate(() => document.fonts.ready);
         await page.waitForTimeout(150);
@@ -72,7 +78,7 @@ const outRoot = path.resolve(__dirname, opt('out', '../out'));
         // Per il sito ritaglio sul bounding box dei dispositivi: l'immagine non
         // porta margini vuoti e l'ombra la mette il CSS del sito.
         const clip = cfg.transparent ? await page.evaluate((m) => {
-          const r = [...document.querySelectorAll('.device')].map((e) => e.getBoundingClientRect());
+          const r = [...document.querySelectorAll(window.__clipSel)].map((e) => e.getBoundingClientRect());
           const x = Math.min(...r.map((b) => b.left)) - m, y = Math.min(...r.map((b) => b.top)) - m;
           return {
             x: Math.max(0, x), y: Math.max(0, y),

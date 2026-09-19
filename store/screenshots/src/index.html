@@ -232,6 +232,11 @@ h1 { font-family: var(--display); font-weight: 800; font-size: 9.4vw; line-heigh
 .feature .device.iphone { width: 292px; border-radius: 48px; padding: 11px; }
 .feature .device.iphone .screen { border-radius: 38px; }
 .feature .device::after { right: -3px; width: 3px; }
+/* Scheda UI per il sito: una porzione di schermata, senza cornice né barre di sistema */
+.card-stage { width: 100vw; height: 100vh; display: grid; place-items: center; background: transparent; }
+.uicard { width: 97vw; height: 97vh; border-radius: 2.2vw; overflow: hidden; background: #fff; }
+.uicard .screen { width: 100%; height: 100%; border-radius: inherit; }
+
 /* Anteprima social del sito (og:image, 1200×630) */
 .feature.og { width: 1200px; height: 630px; }
 .feature.og .fcopy { width: 660px; padding: 104px 0 0 88px; }
@@ -344,11 +349,13 @@ const OG = {
 };
 const lang = COPY[q.get('lang')] ? q.get('lang') : 'it';
 const shot = parseInt(q.get('shot') || '1', 10);
+const OFFSET = parseInt(q.get('off') || '0', 10);   // px logici saltati dall'alto (device=card)
 const t = UI[lang];
-const isWeb = device === 'web' || device === 'webpair';   // render per il sito
+const isCard = device === 'card';                        // ritaglio a scheda
+const isWeb = device === 'web' || device === 'webpair' || isCard;   // render per il sito
 const isApple = device === 'iphone' || device === 'ipad' || device === 'feature' || device === 'og' || isWeb;
 const isTablet = device === 'ipad' || device === 'tablet';
-const BASE_W = { iphone: 390, android: 390, ipad: 1032, tablet: 800, feature: 390, og: 390, web: 390, webpair: 390 }[device];
+const BASE_W = { iphone: 390, android: 390, ipad: 1032, tablet: 800, feature: 390, og: 390, web: 390, webpair: 390, card: 390 }[device];
 const SAFE_T = isApple ? (isTablet ? 24 : 59) : (isTablet ? 30 : 32);
 const SAFE_B = isApple ? (isTablet ? 20 : 34) : 24;
 const FAB_TOP = 48; // Positioned(top: 48) nel Flutter
@@ -504,14 +511,21 @@ const SCREENS = [
   { html: pairingScreen, dark: true, theme: 'paper' },
 ];
 
-function appMarkup(sc) {
-  return `<div class="app" style="--safe-t:${SAFE_T}px;--safe-b:${SAFE_B}px;--fab-top:${FAB_TOP}px">${sc.html()}${statusBar(sc.dark)}${homebar(sc.dark)}</div>`;
+function appMarkup(sc, bare) {
+  // bare: senza barra di stato e home bar (serve ai ritagli a scheda per il sito)
+  const chrome = bare ? '' : `${statusBar(sc.dark)}${homebar(sc.dark)}`;
+  return `<div class="app" style="--safe-t:${SAFE_T}px;--safe-b:${SAFE_B}px;--fab-top:${FAB_TOP}px">${sc.html()}${chrome}</div>`;
 }
 
 function render() {
   const root = document.getElementById('root');
   const webDevice = (sc) => `<div class="device iphone"><div class="screen">${hw()}${appMarkup(sc)}</div></div>`;
-  if (isWeb) {
+  if (isCard) {
+    // Una porzione di schermata a tutta larghezza: cambia la forma delle
+    // immagini del sito, che altrimenti sarebbero sei telefoni identici.
+    const sc = SCREENS[shot - 1];
+    root.innerHTML = `<div class="card-stage"><div class="uicard"><div class="screen">${appMarkup(sc, true)}</div></div></div>`;
+  } else if (isWeb) {
     // Solo il dispositivo: il testo marketing vive nell'HTML del sito.
     const sc = SCREENS[shot - 1];
     if (device === 'webpair') {
@@ -546,7 +560,8 @@ function fit() {
     const z = r.width / BASE_W;
     app.style.zoom = z;
     app.style.width = BASE_W + 'px';
-    app.style.height = (r.height / z) + 'px';
+    app.style.height = (r.height / z) + (isCard ? OFFSET : 0) + 'px';
+    if (isCard && OFFSET) app.style.top = -OFFSET + 'px';
   });
 }
 render();
