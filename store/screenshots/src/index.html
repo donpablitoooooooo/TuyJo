@@ -200,6 +200,21 @@ h1 { font-family: var(--display); font-weight: 800; font-size: 9.4vw; line-heigh
 .gbtn { margin-top: 16px; display: flex; align-items: center; justify-content: center; gap: 12px; padding: 16px; border-radius: 12px; background: linear-gradient(90deg, #3BA8B0, #145A60); color: #fff; font-size: 16px; font-weight: 600; box-shadow: 0 4px 8px rgba(59,168,176,.3); }
 .closefab { position: absolute; top: var(--fab-top); left: 16px; width: 44px; height: 44px; border-radius: 50%; background: #fff; box-shadow: 0 2px 8px rgba(0,0,0,.1); display: flex; align-items: center; justify-content: center; color: #3BA8B0; }
 
+/* ---------- Render per il sito (public/assets/shots) ----------
+   Solo il dispositivo, sfondo trasparente, nessun titolo stampato:
+   sul sito il testo è HTML, l'immagine mostra soltanto l'app.
+   ------------------------------------------------------------- */
+.web-stage { position: relative; width: 100vw; height: 100vh; display: flex; align-items: center; justify-content: center; background: transparent; }
+.web-stage .device { box-shadow: none; }
+.web-stage.single .device.iphone { width: 82vw; border-radius: 12vw; padding: 2.6vw; }
+.web-stage.single .device.iphone .screen { border-radius: 9.6vw; }
+.web-stage.single .device::after { right: -.8vw; width: .8vw; }
+.web-stage.pair .device.iphone { width: 46vw; border-radius: 6.7vw; padding: 1.5vw; }
+.web-stage.pair .device.iphone .screen { border-radius: 5.4vw; }
+.web-stage.pair .device::after { right: -.45vw; width: .45vw; border-radius: 0 2px 2px 0; }
+.web-stage.pair .p1 { position: relative; z-index: 2; transform: translateY(-3.5%); }
+.web-stage.pair .p2 { position: relative; z-index: 1; margin-left: -9vw; transform: translateY(6.5%); }
+
 /* ---------- Feature graphic (Google Play, 1024×500) ---------- */
 .feature { position: relative; width: 1024px; height: 500px; overflow: hidden; background: var(--paper); display: flex; }
 .feature .glow { left: 74%; top: 60%; width: 700px; height: 700px; }
@@ -217,6 +232,19 @@ h1 { font-family: var(--display); font-weight: 800; font-size: 9.4vw; line-heigh
 .feature .device.iphone { width: 292px; border-radius: 48px; padding: 11px; }
 .feature .device.iphone .screen { border-radius: 38px; }
 .feature .device::after { right: -3px; width: 3px; }
+/* Anteprima social del sito (og:image, 1200×630) */
+.feature.og { width: 1200px; height: 630px; }
+.feature.og .fcopy { width: 660px; padding: 104px 0 0 88px; }
+.feature.og .brand img { width: 58px; }
+.feature.og .brand .word { font-size: 44px; }
+.feature.og h1 { font-size: 72px; margin-top: 30px; }
+.feature.og .sub { font-size: 23px; margin-top: 20px; max-width: 26ch; }
+.feature.og .trust { margin-top: 32px; font-size: 14px; }
+.feature.og .fstage { right: 104px; top: 96px; }
+.feature.og .device.iphone { width: 330px; border-radius: 54px; padding: 12px; }
+.feature.og .device.iphone .screen { border-radius: 43px; }
+.feature.og .glow { left: 78%; top: 58%; width: 820px; height: 820px; }
+.feature.og .bg-cherry { width: 480px; left: -130px; bottom: -170px; }
 </style>
 </head>
 <body>
@@ -308,12 +336,19 @@ const UI = {
 // ------------------------------------------------------------------
 const q = new URLSearchParams(location.search);
 const device = q.get('device') || 'iphone';       // iphone | android | ipad | tablet | feature
+const OG = {
+  it: { h: 'Per <em>due.</em>', s: 'Una chat privata che vive solo sui vostri due telefoni.', t: ['Cifratura end-to-end', 'Nessun account', 'iPhone e Android'] },
+  en: { h: 'For <em>two.</em>', s: 'A private chat that lives only on your two phones.', t: ['End-to-end encryption', 'No account', 'iPhone and Android'] },
+  es: { h: 'Para <em>dos.</em>', s: 'Un chat privado que vive solo en vuestros dos móviles.', t: ['Cifrado de extremo a extremo', 'Sin cuenta', 'iPhone y Android'] },
+  ca: { h: 'Per a <em>dos.</em>', s: 'Un xat privat que viu només als vostres dos mòbils.', t: ['Xifratge d\'extrem a extrem', 'Sense compte', 'iPhone i Android'] },
+};
 const lang = COPY[q.get('lang')] ? q.get('lang') : 'it';
 const shot = parseInt(q.get('shot') || '1', 10);
 const t = UI[lang];
-const isApple = device === 'iphone' || device === 'ipad' || device === 'feature';
+const isWeb = device === 'web' || device === 'webpair';   // render per il sito
+const isApple = device === 'iphone' || device === 'ipad' || device === 'feature' || device === 'og' || isWeb;
 const isTablet = device === 'ipad' || device === 'tablet';
-const BASE_W = { iphone: 390, android: 390, ipad: 1032, tablet: 800, feature: 390 }[device];
+const BASE_W = { iphone: 390, android: 390, ipad: 1032, tablet: 800, feature: 390, og: 390, web: 390, webpair: 390 }[device];
 const SAFE_T = isApple ? (isTablet ? 24 : 59) : (isTablet ? 30 : 32);
 const SAFE_B = isApple ? (isTablet ? 20 : 34) : 24;
 const FAB_TOP = 48; // Positioned(top: 48) nel Flutter
@@ -332,7 +367,7 @@ function statusBar(onDark) {
   if (isApple) return `<div class="sb ios ${cls}" style="${isTablet ? 'height:30px;padding:0 22px;font-size:13px' : ''}"><span>9:41</span><span class="ic">${cell}${wifi}${batt}</span></div>`;
   return `<div class="sb android ${cls}"><span>9:41</span><span class="ic">${awifi}${asig}${abatt}</span></div>`;
 }
-const hw = () => device === 'iphone' || device === 'feature' ? '<div class="island"></div>' : device === 'android' ? '<div class="punch"></div>' : '';
+const hw = () => device === 'iphone' || device === 'feature' || device === 'og' || isWeb ? '<div class="island"></div>' : device === 'android' ? '<div class="punch"></div>' : '';
 const homebar = (onDark) => `<div class="homebar ${isApple ? '' : 'android'} ${onDark ? 'on-dark' : ''}"></div>`;
 
 // ---- componenti chat ----
@@ -475,9 +510,19 @@ function appMarkup(sc) {
 
 function render() {
   const root = document.getElementById('root');
-  if (device === 'feature') {
-    const f = FEATURE[lang];
-    root.innerHTML = `<div class="feature"><img class="bg-cherry" src="img/cherries.png" alt=""><div class="glow"></div>
+  const webDevice = (sc) => `<div class="device iphone"><div class="screen">${hw()}${appMarkup(sc)}</div></div>`;
+  if (isWeb) {
+    // Solo il dispositivo: il testo marketing vive nell'HTML del sito.
+    const sc = SCREENS[shot - 1];
+    if (device === 'webpair') {
+      const sc2 = SCREENS[parseInt(q.get('shot2') || '3', 10) - 1];
+      root.innerHTML = `<div class="web-stage pair"><span class="p1">${webDevice(sc)}</span><span class="p2">${webDevice(sc2)}</span></div>`;
+    } else {
+      root.innerHTML = `<div class="web-stage single">${webDevice(sc)}</div>`;
+    }
+  } else if (device === 'feature' || device === 'og') {
+    const f = device === 'og' ? OG[lang] : FEATURE[lang];
+    root.innerHTML = `<div class="feature ${device === 'og' ? 'og' : ''}"><img class="bg-cherry" src="img/cherries.png" alt=""><div class="glow"></div>
       <div class="fcopy"><div class="brand"><img src="img/cherries.png" alt=""><span class="word">Tuijo</span></div>
         <h1>${f.h.replace('<em>', '<span class="serif-em">').replace('</em>', '</span>')}</h1><p class="sub">${f.s}</p>
         <div class="trust">${f.t.map(x => `<span>${x}</span>`).join('')}</div></div>

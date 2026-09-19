@@ -25,6 +25,11 @@ const TARGETS = {
   android: { w: 1080, h: 1920, dpr: 3, device: 'android', dir: 'android/phone' },    // 9:16
   'android-tablet': { w: 1600, h: 2560, dpr: 2, device: 'tablet', dir: 'android/tablet-10' },
   feature: { w: 1024, h: 500, dpr: 1, device: 'feature', dir: 'android/feature-graphic' },
+  // Anteprima social del sito (og:image).
+  og: { w: 1200, h: 630, dpr: 1, device: 'og', dir: '', flat: true, single: true },
+  // Immagini per il sito: solo il dispositivo, sfondo trasparente, senza titolo.
+  web: { w: 1000, h: 2140, dpr: 2, device: 'web', dir: 'shots', transparent: true },
+  'web-pair': { w: 1700, h: 1980, dpr: 2, device: 'webpair', dir: 'shots', transparent: true, prefix: 'pair-', single: true },
 };
 
 const args = process.argv.slice(2);
@@ -50,17 +55,32 @@ const outRoot = path.resolve(__dirname, opt('out', '../out'));
       deviceScaleFactor: cfg.dpr,
     });
     const page = await ctx.newPage();
-    const list = t === 'feature' ? [0] : shots;
+    const list = t === 'feature' ? [0] : cfg.single ? [shots[0]] : shots;
     for (const lang of langs) {
-      const dir = path.join(outRoot, cfg.dir, lang);
+      const dir = path.join(outRoot, cfg.dir, cfg.flat ? '' : lang);
       fs.mkdirSync(dir, { recursive: true });
       for (const shot of list) {
-        const url = `${html}?device=${cfg.device}&lang=${lang}&shot=${shot}`;
+        const shot2 = cfg.device === 'webpair' ? `&shot2=${shot === 1 ? 3 : 1}` : '';
+        const url = `${html}?device=${cfg.device}&lang=${lang}&shot=${shot}${shot2}`;
         await page.goto(url, { waitUntil: 'load' });
         await page.evaluate(() => document.fonts.ready);
         await page.waitForTimeout(150);
-        const file = path.join(dir, t === 'feature' ? `feature-graphic-${lang}.png` : `${String(shot).padStart(2, '0')}-${lang}.png`);
-        await page.screenshot({ path: file, fullPage: false });
+        const name = t === 'feature' ? `feature-graphic-${lang}.png`
+          : cfg.flat ? `${t}-${lang}.png`
+          : `${cfg.prefix || ''}${String(shot).padStart(2, '0')}-${lang}.png`;
+        const file = path.join(dir, name);
+        // Per il sito ritaglio sul bounding box dei dispositivi: l'immagine non
+        // porta margini vuoti e l'ombra la mette il CSS del sito.
+        const clip = cfg.transparent ? await page.evaluate((m) => {
+          const r = [...document.querySelectorAll('.device')].map((e) => e.getBoundingClientRect());
+          const x = Math.min(...r.map((b) => b.left)) - m, y = Math.min(...r.map((b) => b.top)) - m;
+          return {
+            x: Math.max(0, x), y: Math.max(0, y),
+            width: Math.max(...r.map((b) => b.right)) + m - Math.max(0, x),
+            height: Math.max(...r.map((b) => b.bottom)) + m - Math.max(0, y),
+          };
+        }, 2) : undefined;
+        await page.screenshot({ path: file, fullPage: false, clip, omitBackground: !!cfg.transparent });
         console.log('✓', path.relative(outRoot, file));
       }
     }
