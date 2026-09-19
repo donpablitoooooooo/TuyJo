@@ -64,8 +64,8 @@ T['it'] = dict(
     cta='Scaricatela e abbinate i telefoni.',
     foot_privacy='Privacy', foot_support='Supporto', foot_tag='tu i jo, tu e io',
     reels={1: ["La galleria di Tuijo con le foto raccolte per mese.", "La scheda dei link salvati nella chat, con titolo e dominio.", "La scheda dei documenti condivisi, con peso e data."], 2: ["La chat di Tuijo con la cornetta accanto al menù.", "Il dito che tocca la cornetta dentro la chat.", "La schermata di chiamata vocale di Tuijo."]},
-    scene=dict(steps=('Uno inquadra', "L'altro inquadra", 'Siete in chat'), alt_qr="Il telefono che mostra il proprio codice QR.", alt_scan="Lo scanner di Tuijo mentre inquadra il telefono dell'altra persona.", alt_lock="Il codice QR dell'altro telefono a fuoco dentro lo scanner.", alt_done="Il passo completato, con la conferma dell'app.", alt_chat="La chat aperta sul primo telefono, ad abbinamento fatto.", alt_chat2="La stessa chat vista dal secondo telefono, con il messaggio che l'altra persona sta scrivendo."),
-    hero_alt='Due telefoni affiancati: la chat di Tuijo e il calendario dei promemoria condivisi.',
+    scene=dict(steps=('Mostra il codice', 'Inquadra il suo', 'Siete in chat'), alt_qr="Il telefono che mostra il proprio codice QR.", alt_scan="Lo scanner di Tuijo mentre inquadra il telefono dell'altra persona.", alt_lock="Il codice QR dell'altro telefono a fuoco dentro lo scanner.", alt_done="Il passo completato, con la conferma dell'app.", alt_empty="La chat appena abbinata, ancora vuota, con l'altra persona che sta scrivendo.", alt_first="Il primo messaggio arrivato sul telefono.", alt_typing="Il secondo telefono, appena entrato, con il primo messaggio in scrittura.", alt_sent="Il primo messaggio appena inviato dal secondo telefono."),
+    hero_alt="Il telefono con la chat di Tuijo: un promemoria condiviso, la posizione al bar e una foto.",
 )
 
 T['en'] = dict(
@@ -110,8 +110,8 @@ T['en'] = dict(
     cta='Download it and pair your phones.',
     foot_privacy='Privacy', foot_support='Support', foot_tag='tu i jo — you and me',
     reels={1: ["The Tuijo gallery with photos gathered by month.", "The tab with the links saved in the chat, with title and domain.", "The tab with the shared documents, with size and date."], 2: ["The Tuijo chat with the handset button next to the menu.", "A finger tapping the handset inside the chat.", "The Tuijo voice call screen."]},
-    scene=dict(steps=('One scans', 'The other scans', 'You are in the chat'), alt_qr="The phone showing its own QR code.", alt_scan="The Tuijo scanner framing the other person's phone.", alt_lock="The other phone's QR code in focus inside the scanner.", alt_done="The step completed, with the app's confirmation.", alt_chat="The chat open on the first phone, once paired.", alt_chat2="The same chat seen from the second phone, with the message the other person is typing."),
-    hero_alt='Two phones side by side: the Tuijo chat and the shared reminders calendar.',
+    scene=dict(steps=('Show your code', 'Scan theirs', 'You are in the chat'), alt_qr="The phone showing its own QR code.", alt_scan="The Tuijo scanner framing the other person's phone.", alt_lock="The other phone's QR code in focus inside the scanner.", alt_done="The step completed, with the app's confirmation.", alt_empty="The freshly paired chat, still empty, with the other person typing.", alt_first="The first message, arrived on the phone.", alt_typing="The second phone, just joined, with the first message being typed.", alt_sent="The first message, just sent from the second phone."),
+    hero_alt="The phone with the Tuijo chat: a shared reminder, the location at the bar and a photo.",
 )
 
 T['es'] = dict(
@@ -156,8 +156,8 @@ T['es'] = dict(
     cta='Descargadla y emparejad los móviles.',
     foot_privacy='Privacidad', foot_support='Soporte', foot_tag='tu i jo — tú y yo',
     reels={1: ["La galería de Tuijo con las fotos reunidas por mes.", "La pestaña de los enlaces guardados en el chat, con título y dominio.", "La pestaña de los documentos compartidos, con peso y fecha."], 2: ["El chat de Tuijo con el botón de llamada junto al menú.", "Un dedo tocando el botón de llamada dentro del chat.", "La pantalla de llamada de voz de Tuijo."]},
-    scene=dict(steps=('Uno escanea', 'El otro escanea', 'Estáis en el chat'), alt_qr="El móvil que muestra su propio código QR.", alt_scan="El escáner de Tuijo enfocando el móvil de la otra persona.", alt_lock="El código QR del otro móvil enfocado dentro del escáner.", alt_done="El paso completado, con la confirmación de la app.", alt_chat="El chat abierto en el primer móvil, una vez emparejados.", alt_chat2="El mismo chat visto desde el segundo móvil, con el mensaje que la otra persona está escribiendo."),
-    hero_alt='Dos móviles uno al lado del otro: el chat de Tuijo y el calendario de recordatorios compartidos.',
+    scene=dict(steps=('Muestra tu código', 'Escanea el suyo', 'Estáis en el chat'), alt_qr="El móvil que muestra su propio código QR.", alt_scan="El escáner de Tuijo enfocando el móvil de la otra persona.", alt_lock="El código QR del otro móvil enfocado dentro del escáner.", alt_done="El paso completado, con la confirmación de la app.", alt_empty="El chat recién emparejado, aún vacío, con la otra persona escribiendo.", alt_first="El primer mensaje, llegado al móvil.", alt_typing="El segundo móvil, recién entrado, con el primer mensaje escribiéndose.", alt_sent="El primer mensaje, recién enviado desde el segundo móvil."),
+    hero_alt="El móvil con el chat de Tuijo: un recordatorio compartido, la ubicación en el bar y una foto.",
 )
 
 T['ca'] = dict(
@@ -202,8 +202,8 @@ T['ca'] = dict(
     cta='Baixeu-la i aparelleu els mòbils.',
     foot_privacy='Privacitat', foot_support='Suport', foot_tag='tu i jo',
     reels={1: ["La galeria de Tuijo amb les fotos recollides per mes.", "La pestanya dels enllaços desats al xat, amb títol i domini.", "La pestanya dels documents compartits, amb pes i data."], 2: ["El xat de Tuijo amb el botó de trucada al costat del menú.", "Un dit tocant el botó de trucada dins el xat.", "La pantalla de trucada de veu de Tuijo."]},
-    scene=dict(steps=('Un escaneja', "L'altre escaneja", 'Sou al xat'), alt_qr="El mòbil que mostra el seu propi codi QR.", alt_scan="L'escàner de Tuijo enfocant el mòbil de l'altra persona.", alt_lock="El codi QR de l'altre mòbil enfocat dins l'escàner.", alt_done="El pas completat, amb la confirmació de l'app.", alt_chat="El xat obert al primer mòbil, un cop aparellats.", alt_chat2="El mateix xat vist des del segon mòbil, amb el missatge que l'altra persona està escrivint."),
-    hero_alt="Dos mòbils l'un al costat de l'altre: el xat de Tuijo i el calendari de recordatoris compartits.",
+    scene=dict(steps=('Mostra el teu codi', 'Escaneja el seu', 'Sou al xat'), alt_qr="El mòbil que mostra el seu propi codi QR.", alt_scan="L'escàner de Tuijo enfocant el mòbil de l'altra persona.", alt_lock="El codi QR de l'altre mòbil enfocat dins l'escàner.", alt_done="El pas completat, amb la confirmació de l'app.", alt_empty="El xat acabat d'aparellar, encara buit, amb l'altra persona escrivint.", alt_first="El primer missatge, arribat al mòbil.", alt_typing="El segon mòbil, tot just entrat, amb el primer missatge escrivint-se.", alt_sent="El primer missatge, tot just enviat des del segon mòbil."),
+    hero_alt="El mòbil amb el xat de Tuijo: un recordatori compartit, la ubicació al bar i una foto.",
 )
 
 SEC_IDS = ['chat', 'sicurezza', 'faq']   # ancore uguali in tutte le lingue
@@ -267,7 +267,7 @@ def build(code):
         on = ' class="on"' if c == code else ''
         langs += '\n        <a href="%s"%s>%s</a>' % (STORE[c]['page'], on, c.upper())
 
-    hero_w, hero_h = img_size(os.path.join(OUT, 'assets', 'shots', code, f'pair-01-{code}.webp'))
+    hero_w, hero_h = img_size(os.path.join(OUT, 'assets', 'shots', code, f'01-{code}.webp'))
 
     stages = []
     for i, lay in enumerate(LAYOUT, start=1):
@@ -280,11 +280,13 @@ def build(code):
             #   2. si scambiano i ruoli: sinistra inquadra destra
             #   3. abbinati, tutti e due nella stessa chat
             # --in e --out dicono a site.css quando ogni fotogramma entra ed esce.
-            LEFT = [(6, -1, .42, sn['alt_qr']), (7, .40, .58, sn['alt_scan']),
-                    (8, .56, .74, sn['alt_lock']), (9, .72, .86, sn['alt_done']),
-                    (1, .84, 2, sn['alt_chat'])]
-            RIGHT = [(7, -1, .18, sn['alt_scan']), (8, .16, .36, sn['alt_lock']),
-                     (9, .34, .86, sn['alt_done']), (10, .84, 2, sn['alt_chat2'])]
+            # Un telefono solo per quasi tutta la scena: mostra il codice,
+            # inquadra quello dell'altro, completa. Il secondo compare solo alla
+            # fine, vuoto, mentre l'altra persona scrive il primo messaggio.
+            LEFT = [(6, -1, .30, sn['alt_qr']), (7, .28, .44, sn['alt_scan']),
+                    (8, .42, .60, sn['alt_lock']), (9, .58, .76, sn['alt_done']),
+                    (14, .74, .90, sn['alt_empty']), (16, .88, 2, sn['alt_first'])]
+            RIGHT = [(15, -1, .90, sn['alt_typing']), (17, .88, 2, sn['alt_sent'])]
 
             def frames(spec):
                 out = []
@@ -309,10 +311,9 @@ def build(code):
         </div>
         <div class="scene-stage">
           <span class="ph ph-l">{frames(LEFT)}
-            <span class="flash" style="--in:.18;--out:.34"></span>
+            <span class="flash" style="--in:.44;--out:.58"></span>
           </span>
           <span class="ph ph-r">{frames(RIGHT)}
-            <span class="flash" style="--in:.56;--out:.74"></span>
           </span>
           <span class="scene-link"></span>
         </div>
@@ -426,7 +427,7 @@ def build(code):
     {badges(t, s, 'reveal d2')}
     <p class="hero-note reveal d2">{t['note']}</p>
     <div class="hero-shot reveal d2">
-      <img src="assets/shots/{code}/pair-01-{code}.webp" width="{hero_w}" height="{hero_h}" data-move="16" alt="{t['hero_alt']}" fetchpriority="high">
+      <img src="assets/shots/{code}/01-{code}.webp" width="{hero_w}" height="{hero_h}" data-move="16" alt="{t['hero_alt']}" fetchpriority="high">
     </div>
   </div>
 </header>

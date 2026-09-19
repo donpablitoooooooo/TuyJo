@@ -72,7 +72,13 @@ const outRoot = path.resolve(__dirname, opt('out', '../out'));
           ? fs.readdirSync(photoDir).filter((f) => /\.(jpe?g|png|webp)$/i.test(f)).sort()
           : [];
         const photos = real.length ? `&photos=${real.join(',')}` : '';
-        const url = `${html}?device=${cfg.device}&lang=${lang}&shot=${shot}${shot2}${off}${photos}`;
+        // anteprime vere per la scheda dei link, se ce ne sono
+        const linkDir = path.join(__dirname, 'img', 'links');
+        const realLinks = fs.existsSync(linkDir)
+          ? fs.readdirSync(linkDir).filter((f) => /\.(jpe?g|png|webp)$/i.test(f)).sort()
+          : [];
+        const links = realLinks.length ? `&links=${realLinks.join(',')}` : '';
+        const url = `${html}?device=${cfg.device}&lang=${lang}&shot=${shot}${shot2}${off}${photos}${links}`;
         await page.addInitScript((sel) => { window.__clipSel = sel; }, cfg.clipSel || '.device');
         await page.goto(url, { waitUntil: 'load' });
         await page.evaluate(() => document.fonts.ready);

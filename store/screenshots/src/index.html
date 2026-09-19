@@ -134,6 +134,14 @@ h1 { font-family: var(--display); font-weight: 800; font-size: 9.4vw; line-heigh
 .send { width: 48px; height: 48px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; }
 .send .c { width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: #fff; background: linear-gradient(135deg, #E0E0E0, #BDBDBD); transform: scale(.8); }
 
+/* Foto dentro un messaggio (chat_screen.dart: 200×200, raggio 12) */
+.bubble.pic { padding: 5px; }
+.bubble.pic .img { width: 186px; height: 186px; border-radius: 12px; }
+.bubble.pic .meta { margin: 6px 6px 2px; }
+/* Chat senza messaggi (chatEmptyMessage) */
+.emptychat { flex: 1; display: flex; align-items: center; justify-content: center; text-align: center;
+  font-size: 15px; line-height: 1.5; color: #9E9E9E; }
+
 /* Chiamata */
 .call { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; color: #fff; background: linear-gradient(180deg, #1A1A2E, #16213E, #0F3460); padding-top: calc(var(--safe-t) + 40px); padding-bottom: 60px; }
 .call .status { font-size: 16px; letter-spacing: 1.2px; color: rgba(255,255,255,.7); }
@@ -367,6 +375,7 @@ const UI = {
     locActive: 'Condivisione attiva', callTitle: 'Chiamata Vocale', good: 'Connessione buona', mute: 'Muto', speaker: 'Altoparlante', end: 'Fine',
     ago: '12s fa', add: 'Aggiungi', wd: ['L','M','M','G','V','S','D'], month: 'Settembre 2026', month2: 'Agosto 2026',
     todo1: 'Cena da Marco e Giulia 🍝', todo2: 'Prenotare il treno per Roma 🚄', todo3: 'Comprare i fiori per la mamma 💐',
+    emptyChat: 'Nessun messaggio.<br>Invia il primo!', firstMsg: 'Ciao amore, finalmente l\'app solo per noi ❤️',
     links: [['Hotel Villa Fiorita, Sorrento','Camera vista mare, colazione inclusa · 2 notti','booking.com','10/09'],['Casa sul mare, agosto','Intera casa · 4 ospiti · Gallipoli','airbnb.it','09/09'],['Trattoria da Marco','Via Roma 12 · aperto fino alle 23','maps.google.com','06/09'],['Tiramisù della nonna','Ricetta in 20 minuti, senza forno','ricettedicasa.it','28/08'],['Concerto al parco, 12 settembre','Biglietti ancora disponibili','biglietteria.it','21/08']], docs: [['Contratto affitto.pdf','1,2 MB','10/09'],['Biglietti treno Roma.pdf','340 KB','08/09'],['Preventivo cucina.pdf','2,1 MB','05/09'],['Ricette della nonna.docx','88 KB','02/09']],
     pairTitle: 'Pairing con il tuo amore', pairSub: 'Completa entrambi i passaggi per accoppiare i dispositivi',
     s1t: 'Mostra il tuo QR', s1d: 'Fai scansionare questo QR al tuo amore', s2t: 'Leggi il QR del tuo amore', s2d: 'Scansiona il QR mostrato dal tuo amore', scan: 'Scansiona QR', scanHint: 'Inquadra il QR Code del tuo amore', done: 'Completato', okMsg: 'QR del partner scansionato con successo!' },
@@ -376,6 +385,7 @@ const UI = {
     locActive: 'Sharing active', callTitle: 'Voice Call', good: 'Good connection', mute: 'Mute', speaker: 'Speaker', end: 'End',
     ago: '12s ago', add: 'Add', wd: ['M','T','W','T','F','S','S'], month: 'September 2026', month2: 'August 2026',
     todo1: 'Dinner at Marco & Giulia\'s 🍝', todo2: 'Book the train to Rome 🚄', todo3: 'Buy flowers for mum 💐',
+    emptyChat: 'No messages.<br>Send the first one!', firstMsg: 'Hi love, finally an app just for us ❤️',
     links: [['Hotel Villa Fiorita, Sorrento','Sea view room, breakfast included · 2 nights','booking.com','10/09'],['House by the sea, August','Entire home · 4 guests · Gallipoli','airbnb.com','09/09'],['Trattoria da Marco','Via Roma 12 · open until 11pm','maps.google.com','06/09'],["Grandma's tiramisu",'Ready in 20 minutes, no baking','homerecipes.com','28/08'],['Concert in the park, 12 September','Tickets still available','ticketdesk.com','21/08']], docs: [['Rental agreement.pdf','1.2 MB','10/09'],['Train tickets to Rome.pdf','340 KB','08/09'],['Kitchen quote.pdf','2.1 MB','05/09'],['Grandma\'s recipes.docx','88 KB','02/09']],
     pairTitle: 'Pairing with your love', pairSub: 'Complete both steps to pair the devices',
     s1t: 'Show your QR code', s1d: 'Have your love scan this QR code', s2t: 'Read your love\'s QR code', s2d: 'Scan the QR code shown by your love', scan: 'Scan QR', scanHint: 'Frame the QR Code of your love', done: 'Completed', okMsg: 'Partner QR code scanned successfully!' },
@@ -385,6 +395,7 @@ const UI = {
     locActive: 'Compartir activo', callTitle: 'Llamada de Voz', good: 'Buena conexión', mute: 'Silenciar', speaker: 'Altavoz', end: 'Finalizar',
     ago: 'hace 12s', add: 'Añadir', wd: ['L','M','X','J','V','S','D'], month: 'Septiembre 2026', month2: 'Agosto 2026',
     todo1: 'Cena en casa de Marco y Giulia 🍝', todo2: 'Reservar el tren a Roma 🚄', todo3: 'Comprar flores para mamá 💐',
+    emptyChat: 'No hay mensajes.<br>¡Sé el primero en publicar!', firstMsg: 'Hola amor, por fin una app solo para nosotros ❤️',
     links: [['Hotel Villa Fiorita, Sorrento','Habitación con vistas al mar, desayuno incluido · 2 noches','booking.com','10/09'],['Casa junto al mar, agosto','Casa entera · 4 huéspedes · Gallipoli','airbnb.es','09/09'],['Trattoria da Marco','Via Roma 12 · abierto hasta las 23','maps.google.com','06/09'],['Tiramisú de la abuela','Receta en 20 minutos, sin horno','recetasdecasa.es','28/08'],['Concierto en el parque, 12 de septiembre','Quedan entradas','entradas.es','21/08']], docs: [['Contrato de alquiler.pdf','1,2 MB','10/09'],['Billetes de tren a Roma.pdf','340 KB','08/09'],['Presupuesto cocina.pdf','2,1 MB','05/09'],['Recetas de la abuela.docx','88 KB','02/09']],
     pairTitle: 'Pairing con tu amor', pairSub: 'Complete ambos pasos para emparejar los dispositivos',
     s1t: 'Muestra tu código QR', s1d: 'Haz que tu amor escanee este código QR', s2t: 'Lee el código QR de tu amor', s2d: 'Escanea el código QR que te muestra tu amor', scan: 'Escanear QR', scanHint: 'Enmarca el Código QR de tu amor', done: 'Completado', okMsg: '¡Código QR de socio escaneado exitosamente!' },
@@ -394,6 +405,7 @@ const UI = {
     locActive: 'Compartir actiu', callTitle: 'Trucada de Veu', good: 'Bona connexió', mute: 'Silenciar', speaker: 'Altaveu', end: 'Finalitzar',
     ago: 'fa 12s', add: 'Afegeix', wd: ['DL','DT','DC','DJ','DV','DS','DG'], month: 'Setembre 2026', month2: 'Agost 2026',
     todo1: 'Sopar a casa d\'en Marco i la Giulia 🍝', todo2: 'Reservar el tren a Roma 🚄', todo3: 'Comprar flors per a la mama 💐',
+    emptyChat: 'No hi ha missatges.<br>Sigues el primer a publicar!', firstMsg: 'Hola amor, per fi una app només per a nosaltres ❤️',
     links: [['Hotel Villa Fiorita, Sorrento','Habitació amb vistes al mar, esmorzar inclòs · 2 nits','booking.com','10/09'],['Casa a la vora del mar, agost','Casa sencera · 4 hostes · Gallipoli','airbnb.es','09/09'],['Trattoria da Marco','Via Roma 12 · obert fins a les 23','maps.google.com','06/09'],["Tiramisú de l'àvia",'Recepta en 20 minuts, sense forn','receptesdecasa.cat','28/08'],['Concert al parc, 12 de setembre','Encara queden entrades','entrades.cat','21/08']], docs: [['Contracte de lloguer.pdf','1,2 MB','10/09'],['Bitllets de tren a Roma.pdf','340 KB','08/09'],['Pressupost cuina.pdf','2,1 MB','05/09'],['Receptes de l\'àvia.docx','88 KB','02/09']],
     pairTitle: 'Pairing amb el teu amor', pairSub: 'Completeu els dos passos per emparellar els dispositius',
     s1t: 'Mostra el teu codi QR', s1d: 'Fes que el teu amor escanegi aquest codi QR', s2t: 'Llegeix el codi QR del teu amor', s2d: 'Escaneja el codi QR que et mostra el teu amor', scan: 'Escaneja un codi QR', scanHint: 'Emmarca el codi QR del teu amor', done: 'Completat', okMsg: 'Codi QR del soci escanejat correctament!' },
@@ -411,7 +423,8 @@ const OG = {
 const lang = COPY[q.get('lang')] ? q.get('lang') : 'it';
 const shot = parseInt(q.get('shot') || '1', 10);
 const OFFSET = parseInt(q.get('off') || '0', 10);
-const PHOTOS_REAL = (q.get('photos') || '').split(',').filter(Boolean);   // file in img/photos/   // px logici saltati dall'alto (device=card)
+const PHOTOS_REAL = (q.get('photos') || '').split(',').filter(Boolean);   // file in img/photos/
+const LINKS_REAL = (q.get('links') || '').split(',').filter(Boolean);     // file in img/links/   // px logici saltati dall'alto (device=card)
 const t = UI[lang];
 const isCard = device === 'card';                        // ritaglio a scheda
 const isWeb = device === 'web' || device === 'webpair' || isCard;   // render per il sito
@@ -446,8 +459,14 @@ function bubble(side, text, time, tick, reaction) {
   const rx = reaction ? `<span class="react">${mi(reaction, 20, '#fff')}</span>` : '';
   return `<div class="row ${side}"><div class="bubble">${text}<div class="meta"><span>${time}</span>${tk}</div>${rx}</div></div>`;
 }
-function locBubble() {
-  return `<div class="row me"><div class="bubble loc"><div class="locmap">${mi('location_on', 48, '#fff')}</div>
+function picBubble(side, time, tick, photo) {
+  // photo: sfondo della foto (gradiente disegnato o file vero da img/photos/)
+  const tk = side === 'me' && tick ? `<span class="mi tick ${tick === 'read' ? 'read' : ''}" style="font-size:14px">${tick === 'read' ? 'done_all' : 'done'}</span>` : '';
+  return `<div class="row ${side}"><div class="bubble pic"><div class="img" style="${photo}"></div>
+    <div class="meta"><span>${time}</span>${tk}</div></div></div>`;
+}
+function locBubble(side) {
+  return `<div class="row ${side || 'me'}"><div class="bubble loc"><div class="locmap">${mi('location_on', 48, '#fff')}</div>
     <div class="locbody"><div class="st">${t.locActive}</div><div class="cd">${mi('access_time', 14, 'rgba(255,255,255,.7)')}<span>58m</span></div>
     <div class="meta"><span>21:04</span><span class="mi tick" style="font-size:16px;color:#40C4FF">done_all</span></div></div></div></div>`;
 }
@@ -485,23 +504,39 @@ function chatScreen(mirror, tapCall) {
   // scambiano, le spunte seguono chi guarda, e chi sta scrivendo vede la
   // propria bozza al posto dell'indicatore "sta scrivendo".
   const sd = (side) => (mirror ? (side === 'me' ? 'them' : 'me') : side);
-  // Sul telefono entrano gli ultimi due messaggi di ieri, sul tablet tutti e quattro.
-  const earlier = `${datesep(t.yesterday)}
-    ${isTablet ? `${bubble(sd('me'), t.e1, '08:12', 'read')}
-    ${bubble(sd('them'), t.e2, '08:15', 'read')}` : ''}
+  // la foto del messaggio: la prima di img/photos/ se c'è, altrimenti disegnata
+  const pic = PHOTOS_REAL[0]
+    ? `background:url('img/photos/${PHOTOS_REAL[0]}') center/cover`
+    : `background:radial-gradient(circle at 62% 30%,#FFE9A8 0 12%,transparent 13%),linear-gradient(180deg,#F6C88B 0%,#E98C6B 46%,#8E4A52 100%)`;
+  const earlier = isTablet ? `${datesep(t.yesterday)}
+    ${bubble(sd('me'), t.e1, '08:12', 'read')}
+    ${bubble(sd('them'), t.e2, '08:15', 'read')}
     ${bubble(sd('me'), t.e3, '13:40', 'read', 'thumb_up')}
-    ${bubble(sd('them'), t.e4, '18:02', 'read')}`;
+    ${bubble(sd('them'), t.e4, '18:02', 'read')}` : '';
   return `<div class="chat">${fabs(true, tapCall)}<div class="msgs">
     ${earlier}
     ${datesep(t.today)}
-    ${bubble(sd('them'), t.c1, '21:04', 'read')}
+    ${isTablet ? bubble(sd('them'), t.c1, '21:04', 'read') : ''}
     ${bubble(sd('me'), t.c2, '21:04', 'read')}
+    ${locBubble(sd('me'))}
     ${bubble(sd('them'), t.c3, '21:05', 'read', 'favorite')}
     ${todoBubble(sd('me'), t.todo1, `${t.tomorrow} 20:30`, '2h', 'read', '21:06')}
-    ${bubble(sd('them'), t.c4, '21:07', 'read')}
-    ${mirror ? '' : `<div class="typing"><span class="spin"></span><span>${t.typing}</span></div>`}
+    ${picBubble(sd('them'), '21:08', 'read', pic)}
+    ${mirror || !isTablet ? '' : `<div class="typing"><span class="spin"></span><span>${t.typing}</span></div>`}
   </div>${inputBar(mirror ? t.draft : null)}</div>`;
 }
+
+// La chat appena abbinata: vuota, poi con il primo messaggio.
+function firstChat(view, sent) {
+  const mine = view === 'them';   // chi scrive è il secondo telefono
+  const body = sent
+    ? `<div class="msgs">${datesep(t.today)}${bubble(mine ? 'me' : 'them', t.firstMsg, '21:12', 'read')}</div>`
+    : `<div class="emptychat">${t.emptyChat}</div>` +
+      (mine ? '' : `<div class="msgs" style="flex:0"><div class="typing"><span class="spin"></span><span>${t.typing}</span></div></div>`);
+  const draft = !sent && mine ? t.firstMsg : null;
+  return `<div class="chat">${fabs(true)}${body}${inputBar(draft)}</div>`;
+}
+
 function callScreen() {
   const bars = [6, 10, 14].map(h => `<span class="bar" style="height:${h}px"></span>`).join('');
   return `<div class="call"><div class="status">03:42</div>
@@ -577,8 +612,12 @@ function mediaScreen(tab) {
     const card = (i, mine) => {
       const [title, desc, domain, date] = t.links[i];
       const [h, bg, deco] = THUMB[i % THUMB.length];
+      // se in img/links/ c'è uno screenshot vero, prende il posto del disegno
+      const art = LINKS_REAL[i]
+        ? `background:url('img/links/${LINKS_REAL[i]}') center/cover`
+        : `background:${deco},${bg}`;
       return `<div class="lcard ${mine ? '' : 'p'}">
-        <div class="thumb" style="height:${h}px;background:${deco},${bg}"></div>
+        <div class="thumb" style="height:${h}px;${art}"></div>
         <div class="body"><div class="tt">${title}</div><div class="ds">${desc}</div>
         <div class="dm">${mi('public', 10, mine ? '#3BA8B0' : '#9E9E9E')}<span class="site">${domain}</span><span>${date}</span></div></div></div>`;
     };
@@ -655,6 +694,10 @@ const SCREENS = [
   { html: () => mediaScreen(1), dark: false, theme: 'paper' },           // 11 — galleria: i link
   { html: () => mediaScreen(2), dark: false, theme: 'paper' },           // 12 — galleria: i documenti
   { html: () => chatScreen(false, true), dark: false, theme: 'paper' },  // 13 — il dito che preme la cornetta
+  { html: () => firstChat('me', false), dark: false, theme: 'paper' },   // 14 — chat vuota, l'altro sta scrivendo
+  { html: () => firstChat('them', false), dark: false, theme: 'paper' }, // 15 — chat vuota, la bozza del primo messaggio
+  { html: () => firstChat('me', true), dark: false, theme: 'paper' },    // 16 — il primo messaggio, ricevuto
+  { html: () => firstChat('them', true), dark: false, theme: 'paper' },  // 17 — il primo messaggio, inviato
 ];
 
 function appMarkup(sc, bare) {
