@@ -62,7 +62,7 @@ const outRoot = path.resolve(__dirname, opt('out', '../out'));
       const dir = path.join(outRoot, cfg.dir, cfg.flat ? '' : lang);
       fs.mkdirSync(dir, { recursive: true });
       for (const shot of list) {
-        const shot2 = cfg.device === 'webpair' ? `&shot2=${shot === 1 ? 3 : 1}` : '';
+        const shot2 = cfg.device === 'webpair' ? `&shot2=${shot === 1 ? 4 : 1}` : '';
         // quanto scendere dentro la schermata per inquadrare la parte interessante
         const CARD_OFF = { 5: 192 };
         const off = cfg.device === 'card' ? `&off=${CARD_OFF[shot] || 0}` : '';

@@ -123,6 +123,15 @@ h2 {
 .stage.split.rev .copy { order: 2; }
 .stage.split.rev .shot { order: 1; }
 .stage.split.rev .shot img { --tilt: -2.5deg; }
+/* compact: stesso impianto, ma con meno peso — per le funzioni secondarie */
+.stage.split.compact { padding: clamp(60px, 7vw, 100px) 0; }
+.stage.split.compact .wrap { grid-template-columns: minmax(0, 1fr) minmax(0, .5fr); }
+/* rovesciata: la colonna stretta è quella dell'immagine, che qui viene prima */
+.stage.split.compact.rev .wrap { grid-template-columns: minmax(0, .5fr) minmax(0, 1fr); }
+.stage.split.compact h2 { font-size: clamp(27px, 3.4vw, 38px); }
+.stage.split.compact .lead { font-size: clamp(17px, 1.7vw, 19px); max-width: 34ch; }
+.stage.split.compact .shot { width: min(210px, 46vw); }
+
 /* nella colonna può starci anche un ritaglio largo invece del telefono */
 .stage.split .shot.wide { width: min(440px, 78vw); }
 .stage.split .shot.wide img { --tilt: 0deg; border-radius: 14px; }
@@ -155,13 +164,20 @@ h2 {
 .scene .ph { position: absolute; width: 43%; filter: drop-shadow(0 26px 36px rgba(0,0,0,.5)); }
 .scene .ph-qr { left: 0; bottom: 0;
   transform: translate(calc(var(--p) * -4%), calc((1 - var(--p)) * 7%)) rotate(calc(-3deg + var(--p) * 1deg)); }
-.scene .ph-scan { right: 0; top: 0;
+.scene .ph-scan { right: 0; top: 0; display: block;
   transform: translate(calc((1 - var(--p)) * 13%), calc((1 - var(--p)) * 30%)) rotate(calc(7deg - var(--p) * 4deg)) scale(calc(.9 + var(--p) * .1)); }
+/* Tre schermate vere in dissolvenza: cerca → legge → completato.
+   Le soglie sono le stesse dei passi illuminati accanto al testo. */
+.scene .fr { display: block; width: 100%; }
+.scene .fr1 { position: relative; opacity: clamp(0, (.52 - var(--p)) * 10, 1); }
+.scene .fr2, .scene .fr3 { position: absolute; left: 0; top: 0; }
+.scene .fr2 { opacity: clamp(0, min((var(--p) - .42) * 10, (.80 - var(--p)) * 10), 1); }
+.scene .fr3 { opacity: clamp(0, (var(--p) - .70) * 10, 1); }
 /* il bagliore che conferma la lettura del codice */
 .scene-glow { position: absolute; left: 4%; bottom: 20%; width: 36%; aspect-ratio: 1; border-radius: 50%;
   background: radial-gradient(circle, rgba(160,255,244,.75), rgba(124,224,215,.25) 45%, transparent 72%);
   mix-blend-mode: screen; pointer-events: none;
-  opacity: clamp(0, (var(--p) - .62) * 3.4, 1); }
+  opacity: clamp(0, min((var(--p) - .46) * 7, (.84 - var(--p)) * 7), 1); }
 
 .scene-steps { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 30px; list-style: none; counter-reset: step; }
 .scene-steps li {

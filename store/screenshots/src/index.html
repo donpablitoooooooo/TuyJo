@@ -215,42 +215,42 @@ h1 { font-family: var(--display); font-weight: 800; font-size: 9.4vw; line-heigh
 .web-stage.pair .p1 { position: relative; z-index: 2; transform: translateY(-3.5%); }
 .web-stage.pair .p2 { position: relative; z-index: 1; margin-left: -9vw; transform: translateY(6.5%); }
 
-/* Scanner QR (pairing_wizard_screen.dart → _buildQRScanner) */
-.scan { position: absolute; inset: 0; background: linear-gradient(180deg, #3BA8B0, #145A60); overflow: hidden; }
-.scan .cam { position: absolute; inset: 0; background: linear-gradient(170deg, #4A4038 0%, #2A2622 55%, #1A1815 100%); }
-.scan .cam::after { content: ""; position: absolute; inset: 0; background: radial-gradient(ellipse at 50% 58%, rgba(255,241,214,.18), transparent 62%); }
-/* il telefono dell'altra persona, inquadrato dalla fotocamera */
-.scan .other { position: absolute; left: 50%; top: 54%; width: 208px; height: 400px; transform: translate(-50%, -50%) rotate(-4deg);
-  border-radius: 26px; background: linear-gradient(180deg, #3BA8B0, #145A60); box-shadow: 0 18px 40px rgba(0,0,0,.45); padding: 10px; }
-.scan .other .sheet { width: 100%; height: 100%; border-radius: 18px; background: #fff; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; }
-.scan .other .sheet img { width: 132px; height: 132px; }
-.scan .other .sheet b { font-size: 11px; font-weight: 700; color: #2d3436; letter-spacing: .2px; }
+/* Scanner QR (pairing_wizard_screen.dart → _buildQRScanner).
+   Dentro la fotocamera c'è il telefono dell'altra persona con la sua vera
+   schermata di pairing, non un disegno: è la stessa funzione pairingScreen(). */
+.scan { position: absolute; inset: 0; overflow: hidden; background: #141210; }
+.scan .cam { position: absolute; inset: 0;
+  background: radial-gradient(120% 80% at 62% 18%, #6B5B4A 0%, #3A3229 38%, #201C18 72%, #131110 100%); }
+.scan .cam::after { content: ""; position: absolute; inset: 0;
+  background: linear-gradient(200deg, rgba(255,236,204,.10) 0 30%, transparent 62%),
+              radial-gradient(60% 40% at 30% 88%, rgba(0,0,0,.55), transparent 70%); }
+.scan .other { position: absolute; left: 50%; top: 55%; transform: translate(-50%, -50%); }
+.minidev { padding: 8px; border-radius: 30px; background: linear-gradient(150deg, #2b2b2f, #0b0e11 60%);
+  box-shadow: 0 26px 52px rgba(0,0,0,.6), 0 0 0 1px rgba(255,255,255,.06) inset; transform-origin: 50% 50%; }
+.miniscreen { position: relative; width: 180px; height: 394px; border-radius: 23px; overflow: hidden; background: #fff; }
+.miniscreen .app { position: absolute; left: 0; top: 0; width: 390px; height: 854px; zoom: .4615; }
+.miniscreen::after { content: ""; position: absolute; inset: 0; pointer-events: none;
+  background: linear-gradient(118deg, rgba(255,255,255,.22) 0 16%, rgba(255,255,255,.05) 26%, transparent 46%); }
+/* fotogramma "sto cercando": telefono di sbieco, fuori fuoco, poco illuminato */
+.scan.search .minidev { transform: perspective(900px) rotateY(-15deg) rotateX(8deg) rotate(-6deg) scale(.84) translateX(-8px);
+  filter: blur(1.3px) brightness(.72) saturate(.85); }
+/* fotogramma "l'ho preso": inquadrato, a fuoco */
+.scan.lock .minidev { transform: perspective(1200px) rotateY(-4deg) rotateX(2deg) rotate(-1.5deg) scale(1.04);
+  filter: brightness(.94); }
+.scan .vign { position: absolute; inset: 0; pointer-events: none;
+  background: radial-gradient(ellipse at 50% 54%, transparent 38%, rgba(0,0,0,.5) 100%); }
 .scan .fabs { position: absolute; top: var(--fab-top); left: 16px; right: 16px; display: flex; justify-content: space-between; }
 .scan .fabs .b { width: 44px; height: 44px; border-radius: 50%; background: #fff; box-shadow: 0 2px 8px rgba(0,0,0,.3); display: flex; align-items: center; justify-content: center; color: #3BA8B0; }
 .scan .hint { position: absolute; top: 120px; left: 20px; right: 20px; padding: 16px; border-radius: 16px; background: #fff;
   box-shadow: 0 4px 12px rgba(0,0,0,.2); text-align: center; font-size: 16px; font-weight: 600; line-height: 1.3; color: #2d3436; }
 
-/* ---------- Feature graphic (Google Play, 1024×500) ---------- */
-.feature { position: relative; width: 1024px; height: 500px; overflow: hidden; background: var(--paper); display: flex; }
-.feature .glow { left: 74%; top: 60%; width: 700px; height: 700px; }
-.feature .bg-cherry { width: 420px; right: auto; left: -110px; top: auto; bottom: -140px; transform: rotate(18deg); opacity: .06; }
-.feature .fcopy { position: relative; z-index: 2; width: 560px; padding: 64px 0 0 72px; }
-.feature .brand { display: flex; align-items: center; gap: 16px; }
-.feature .brand img { width: 52px; }
-.feature .brand .word { font-family: var(--display); font-weight: 800; font-size: 40px; letter-spacing: -.03em; color: var(--teal-deep); }
-.feature h1 { font-size: 58px; margin-top: 26px; }
-.feature .sub { font-size: 21px; margin: 16px 0 0; max-width: 24ch; }
-.feature .trust { display: flex; gap: 18px; margin-top: 26px; font-size: 13px; font-weight: 600; color: var(--teal-deep); letter-spacing: .04em; }
-.feature .trust span { display: inline-flex; align-items: center; gap: 6px; }
-.feature .trust span::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: var(--cherry); }
-.feature .fstage { position: absolute; z-index: 2; right: 96px; top: 62px; }
-.feature .device.iphone { width: 292px; border-radius: 48px; padding: 11px; }
-.feature .device.iphone .screen { border-radius: 38px; }
-.feature .device::after { right: -3px; width: 3px; }
-/* Scheda UI per il sito: una porzione di schermata, senza cornice né barre di sistema */
-.card-stage { width: 100vw; height: 100vh; display: grid; place-items: center; background: transparent; }
-.uicard { width: 97vw; height: 97vh; border-radius: 2.2vw; overflow: hidden; background: #fff; }
-.uicard .screen { width: 100%; height: 100%; border-radius: inherit; }
+/* Passo completato + snackbar di conferma (stessi stili del Flutter) */
+.donepill { margin-top: 16px; display: flex; align-items: center; justify-content: center; gap: 8px;
+  padding: 12px 16px; border-radius: 12px; background: rgba(59,168,176,.1); border: 1px solid #3BA8B0;
+  color: #3BA8B0; font-size: 16px; font-weight: 700; }
+.snack { position: absolute; left: 16px; right: 16px; bottom: calc(16px + var(--safe-b)); z-index: 40;
+  display: flex; align-items: center; gap: 12px; padding: 14px 16px; border-radius: 12px;
+  background: #3BA8B0; color: #fff; font-size: 14px; line-height: 1.3; box-shadow: 0 8px 20px rgba(0,0,0,.3); }
 
 /* Anteprima social del sito (og:image, 1200×630) */
 .feature.og { width: 1200px; height: 630px; }
@@ -326,7 +326,7 @@ const UI = {
     ago: '12s fa', add: 'Aggiungi', wd: ['L','M','M','G','V','S','D'], month: 'Settembre 2026', month2: 'Agosto 2026',
     todo1: 'Cena da Marco e Giulia 🍝', todo2: 'Prenotare il treno per Roma 🚄', todo3: 'Comprare i fiori per la mamma 💐',
     pairTitle: 'Pairing con il tuo amore', pairSub: 'Completa entrambi i passaggi per accoppiare i dispositivi',
-    s1t: 'Mostra il tuo QR', s1d: 'Fai scansionare questo QR al tuo amore', s2t: 'Leggi il QR del tuo amore', s2d: 'Scansiona il QR mostrato dal tuo amore', scan: 'Scansiona QR', scanHint: 'Inquadra il QR Code del tuo amore' },
+    s1t: 'Mostra il tuo QR', s1d: 'Fai scansionare questo QR al tuo amore', s2t: 'Leggi il QR del tuo amore', s2d: 'Scansiona il QR mostrato dal tuo amore', scan: 'Scansiona QR', scanHint: 'Inquadra il QR Code del tuo amore', done: 'Completato', okMsg: 'QR del partner scansionato con successo!' },
   en: { yesterday: 'Yesterday', e1: 'Morning love ☕ running late tonight', e2: 'No worries, I\'ll cook dinner 🍝', e3: 'You\'re the best ❤️', e4: 'Booked a table for Saturday, ok?',
     today: 'Today', tomorrow: 'Tomorrow', typing: 'Typing...', hint: 'Message',
     c1: 'Just finished 💚 where are you?', c2: 'Almost there! Sending you my location', c3: 'I see you 😍 waiting at the bar', c4: 'Two minutes and I\'m there 🍒',
@@ -334,7 +334,7 @@ const UI = {
     ago: '12s ago', add: 'Add', wd: ['M','T','W','T','F','S','S'], month: 'September 2026', month2: 'August 2026',
     todo1: 'Dinner at Marco & Giulia\'s 🍝', todo2: 'Book the train to Rome 🚄', todo3: 'Buy flowers for mum 💐',
     pairTitle: 'Pairing with your love', pairSub: 'Complete both steps to pair the devices',
-    s1t: 'Show your QR code', s1d: 'Have your love scan this QR code', s2t: 'Read your love\'s QR code', s2d: 'Scan the QR code shown by your love', scan: 'Scan QR', scanHint: 'Frame the QR Code of your love' },
+    s1t: 'Show your QR code', s1d: 'Have your love scan this QR code', s2t: 'Read your love\'s QR code', s2d: 'Scan the QR code shown by your love', scan: 'Scan QR', scanHint: 'Frame the QR Code of your love', done: 'Completed', okMsg: 'Partner QR code scanned successfully!' },
   es: { yesterday: 'Ayer', e1: 'Buenos días amor ☕ hoy acabo tarde', e2: 'Tranquila, preparo yo la cena 🍝', e3: 'Eres el mejor ❤️', e4: 'He reservado para el sábado, ¿te va?',
     today: 'Hoy', tomorrow: 'Mañana', typing: 'Escribiendo...', hint: 'Mensaje',
     c1: 'Acabo de terminar 💚 ¿dónde estás?', c2: '¡Casi llego! Te mando la ubicación', c3: 'Te veo 😍 te espero en el bar', c4: 'Dos minutos y estoy ahí 🍒',
@@ -342,7 +342,7 @@ const UI = {
     ago: 'hace 12s', add: 'Añadir', wd: ['L','M','X','J','V','S','D'], month: 'Septiembre 2026', month2: 'Agosto 2026',
     todo1: 'Cena en casa de Marco y Giulia 🍝', todo2: 'Reservar el tren a Roma 🚄', todo3: 'Comprar flores para mamá 💐',
     pairTitle: 'Pairing con tu amor', pairSub: 'Complete ambos pasos para emparejar los dispositivos',
-    s1t: 'Muestra tu código QR', s1d: 'Haz que tu amor escanee este código QR', s2t: 'Lee el código QR de tu amor', s2d: 'Escanea el código QR que te muestra tu amor', scan: 'Escanear QR', scanHint: 'Enmarca el Código QR de tu amor' },
+    s1t: 'Muestra tu código QR', s1d: 'Haz que tu amor escanee este código QR', s2t: 'Lee el código QR de tu amor', s2d: 'Escanea el código QR que te muestra tu amor', scan: 'Escanear QR', scanHint: 'Enmarca el Código QR de tu amor', done: 'Completado', okMsg: '¡Código QR de socio escaneado exitosamente!' },
   ca: { yesterday: 'Ahir', e1: 'Bon dia amor ☕ avui acabo tard', e2: 'Tranquil·la, ja faig jo el sopar 🍝', e3: 'Ets el millor ❤️', e4: 'He reservat per dissabte, et va bé?',
     today: 'Avui', tomorrow: 'Demà', typing: 'Escrivint...', hint: 'Missatge',
     c1: 'Acabo d\'acabar 💚 on ets?', c2: 'Gairebé hi soc! T\'envio la ubicació', c3: 'Et veig 😍 t\'espero al bar', c4: 'Dos minuts i hi soc 🍒',
@@ -350,7 +350,7 @@ const UI = {
     ago: 'fa 12s', add: 'Afegeix', wd: ['DL','DT','DC','DJ','DV','DS','DG'], month: 'Setembre 2026', month2: 'Agost 2026',
     todo1: 'Sopar a casa d\'en Marco i la Giulia 🍝', todo2: 'Reservar el tren a Roma 🚄', todo3: 'Comprar flors per a la mama 💐',
     pairTitle: 'Pairing amb el teu amor', pairSub: 'Completeu els dos passos per emparellar els dispositius',
-    s1t: 'Mostra el teu codi QR', s1d: 'Fes que el teu amor escanegi aquest codi QR', s2t: 'Llegeix el codi QR del teu amor', s2d: 'Escaneja el codi QR que et mostra el teu amor', scan: 'Escaneja un codi QR', scanHint: 'Emmarca el codi QR del teu amor' },
+    s1t: 'Mostra el teu codi QR', s1d: 'Fes que el teu amor escanegi aquest codi QR', s2t: 'Llegeix el codi QR del teu amor', s2d: 'Escaneja el codi QR que et mostra el teu amor', scan: 'Escaneja un codi QR', scanHint: 'Emmarca el codi QR del teu amor', done: 'Completat', okMsg: 'Codi QR del soci escanejat correctament!' },
 };
 
 // ------------------------------------------------------------------
@@ -510,16 +510,27 @@ function mediaScreen() {
     <div class="msep"><span class="ln"></span><span class="pill">${mi('flag', 14, '#fff', 'mir')}${t.month2}</span><span class="ln r"></span></div>
     <div class="pgrid">${aug.map((p, i) => tile(i + 6, p[0], p[1], p[2])).join('')}</div></div>`;
 }
-function pairingScreen() {
+function pairingScreen(done) {
+  // done: secondo passo completato, come dopo una lettura riuscita del QR
+  const step2 = done
+    ? `<div class="donepill">${mi('check_circle', 20, '#3BA8B0')}${t.done}</div>`
+    : `<div class="gbtn">${mi('qr_code_scanner', 24, '#fff')}${t.scan}</div>`;
+  const snack = done
+    ? `<div class="snack">${mi('check_circle_outline', 22, '#fff', 'mio')}<span>${t.okMsg}</span></div>`
+    : '';
   return `<div class="pair"><div class="closefab">${mi('close', 22, '#3BA8B0')}</div>
     <div class="ttl">${t.pairTitle}</div><div class="stl">${t.pairSub}</div>
     <div class="card"><div class="ct">${t.s1t}</div><div class="cd">${t.s1d}</div><div class="qrbox"><img src="img/qr-teal.svg" alt=""></div></div>
-    <div class="card"><div class="ct">${t.s2t}</div><div class="cd">${t.s2d}</div><div class="gbtn">${mi('qr_code_scanner', 24, '#fff')}${t.scan}</div></div></div>`;
+    <div class="card"><div class="ct">${t.s2t}</div><div class="cd">${t.s2d}</div>${step2}</div>${snack}</div>`;
 }
 
-function scannerScreen() {
-  return `<div class="scan"><div class="cam"></div>
-    <div class="other"><div class="sheet"><img src="img/qr-teal.svg" alt=""><b>Tuijo</b></div></div>
+function scannerScreen(state) {
+  // La fotocamera inquadra il telefono dell'altra persona: dentro c'è la
+  // schermata di pairing vera, la stessa che genera pairingScreen().
+  const other = `<div class="other"><div class="minidev"><div class="miniscreen">${appMarkup(SCREENS[5], true)}</div></div></div>`;
+  return `<div class="scan ${state}"><div class="cam"></div>
+    ${other}
+    <div class="vign"></div>
     <div class="fabs"><div class="b">${mi('close', 24, '#3BA8B0')}</div><div class="b">${mi('flash_off', 24, '#3BA8B0')}</div></div>
     <div class="hint">${t.scanHint}</div></div>`;
 }
@@ -531,8 +542,10 @@ const SCREENS = [
   { html: calendarScreen, dark: true, theme: 'paper' },
   { html: mediaScreen, dark: false, theme: 'dark' },
   { html: pairingScreen, dark: true, theme: 'paper' },
-  // 7 — solo per il sito: il telefono che inquadra il QR dell'altro
-  { html: scannerScreen, dark: true, theme: 'paper' },
+  // 7, 8, 9 — solo per il sito: i tre fotogrammi dell'abbinamento
+  { html: () => scannerScreen('search'), dark: true, theme: 'paper' },   // inquadra
+  { html: () => scannerScreen('lock'), dark: true, theme: 'paper' },     // legge
+  { html: () => pairingScreen(true), dark: true, theme: 'paper' },       // completato
 ];
 
 function appMarkup(sc, bare) {

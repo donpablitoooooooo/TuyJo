@@ -31,24 +31,24 @@ T['it'] = dict(
     note='iPhone e Android · italiano, inglese, spagnolo, catalano',
     apple_alt='Scarica su App Store', play_alt='Disponibile su Google Play',
     sections=[
-        ('Chat', 'Messaggi che restano <span class="serif-em">tra voi.</span>',
-         "Ogni messaggio viene cifrato sul tuo telefono e si riapre solo sul suo. In mezzo non passa nessuno.",
-         'La chat di Tuijo con i messaggi, la posizione condivisa e l\'indicatore "sta scrivendo".'),
-        ('Chiamate', 'Voce a voce, <span class="serif-em">e nient\'altro.</span>',
-         "L'audio viaggia peer-to-peer, direttamente da un telefono all'altro, con la schermata di chiamata nativa di iOS e Android.",
-         'La schermata di chiamata vocale di Tuijo con durata, qualità della connessione e comandi.'),
-        ('Posizione', 'Quanto manca, <span class="serif-em">momento per momento.</span>',
-         "Condividi dove sei per un'ora o per otto: una freccia, la distanza aggiornata al metro, e poi si spegne da sola.",
-         'La schermata della posizione live di Tuijo con la freccia di direzione e la distanza in metri.'),
-        ('Promemoria', 'Le cose da fare, <span class="serif-em">in due.</span>',
-         "Un impegno con data e ora compare nella chat di entrambi, e un'ora prima l'avviso arriva a tutti e due.",
+        ('Tutto il giorno', 'Il filo diretto <span class="serif-em">tra voi due.</span>',
+         "Ogni messaggio si cifra sul tuo telefono e si riapre solo sul suo. Una conversazione sola, che non finisce in mezzo ad altre venti.",
+         'La chat di Tuijo con i messaggi della giornata e le spunte di lettura.'),
+        ('La settimana', 'Le cose da fare, <span class="serif-em">le ricordate in due.</span>',
+         "La cena di venerdì, il treno da prenotare, i fiori per sua madre: un promemoria con data e ora compare nella chat di tutti e due, e un'ora prima avvisa entrambi.",
          'Il calendario condiviso di Tuijo con i promemoria del giorno selezionato.'),
-        ('Galleria', 'Tutto quello che vi siete mandati.',
-         "Foto, video, link e documenti raccolti mese per mese, senza doverli ripescare nella conversazione.",
-         'La galleria di Tuijo con le foto raccolte per mese e i filtri per link e documenti.'),
+        ('Nel tempo', 'Un anno di cose vostre, <span class="serif-em">in ordine.</span>',
+         "Le foto, i video, i link e i documenti che vi siete mandati si raccolgono mese per mese. Niente più scroll all'indietro per ritrovare quella foto di agosto.",
+         'La galleria di Tuijo con le foto raccolte per mese.'),
+        ('Quando scrivere non basta', 'Due tocchi e <span class="serif-em">vi sentite.</span>',
+         "La chiamata parte dalla chat e viaggia peer-to-peer, diretta da un telefono all'altro.",
+         'La schermata di chiamata vocale di Tuijo con durata e qualità della connessione.'),
+        ('E quando uno dei due è in giro', 'Sapere quanto manca.',
+         "Posizione live per un'ora o per otto, con la distanza al metro. Poi si spegne da sola.",
+         'La schermata della posizione live di Tuijo con la distanza in metri.'),
         ('Primo avvio', 'Si comincia con <span class="serif-em">un QR.</span>',
-         "Niente email, niente numero di telefono, niente password. Un telefono mostra il codice, l'altro lo inquadra.",
-         'La schermata di abbinamento di Tuijo con il codice QR da mostrare e il pulsante per scansionare.'),
+         "Niente email, niente numero di telefono, niente password. Un telefono mostra il codice, l'altro lo inquadra: da lì in poi esistete solo voi due.",
+         'La schermata di abbinamento di Tuijo con il codice QR.'),
     ],
     band=('Due telefoni, una conversazione.', 'Niente gruppi, niente contatti, niente feed: Tuijo si collega a una persona sola.'),
     sec_eyebrow='Sicurezza', sec_h2='Nemmeno noi possiamo leggervi.',
@@ -68,7 +68,7 @@ T['it'] = dict(
     ],
     cta='Scaricatela e abbinate i telefoni.',
     foot_privacy='Privacy', foot_support='Supporto', foot_tag='tu i jo, tu e io',
-    scene=dict(steps=('Mostra il codice', 'Inquadra', 'Abbinati'), alt_qr="Il telefono che mostra il codice QR da far inquadrare.", alt_scan="Il secondo telefono che, con la fotocamera, inquadra il QR mostrato dal primo."),
+    scene=dict(steps=('Mostra il codice', 'Inquadra', 'Abbinati'), alt_qr="Il telefono che mostra il codice QR da far inquadrare.", alt_scan="Lo scanner di Tuijo mentre inquadra il telefono dell'altra persona.", alt_lock="Il codice QR dell'altro telefono a fuoco dentro lo scanner.", alt_done="Il secondo passo dell'abbinamento completato, con la conferma dell'app."),
     hero_alt='Due telefoni affiancati: la chat di Tuijo e la schermata della posizione condivisa.',
 )
 
@@ -81,24 +81,24 @@ T['en'] = dict(
     note='iPhone and Android · English, Italian, Spanish, Catalan',
     apple_alt='Download on the App Store', play_alt='Get it on Google Play',
     sections=[
-        ('Chat', 'Messages that stay <span class="serif-em">between you.</span>',
-         "Every message is encrypted on your phone and only opens again on theirs. Nothing passes in between.",
-         'The Tuijo chat with messages, shared location and the typing indicator.'),
-        ('Calls', 'Voice to voice, <span class="serif-em">nothing else.</span>',
-         "Audio travels peer-to-peer, straight from one phone to the other, with the native call screen on iOS and Android.",
-         'The Tuijo voice call screen with duration, connection quality and controls.'),
-        ('Location', 'How far, <span class="serif-em">moment by moment.</span>',
-         "Share where you are for one hour or eight: an arrow, the distance updated to the metre, and then it switches itself off.",
-         'The Tuijo live location screen with the direction arrow and the distance in metres.'),
-        ('Reminders', 'Things to do, <span class="serif-em">for two.</span>',
-         "A reminder with date and time shows up in both chats, and an hour before, the alert reaches you both.",
+        ('All day', 'The direct line <span class="serif-em">between you two.</span>',
+         "Every message is encrypted on your phone and only opens again on theirs. One conversation, not one more lost among twenty others.",
+         'The Tuijo chat with the day\'s messages and the read receipts.'),
+        ('The week', 'The things to do, <span class="serif-em">remembered by both.</span>',
+         "Friday's dinner, the train to book, flowers for her mother: a reminder with date and time shows up in both chats, and an hour before it alerts you both.",
          'The Tuijo shared calendar with the reminders of the selected day.'),
-        ('Gallery', 'Everything you have sent each other.',
-         "Photos, videos, links and files gathered month by month, with no digging through the conversation.",
-         'The Tuijo gallery with photos gathered by month and filters for links and files.'),
+        ('Over time', 'A year of your things, <span class="serif-em">in order.</span>',
+         "The photos, videos, links and files you have sent each other are gathered month by month. No more scrolling back to find that photo from August.",
+         'The Tuijo gallery with photos gathered by month.'),
+        ('When writing is not enough', 'Two taps and <span class="serif-em">you hear each other.</span>',
+         "The call starts from the chat and travels peer-to-peer, straight from one phone to the other.",
+         'The Tuijo voice call screen with duration and connection quality.'),
+        ('And when one of you is out', 'Knowing how far away they are.',
+         "Live location for one hour or eight, with the distance to the metre. Then it switches itself off.",
+         'The Tuijo live location screen with the distance in metres.'),
         ('Getting started', 'It starts with <span class="serif-em">a QR code.</span>',
-         "No email, no phone number, no password. One phone shows the code, the other scans it.",
-         'The Tuijo pairing screen with the QR code to show and the button to scan.'),
+         "No email, no phone number, no password. One phone shows the code, the other scans it: from then on it is just the two of you.",
+         'The Tuijo pairing screen with the QR code.'),
     ],
     band=('Two phones, one conversation.', 'No groups, no contacts, no feed: Tuijo connects to a single person.'),
     sec_eyebrow='Security', sec_h2='Not even we can read you.',
@@ -118,7 +118,7 @@ T['en'] = dict(
     ],
     cta='Download it and pair your phones.',
     foot_privacy='Privacy', foot_support='Support', foot_tag='tu i jo — you and me',
-    scene=dict(steps=('Show the code', 'Scan it', 'Paired'), alt_qr="The phone showing the QR code to be scanned.", alt_scan="The second phone framing, with its camera, the QR code shown by the first one."),
+    scene=dict(steps=('Show the code', 'Scan it', 'Paired'), alt_qr="The phone showing the QR code to be scanned.", alt_scan="The Tuijo scanner framing the other person's phone.", alt_lock="The other phone's QR code in focus inside the scanner.", alt_done="The second pairing step completed, with the app's confirmation."),
     hero_alt='Two phones side by side: the Tuijo chat and the shared location screen.',
 )
 
@@ -131,24 +131,24 @@ T['es'] = dict(
     note='iPhone y Android · español, italiano, inglés, catalán',
     apple_alt='Consíguelo en el App Store', play_alt='Disponible en Google Play',
     sections=[
-        ('Chat', 'Mensajes que se quedan <span class="serif-em">entre vosotros.</span>',
-         "Cada mensaje se cifra en tu móvil y solo se vuelve a abrir en el suyo. Por el medio no pasa nadie.",
-         'El chat de Tuijo con los mensajes, la ubicación compartida y el indicador de escritura.'),
-        ('Llamadas', 'De voz a voz, <span class="serif-em">y nada más.</span>',
-         "El audio viaja peer-to-peer, directo de un móvil al otro, con la pantalla de llamada nativa de iOS y Android.",
-         'La pantalla de llamada de voz de Tuijo con duración, calidad de conexión y controles.'),
-        ('Ubicación', 'Cuánto falta, <span class="serif-em">momento a momento.</span>',
-         "Comparte dónde estás durante una hora u ocho: una flecha, la distancia al metro, y después se apaga sola.",
-         'La pantalla de ubicación en directo de Tuijo con la flecha de dirección y la distancia en metros.'),
-        ('Recordatorios', 'Las cosas por hacer, <span class="serif-em">entre dos.</span>',
-         "Un recordatorio con fecha y hora aparece en el chat de ambos, y una hora antes el aviso llega a los dos.",
+        ('Todo el día', 'El hilo directo <span class="serif-em">entre vosotros dos.</span>',
+         "Cada mensaje se cifra en tu móvil y solo se vuelve a abrir en el suyo. Una sola conversación, que no se pierde entre otras veinte.",
+         'El chat de Tuijo con los mensajes del día y los acuses de lectura.'),
+        ('La semana', 'Las cosas por hacer, <span class="serif-em">las recordáis los dos.</span>',
+         "La cena del viernes, el tren por reservar, las flores para su madre: un recordatorio con fecha y hora aparece en el chat de ambos, y una hora antes os avisa a los dos.",
          'El calendario compartido de Tuijo con los recordatorios del día seleccionado.'),
-        ('Galería', 'Todo lo que os habéis enviado.',
-         "Fotos, vídeos, enlaces y documentos reunidos mes a mes, sin rebuscar en la conversación.",
-         'La galería de Tuijo con las fotos reunidas por mes y los filtros de enlaces y documentos.'),
+        ('Con el tiempo', 'Un año de cosas vuestras, <span class="serif-em">en orden.</span>',
+         "Las fotos, los vídeos, los enlaces y los documentos que os habéis enviado se reúnen mes a mes. Se acabó rebuscar hacia atrás aquella foto de agosto.",
+         'La galería de Tuijo con las fotos reunidas por mes.'),
+        ('Cuando escribir no basta', 'Dos toques y <span class="serif-em">os oís.</span>',
+         "La llamada sale del chat y viaja peer-to-peer, directa de un móvil al otro.",
+         'La pantalla de llamada de voz de Tuijo con duración y calidad de conexión.'),
+        ('Y cuando uno de los dos está fuera', 'Saber cuánto falta.',
+         "Ubicación en directo durante una hora u ocho, con la distancia al metro. Después se apaga sola.",
+         'La pantalla de ubicación en directo de Tuijo con la distancia en metros.'),
         ('Primer inicio', 'Se empieza con <span class="serif-em">un QR.</span>',
-         "Sin correo, sin número de teléfono, sin contraseña. Un móvil muestra el código, el otro lo escanea.",
-         'La pantalla de emparejamiento de Tuijo con el código QR y el botón para escanear.'),
+         "Sin correo, sin número de teléfono, sin contraseña. Un móvil muestra el código, el otro lo escanea: a partir de ahí estáis solo vosotros dos.",
+         'La pantalla de emparejamiento de Tuijo con el código QR.'),
     ],
     band=('Dos móviles, una conversación.', 'Sin grupos, sin contactos, sin feed: Tuijo se conecta con una sola persona.'),
     sec_eyebrow='Seguridad', sec_h2='Ni siquiera nosotros podemos leeros.',
@@ -168,7 +168,7 @@ T['es'] = dict(
     ],
     cta='Descargadla y emparejad los móviles.',
     foot_privacy='Privacidad', foot_support='Soporte', foot_tag='tu i jo — tú y yo',
-    scene=dict(steps=('Muestra el código', 'Escanea', 'Emparejados'), alt_qr="El móvil que muestra el código QR para escanear.", alt_scan="El segundo móvil enfocando con la cámara el código QR que muestra el primero."),
+    scene=dict(steps=('Muestra el código', 'Escanea', 'Emparejados'), alt_qr="El móvil que muestra el código QR para escanear.", alt_scan="El escáner de Tuijo enfocando el móvil de la otra persona.", alt_lock="El código QR del otro móvil enfocado dentro del escáner.", alt_done="El segundo paso del emparejamiento completado, con la confirmación de la app."),
     hero_alt='Dos móviles uno al lado del otro: el chat de Tuijo y la pantalla de ubicación compartida.',
 )
 
@@ -181,24 +181,24 @@ T['ca'] = dict(
     note='iPhone i Android · català, italià, anglès, castellà',
     apple_alt="Baixa-la a l'App Store", play_alt='Disponible a Google Play',
     sections=[
-        ('Xat', 'Missatges que es queden <span class="serif-em">entre vosaltres.</span>',
-         "Cada missatge es xifra al teu mòbil i només es torna a obrir al seu. Pel mig no hi passa ningú.",
-         "El xat de Tuijo amb els missatges, la ubicació compartida i l'indicador d'escriptura."),
-        ('Trucades', 'De veu a veu, <span class="serif-em">i res més.</span>',
-         "L'àudio viatja peer-to-peer, directe d'un mòbil a l'altre, amb la pantalla de trucada nativa d'iOS i Android.",
-         'La pantalla de trucada de veu de Tuijo amb durada, qualitat de connexió i controls.'),
-        ('Ubicació', 'Quant falta, <span class="serif-em">moment a moment.</span>',
-         "Comparteix on ets durant una hora o vuit: una fletxa, la distància al metre, i després s'apaga sola.",
-         'La pantalla d\'ubicació en directe de Tuijo amb la fletxa de direcció i la distància en metres.'),
-        ('Recordatoris', 'Les coses per fer, <span class="serif-em">entre dos.</span>',
-         "Un recordatori amb data i hora apareix al xat de tots dos, i una hora abans l'avís arriba als dos.",
+        ('Tot el dia', 'El fil directe <span class="serif-em">entre vosaltres dos.</span>',
+         "Cada missatge es xifra al teu mòbil i només es torna a obrir al seu. Una sola conversa, que no es perd enmig d'altres vint.",
+         "El xat de Tuijo amb els missatges del dia i les confirmacions de lectura."),
+        ('La setmana', 'Les coses per fer, <span class="serif-em">les recordeu tots dos.</span>',
+         "El sopar de divendres, el tren per reservar, les flors per a la seva mare: un recordatori amb data i hora apareix al xat de tots dos, i una hora abans us avisa als dos.",
          'El calendari compartit de Tuijo amb els recordatoris del dia seleccionat.'),
-        ('Galeria', 'Tot el que us heu enviat.',
-         "Fotos, vídeos, enllaços i documents recollits mes a mes, sense haver-los de buscar dins la conversa.",
-         'La galeria de Tuijo amb les fotos recollides per mes i els filtres d\'enllaços i documents.'),
+        ('Amb el temps', 'Un any de coses vostres, <span class="serif-em">en ordre.</span>',
+         "Les fotos, els vídeos, els enllaços i els documents que us heu enviat es recullen mes a mes. S'ha acabat buscar enrere aquella foto d'agost.",
+         'La galeria de Tuijo amb les fotos recollides per mes.'),
+        ("Quan escriure no n'hi ha prou", 'Dos tocs i <span class="serif-em">us sentiu.</span>',
+         "La trucada surt del xat i viatja peer-to-peer, directa d'un mòbil a l'altre.",
+         'La pantalla de trucada de veu de Tuijo amb durada i qualitat de connexió.'),
+        ('I quan un dels dos és fora', 'Saber quant falta.',
+         "Ubicació en directe durant una hora o vuit, amb la distància al metre. Després s'apaga sola.",
+         "La pantalla d'ubicació en directe de Tuijo amb la distància en metres."),
         ('Primer inici', 'Es comença amb <span class="serif-em">un QR.</span>',
-         "Sense correu, sense número de telèfon, sense contrasenya. Un mòbil mostra el codi, l'altre l'escaneja.",
-         "La pantalla d'aparellament de Tuijo amb el codi QR i el botó per escanejar."),
+         "Sense correu, sense número de telèfon, sense contrasenya. Un mòbil mostra el codi, l'altre l'escaneja: a partir d'aquí només hi sou vosaltres dos.",
+         "La pantalla d'aparellament de Tuijo amb el codi QR."),
     ],
     band=('Dos mòbils, una conversa.', 'Sense grups, sense contactes, sense feed: Tuijo es connecta amb una sola persona.'),
     sec_eyebrow='Seguretat', sec_h2='Ni tan sols nosaltres us podem llegir.',
@@ -218,7 +218,7 @@ T['ca'] = dict(
     ],
     cta='Baixeu-la i aparelleu els mòbils.',
     foot_privacy='Privacitat', foot_support='Suport', foot_tag='tu i jo',
-    scene=dict(steps=('Mostra el codi', 'Escaneja', 'Aparellats'), alt_qr="El mòbil que mostra el codi QR per escanejar.", alt_scan="El segon mòbil enfocant amb la càmera el codi QR que mostra el primer."),
+    scene=dict(steps=('Mostra el codi', 'Escaneja', 'Aparellats'), alt_qr="El mòbil que mostra el codi QR per escanejar.", alt_scan="L'escàner de Tuijo enfocant el mòbil de l'altra persona.", alt_lock="El codi QR de l'altre mòbil enfocat dins l'escàner.", alt_done="El segon pas de l'aparellament completat, amb la confirmació de l'app."),
     hero_alt="Dos mòbils l'un al costat de l'altre: el xat de Tuijo i la pantalla d'ubicació compartida.",
 )
 
@@ -232,12 +232,12 @@ SEC_IDS = ['chat', 'sicurezza', 'faq']   # ancore uguali in tutte le lingue
 #   scene      → due telefoni che si avvicinano man mano che si scorre (sticky)
 # 'img' dice quale file usare: il telefono (0N) o il ritaglio a scheda (card-0N).
 LAYOUT = [
-    dict(cls='split',        img='phone', dark=False),
-    dict(cls='split rev',    img='phone', dark=True),
-    dict(cls='center',       img='phone', dark=False),
-    dict(cls='split',        img='phone', dark=True),
-    dict(cls='cardshot',     img='card',  dark=False),
-    dict(cls='scene',        img='scene', dark=True),
+    dict(cls='split',         shot=1, img='phone', dark=False),   # chat
+    dict(cls='split rev',     shot=4, img='phone', dark=True),    # promemoria
+    dict(cls='cardshot',      shot=5, img='card',  dark=False),   # galleria
+    dict(cls='split',         shot=2, img='phone', dark=True),    # chiamate
+    dict(cls='split rev compact', shot=3, img='phone', dark=False),  # posizione
+    dict(cls='scene',         shot=6, img='scene', dark=True),    # abbinamento
 ]
 
 
@@ -271,9 +271,15 @@ def build(code):
         lay = LAYOUT[i - 1]
         if lay['img'] == 'scene':
             sn = t['scene']
-            qw, qh = png_size(os.path.join(OUT, 'assets', 'shots', code, f'{i:02d}-{code}.png'))
-            sw, sh = png_size(os.path.join(OUT, 'assets', 'shots', code, f'07-{code}.png'))
+            qw, qh = png_size(os.path.join(OUT, 'assets', 'shots', code, f"{lay['shot']:02d}-{code}.png"))
+            fw, fh = png_size(os.path.join(OUT, 'assets', 'shots', code, f'07-{code}.png'))
             steps = ''.join(f'<li>{x}</li>' for x in sn['steps'])
+            # I tre fotogrammi sono schermate vere dell'app: lo scanner che cerca,
+            # lo scanner che ha inquadrato, e il passo completato con la conferma.
+            frames = ''.join(
+                f'''
+            <img class="fr fr{n}" src="assets/shots/{code}/{f:02d}-{code}.png" width="{fw}" height="{fh}" loading="lazy" alt="{a}">'''
+                for n, (f, a) in enumerate([(7, sn['alt_scan']), (8, sn['alt_lock']), (9, sn['alt_done'])], start=1))
             stages.append(f'''
 <section class="stage dark scene" data-scene data-step="2">
   <div class="scene-track">
@@ -286,8 +292,9 @@ def build(code):
           <ol class="scene-steps">{steps}</ol>
         </div>
         <div class="scene-stage">
-          <img class="ph ph-qr" src="assets/shots/{code}/{i:02d}-{code}.png" width="{qw}" height="{qh}" loading="lazy" alt="{sn['alt_qr']}">
-          <img class="ph ph-scan" src="assets/shots/{code}/07-{code}.png" width="{sw}" height="{sh}" loading="lazy" alt="{sn['alt_scan']}">
+          <img class="ph ph-qr" src="assets/shots/{code}/{lay['shot']:02d}-{code}.png" width="{qw}" height="{qh}" loading="lazy" alt="{sn['alt_qr']}">
+          <span class="ph ph-scan">{frames}
+          </span>
           <span class="scene-glow"></span>
         </div>
       </div>
@@ -296,7 +303,7 @@ def build(code):
 </section>''')
             continue
         card = lay['img'] == 'card'
-        name = f"{'card-' if card else ''}{i:02d}-{code}.png"
+        name = f"{'card-' if card else ''}{lay['shot']:02d}-{code}.png"
         w, h = png_size(os.path.join(OUT, 'assets', 'shots', code, name))
         stages.append(f'''
 <section class="stage {lay['cls']}{' dark' if lay['dark'] else ''}"{' id="chat"' if i == 1 else ''}>

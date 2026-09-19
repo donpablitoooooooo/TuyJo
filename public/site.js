@@ -65,7 +65,7 @@
         var run = r.height - window.innerHeight;
         var p = run > 0 ? Math.min(1, Math.max(0, -r.top / run)) : 1;
         sc.style.setProperty("--p", p.toFixed(3));
-        sc.setAttribute("data-step", p < 0.38 ? "0" : p < 0.72 ? "1" : "2");
+        sc.setAttribute("data-step", p < 0.35 ? "0" : p < 0.74 ? "1" : "2");
       });
     };
     var scenePending = false;
