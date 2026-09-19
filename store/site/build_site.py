@@ -31,9 +31,6 @@ T['it'] = dict(
     note='iPhone e Android · italiano, inglese, spagnolo, catalano',
     apple_alt='Scarica su App Store', play_alt='Disponibile su Google Play',
     sections=[
-        ('Tutto il giorno', 'Il filo diretto <span class="serif-em">tra voi due.</span>',
-         "Ogni messaggio si cifra sul tuo telefono e si riapre solo sul suo. Una conversazione sola, che non finisce in mezzo ad altre venti.",
-         'La chat di Tuijo con i messaggi della giornata e le spunte di lettura.'),
         ('La settimana', 'Le cose da fare, <span class="serif-em">le ricordate in due.</span>',
          "La cena di venerdì, il treno da prenotare, i fiori per sua madre: un promemoria con data e ora compare nella chat di tutti e due, e un'ora prima avvisa entrambi.",
          'Il calendario condiviso di Tuijo con i promemoria del giorno selezionato.'),
@@ -66,7 +63,7 @@ T['it'] = dict(
     ],
     cta='Scaricatela e abbinate i telefoni.',
     foot_privacy='Privacy', foot_support='Supporto', foot_tag='tu i jo, tu e io',
-    reels={2: ["La galleria di Tuijo con le foto raccolte per mese.", "La scheda dei link salvati nella chat, con titolo e dominio.", "La scheda dei documenti condivisi, con peso e data."], 3: ["La chat di Tuijo con la cornetta accanto al menù.", "Il dito che tocca la cornetta dentro la chat.", "La schermata di chiamata vocale di Tuijo."]},
+    reels={1: ["La galleria di Tuijo con le foto raccolte per mese.", "La scheda dei link salvati nella chat, con titolo e dominio.", "La scheda dei documenti condivisi, con peso e data."], 2: ["La chat di Tuijo con la cornetta accanto al menù.", "Il dito che tocca la cornetta dentro la chat.", "La schermata di chiamata vocale di Tuijo."]},
     scene=dict(steps=('Uno inquadra', "L'altro inquadra", 'Siete in chat'), alt_qr="Il telefono che mostra il proprio codice QR.", alt_scan="Lo scanner di Tuijo mentre inquadra il telefono dell'altra persona.", alt_lock="Il codice QR dell'altro telefono a fuoco dentro lo scanner.", alt_done="Il passo completato, con la conferma dell'app.", alt_chat="La chat aperta sul primo telefono, ad abbinamento fatto.", alt_chat2="La stessa chat vista dal secondo telefono, con il messaggio che l'altra persona sta scrivendo."),
     hero_alt='Due telefoni affiancati: la chat di Tuijo e il calendario dei promemoria condivisi.',
 )
@@ -80,9 +77,6 @@ T['en'] = dict(
     note='iPhone and Android · English, Italian, Spanish, Catalan',
     apple_alt='Download on the App Store', play_alt='Get it on Google Play',
     sections=[
-        ('All day', 'The direct line <span class="serif-em">between you two.</span>',
-         "Every message is encrypted on your phone and only opens again on theirs. One conversation, not one more lost among twenty others.",
-         'The Tuijo chat with the day\'s messages and the read receipts.'),
         ('The week', 'The things to do, <span class="serif-em">remembered by both.</span>',
          "Friday's dinner, the train to book, flowers for her mother: a reminder with date and time shows up in both chats, and an hour before it alerts you both.",
          'The Tuijo shared calendar with the reminders of the selected day.'),
@@ -115,7 +109,7 @@ T['en'] = dict(
     ],
     cta='Download it and pair your phones.',
     foot_privacy='Privacy', foot_support='Support', foot_tag='tu i jo — you and me',
-    reels={2: ["The Tuijo gallery with photos gathered by month.", "The tab with the links saved in the chat, with title and domain.", "The tab with the shared documents, with size and date."], 3: ["The Tuijo chat with the handset button next to the menu.", "A finger tapping the handset inside the chat.", "The Tuijo voice call screen."]},
+    reels={1: ["The Tuijo gallery with photos gathered by month.", "The tab with the links saved in the chat, with title and domain.", "The tab with the shared documents, with size and date."], 2: ["The Tuijo chat with the handset button next to the menu.", "A finger tapping the handset inside the chat.", "The Tuijo voice call screen."]},
     scene=dict(steps=('One scans', 'The other scans', 'You are in the chat'), alt_qr="The phone showing its own QR code.", alt_scan="The Tuijo scanner framing the other person's phone.", alt_lock="The other phone's QR code in focus inside the scanner.", alt_done="The step completed, with the app's confirmation.", alt_chat="The chat open on the first phone, once paired.", alt_chat2="The same chat seen from the second phone, with the message the other person is typing."),
     hero_alt='Two phones side by side: the Tuijo chat and the shared reminders calendar.',
 )
@@ -129,9 +123,6 @@ T['es'] = dict(
     note='iPhone y Android · español, italiano, inglés, catalán',
     apple_alt='Consíguelo en el App Store', play_alt='Disponible en Google Play',
     sections=[
-        ('Todo el día', 'El hilo directo <span class="serif-em">entre vosotros dos.</span>',
-         "Cada mensaje se cifra en tu móvil y solo se vuelve a abrir en el suyo. Una sola conversación, que no se pierde entre otras veinte.",
-         'El chat de Tuijo con los mensajes del día y los acuses de lectura.'),
         ('La semana', 'Las cosas por hacer, <span class="serif-em">las recordáis los dos.</span>',
          "La cena del viernes, el tren por reservar, las flores para su madre: un recordatorio con fecha y hora aparece en el chat de ambos, y una hora antes os avisa a los dos.",
          'El calendario compartido de Tuijo con los recordatorios del día seleccionado.'),
@@ -164,7 +155,7 @@ T['es'] = dict(
     ],
     cta='Descargadla y emparejad los móviles.',
     foot_privacy='Privacidad', foot_support='Soporte', foot_tag='tu i jo — tú y yo',
-    reels={2: ["La galería de Tuijo con las fotos reunidas por mes.", "La pestaña de los enlaces guardados en el chat, con título y dominio.", "La pestaña de los documentos compartidos, con peso y fecha."], 3: ["El chat de Tuijo con el botón de llamada junto al menú.", "Un dedo tocando el botón de llamada dentro del chat.", "La pantalla de llamada de voz de Tuijo."]},
+    reels={1: ["La galería de Tuijo con las fotos reunidas por mes.", "La pestaña de los enlaces guardados en el chat, con título y dominio.", "La pestaña de los documentos compartidos, con peso y fecha."], 2: ["El chat de Tuijo con el botón de llamada junto al menú.", "Un dedo tocando el botón de llamada dentro del chat.", "La pantalla de llamada de voz de Tuijo."]},
     scene=dict(steps=('Uno escanea', 'El otro escanea', 'Estáis en el chat'), alt_qr="El móvil que muestra su propio código QR.", alt_scan="El escáner de Tuijo enfocando el móvil de la otra persona.", alt_lock="El código QR del otro móvil enfocado dentro del escáner.", alt_done="El paso completado, con la confirmación de la app.", alt_chat="El chat abierto en el primer móvil, una vez emparejados.", alt_chat2="El mismo chat visto desde el segundo móvil, con el mensaje que la otra persona está escribiendo."),
     hero_alt='Dos móviles uno al lado del otro: el chat de Tuijo y el calendario de recordatorios compartidos.',
 )
@@ -178,9 +169,6 @@ T['ca'] = dict(
     note='iPhone i Android · català, italià, anglès, castellà',
     apple_alt="Baixa-la a l'App Store", play_alt='Disponible a Google Play',
     sections=[
-        ('Tot el dia', 'El fil directe <span class="serif-em">entre vosaltres dos.</span>',
-         "Cada missatge es xifra al teu mòbil i només es torna a obrir al seu. Una sola conversa, que no es perd enmig d'altres vint.",
-         "El xat de Tuijo amb els missatges del dia i les confirmacions de lectura."),
         ('La setmana', 'Les coses per fer, <span class="serif-em">les recordeu tots dos.</span>',
          "El sopar de divendres, el tren per reservar, les flors per a la seva mare: un recordatori amb data i hora apareix al xat de tots dos, i una hora abans us avisa als dos.",
          'El calendari compartit de Tuijo amb els recordatoris del dia seleccionat.'),
@@ -213,7 +201,7 @@ T['ca'] = dict(
     ],
     cta='Baixeu-la i aparelleu els mòbils.',
     foot_privacy='Privacitat', foot_support='Suport', foot_tag='tu i jo',
-    reels={2: ["La galeria de Tuijo amb les fotos recollides per mes.", "La pestanya dels enllaços desats al xat, amb títol i domini.", "La pestanya dels documents compartits, amb pes i data."], 3: ["El xat de Tuijo amb el botó de trucada al costat del menú.", "Un dit tocant el botó de trucada dins el xat.", "La pantalla de trucada de veu de Tuijo."]},
+    reels={1: ["La galeria de Tuijo amb les fotos recollides per mes.", "La pestanya dels enllaços desats al xat, amb títol i domini.", "La pestanya dels documents compartits, amb pes i data."], 2: ["El xat de Tuijo amb el botó de trucada al costat del menú.", "Un dit tocant el botó de trucada dins el xat.", "La pantalla de trucada de veu de Tuijo."]},
     scene=dict(steps=('Un escaneja', "L'altre escaneja", 'Sou al xat'), alt_qr="El mòbil que mostra el seu propi codi QR.", alt_scan="L'escàner de Tuijo enfocant el mòbil de l'altra persona.", alt_lock="El codi QR de l'altre mòbil enfocat dins l'escàner.", alt_done="El pas completat, amb la confirmació de l'app.", alt_chat="El xat obert al primer mòbil, un cop aparellats.", alt_chat2="El mateix xat vist des del segon mòbil, amb el missatge que l'altra persona està escrivint."),
     hero_alt="Dos mòbils l'un al costat de l'altre: el xat de Tuijo i el calendari de recordatoris compartits.",
 )
@@ -224,19 +212,18 @@ SEC_IDS = ['chat', 'sicurezza', 'faq']   # ancore uguali in tutte le lingue
 #   split      → testo a sinistra, immagine a destra
 #   split rev  → immagine a sinistra, testo a destra
 #   center     → immagine grande centrata, poggiata sul bordo inferiore
-#   cardshot   → ritaglio largo dell'interfaccia, centrato sotto al testo
+#   full       → telefono intero, centrato sotto al testo, senza tagli
 #   reel       → più schermate che si alternano da sole quando la sezione è in vista
 #   scene      → i due telefoni che si abbinano mentre si scorre (sticky)
 # 'sec' è l'indice nel blocco dei testi: l'ordine visivo si cambia qui, non lì.
 # 'img' dice quale file usare: il telefono (0N) o il ritaglio a scheda (card-0N).
 LAYOUT = [
-    dict(sec=4, cls='scene',     shot=6, img='scene', dark=True),                     # abbinamento
-    dict(sec=0, cls='split',     shot=1, img='phone', dark=False),                    # chat
-    dict(sec=1, cls='split rev', shot=4, img='phone', dark=True),                     # promemoria
-    dict(sec=2, cls='cardshot',  img='reel', card=True, shots=[(5, 2600), (11, 2600), (12, 2600)],
-         dark=False),                                                                 # galleria: foto, link, documenti
-    dict(sec=3, cls='split',     img='reel', shots=[(1, 1700), (13, 700), (2, 2600)],
-         dark=True),                                                                  # chiamate: chat, tocco, chiamata
+    dict(sec=3, cls='scene',     shot=6, img='scene', dark=True),                     # abbinamento
+    dict(sec=0, cls='split',     shot=4, img='phone', dark=False),                    # promemoria
+    dict(sec=1, cls='full',      img='reel', shots=[(5, 2600), (11, 2600), (12, 2600)],
+         dark=True),                                                                  # galleria: foto, link, documenti
+    dict(sec=2, cls='split rev', img='reel', shots=[(1, 1700), (13, 700), (2, 2600)],
+         dark=False),                                                                 # chiamate: chat, tocco, chiamata
 ]
 
 
@@ -321,8 +308,6 @@ def build(code):
           <ol class="scene-steps">{steps}</ol>
         </div>
         <div class="scene-stage">
-          <span class="beam beam-1" style="--in:.04;--out:.36"></span>
-          <span class="beam beam-2" style="--in:.44;--out:.74"></span>
           <span class="ph ph-l">{frames(LEFT)}
             <span class="flash" style="--in:.18;--out:.34"></span>
           </span>
@@ -364,7 +349,7 @@ def build(code):
         name = f"{'card-' if card else ''}{lay['shot']:02d}-{code}.webp"
         w, h = img_size(os.path.join(OUT, 'assets', 'shots', code, name))
         stages.append(f'''
-<section class="stage {lay['cls']}{' dark' if lay['dark'] else ''}"{' id="chat"' if i == 1 else ''}>
+<section class="stage {lay['cls']}{' dark' if lay['dark'] else ''}"{' id="funzioni"' if i == 2 else ''}>
   <div class="wrap">
     <div class="copy">
       <span class="eyebrow reveal">{eyebrow}</span>
@@ -422,7 +407,7 @@ def build(code):
   <div class="wrap nav-inner">
     <a class="brand" href="#top"><img src="assets/cherries.png" alt=""><span>Tuijo</span></a>
     <div class="nav-links">
-      <a href="#chat">{t['nav'][0]}</a>
+      <a href="#funzioni">{t['nav'][0]}</a>
       <a href="#sicurezza">{t['nav'][1]}</a>
       <a href="#faq">{t['nav'][2]}</a>
     </div>
@@ -479,7 +464,7 @@ def build(code):
 <footer class="foot">
   <div class="wrap">
     <div class="foot-nav">
-      <a href="#chat">{t['nav'][0]}</a>
+      <a href="#funzioni">{t['nav'][0]}</a>
       <a href="#sicurezza">{t['nav'][1]}</a>
       <a href="#faq">{t['nav'][2]}</a>
       <a href="{s['privacy']}">{t['foot_privacy']}</a>

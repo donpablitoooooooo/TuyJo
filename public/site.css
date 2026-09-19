@@ -149,12 +149,11 @@ h2 {
 .reel .fr.on { opacity: 1; }
 .reel .fr + .fr { position: absolute; left: 0; top: 0; }
 
-/* -- card: un ritaglio largo dell'interfaccia, forma diversa dai telefoni -- */
-.stage.cardshot { text-align: center; }
-.stage.cardshot .lead { margin: 20px auto 0; }
-.stage.cardshot .shot { margin: clamp(38px, 5vw, 62px) auto 0; width: min(660px, 100%); }
-.stage.cardshot .shot img { border-radius: 16px; }
-.stage.cardshot .reel .fr { border-radius: 16px; }
+/* -- full: il telefono intero, centrato sotto al testo. A differenza di
+      .center non poggia sul bordo: la schermata si deve vedere tutta. -- */
+.stage.full { text-align: center; }
+.stage.full .lead { margin: 20px auto 0; }
+.stage.full .shot { margin: clamp(34px, 5vw, 58px) auto 0; width: min(330px, 68vw); }
 
 /* ---------------- Scena dell'abbinamento ----------------
    Tre battute guidate dallo scorrimento: il telefono di destra inquadra il
@@ -175,24 +174,30 @@ h2 {
    profondità — si scambiano; alla fine tornano paralleli, in piano.
    --b1, --b2, --b3 dicono quanto pesa ciascuna delle tre battute. */
 .scene-stage { position: relative; aspect-ratio: 1 / 1.02;
-  perspective: 1500px; perspective-origin: 50% 44%; transform-style: preserve-3d;
+  perspective: 1250px; perspective-origin: 50% 46%; transform-style: preserve-3d;
   --b1: clamp(0, (.42 - var(--p)) * 8, 1);
   --b3: clamp(0, (var(--p) - .74) * 8, 1);
   --b2: calc(1 - var(--b1) - var(--b3)); }
 
 .scene .ph { position: absolute; top: 4%; width: 44%; transform-style: preserve-3d; }
+/* Chi inquadra: davanti, più in basso (è alzato verso l'altro), e girato forte
+   su rotateY — così si vede di sbieco e il dorso, dove sta la fotocamera, punta
+   verso l'altro telefono. Un filo di rotateX lo fa sembrare tenuto in mano.
+   Chi è inquadrato: indietro, più in alto, girato a offrire lo schermo. */
 .scene .ph-l { left: 0;
-  transform: translateX(calc(var(--b1) * 3% + var(--b2) * 8%))
-             translateY(calc(var(--b1) * -5% + var(--b2) * 7%))
-             translateZ(calc(var(--b1) * -230px + var(--b2) * 215px))
-             rotateY(calc(var(--b1) * 15deg + var(--b2) * -19deg))
-             rotateZ(calc(var(--b1) * -2deg + var(--b2) * 3deg)); }
+  transform: translateX(calc(var(--b1) * 4% + var(--b2) * 13%))
+             translateY(calc(var(--b1) * -7% + var(--b2) * 10%))
+             translateZ(calc(var(--b1) * -300px + var(--b2) * 260px))
+             rotateY(calc(var(--b1) * 24deg + var(--b2) * -34deg))
+             rotateX(calc(var(--b2) * -5deg))
+             rotateZ(calc(var(--b1) * -2deg + var(--b2) * 4deg)); }
 .scene .ph-r { right: 0;
-  transform: translateX(calc(var(--b1) * -8% + var(--b2) * -3%))
-             translateY(calc(var(--b1) * 7% + var(--b2) * -5%))
-             translateZ(calc(var(--b1) * 215px + var(--b2) * -230px))
-             rotateY(calc(var(--b1) * 19deg + var(--b2) * -15deg))
-             rotateZ(calc(var(--b1) * 3deg + var(--b2) * -2deg)); }
+  transform: translateX(calc(var(--b1) * -13% + var(--b2) * -4%))
+             translateY(calc(var(--b1) * 10% + var(--b2) * -7%))
+             translateZ(calc(var(--b1) * 260px + var(--b2) * -300px))
+             rotateY(calc(var(--b1) * 34deg + var(--b2) * -24deg))
+             rotateX(calc(var(--b1) * -5deg))
+             rotateZ(calc(var(--b1) * -4deg + var(--b2) * 2deg)); }
 
 .scene .fr { display: block; width: 100%; filter: drop-shadow(0 26px 34px rgba(0,0,0,.55));
   opacity: clamp(0, min((var(--p) - var(--in)) * 16, (var(--out) - var(--p)) * 16), 1); }
@@ -203,16 +208,6 @@ h2 {
   border-radius: 50%; pointer-events: none; mix-blend-mode: screen;
   background: radial-gradient(closest-side, rgba(170,255,246,.9), rgba(124,224,215,.3) 55%, transparent 78%);
   opacity: clamp(0, min((var(--p) - var(--in)) * 9, (var(--out) - var(--p)) * 9), 1); }
-
-/* il cono di scansione: stretto dal lato della fotocamera, largo sul bersaglio.
-   Sta a profondità zero, quindi passa davanti al telefono dietro e dietro a
-   quello davanti — come farebbe nello spazio vero. */
-.scene .beam { position: absolute; top: 26%; left: 24%; width: 52%; height: 34%;
-  pointer-events: none; filter: blur(8px);
-  background: linear-gradient(to left, rgba(140,235,226,.34), rgba(140,235,226,.03) 88%);
-  clip-path: polygon(100% 40%, 0 10%, 0 90%, 100% 60%);
-  opacity: clamp(0, min((var(--p) - var(--in)) * 7, (var(--out) - var(--p)) * 7), 1); }
-.scene .beam-2 { transform: scaleX(-1); }
 
 /* a cose fatte, il filo fra i due telefoni */
 .scene-link { position: absolute; left: 47%; right: 47%; top: 52%; height: 2px; transform: translateY(-50%);
