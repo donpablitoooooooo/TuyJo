@@ -5,8 +5,6 @@ import 'package:flutter/foundation.dart';
 import 'package:private_messaging/generated/l10n/app_localizations.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:geolocator/geolocator.dart';
-import 'package:geolocator_android/geolocator_android.dart';
-import 'package:geolocator_apple/geolocator_apple.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:crypto/crypto.dart';
