@@ -484,6 +484,9 @@ exports.sendCallNotification = functions
             ios: {
               iconName: 'AppIcon',
               handleType: 'generic',
+              // Handle in chiaro ('TuyJo'): senza, il plugin mette nel
+              // registro chiamate iOS un blob con familyChatId/callerId.
+              normalHandle: 1,
               supportsVideo: false,
               maximumCallGroups: 1,
               maximumCallsPerCallGroup: 1,
