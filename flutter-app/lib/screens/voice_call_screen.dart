@@ -49,6 +49,8 @@ class _VoiceCallScreenState extends State<VoiceCallScreen>
   bool _p2pDialogShown = false;
   bool _p2pDialogOpen = false;
   bool _ending = false;
+  /// true quando la chiamata di sistema (CallKit / Telecom) è stata chiusa.
+  bool _callKitClosed = false;
   Timer? _callTimer;
   Timer? _ringingTimeoutTimer;
   int _callDurationSeconds = 0;
@@ -103,6 +105,10 @@ class _VoiceCallScreenState extends State<VoiceCallScreen>
     _pulseController.dispose();
     _notificationService.onNativeCallEnded = null;
     _notificationService.callScreenActive = false;
+    // Rete di sicurezza: schermata chiusa senza passare da _endCall →
+    // chiudi comunque la chiamata di sistema. (Se _endCall è in corso ci
+    // pensa lui: il dispose di WebRTC ha un timeout.)
+    if (!_ending && !_callKitClosed) _notificationService.endCallKit();
     _setProximity(false);
     // Chiudi WebRTC (stream audio + peer connection)
     _webrtcService.dispose();
@@ -297,17 +303,26 @@ class _VoiceCallScreenState extends State<VoiceCallScreen>
     _pulseController.stop();
     _setProximity(false);
 
-    if (localHangup) {
-      // 1. "bye" P2P istantaneo, 2. stato su Firestore (fallback + cancel push)
-      await _webrtcService.sendBye();
-      await _writeEnded();
+    try {
+      if (localHangup) {
+        // 1. "bye" P2P istantaneo, 2. stato su Firestore (fallback + cancel push)
+        await _webrtcService.sendBye();
+        await _writeEnded();
+      }
+      // Chiudi WebRTC (così l'audio si ferma). Timeout: se lo smontaggio si
+      // blocca non deve impedire la chiusura di CallKit qui sotto.
+      await _webrtcService.dispose().timeout(const Duration(seconds: 3));
+    } catch (e) {
+      if (kDebugMode) print('⚠️ [VOICE_CALL] Error while ending call: $e');
     }
-    // Chiudi WebRTC (così l'audio si ferma)
-    await _webrtcService.dispose();
-    // Poi termina CallKit (ora è safe disattivare la sessione audio)
+    // Poi termina CallKit (ora è safe disattivare la sessione audio).
+    // Va fatto SEMPRE: se resta aperta, su Android rimangono la notifica
+    // "chiamata in corso" e la connessione Telecom che blocca le chiamate
+    // di altre app finché non si preme "Riaggancia".
     if (!fromNative) {
       await _notificationService.endCallKit();
     }
+    _callKitClosed = true;
     // Se il pop-up "non disponibile in P2P" è aperto, non chiudere la
     // schermata adesso: il pop() chiuderebbe il dialog e non lo schermo.
     // Sarà il dialog, alla chiusura, a far uscire dalla chiamata.

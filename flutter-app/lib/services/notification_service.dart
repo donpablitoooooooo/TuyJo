@@ -88,6 +88,12 @@ Future<void> _dismissRingingCallKit() async {
 const IOSParams _callKitIosParams = IOSParams(
   iconName: 'AppIcon',
   handleType: 'generic',
+  // Senza normalHandle il plugin scrive come handle CallKit un blob
+  // (AES con chiave fissa nel plugin + base64) con nameCaller e gli extra
+  // (familyChatId, callerId, callId): finirebbe nel registro chiamate iOS
+  // come "Profilo social" e verrebbe sincronizzato su iCloud. Con
+  // normalHandle = 1 l'handle resta il semplice 'TuyJo'.
+  normalHandle: 1,
   supportsVideo: false,
   maximumCallGroups: 1,
   maximumCallsPerCallGroup: 1,
@@ -826,17 +832,26 @@ class NotificationService {
   }
 
   /// Termina la chiamata CallKit attiva
+  ///
+  /// Su Android `endCall(id)` agisce solo se l'id è ancora nella lista
+  /// ACTIVE_CALLS del plugin: se non lo trova non fa nulla e restano su la
+  /// notifica "chiamata in corso", il foreground service microfono e la
+  /// connessione Telecom (che impedisce ad altre app, es. WhatsApp, di
+  /// avviare chiamate). Per questo chiudiamo anche tutte le entry rimaste.
   Future<void> endCallKit() async {
+    final uuid = _activeCallUuid;
+    _activeCallUuid = null;
     try {
-      if (_activeCallUuid != null) {
-        await FlutterCallkitIncoming.endCall(_activeCallUuid!);
-        _activeCallUuid = null;
-      } else {
-        await FlutterCallkitIncoming.endAllCalls();
+      if (uuid != null) {
+        await FlutterCallkitIncoming.endCall(uuid);
       }
     } catch (e) {
       if (kDebugMode) print('⚠️ [CALLKIT] Error ending call: $e');
-      _activeCallUuid = null;
+    }
+    try {
+      await FlutterCallkitIncoming.endAllCalls();
+    } catch (e) {
+      if (kDebugMode) print('⚠️ [CALLKIT] Error ending all calls: $e');
     }
   }
 
