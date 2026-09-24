@@ -2,6 +2,17 @@
 
 Tutte le modifiche notevoli a questo progetto saranno documentate in questo file.
 
+## [1.37.0] (build 48) - 2026-09-24
+
+Build di test interno sopra la 1.37.0+47.
+
+### 📞 Chiamate
+- **Android: a fine chiamata restava la notifica "chiamata in corso"** (su alcuni Samsung), con la connessione di sistema ancora aperta: il telefono risultava in chiamata e ad esempio le videochiamate WhatsApp non partivano finché non si premeva "Riaggancia". Ora la chiamata di sistema viene chiusa sempre, anche se la chiusura di WebRTC fallisce o si blocca, e vengono chiuse anche le entry rimaste nella lista del plugin.
+- **iOS: nel registro chiamate, sotto "Profilo social", compariva una lunga stringa.** Era l'handle che il plugin CallKit genera cifrando nome e ID della chiamata (familyChatId, callerId, callId). Nessuna chiave crittografica, ma metadati che non devono finire nel registro (sincronizzato su iCloud). Ora l'handle è semplicemente "TuyJo" (anche nel push VoIP della Cloud Function).
+
+### 🛠 Build
+- Flutter 3.47.4, Android Gradle Plugin 9.1.0, Gradle 9.3.1, Kotlin 2.4.0; aggiornate le dipendenze (Firebase, file_picker 13, share_plus 13, package_info_plus 10) e le Cloud Functions (firebase-functions 7, firebase-admin 14).
+
 ## [1.37.0] - 2026-09-14
 
 Sostituisce la 1.36.0 (build 45, caricata solo in test interno / TestFlight e mai pubblicata).

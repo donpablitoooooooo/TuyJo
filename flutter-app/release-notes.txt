@@ -11,6 +11,8 @@ NOVITÀ:
 📍 Pulsante per interrompere la condivisione direttamente dalla schermata di navigazione
 
 CORREZIONI:
+📞 Android: la notifica "chiamata in corso" non resta più aperta dopo aver riagganciato (bloccava le chiamate di altre app)
+📞 iPhone: nel registro chiamate compare "TuyJo" invece di una lunga stringa di caratteri
 🔐 Dopo una reinstallazione i vecchi messaggi non vanno più persi e i due telefoni non si spaiano più da soli
 🔴 Il pallino sull'icona mostra il numero reale di messaggi non letti e sparisce quando li leggi
 ✅ I messaggi non risultano più letti mentre l'app è in background
