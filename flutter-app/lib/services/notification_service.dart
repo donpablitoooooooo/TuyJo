@@ -321,6 +321,10 @@ class NotificationService {
   /// UUID della chiamata CallKit attiva (per poterla terminare)
   String? _activeCallUuid;
 
+  /// Chiamate CallKit già terminate: un accept che arriva in ritardo per una
+  /// di queste non deve far partire una nuova chiamata (senza più l'offer).
+  final Set<String> _endedCallUuids = <String>{};
+
   /// Salvati per poter ri-salvare il token su onTokenRefresh
   String? _savedFamilyChatId;
   String? _savedUserId;
@@ -610,6 +614,10 @@ class NotificationService {
         case CallEventActionCallAccept(:final callKitParams):
           if (kDebugMode) print('📞 [CALLKIT] Call accepted (${callKitParams.id})');
           _ringingWatcher?.cancel();
+          if (_endedCallUuids.contains(callKitParams.id)) {
+            if (kDebugMode) print('📞 [CALLKIT] Late accept for an ended call → ignored');
+            break;
+          }
           if (callKitParams.id == _activeCallUuid) {
             // Il plugin può emettere l'accept due volte per la stessa
             // chiamata (in particolare con app in primo piano): ignora.
@@ -636,6 +644,7 @@ class NotificationService {
           break;
 
         case CallEventActionCallEnded(:final callKitParams):
+          _endedCallUuids.add(callKitParams.id);
           if (kDebugMode) print('📞 [CALLKIT] Call ended (${callKitParams.id}, active: $_activeCallUuid)');
           _ringingWatcher?.cancel();
           if (_activeCallUuid != null && callKitParams.id != _activeCallUuid) {

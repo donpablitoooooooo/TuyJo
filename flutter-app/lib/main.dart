@@ -101,17 +101,19 @@ void main() async {
     // il chiamante continuerebbe a squillare. Serve il permesso microfono già
     // concesso: altrimenti la spiegazione va mostrata dalla schermata, che
     // avvia lei la chiamata (come prima).
-    if (CallController.active == null && await Permission.microphone.isGranted) {
-      final controller = CallController.create(
+    CallController? controller = CallController.active;
+    if (controller == null && await Permission.microphone.isGranted) {
+      controller = CallController.create(
         isOutgoing: false,
         encryption: encryptionService,
         pairing: pairingService,
         notifications: notificationService,
         familyChatIdHint: familyChatId,
       );
-      controller.start().then((result) {
+      final started = controller;
+      started.start().then((result) {
         if (result == CallStartResult.micUnavailable) {
-          controller.endCall(localHangup: true);
+          started.endCall(localHangup: true);
         }
       });
     }
@@ -123,16 +125,19 @@ void main() async {
     // senza, per qualche secondo come prima.
     Future<void> openWhenReady([int attempt = 0]) async {
       if (VoiceCallScreen.isActive) return; // già aperta (evento + activeCalls)
+      // Chiamata già finita mentre l'app era in background: niente schermata
+      // (altrimenti ne partirebbe un'altra, senza più l'offer).
+      if (controller != null && controller.isFinished) return;
       final navigatorState = NotificationService.navigatorKey.currentState;
       if (navigatorState != null) {
         navigatorState.push(
           MaterialPageRoute(
-            builder: (context) => const VoiceCallScreen(isOutgoing: false),
+            builder: (context) => VoiceCallScreen(isOutgoing: false, controller: controller),
           ),
         );
         return;
       }
-      final callRunning = CallController.active != null;
+      final callRunning = controller != null && !controller.isFinished;
       if (callRunning || attempt < 20) {
         await Future.delayed(const Duration(milliseconds: 250));
         return openWhenReady(attempt + 1);

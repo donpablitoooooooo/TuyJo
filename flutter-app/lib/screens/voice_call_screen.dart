@@ -19,9 +19,15 @@ class VoiceCallScreen extends StatefulWidget {
   /// Se false, è una chiamata in entrata già accettata dalla UI nativa CallKit
   final bool isOutgoing;
 
+  /// Chiamata già avviata da mostrare (accettata da CallKit, anche con l'app
+  /// in background). Se è già terminata la schermata si chiude subito, senza
+  /// avviarne un'altra.
+  final CallController? controller;
+
   const VoiceCallScreen({
     Key? key,
     this.isOutgoing = true,
+    this.controller,
   }) : super(key: key);
 
   /// True mentre una VoiceCallScreen è montata: evita doppie aperture
@@ -70,9 +76,10 @@ class _VoiceCallScreenState extends State<VoiceCallScreen>
       CurvedAnimation(parent: _pulseController, curve: Curves.easeInOut),
     );
 
-    final existing = CallController.active;
+    final existing = widget.controller ?? CallController.active;
     if (existing != null) {
-      // Chiamata già avviata (accettata da CallKit, anche a schermo bloccato)
+      // Chiamata già avviata (accettata da CallKit, anche a schermo bloccato).
+      // Se nel frattempo è finita, _attach chiude la schermata.
       _attach(existing);
     } else {
       _startNewCall();
