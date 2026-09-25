@@ -2,7 +2,7 @@
 
 Tutte le modifiche notevoli a questo progetto saranno documentate in questo file.
 
-## [1.37.0] (build 50) - 2026-09-25
+## [1.38.0] (build 50) - 2026-09-25
 
 ### 📞 Android: notifica "Chiamata in corso" che restava dopo la fine della chiamata (Samsung di Lidia)
 - **Causa**: il plugin `flutter_callkit_incoming` 3.0.0 (usato fino alla build 42) salvava le chiamate nella lista `ACTIVE_CALLS` con campi (`uuid`, `isOnHold`, `audioRoute`, `isMuted`) che la 3.1.5 non conosce; la 3.1.5 legge la lista con Jackson, che rifiuta i campi sconosciuti. Una voce rimasta dalla 3.0.0 faceva fallire in silenzio ogni `endCall`/`endAllCalls`: restavano notifica, foreground service e connessione Telecom (WhatsApp bloccato, badge "1"). Il pulsante "Hang up" funzionava perché non legge la lista. Spiega anche "solo sul telefono di Lidia": dipende da un residuo di quell'installazione, non dal modello.
@@ -12,7 +12,7 @@ Tutte le modifiche notevoli a questo progetto saranno documentate in questo file
   - un accept in ritardo per una chiamata già chiusa viene richiuso anche lato nativo; gli eventi "chiusa" ripetuti per una chiamata già chiusa sono ignorati (non toccano una chiamata nuova);
   - gli errori di chiusura CallKit ora compaiono nei log anche in release.
 
-## [1.37.0] (build 49) - 2026-09-25
+## [1.38.0] (build 49) - 2026-09-25
 
 Build di test interno / TestFlight sopra la 1.37.0+48.
 
@@ -29,7 +29,7 @@ Build di test interno / TestFlight sopra la 1.37.0+48.
 ### 🛠 iOS
 - L'engine Flutter è creato dall'AppDelegate all'avvio (non più dallo storyboard della scena): con il lifecycle a scene, un avvio in background per un push VoIP poteva non avere né engine né plugin CallKit, quindi la chiamata non veniva nemmeno annunciata. La SceneDelegate mostra lo stesso engine.
 
-## [1.37.0] (build 48) - 2026-09-24
+## [1.38.0] (build 48) - 2026-09-24
 
 Build di test interno sopra la 1.37.0+47.
 

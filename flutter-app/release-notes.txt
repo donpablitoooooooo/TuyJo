@@ -1,26 +1,10 @@
-TuyJo v1.37.0
-
-NOVITÀ:
-🔑 Cambio telefono senza perdere nulla: sul telefono nuovo tocca "Recupera i messaggi", il tuo partner (o il tuo vecchio telefono) inquadra il QR e la chat torna com'era. Niente file, niente password
-📤 Condividi su iPhone: link, foto e documenti da altre app arrivano in chat direttamente dal foglio di condivisione, senza aprire Tuijo
-📞 Chiamate vocali riscritte: più stabili, con riconnessione automatica se cambi rete (Wi-Fi/4G) e audio migliore
-📞 Se non è possibile chiamare in peer-to-peer te lo diciamo chiaramente con un avviso
-📞 Le chiamate arrivano anche a iPhone bloccato o con app chiusa, come una chiamata normale
-📞 Lo schermo si spegne quando porti il telefono all'orecchio
-📍 Condivisione posizione: "Tempo reale" continua anche con lo schermo spento e non si interrompe più se il partner chiude la schermata; "Questa posizione" invia un solo punto
-📍 Pulsante per interrompere la condivisione direttamente dalla schermata di navigazione
+TuyJo v1.38.0
 
 CORREZIONI:
-📞 Se una chiamata non riesce a collegarsi mentre il telefono è bloccato, una notifica spiega il motivo
 📞 iPhone: rispondere a una chiamata con il telefono bloccato ora collega davvero la chiamata (prima chi chiamava continuava a sentire squillare)
+📞 Se una chiamata non riesce a collegarsi mentre il telefono è bloccato, una notifica spiega il motivo
 📞 Android: la notifica "chiamata in corso" non resta più aperta dopo aver riagganciato (bloccava le chiamate di altre app)
 📞 iPhone: nel registro chiamate compare "TuyJo" invece di una lunga stringa di caratteri
-🔐 Dopo una reinstallazione i vecchi messaggi non vanno più persi e i due telefoni non si spaiano più da soli
-🔴 Il pallino sull'icona mostra il numero reale di messaggi non letti e sparisce quando li leggi
-✅ I messaggi non risultano più letti mentre l'app è in background
-📱 Schermata condivisione posizione che appariva a metà schermo
-🌍 Descrizioni dei permessi e schermata di chiamata tradotte in tutte le lingue
-📷 Permesso fotocamera su iPhone: ora la richiesta compare correttamente
 
 NOTE:
 📱 Compatibilità: Android 7.0+ e iOS 15.0+
