@@ -11,6 +11,7 @@ NOVITÀ:
 📍 Pulsante per interrompere la condivisione direttamente dalla schermata di navigazione
 
 CORREZIONI:
+📞 iPhone: rispondere a una chiamata con il telefono bloccato ora collega davvero la chiamata (prima chi chiamava continuava a sentire squillare)
 📞 Android: la notifica "chiamata in corso" non resta più aperta dopo aver riagganciato (bloccava le chiamate di altre app)
 📞 iPhone: nel registro chiamate compare "TuyJo" invece di una lunga stringa di caratteri
 🔐 Dopo una reinstallazione i vecchi messaggi non vanno più persi e i due telefoni non si spaiano più da soli

@@ -2,6 +2,21 @@
 
 Tutte le modifiche notevoli a questo progetto saranno documentate in questo file.
 
+## [1.37.0] (build 49) - 2026-09-25
+
+Build di test interno / TestFlight sopra la 1.37.0+48.
+
+### 📞 Chiamate
+- **iPhone: rispondere dalla schermata di sistema (telefono bloccato o app in background) non collegava la chiamata**: chi chiamava continuava a squillare fino al timeout. Due cause, entrambe già presenti nella 47:
+  - le chiavi (chiave privata, chiavi pubbliche della coppia) erano nel Keychain con l'accessibilità di default "solo a telefono sbloccato": a iPhone bloccato l'app non le leggeva. L'AppDelegate le porta ora ad "AfterFirstUnlock" (aggiornamento in place, nessuna cancellazione) e le letture Dart non filtrano più sull'accessibilità (`app_secure_storage.dart`);
+  - la risposta partiva dall'`initState` della schermata di chiamata, che con l'app in background non viene costruita. La logica della chiamata è ora in `CallController`, che parte appena si accetta da CallKit; la schermata si aggancia alla chiamata già in corso.
+- **Chi chiama non resta più a squillare a vuoto**: se chi riceve non riesce ad avviare la chiamata (chiavi non leggibili, offer mancante, errori) scrive subito "ended" e il chiamante chiude.
+- Lo squillo di chi chiama non può ripartire se la chiamata si è già chiusa durante l'avvio.
+- Offline la chiusura della chiamata non resta più appesa alle scritture Firestore.
+
+### 🛠 iOS
+- L'engine Flutter è creato dall'AppDelegate all'avvio (non più dallo storyboard della scena): con il lifecycle a scene, un avvio in background per un push VoIP poteva non avere né engine né plugin CallKit, quindi la chiamata non veniva nemmeno annunciata. La SceneDelegate mostra lo stesso engine.
+
 ## [1.37.0] (build 48) - 2026-09-24
 
 Build di test interno sopra la 1.37.0+47.

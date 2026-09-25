@@ -5,7 +5,7 @@ import 'package:flutter/foundation.dart';
 import 'package:private_messaging/generated/l10n/app_localizations.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:geolocator/geolocator.dart';
-import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'app_secure_storage.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:crypto/crypto.dart';
 import 'package:uuid/uuid.dart';
@@ -23,7 +23,7 @@ enum LocationPermissionResult {
 /// Servizio per gestire la condivisione della posizione in tempo reale
 class LocationService extends ChangeNotifier {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
-  final _storage = const FlutterSecureStorage();
+  final _storage = appSecureStorage;
   final EncryptionService _encryptionService;
 
   /// Localizzazioni senza BuildContext (per la notifica del foreground

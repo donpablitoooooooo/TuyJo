@@ -9,7 +9,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'app_secure_storage.dart';
 import 'package:timezone/data/latest_all.dart' as tz;
 import 'package:timezone/timezone.dart' as tz;
 import 'dart:ui' as ui;
@@ -908,7 +908,7 @@ class NotificationService {
       // cancellato (incidente, reinstallazione a metà) questo set(merge) lo
       // ricreava "vuoto", senza my_public_key, e la famiglia restava per
       // sempre a 1 membro fantasma. Con le chiavi il documento è completo.
-      const storage = FlutterSecureStorage();
+      const storage = appSecureStorage;
       final myPublicKey = await storage.read(key: 'rsa_public_key');
       final partnerPublicKey = await storage.read(key: 'partner_public_key');
 
