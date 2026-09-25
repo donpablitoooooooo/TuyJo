@@ -1,12 +1,22 @@
 import UIKit
 import Flutter
 import PushKit
+import Security
 import AVFoundation
 import UserNotifications
 import flutter_callkit_incoming
 
 @main
-@objc class AppDelegate: FlutterAppDelegate, PKPushRegistryDelegate, FlutterImplicitEngineDelegate {
+@objc class AppDelegate: FlutterAppDelegate, PKPushRegistryDelegate {
+  /// Engine Flutter creato all'avvio dell'app, non dallo storyboard della scena.
+  ///
+  /// Con il lifecycle a scene l'engine "implicito" nasce solo quando iOS
+  /// collega una scena (finestra). Quando l'app viene svegliata in background
+  /// da un push VoIP la scena può non esserci: senza engine il plugin CallKit
+  /// non esiste, la chiamata non viene riportata a CallKit (iOS termina l'app
+  /// e può smettere di consegnarle i push VoIP) e Dart non può rispondere.
+  /// La SceneDelegate mostra questo stesso engine quando la finestra arriva.
+  lazy var flutterEngine = FlutterEngine(name: "tuyjo")
   private let CHANNEL = "com.privatemessaging.tuyjo/shared_media"
   private let TONE_CHANNEL = "com.privatemessaging.tuyjo/tone_generator"
   private let PROXIMITY_CHANNEL = "com.privatemessaging.tuyjo/proximity"
@@ -23,6 +33,26 @@ import flutter_callkit_incoming
     _ application: UIApplication,
     didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?
   ) -> Bool {
+    // Prima di avviare Dart: le chiavi devono essere già leggibili anche a
+    // iPhone bloccato (vedi migrateKeychainAccessibility).
+    migrateKeychainAccessibility()
+    let center = NotificationCenter.default
+    for name in [
+      UIApplication.protectedDataDidBecomeAvailableNotification,
+      UIApplication.didBecomeActiveNotification,
+      UIApplication.willResignActiveNotification,
+    ] {
+      center.addObserver(forName: name, object: nil, queue: .main) { [weak self] _ in
+        self?.migrateKeychainAccessibility()
+      }
+    }
+
+    // Engine e plugin PRIMA di PushKit: un push VoIP consegnato subito dopo
+    // deve trovare il plugin CallKit già registrato.
+    flutterEngine.run()
+    GeneratedPluginRegistrant.register(with: flutterEngine)
+    setUpChannels(messenger: flutterEngine.binaryMessenger)
+
     // PushKit VoIP: unico modo affidabile per far squillare una chiamata
     // su iOS con app in background o terminata. Il push arriva qui e va
     // riportato SUBITO a CallKit (obbligo iOS 13+, altrimenti l'app viene
@@ -34,14 +64,43 @@ import flutter_callkit_incoming
     return super.application(application, didFinishLaunchingWithOptions: launchOptions)
   }
 
-  // Con il lifecycle a scene la finestra non esiste ancora a fine lancio, quindi
-  // i canali non possono più essere creati dal rootViewController. Flutter chiama
-  // questo metodo appena l'engine implicito (creato da Main.storyboard) è pronto.
-  func didInitializeImplicitFlutterEngine(_ engineBridge: any FlutterImplicitEngineBridge) {
-    GeneratedPluginRegistrant.register(with: engineBridge.pluginRegistry)
+  /// Porta le voci del Keychain dell'app (flutter_secure_storage) da
+  /// WhenUnlocked, il default del plugin, a AfterFirstUnlock.
+  ///
+  /// Una chiamata accettata dalla schermata di sistema con iPhone bloccato
+  /// deve poter leggere chiave privata e chiavi pubbliche della coppia: con
+  /// WhenUnlocked la lettura falliva, la risposta non partiva e il chiamante
+  /// continuava a squillare. È la stessa accessibilità usata dalle app di
+  /// chiamata. Aggiornamento in place (SecItemUpdate): il valore non viene mai
+  /// cancellato né riscritto.
+  ///
+  /// Si può fare solo a telefono sbloccato; viene ripetuta a ogni passaggio
+  /// in/da foreground così copre anche le voci create dopo il primo avvio
+  /// (nascono WhenUnlocked perché Dart non imposta l'accessibilità, vedi
+  /// app_secure_storage.dart). Le voci del Keychain condiviso con la Share
+  /// Extension hanno un altro service e non vengono toccate.
+  @discardableResult
+  func migrateKeychainAccessibility() -> OSStatus {
+    guard UIApplication.shared.isProtectedDataAvailable else { return errSecInteractionNotAllowed }
+    let query: [CFString: Any] = [
+      kSecClass: kSecClassGenericPassword,
+      kSecAttrService: "flutter_secure_storage_service",
+      kSecAttrAccessible: kSecAttrAccessibleWhenUnlocked,
+    ]
+    let attributes: [CFString: Any] = [
+      kSecAttrAccessible: kSecAttrAccessibleAfterFirstUnlock,
+    ]
+    let status = SecItemUpdate(query as CFDictionary, attributes as CFDictionary)
+    if status == errSecSuccess {
+      print("🔐 Keychain: voci portate ad AfterFirstUnlock")
+    } else if status != errSecItemNotFound {
+      print("⚠️ Keychain: migrazione accessibilità fallita (\(status))")
+    }
+    return status
+  }
 
-    let messenger = engineBridge.applicationRegistrar.messenger()
-
+  /// Method channel dell'app, registrati sull'engine creato all'avvio.
+  private func setUpChannels(messenger: FlutterBinaryMessenger) {
     // Configura il Method Channel
     methodChannel = FlutterMethodChannel(name: CHANNEL, binaryMessenger: messenger)
 

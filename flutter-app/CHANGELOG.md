@@ -2,6 +2,44 @@
 
 Tutte le modifiche notevoli a questo progetto saranno documentate in questo file.
 
+## [1.38.0] (build 50) - 2026-09-25
+
+### 📞 Android: notifica "Chiamata in corso" che restava dopo la fine della chiamata (Samsung di Lidia)
+- **Causa**: il plugin `flutter_callkit_incoming` 3.0.0 (usato fino alla build 42) salvava le chiamate nella lista `ACTIVE_CALLS` con campi (`uuid`, `isOnHold`, `audioRoute`, `isMuted`) che la 3.1.5 non conosce; la 3.1.5 legge la lista con Jackson, che rifiuta i campi sconosciuti. Una voce rimasta dalla 3.0.0 faceva fallire in silenzio ogni `endCall`/`endAllCalls`: restavano notifica, foreground service e connessione Telecom (WhatsApp bloccato, badge "1"). Il pulsante "Hang up" funzionava perché non legge la lista. Spiega anche "solo sul telefono di Lidia": dipende da un residuo di quell'installazione, non dal modello.
+- **Fix**:
+  - `TuyJoApplication` all'avvio del processo rimuove da `ACTIVE_CALLS` le voci della 3.0.0 (log `TuyJoCallkitFix`);
+  - `CallkitCleanup.forceEnd` chiude la chiamata esattamente come "Hang up" (ENDED al receiver del plugin, disconnessione Telecom, stop del servizio, cancellazione della notifica) senza leggere la lista; `endCallKit` lo usa sempre su Android e lo ripete dopo 1,5 s per un ACCEPT/CONNECTED in ritardo;
+  - un accept in ritardo per una chiamata già chiusa viene richiuso anche lato nativo; gli eventi "chiusa" ripetuti per una chiamata già chiusa sono ignorati (non toccano una chiamata nuova);
+  - gli errori di chiusura CallKit ora compaiono nei log anche in release.
+
+## [1.38.0] (build 49) - 2026-09-25
+
+Build di test interno / TestFlight sopra la 1.37.0+48.
+
+### 📞 Chiamate
+- **iPhone: rispondere dalla schermata di sistema (telefono bloccato o app in background) non collegava la chiamata**: chi chiamava continuava a squillare fino al timeout. Due cause, entrambe già presenti nella 47:
+  - le chiavi (chiave privata, chiavi pubbliche della coppia) erano nel Keychain con l'accessibilità di default "solo a telefono sbloccato": a iPhone bloccato l'app non le leggeva. L'AppDelegate le porta ora ad "AfterFirstUnlock" (aggiornamento in place, nessuna cancellazione) e le letture Dart non filtrano più sull'accessibilità (`app_secure_storage.dart`);
+  - la risposta partiva dall'`initState` della schermata di chiamata, che con l'app in background non viene costruita. La logica della chiamata è ora in `CallController`, che parte appena si accetta da CallKit; la schermata si aggancia alla chiamata già in corso.
+- **Chi chiama non resta più a squillare a vuoto**: se chi riceve non riesce ad avviare la chiamata (chiavi non leggibili, offer mancante, errori) scrive subito "ended" e il chiamante chiude.
+- Lo squillo di chi chiama non può ripartire se la chiamata si è già chiusa durante l'avvio.
+- Offline la chiusura della chiamata non resta più appesa alle scritture Firestore.
+- **Notifica "Chiamata non riuscita"** quando i due telefoni non riescono a collegarsi in P2P e la chiamata è sulla schermata di sistema (iPhone bloccato, app in background): lì il pop-up non si può mostrare, la notifica spiega il motivo e suggerisce di cambiare rete.
+- Niente chiamata fantasma riaprendo l'app dopo una chiamata accettata dal lock screen.
+
+### 🛠 iOS
+- L'engine Flutter è creato dall'AppDelegate all'avvio (non più dallo storyboard della scena): con il lifecycle a scene, un avvio in background per un push VoIP poteva non avere né engine né plugin CallKit, quindi la chiamata non veniva nemmeno annunciata. La SceneDelegate mostra lo stesso engine.
+
+## [1.38.0] (build 48) - 2026-09-24
+
+Build di test interno sopra la 1.37.0+47.
+
+### 📞 Chiamate
+- **Android: a fine chiamata restava la notifica "chiamata in corso"** (su alcuni Samsung), con la connessione di sistema ancora aperta: il telefono risultava in chiamata e ad esempio le videochiamate WhatsApp non partivano finché non si premeva "Riaggancia". Ora la chiamata di sistema viene chiusa sempre, anche se la chiusura di WebRTC fallisce o si blocca, e vengono chiuse anche le entry rimaste nella lista del plugin.
+- **iOS: nel registro chiamate, sotto "Profilo social", compariva una lunga stringa.** Era l'handle che il plugin CallKit genera cifrando nome e ID della chiamata (familyChatId, callerId, callId). Nessuna chiave crittografica, ma metadati che non devono finire nel registro (sincronizzato su iCloud). Ora l'handle è semplicemente "TuyJo" (anche nel push VoIP della Cloud Function).
+
+### 🛠 Build
+- Flutter 3.47.4, Android Gradle Plugin 9.1.0, Gradle 9.3.1, Kotlin 2.4.0; aggiornate le dipendenze (Firebase, file_picker 13, share_plus 13, package_info_plus 10) e le Cloud Functions (firebase-functions 7, firebase-admin 14).
+
 ## [1.37.0] - 2026-09-14
 
 Sostituisce la 1.36.0 (build 45, caricata solo in test interno / TestFlight e mai pubblicata).

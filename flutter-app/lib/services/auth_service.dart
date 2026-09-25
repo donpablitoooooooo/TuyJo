@@ -1,13 +1,13 @@
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
-import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'app_secure_storage.dart';
 import '../models/message.dart';
 import 'encryption_service.dart';
 
 class AuthService extends ChangeNotifier {
   static const String baseUrl = 'https://private-messaging-backend-668509120760.europe-west1.run.app';
-  final _storage = const FlutterSecureStorage();
+  final _storage = appSecureStorage;
   final _encryptionService = EncryptionService();
 
   User? _currentUser;

@@ -4,8 +4,8 @@ import 'package:permission_handler/permission_handler.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:private_messaging/generated/l10n/app_localizations.dart';
+import '../services/call_controller.dart';
 import '../services/pairing_service.dart';
 import '../services/couple_selfie_service.dart';
 import '../services/encryption_service.dart';
@@ -19,9 +19,15 @@ class VoiceCallScreen extends StatefulWidget {
   /// Se false, è una chiamata in entrata già accettata dalla UI nativa CallKit
   final bool isOutgoing;
 
+  /// Chiamata già avviata da mostrare (accettata da CallKit, anche con l'app
+  /// in background). Se è già terminata la schermata si chiude subito, senza
+  /// avviarne un'altra.
+  final CallController? controller;
+
   const VoiceCallScreen({
     Key? key,
     this.isOutgoing = true,
+    this.controller,
   }) : super(key: key);
 
   /// True mentre una VoiceCallScreen è montata: evita doppie aperture
@@ -32,37 +38,25 @@ class VoiceCallScreen extends StatefulWidget {
   State<VoiceCallScreen> createState() => _VoiceCallScreenState();
 }
 
-enum CallState {
-  ringing,
-  connecting,
-  connected,
-  reconnecting,
-  ended,
-}
-
 class _VoiceCallScreenState extends State<VoiceCallScreen>
     with TickerProviderStateMixin {
-  CallState _callState = CallState.ringing;
-  bool _isMuted = false;
-  bool _isSpeakerOn = false;
-  bool _partnerMuted = false;
+  /// La chiamata mostrata da questa schermata. Può essere nata prima della
+  /// schermata (accettata da CallKit con l'app in background) oppure qui
+  /// (chiamata in uscita, o in entrata senza permesso microfono).
+  CallController? _controller;
   bool _p2pDialogShown = false;
   bool _p2pDialogOpen = false;
-  bool _ending = false;
-  /// true quando la chiamata di sistema (CallKit / Telecom) è stata chiusa.
-  bool _callKitClosed = false;
-  Timer? _callTimer;
-  Timer? _ringingTimeoutTimer;
-  int _callDurationSeconds = 0;
-  String? _familyChatId;
-  String? _myUserId;
-  CallStats? _stats;
-  late final WebRTCService _webrtcService;
-  late final NotificationService _notificationService;
+  bool _popScheduled = false;
+  CallState _lastState = CallState.ringing;
 
-  /// Deve coincidere con `duration: 30000` in CallKitParams: lo squillo
-  /// lato caller e lato callee finiscono insieme.
-  static const _ringTimeout = Duration(seconds: 30);
+  // Lo stato vive nel controller: getter con i vecchi nomi per la UI.
+  CallState get _callState => _controller?.state ?? CallState.ringing;
+  bool get _isMuted => _controller?.isMuted ?? false;
+  bool get _isSpeakerOn => _controller?.isSpeakerOn ?? false;
+  bool get _partnerMuted => _controller?.partnerMuted ?? false;
+  bool get _ending => _controller?.isEnding ?? false;
+  int get _callDurationSeconds => _controller?.durationSeconds ?? 0;
+  CallStats? get _stats => _controller?.stats;
 
   // Animazione pulsazione per stato "chiamata in corso"
   late AnimationController _pulseController;
@@ -73,10 +67,6 @@ class _VoiceCallScreenState extends State<VoiceCallScreen>
     super.initState();
     VoiceCallScreen.isActive = true;
 
-    _webrtcService = WebRTCService(
-      encryptionService: Provider.of<EncryptionService>(context, listen: false),
-    );
-
     _pulseController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 1500),
@@ -86,51 +76,45 @@ class _VoiceCallScreenState extends State<VoiceCallScreen>
       CurvedAnimation(parent: _pulseController, curve: Curves.easeInOut),
     );
 
-    // Se l'utente termina dalla UI nativa (lock screen iOS, notifica Android)
-    _notificationService = Provider.of<NotificationService>(context, listen: false);
-    _notificationService.callScreenActive = true;
-    _notificationService.onNativeCallEnded = () {
-      if (mounted) _endCall(localHangup: true, fromNative: true);
-    };
-
-    _initCall();
+    final existing = widget.controller ?? CallController.active;
+    if (existing != null) {
+      // Chiamata già avviata (accettata da CallKit, anche a schermo bloccato).
+      // Se nel frattempo è finita, _attach chiude la schermata.
+      _attach(existing);
+    } else {
+      _startNewCall();
+    }
   }
 
   @override
   void dispose() {
     VoiceCallScreen.isActive = false;
-    _callTimer?.cancel();
-    _ringingTimeoutTimer?.cancel();
-    _stopRingbackTone();
     _pulseController.dispose();
-    _notificationService.onNativeCallEnded = null;
-    _notificationService.callScreenActive = false;
-    // Rete di sicurezza: schermata chiusa senza passare da _endCall →
-    // chiudi comunque la chiamata di sistema. (Se _endCall è in corso ci
-    // pensa lui: il dispose di WebRTC ha un timeout.)
-    if (!_ending && !_callKitClosed) _notificationService.endCallKit();
     _setProximity(false);
-    // Chiudi WebRTC (stream audio + peer connection)
-    _webrtcService.dispose();
-    // Pulisci lo stato della chiamata su Firestore
-    _cleanupCallState();
+    final controller = _controller;
+    if (controller != null) {
+      controller.removeListener(_onControllerChanged);
+      controller.screenAttached = false;
+      // Rete di sicurezza: schermata chiusa senza passare da "riaggancia"
+      // → chiudi comunque la chiamata (WebRTC, CallKit, Firestore).
+      if (!controller.isEnding) controller.endCall(localHangup: true);
+    }
     super.dispose();
   }
 
-  Future<void> _initCall() async {
+  void _attach(CallController controller) {
+    _controller = controller;
+    controller.screenAttached = true;
+    controller.addListener(_onControllerChanged);
+    // Evento già avvenuto prima che la schermata esistesse (pop-up P2P,
+    // chiamata già chiusa): gestiscilo dopo il primo frame.
+    WidgetsBinding.instance.addPostFrameCallback((_) => _onControllerChanged());
+  }
+
+  Future<void> _startNewCall() async {
     final pairingService = Provider.of<PairingService>(context, listen: false);
-    final notificationService = _notificationService;
-    _familyChatId = await pairingService.getFamilyChatId();
-    _myUserId = await pairingService.getMyUserId();
-    final partnerPublicKey = pairingService.partnerPublicKey;
-
-    if (_familyChatId == null || _myUserId == null || partnerPublicKey == null) {
-      if (kDebugMode) print('❌ [VOICE_CALL] Not paired, cannot call');
-      if (mounted) Navigator.of(context).pop();
-      return;
-    }
-
-    _wireCallbacks();
+    final notificationService = Provider.of<NotificationService>(context, listen: false);
+    final encryptionService = Provider.of<EncryptionService>(context, listen: false);
 
     // Spiegazione in-app prima del prompt di sistema per il microfono.
     final micStatus = await Permission.microphone.status;
@@ -145,15 +129,41 @@ class _VoiceCallScreenState extends State<VoiceCallScreen>
       );
       if (!mounted) return;
       if (!ok) {
-        _endCall(localHangup: true);
+        // Nessuna chiamata avviata; se era in entrata va chiusa CallKit e
+        // avvisato il chiamante: lo fa un controller che si chiude subito.
+        if (!widget.isOutgoing) {
+          final controller = CallController.create(
+            isOutgoing: false,
+            encryption: encryptionService,
+            pairing: pairingService,
+            notifications: notificationService,
+            familyChatIdHint: await pairingService.getFamilyChatId(),
+          );
+          _attach(controller);
+          await controller.endCall(localHangup: true);
+        } else {
+          Navigator.of(context).pop();
+        }
         return;
       }
     }
 
-    try {
-      await _webrtcService.initialize();
-    } catch (e) {
-      if (kDebugMode) print('❌ [VOICE_CALL] Failed to initialize WebRTC (microphone permission?): $e');
+    // Nel frattempo può essere arrivata una chiamata accettata da CallKit
+    final existing = CallController.active;
+    if (existing != null) {
+      _attach(existing);
+      return;
+    }
+
+    final controller = CallController.create(
+      isOutgoing: widget.isOutgoing,
+      encryption: encryptionService,
+      pairing: pairingService,
+      notifications: notificationService,
+    );
+    _attach(controller);
+    final result = await controller.start();
+    if (result == CallStartResult.micUnavailable) {
       if (mounted) {
         final l10n = AppLocalizations.of(context)!;
         await showPermissionDeniedDialog(
@@ -162,126 +172,51 @@ class _VoiceCallScreenState extends State<VoiceCallScreen>
           message: l10n.permissionMicDeniedMessage,
           isPermanentlyDenied: true,
         );
-        if (mounted) _endCall(localHangup: true);
       }
+      await controller.endCall(localHangup: true);
+    }
+  }
+
+  void _onControllerChanged() {
+    final controller = _controller;
+    if (!mounted || controller == null) return;
+
+    final state = controller.state;
+    if (state != _lastState) {
+      _lastState = state;
+      if (state == CallState.connected || state == CallState.ended) {
+        _pulseController.stop();
+      }
+      _updateProximity();
+    }
+
+    if (controller.p2pUnavailable && !_p2pDialogShown && !controller.isEnding) {
+      _showP2PUnavailableDialog();
+    }
+
+    if (controller.isFinished) _scheduleClose();
+    setState(() {});
+  }
+
+  /// Chiude la schermata a chiamata terminata, dopo una breve pausa per far
+  /// leggere "Chiamata terminata". Se il pop-up "non disponibile in P2P" è
+  /// aperto non chiude: il pop() chiuderebbe il dialog e non lo schermo, ci
+  /// pensa il dialog alla sua chiusura.
+  void _scheduleClose() {
+    if (_popScheduled || _p2pDialogOpen) return;
+    _popScheduled = true;
+    Future.delayed(const Duration(milliseconds: 600), () {
+      if (mounted) Navigator.of(context).pop();
+    });
+  }
+
+  void _endCall({required bool localHangup}) {
+    final controller = _controller;
+    if (controller == null) {
+      Navigator.of(context).pop();
       return;
     }
-    if (!mounted) return;
-
-    if (widget.isOutgoing) {
-      // Chiamata in uscita: CallKit "startCall" registra la chiamata nel
-      // sistema (iOS: sessione audio + lock screen; Android: foreground
-      // service con microfono così la chiamata sopravvive in background).
-      await notificationService.startOutgoingCallKit(_familyChatId!, _myUserId!);
-      await _webrtcService.startCall(
-        familyChatId: _familyChatId!,
-        myUserId: _myUserId!,
-        partnerPublicKey: partnerPublicKey,
-      );
-      _startRingbackTone();
-      _ringingTimeoutTimer = Timer(_ringTimeout, () {
-        if (mounted && _callState == CallState.ringing) {
-          if (kDebugMode) print('⏰ [VOICE_CALL] Ringing timeout - ending call');
-          _endCall(localHangup: true);
-        }
-      });
-    } else {
-      // Chiamata in entrata (accettata via CallKit): rispondi subito
-      setState(() => _callState = CallState.connecting);
-      final ok = await _webrtcService.answerCall(
-        familyChatId: _familyChatId!,
-        myUserId: _myUserId!,
-      );
-      if (!ok && mounted) {
-        if (kDebugMode) print('❌ [VOICE_CALL] No offer: caller probably hung up');
-        _endCall(localHangup: true);
-      }
-    }
-  }
-
-  void _wireCallbacks() {
-    final notificationService = _notificationService;
-
-    _webrtcService.onAnswerReceived = () {
-      if (!mounted) return;
-      _stopRingbackTone();
-      _ringingTimeoutTimer?.cancel();
-      if (_callState == CallState.ringing) {
-        setState(() => _callState = CallState.connecting);
-      }
-    };
-
-    _webrtcService.onConnected = () {
-      if (!mounted) return;
-      _stopRingbackTone();
-      _ringingTimeoutTimer?.cancel();
-      notificationService.setCallKitConnected();
-      setState(() => _callState = CallState.connected);
-      _pulseController.stop();
-      _startCallTimer();
-      _updateProximity();
-    };
-
-    _webrtcService.onReconnecting = () {
-      if (!mounted) return;
-      setState(() => _callState = CallState.reconnecting);
-    };
-
-    _webrtcService.onReconnected = () {
-      if (!mounted) return;
-      setState(() => _callState = CallState.connected);
-    };
-
-    _webrtcService.onP2PUnavailable = () {
-      if (!mounted) return;
-      _showP2PUnavailableDialog();
-    };
-
-    _webrtcService.onRemoteHangup = (reason) {
-      if (!mounted) return;
-      if (kDebugMode) print('📞 [VOICE_CALL] Remote hangup: $reason');
-      _endCall(localHangup: false);
-    };
-
-    _webrtcService.onPartnerMuteChanged = (muted) {
-      if (!mounted) return;
-      setState(() => _partnerMuted = muted);
-    };
-
-    _webrtcService.onStats = (stats) {
-      if (!mounted) return;
-      setState(() => _stats = stats);
-    };
-  }
-
-  /// Scrive lo stato finale della chiamata su Firestore.
-  /// `ended_by` permette alla Cloud Function di mandare al callee un push
-  /// di annullamento se il caller riaggancia mentre squilla ancora.
-  Future<void> _writeEnded() async {
-    if (_familyChatId == null || _myUserId == null) return;
-    try {
-      await FirebaseFirestore.instance
-          .collection('families')
-          .doc(_familyChatId)
-          .collection('calls')
-          .doc('current')
-          .set({
-        'status': 'ended',
-        'ended_by': _myUserId,
-        'updated_at': FieldValue.serverTimestamp(),
-      }, SetOptions(merge: true));
-    } catch (e) {
-      if (kDebugMode) print('❌ [VOICE_CALL] Error writing ended: $e');
-    }
-  }
-
-  void _startCallTimer() {
-    _callTimer?.cancel();
-    _callTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
-      if (mounted) {
-        setState(() => _callDurationSeconds++);
-      }
-    });
+    controller.endCall(localHangup: localHangup);
   }
 
   String _formatDuration(int totalSeconds) {
@@ -290,66 +225,12 @@ class _VoiceCallScreenState extends State<VoiceCallScreen>
     return '${minutes.toString().padLeft(2, '0')}:${seconds.toString().padLeft(2, '0')}';
   }
 
-  /// Termina la chiamata.
-  /// [localHangup] true se abbiamo riagganciato noi (avvisa il partner),
-  /// false se è stato il partner (non serve avvisare).
-  Future<void> _endCall({required bool localHangup, bool fromNative = false}) async {
-    if (_ending) return;
-    _ending = true;
-    _stopRingbackTone();
-    _callTimer?.cancel();
-    _ringingTimeoutTimer?.cancel();
-    if (mounted) setState(() => _callState = CallState.ended);
-    _pulseController.stop();
-    _setProximity(false);
-
-    try {
-      if (localHangup) {
-        // 1. "bye" P2P istantaneo, 2. stato su Firestore (fallback + cancel push)
-        await _webrtcService.sendBye();
-        await _writeEnded();
-      }
-      // Chiudi WebRTC (così l'audio si ferma). Timeout: se lo smontaggio si
-      // blocca non deve impedire la chiusura di CallKit qui sotto.
-      await _webrtcService.dispose().timeout(const Duration(seconds: 3));
-    } catch (e) {
-      if (kDebugMode) print('⚠️ [VOICE_CALL] Error while ending call: $e');
-    }
-    // Poi termina CallKit (ora è safe disattivare la sessione audio).
-    // Va fatto SEMPRE: se resta aperta, su Android rimangono la notifica
-    // "chiamata in corso" e la connessione Telecom che blocca le chiamate
-    // di altre app finché non si preme "Riaggancia".
-    if (!fromNative) {
-      await _notificationService.endCallKit();
-    }
-    _callKitClosed = true;
-    // Se il pop-up "non disponibile in P2P" è aperto, non chiudere la
-    // schermata adesso: il pop() chiuderebbe il dialog e non lo schermo.
-    // Sarà il dialog, alla chiusura, a far uscire dalla chiamata.
-    if (_p2pDialogOpen) return;
-    if (mounted) {
-      // Breve pausa per far leggere "Chiamata terminata"
-      await Future.delayed(const Duration(milliseconds: 600));
-      if (mounted) Navigator.of(context).pop();
-    }
-  }
-
-  Future<void> _cleanupCallState() async {
-    if (_familyChatId == null) return;
-    try {
-      await _webrtcService.cleanupFirestore(_familyChatId!);
-    } catch (e) {
-      if (kDebugMode) print('⚠️ [VOICE_CALL] Error cleaning up call state: $e');
-    }
-  }
-
   /// Pop-up grande e chiaro: i due telefoni non riescono a parlarsi in
   /// diretta (NAT simmetrico / CGNAT). Senza TURN non c'è alternativa.
   Future<void> _showP2PUnavailableDialog() async {
     if (_p2pDialogShown || !mounted) return;
     _p2pDialogShown = true;
     _p2pDialogOpen = true;
-    _stopRingbackTone();
     final l10n = AppLocalizations.of(context)!;
 
     await showDialog<void>(
@@ -433,48 +314,19 @@ class _VoiceCallScreenState extends State<VoiceCallScreen>
     );
     _p2pDialogOpen = false;
     if (!mounted) return;
-    if (_ending) {
+    if (_controller?.isFinished ?? true) {
       // La chiamata è già stata chiusa (es. il partner ha riagganciato
       // mentre il pop-up era aperto): esci dalla schermata.
-      Navigator.of(context).pop();
+      _scheduleClose();
     } else {
       _endCall(localHangup: true);
     }
   }
 
-  /// Avvia il ringback tone nativo (ToneGenerator su STREAM_VOICE_CALL)
-  static const _toneChannel = MethodChannel('com.privatemessaging.tuyjo/tone_generator');
-  bool _ringbackPlaying = false;
-
-  Future<void> _startRingbackTone() async {
-    if (_ringbackPlaying) return;
-    _ringbackPlaying = true;
-    try {
-      await _toneChannel.invokeMethod('startRingback');
-      if (kDebugMode) print('🔔 [VOICE_CALL] Ringback tone started');
-    } catch (e) {
-      if (kDebugMode) print('⚠️ [VOICE_CALL] Could not start ringback tone: $e');
-    }
-  }
-
-  Future<void> _stopRingbackTone() async {
-    if (!_ringbackPlaying) return;
-    _ringbackPlaying = false;
-    try {
-      await _toneChannel.invokeMethod('stopRingback');
-    } catch (e) {
-      if (kDebugMode) print('⚠️ [VOICE_CALL] Could not stop ringback tone: $e');
-    }
-  }
-
-  void _toggleMute() {
-    setState(() => _isMuted = !_isMuted);
-    _webrtcService.setMicMuted(_isMuted);
-  }
+  void _toggleMute() => _controller?.toggleMute();
 
   void _toggleSpeaker() {
-    setState(() => _isSpeakerOn = !_isSpeakerOn);
-    _webrtcService.setSpeakerOn(_isSpeakerOn);
+    _controller?.toggleSpeaker();
     _updateProximity();
   }
 

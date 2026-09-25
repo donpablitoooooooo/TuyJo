@@ -7,7 +7,7 @@ import 'package:asn1lib/asn1lib.dart';
 import 'package:encrypt/encrypt.dart' as encrypt_lib;
 import 'package:cryptography/cryptography.dart' as cg;
 import 'package:cryptography_flutter/cryptography_flutter.dart' as cgf;
-import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'app_secure_storage.dart';
 import 'crypto_isolate.dart';
 
 // Istanza singleton di AES-GCM backed dal plugin nativo (Android/iOS).
@@ -17,7 +17,7 @@ final cg.AesGcm _nativeAesGcm = cgf.FlutterAesGcm.with256bits();
 class EncryptionService {
   AsymmetricKeyPair<PublicKey, PrivateKey>? _keyPair;
   String? _privateKeyBase64; // Cached for compute() isolate decrypts
-  final _storage = const FlutterSecureStorage();
+  final _storage = appSecureStorage;
 
   /// Private key (base64, PKCS#1) — for sending to isolates via compute().
   /// Returns null if keypair is not loaded yet.

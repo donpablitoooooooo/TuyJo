@@ -49,6 +49,7 @@ app.*.map.json
 # Android-specific
 **/android/**/gradle-wrapper.jar
 **/android/.gradle
+**/android/.kotlin
 **/android/captures/
 **/android/gradlew
 **/android/gradlew.bat
@@ -91,7 +92,3 @@ app.*.map.json
 **/ios/**/GoogleService-Info.plist
 **/android/**/google-services.json
 
-# Exceptions for version control
-!**/ios/**/Flutter/Generated.xcconfig
-!**/ios/**/Flutter/flutter_export_environment.sh
-!**/ios/**/Runner/GeneratedPluginRegistrant.*

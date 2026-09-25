@@ -81,7 +81,7 @@
 
     <application
         android:label="Tuijo"
-        android:name="${applicationName}"
+        android:name=".TuyJoApplication"
         android:icon="@mipmap/ic_launcher"
         android:allowTaskReparenting="false"
         android:allowBackup="false"

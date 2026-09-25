@@ -18,3 +18,4 @@ flutter-app/android/.gradle/
 # Generati da flutter pub get, specifici della macchina
 flutter-app/ios/Flutter/Generated.xcconfig
 flutter-app/ios/Flutter/flutter_export_environment.sh
+.claude/

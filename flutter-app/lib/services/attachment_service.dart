@@ -141,13 +141,16 @@ class AttachmentService {
   /// Seleziona un documento
   Future<File?> pickDocument() async {
     try {
-      final FilePickerResult? result = await FilePicker.platform.pickFiles(
+      // file_picker 11+: metodi statici, niente piu` FilePicker.platform.
+      // file_picker 12+: FilePickerResult non esiste piu`; pickFile() e` la
+      // selezione singola e restituisce direttamente un PlatformFile.
+      final PlatformFile? picked = await FilePicker.pickFile(
         type: FileType.custom,
         allowedExtensions: ['pdf', 'doc', 'docx', 'txt', 'xls', 'xlsx', 'ppt', 'pptx'],
       );
 
-      if (result != null && result.files.single.path != null) {
-        return File(result.files.single.path!);
+      if (picked?.path != null) {
+        return File(picked!.path!);
       }
       return null;
     } catch (e) {

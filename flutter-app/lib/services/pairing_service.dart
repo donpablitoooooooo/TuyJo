@@ -1,7 +1,7 @@
 import 'dart:convert';
 import 'dart:async';
 import 'package:flutter/foundation.dart';
-import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'app_secure_storage.dart';
 import 'package:crypto/crypto.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'backup_service.dart';
@@ -11,7 +11,7 @@ import 'share_bridge_service.dart';
 /// Servizio per gestire il pairing tra dispositivi tramite RSA public keys
 /// Architettura RSA-only: ogni dispositivo condivide solo la propria chiave pubblica
 class PairingService extends ChangeNotifier {
-  final _storage = const FlutterSecureStorage();
+  final _storage = appSecureStorage;
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   StreamSubscription<QuerySnapshot<Map<String, dynamic>>>? _pairingStatusSubscription;
 
