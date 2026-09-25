@@ -13,6 +13,8 @@ Build di test interno / TestFlight sopra la 1.37.0+48.
 - **Chi chiama non resta più a squillare a vuoto**: se chi riceve non riesce ad avviare la chiamata (chiavi non leggibili, offer mancante, errori) scrive subito "ended" e il chiamante chiude.
 - Lo squillo di chi chiama non può ripartire se la chiamata si è già chiusa durante l'avvio.
 - Offline la chiusura della chiamata non resta più appesa alle scritture Firestore.
+- **Notifica "Chiamata non riuscita"** quando i due telefoni non riescono a collegarsi in P2P e la chiamata è sulla schermata di sistema (iPhone bloccato, app in background): lì il pop-up non si può mostrare, la notifica spiega il motivo e suggerisce di cambiare rete.
+- Niente chiamata fantasma riaprendo l'app dopo una chiamata accettata dal lock screen.
 
 ### 🛠 iOS
 - L'engine Flutter è creato dall'AppDelegate all'avvio (non più dallo storyboard della scena): con il lifecycle a scene, un avvio in background per un push VoIP poteva non avere né engine né plugin CallKit, quindi la chiamata non veniva nemmeno annunciata. La SceneDelegate mostra lo stesso engine.

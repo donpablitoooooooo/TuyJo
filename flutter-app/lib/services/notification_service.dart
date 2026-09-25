@@ -126,6 +126,8 @@ const Map<String, Map<String, String>> _callTexts = {
     'messagesChannelDesc': 'Notifiche per i nuovi messaggi',
     'todoChannel': 'Promemoria To Do',
     'todoChannelDesc': 'Notifiche per i promemoria degli eventi',
+    'callFailedTitle': 'Chiamata non riuscita',
+    'callFailedBody': 'I vostri telefoni non riescono a collegarsi direttamente su questa rete. Riprovate su un\'altra rete (per esempio Wi-Fi invece dei dati mobili, o viceversa).',
   },
   'en': {
     'partner': 'My love',
@@ -139,6 +141,8 @@ const Map<String, Map<String, String>> _callTexts = {
     'messagesChannelDesc': 'Notifications for new messages',
     'todoChannel': 'To Do reminders',
     'todoChannelDesc': 'Notifications for event reminders',
+    'callFailedTitle': 'Call failed',
+    'callFailedBody': 'Your phones can\'t reach each other directly on this network. Try again on another network (for example Wi-Fi instead of mobile data, or vice versa).',
   },
   'es': {
     'partner': 'Mi amor',
@@ -152,6 +156,8 @@ const Map<String, Map<String, String>> _callTexts = {
     'messagesChannelDesc': 'Notificaciones de nuevos mensajes',
     'todoChannel': 'Recordatorios To Do',
     'todoChannelDesc': 'Notificaciones de recordatorios de eventos',
+    'callFailedTitle': 'Llamada fallida',
+    'callFailedBody': 'Vuestros teléfonos no consiguen conectarse directamente en esta red. Volved a intentarlo en otra red (por ejemplo Wi-Fi en lugar de datos móviles, o al revés).',
   },
   'ca': {
     'partner': 'El meu amor',
@@ -165,6 +171,8 @@ const Map<String, Map<String, String>> _callTexts = {
     'messagesChannelDesc': 'Notificacions de missatges nous',
     'todoChannel': 'Recordatoris To Do',
     'todoChannelDesc': 'Notificacions de recordatoris d\'esdeveniments',
+    'callFailedTitle': 'Trucada fallida',
+    'callFailedBody': 'Els vostres telèfons no aconsegueixen connectar-se directament en aquesta xarxa. Torneu-ho a provar en una altra xarxa (per exemple Wi-Fi en lloc de dades mòbils, o a l\'inrevés).',
   },
 };
 
@@ -532,6 +540,41 @@ class NotificationService {
     // Richiedi permessi Android 13+ per notifiche
     await androidImplementation?.requestNotificationsPermission();
   }
+
+  /// Notifica "chiamata non riuscita": i due telefoni non riescono a
+  /// collegarsi in P2P mentre la chiamata è sulla UI di sistema (iPhone
+  /// bloccato, app in background), dove non possiamo mostrare il pop-up.
+  Future<void> showCallFailedNotification() async {
+    try {
+      final body = _t('callFailedBody');
+      await _localNotifications.show(
+        _callFailedNotificationId,
+        _t('callFailedTitle'),
+        body,
+        NotificationDetails(
+          android: AndroidNotificationDetails(
+            _channel.id,
+            _channel.name,
+            channelDescription: _channel.description,
+            importance: Importance.high,
+            priority: Priority.high,
+            icon: 'ic_notification',
+            styleInformation: BigTextStyleInformation(body),
+          ),
+          iOS: const DarwinNotificationDetails(
+            presentAlert: true,
+            presentBanner: true,
+            presentList: true,
+            presentSound: true,
+          ),
+        ),
+      );
+    } catch (e) {
+      debugPrint('⚠️ [CALL] Call-failed notification not shown: $e');
+    }
+  }
+
+  static const int _callFailedNotificationId = 424242;
 
   Future<void> _showLocalNotification(RemoteMessage message) async {
     RemoteNotification? notification = message.notification;

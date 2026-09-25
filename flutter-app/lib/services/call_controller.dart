@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter/widgets.dart';
 
 import 'encryption_service.dart';
 import 'notification_service.dart';
@@ -246,10 +247,14 @@ class CallController extends ChangeNotifier {
       if (_ending || _p2pUnavailable) return;
       _p2pUnavailable = true;
       _stopRingbackTone();
-      if (screenAttached) {
+      final inForeground =
+          WidgetsBinding.instance.lifecycleState == AppLifecycleState.resumed;
+      if (screenAttached && inForeground) {
         notifyListeners();
       } else {
-        // Nessuna schermata a cui spiegarlo (app in background): chiudi.
+        // Nessuna schermata a cui spiegarlo (UI di sistema, app in
+        // background): notifica che spiega il motivo, poi chiudi.
+        _notifications.showCallFailedNotification();
         endCall(localHangup: true);
       }
     };
