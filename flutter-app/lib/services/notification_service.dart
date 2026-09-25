@@ -659,6 +659,8 @@ class NotificationService {
           _ringingWatcher?.cancel();
           if (_endedCallUuids.contains(callKitParams.id)) {
             if (kDebugMode) print('📞 [CALLKIT] Late accept for an ended call → ignored');
+            // Il plugin ha già riaperto servizio e notifica: richiudili.
+            _forceEndNative(callKitParams.id);
             break;
           }
           if (callKitParams.id == _activeCallUuid) {
@@ -687,7 +689,12 @@ class NotificationService {
           break;
 
         case CallEventActionCallEnded(:final callKitParams):
-          _endedCallUuids.add(callKitParams.id);
+          if (!_endedCallUuids.add(callKitParams.id)) {
+            // Chiamata già chiusa (da noi, o evento ripetuto dalla chiusura
+            // forzata): non deve toccare un'eventuale chiamata nuova.
+            if (kDebugMode) print('📞 [CALLKIT] Ended event for an already ended call → ignored');
+            break;
+          }
           if (kDebugMode) print('📞 [CALLKIT] Call ended (${callKitParams.id}, active: $_activeCallUuid)');
           _ringingWatcher?.cancel();
           if (_activeCallUuid != null && callKitParams.id != _activeCallUuid) {
@@ -885,25 +892,53 @@ class NotificationService {
 
   /// Termina la chiamata CallKit attiva
   ///
-  /// Su Android `endCall(id)` agisce solo se l'id è ancora nella lista
-  /// ACTIVE_CALLS del plugin: se non lo trova non fa nulla e restano su la
-  /// notifica "chiamata in corso", il foreground service microfono e la
-  /// connessione Telecom (che impedisce ad altre app, es. WhatsApp, di
-  /// avviare chiamate). Per questo chiudiamo anche tutte le entry rimaste.
+  /// Su Android `endCall(id)`/`endAllCalls()` del plugin agiscono solo sulle
+  /// chiamate che trovano nella lista ACTIVE_CALLS, e se la lista è illeggibile
+  /// (voci del plugin 3.0.0) non fanno niente: restavano la notifica "Calling"
+  /// con "Hang up", il foreground service e la connessione Telecom che blocca
+  /// le chiamate di altre app (WhatsApp). Per questo, dopo i metodi del
+  /// plugin, chiudiamo SEMPRE anche come fa il pulsante "Hang up"
+  /// ([_forceEndNative], CallkitCleanup.kt), e lo ripetiamo poco dopo per
+  /// coprire un ACCEPT/CONNECTED arrivato in ritardo.
   Future<void> endCallKit() async {
     final uuid = _activeCallUuid;
     _activeCallUuid = null;
+    // Chiusa da noi: gli eventi ENDED che ne seguono vanno ignorati
+    if (uuid != null) _endedCallUuids.add(uuid);
     try {
       if (uuid != null) {
         await FlutterCallkitIncoming.endCall(uuid);
       }
     } catch (e) {
-      if (kDebugMode) print('⚠️ [CALLKIT] Error ending call: $e');
+      debugPrint('⚠️ [CALLKIT] endCall failed: $e');
     }
     try {
       await FlutterCallkitIncoming.endAllCalls();
     } catch (e) {
-      if (kDebugMode) print('⚠️ [CALLKIT] Error ending all calls: $e');
+      debugPrint('⚠️ [CALLKIT] endAllCalls failed: $e');
+    }
+    await _forceEndNative(uuid);
+    if (uuid != null) {
+      Future.delayed(const Duration(milliseconds: 1500), () => _forceEndNative(uuid));
+    }
+  }
+
+  static const MethodChannel _callkitCleanupChannel =
+      MethodChannel('com.privatemessaging.tuyjo/callkit');
+
+  /// Android: chiude la chiamata di sistema come il pulsante "Hang up"
+  /// (Telecom + notifica + servizio), senza passare dalla lista del plugin.
+  /// Senza [uuid] chiude tutte le chiamate risultanti accettate. No-op su iOS.
+  Future<void> _forceEndNative(String? uuid) async {
+    if (!Platform.isAndroid) return;
+    try {
+      if (uuid != null && uuid.isNotEmpty) {
+        await _callkitCleanupChannel.invokeMethod('forceEnd', {'id': uuid});
+      } else {
+        await _callkitCleanupChannel.invokeMethod('forceEndAllAccepted');
+      }
+    } catch (e) {
+      debugPrint('⚠️ [CALLKIT] forceEnd failed: $e');
     }
   }
 

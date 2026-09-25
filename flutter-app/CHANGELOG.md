@@ -2,6 +2,16 @@
 
 Tutte le modifiche notevoli a questo progetto saranno documentate in questo file.
 
+## [1.37.0] (build 50) - 2026-09-25
+
+### 📞 Android: notifica "Chiamata in corso" che restava dopo la fine della chiamata (Samsung di Lidia)
+- **Causa**: il plugin `flutter_callkit_incoming` 3.0.0 (usato fino alla build 42) salvava le chiamate nella lista `ACTIVE_CALLS` con campi (`uuid`, `isOnHold`, `audioRoute`, `isMuted`) che la 3.1.5 non conosce; la 3.1.5 legge la lista con Jackson, che rifiuta i campi sconosciuti. Una voce rimasta dalla 3.0.0 faceva fallire in silenzio ogni `endCall`/`endAllCalls`: restavano notifica, foreground service e connessione Telecom (WhatsApp bloccato, badge "1"). Il pulsante "Hang up" funzionava perché non legge la lista. Spiega anche "solo sul telefono di Lidia": dipende da un residuo di quell'installazione, non dal modello.
+- **Fix**:
+  - `TuyJoApplication` all'avvio del processo rimuove da `ACTIVE_CALLS` le voci della 3.0.0 (log `TuyJoCallkitFix`);
+  - `CallkitCleanup.forceEnd` chiude la chiamata esattamente come "Hang up" (ENDED al receiver del plugin, disconnessione Telecom, stop del servizio, cancellazione della notifica) senza leggere la lista; `endCallKit` lo usa sempre su Android e lo ripete dopo 1,5 s per un ACCEPT/CONNECTED in ritardo;
+  - un accept in ritardo per una chiamata già chiusa viene richiuso anche lato nativo; gli eventi "chiusa" ripetuti per una chiamata già chiusa sono ignorati (non toccano una chiamata nuova);
+  - gli errori di chiusura CallKit ora compaiono nei log anche in release.
+
 ## [1.37.0] (build 49) - 2026-09-25
 
 Build di test interno / TestFlight sopra la 1.37.0+48.
