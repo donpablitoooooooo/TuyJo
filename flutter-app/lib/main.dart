@@ -1,12 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:provider/provider.dart';
+import 'package:permission_handler/permission_handler.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cryptography_flutter/cryptography_flutter.dart';
 import 'screens/main_screen.dart';
 import 'screens/voice_call_screen.dart';
 import 'services/auth_service.dart';
+import 'services/call_controller.dart';
 import 'services/chat_service.dart';
 import 'services/encryption_service.dart';
 import 'services/notification_service.dart';
@@ -90,23 +92,53 @@ void main() async {
   };
 
   // Configura callback per chiamate in arrivo (CallKit accept)
-  notificationService.onIncomingCall = (String familyChatId, String callerId) {
+  notificationService.onIncomingCall = (String familyChatId, String callerId) async {
     print('📞 [MAIN] Call accepted via CallKit from $callerId in family $familyChatId');
-    // Se l'app è stata appena lanciata da CallKit (PushKit / full screen
-    // intent) il navigator potrebbe non esistere ancora: riprova per qualche
-    // secondo invece di perdere la chiamata accettata.
+
+    // Rispondi SUBITO, senza aspettare la schermata: se la chiamata è stata
+    // accettata dalla UI di sistema (iPhone bloccato, app in background)
+    // Flutter non costruisce widget finché l'app non torna in primo piano, e
+    // il chiamante continuerebbe a squillare. Serve il permesso microfono già
+    // concesso: altrimenti la spiegazione va mostrata dalla schermata, che
+    // avvia lei la chiamata (come prima).
+    CallController? controller = CallController.active;
+    if (controller == null && await Permission.microphone.isGranted) {
+      controller = CallController.create(
+        isOutgoing: false,
+        encryption: encryptionService,
+        pairing: pairingService,
+        notifications: notificationService,
+        familyChatIdHint: familyChatId,
+      );
+      final started = controller;
+      started.start().then((result) {
+        if (result == CallStartResult.micUnavailable) {
+          started.endCall(localHangup: true);
+        }
+      });
+    }
+
+    // Poi apri la schermata, che si aggancia alla chiamata già avviata. Se
+    // l'app è appena stata lanciata da CallKit (PushKit / full screen intent)
+    // il navigator potrebbe non esistere ancora: riprova. Con la chiamata già
+    // in corso riprova finché dura (l'app può restare in background a lungo);
+    // senza, per qualche secondo come prima.
     Future<void> openWhenReady([int attempt = 0]) async {
       if (VoiceCallScreen.isActive) return; // già aperta (evento + activeCalls)
+      // Chiamata già finita mentre l'app era in background: niente schermata
+      // (altrimenti ne partirebbe un'altra, senza più l'offer).
+      if (controller != null && controller.isFinished) return;
       final navigatorState = NotificationService.navigatorKey.currentState;
       if (navigatorState != null) {
         navigatorState.push(
           MaterialPageRoute(
-            builder: (context) => const VoiceCallScreen(isOutgoing: false),
+            builder: (context) => VoiceCallScreen(isOutgoing: false, controller: controller),
           ),
         );
         return;
       }
-      if (attempt < 20) {
+      final callRunning = controller != null && !controller.isFinished;
+      if (callRunning || attempt < 20) {
         await Future.delayed(const Duration(milliseconds: 250));
         return openWhenReady(attempt + 1);
       }

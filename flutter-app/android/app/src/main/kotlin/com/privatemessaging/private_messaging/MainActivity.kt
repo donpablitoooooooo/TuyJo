@@ -24,6 +24,7 @@ class MainActivity: FlutterActivity() {
     private val TONE_CHANNEL = "com.privatemessaging.tuyjo/tone_generator"
     private val PROXIMITY_CHANNEL = "com.privatemessaging.tuyjo/proximity"
     private val BLOCKSTORE_CHANNEL = "com.privatemessaging.tuyjo/blockstore"
+    private val CALLKIT_CHANNEL = "com.privatemessaging.tuyjo/callkit"
     private var methodChannel: MethodChannel? = null
     private var toneChannel: MethodChannel? = null
     private var blockstoreChannel: MethodChannel? = null
@@ -61,6 +62,23 @@ class MainActivity: FlutterActivity() {
         }
 
         Log.d(TAG, "✅ Method Channel configured and ready")
+
+        // Chiusura "come il pulsante Hang up" della chiamata di sistema,
+        // indipendente dalla lista ACTIVE_CALLS del plugin (vedi CallkitCleanup)
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, CALLKIT_CHANNEL)
+            .setMethodCallHandler { call, result ->
+                when (call.method) {
+                    "forceEnd" -> {
+                        val id = call.argument<String>("id") ?: ""
+                        CallkitCleanup.forceEnd(this, id)
+                        result.success(true)
+                    }
+                    "forceEndAllAccepted" -> {
+                        result.success(CallkitCleanup.forceEndAllAccepted(this))
+                    }
+                    else -> result.notImplemented()
+                }
+            }
 
         // ToneGenerator channel per ringback tone
         toneChannel = MethodChannel(flutterEngine.dartExecutor.binaryMessenger, TONE_CHANNEL)

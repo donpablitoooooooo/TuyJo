@@ -8,7 +8,7 @@ import '../services/couple_selfie_service.dart';
 import '../state/ui_state.dart';
 import '../services/notification_service.dart';
 import 'dart:async';
-import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import '../services/app_secure_storage.dart';
 import '../services/backup_service.dart';
 import '../services/encryption_service.dart';
 import 'chat_screen.dart';
@@ -92,7 +92,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
     }
     _autoRestoreInFlight = true;
     try {
-      const storage = FlutterSecureStorage();
+      const storage = appSecureStorage;
       // Con una chiave locale già presente non c'è nulla da recuperare
       // (identità nuova o ripristino manuale già fatto).
       if (await storage.read(key: 'rsa_private_key') != null) return;

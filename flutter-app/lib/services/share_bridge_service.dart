@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:crypto/crypto.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'app_secure_storage.dart';
 
 /// Ponte verso la Share Extension iOS.
 ///
@@ -24,7 +25,7 @@ class ShareBridgeService {
     accessibility: KeychainAccessibility.unlocked,
   );
 
-  final FlutterSecureStorage _storage = const FlutterSecureStorage();
+  final FlutterSecureStorage _storage = appSecureStorage;
 
   Future<void> sync() async {
     if (!Platform.isIOS) return;

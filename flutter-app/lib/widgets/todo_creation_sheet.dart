@@ -188,7 +188,7 @@ class _TodoCreationSheetState extends State<TodoCreationSheet> {
                   const Divider(height: 1),
                   SwitchListTile(
                     contentPadding: EdgeInsets.zero,
-                    activeColor: _teal,
+                    activeThumbColor: _teal,
                     title: Text(l10n.todoSheetSetEnd),
                     value: _hasEnd,
                     onChanged: (v) => setState(() => _hasEnd = v),
