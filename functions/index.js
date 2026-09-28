@@ -1,10 +1,12 @@
 const functions = require('firebase-functions/v1');
 const {defineSecret} = require('firebase-functions/params');
-const admin = require('firebase-admin');
+const {initializeApp} = require('firebase-admin/app');
+const {getFirestore, FieldValue} = require('firebase-admin/firestore');
+const {getMessaging} = require('firebase-admin/messaging');
 const http2 = require('http2');
 const crypto = require('crypto');
 
-admin.initializeApp();
+initializeApp();
 
 // ═══════════════════════════════════════════════════════════════════
 // APNs VoIP (PushKit) — chiamate in arrivo su iOS
@@ -218,7 +220,7 @@ function getLocalizedText(language, messageType) {
  */
 async function countUnreadForRecipient(familyChatId, recipientId, partnerId) {
   try {
-    const family = admin.firestore().collection('families').doc(familyChatId);
+    const family = getFirestore().collection('families').doc(familyChatId);
     const receiptSnap = await family.collection('read_receipts').doc(recipientId).get();
     const readIds = new Set(
       receiptSnap.exists && Array.isArray(receiptSnap.data().messageIds)
@@ -264,8 +266,7 @@ exports.sendMessageNotification = functions
       });
 
       // 1. Ottieni tutti gli utenti della famiglia
-      const usersSnapshot = await admin
-        .firestore()
+      const usersSnapshot = await getFirestore()
         .collection('families')
         .doc(familyChatId)
         .collection('users')
@@ -356,8 +357,7 @@ exports.sendMessageNotification = functions
           },
         };
 
-        return admin
-          .messaging()
+        return getMessaging()
           .send(message)
           .then((response) => {
             console.log('✅ Notification sent successfully to:', recipient.userId, response);
@@ -370,14 +370,13 @@ exports.sendMessageNotification = functions
             if (error.code === 'messaging/invalid-registration-token' ||
                 error.code === 'messaging/registration-token-not-registered') {
               console.log('🗑️ Removing invalid token for user:', recipient.userId);
-              return admin
-                .firestore()
+              return getFirestore()
                 .collection('families')
                 .doc(familyChatId)
                 .collection('users')
                 .doc(recipient.userId)
                 .update({
-                  fcm_token: admin.firestore.FieldValue.delete(),
+                  fcm_token: FieldValue.delete(),
                 });
             }
             return null;
@@ -516,10 +515,10 @@ exports.sendCallNotification = functions
           }
           console.error('❌ VoIP push failed:', recipient.userId, res);
           if (res.reason === 'BadDeviceToken' || res.reason === 'Unregistered') {
-            await admin.firestore()
+            await getFirestore()
               .collection('families').doc(familyChatId)
               .collection('users').doc(recipient.userId)
-              .update({voip_token: admin.firestore.FieldValue.delete()});
+              .update({voip_token: FieldValue.delete()});
           }
           // fallthrough → FCM come ultima spiaggia
         }
@@ -557,8 +556,7 @@ exports.sendCallNotification = functions
 
 /** Utenti della famiglia diversi dal caller, con i loro token */
 async function callRecipients(familyChatId, callerId) {
-  const usersSnapshot = await admin
-    .firestore()
+  const usersSnapshot = await getFirestore()
     .collection('families')
     .doc(familyChatId)
     .collection('users')
@@ -608,7 +606,7 @@ async function sendFcmData(familyChatId, recipient, data, ttlSeconds) {
     },
   };
   try {
-    const response = await admin.messaging().send(message);
+    const response = await getMessaging().send(message);
     console.log(`✅ FCM ${data.type} sent to:`, recipient.userId, response);
     return response;
   } catch (error) {
@@ -616,10 +614,10 @@ async function sendFcmData(familyChatId, recipient, data, ttlSeconds) {
     if (error.code === 'messaging/invalid-registration-token' ||
         error.code === 'messaging/registration-token-not-registered') {
       console.log('🗑️ Removing invalid token for user:', recipient.userId);
-      await admin.firestore()
+      await getFirestore()
         .collection('families').doc(familyChatId)
         .collection('users').doc(recipient.userId)
-        .update({fcm_token: admin.firestore.FieldValue.delete()});
+        .update({fcm_token: FieldValue.delete()});
     }
     return null;
   }
