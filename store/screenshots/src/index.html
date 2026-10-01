@@ -95,6 +95,7 @@ h1 { font-family: var(--display); font-weight: 800; font-size: 9.4vw; line-heigh
 .mio { font-family: 'Material Icons Outlined'; } .mir { font-family: 'Material Icons Round'; }
 .fab { width: 48px; height: 48px; border-radius: 50%; background: #fff; box-shadow: 0 2px 8px rgba(0,0,0,.10); display: flex; align-items: center; justify-content: center; color: #3BA8B0; }
 .fab img { width: 48px; height: 48px; border-radius: 50%; object-fit: cover; }
+.fab .selfie { width: 48px; height: 48px; border-radius: 50%; background: center 40% / cover; }
 .fab-l { position: absolute; z-index: 20; top: var(--fab-top); left: 16px; }
 .fab-r { position: absolute; z-index: 20; top: var(--fab-top); right: 16px; display: flex; gap: 10px; }
 
@@ -425,7 +426,8 @@ const shot = parseInt(q.get('shot') || '1', 10);
 const OFFSET = parseInt(q.get('off') || '0', 10);
 const PHOTOS_REAL = (q.get('photos') || '').split(',').filter(Boolean);   // file in img/photos/
 const LINKS_REAL = (q.get('links') || '').split(',').filter(Boolean);     // file in img/links/
-const CHAT_PHOTO = q.get('chatphoto') || '';                             // la foto dentro la chat   // px logici saltati dall'alto (device=card)
+const CHAT_PHOTO = q.get('chatphoto') || '';
+const AVATAR = q.get('avatar') || '';                                   // la foto di coppia nel tondo in alto a destra                             // la foto dentro la chat   // px logici saltati dall'alto (device=card)
 const t = UI[lang];
 const isCard = device === 'card';                        // ritaglio a scheda
 const isWeb = device === 'web' || device === 'webpair' || isCard;   // render per il sito
@@ -481,13 +483,18 @@ function todoBubble(side, text, when, alert, state, time) {
   return `<div class="row ${side}"><div class="bubble"><span style="${done ? 'text-decoration:line-through' : ''}">${text}</span>
     <div class="todorow">${mi(icon, 14, 'inherit', 'mio')}<span>${when}</span>${al}</div><div class="meta">${meta}</div></div></div>`;
 }
+// Il tondo in alto a destra: nell'app è il selfie di coppia, se l'avete
+// scattato (main_screen.dart, cachedSelfieBytes); altrimenti il logo.
+const avatar = () => AVATAR
+  ? `<span class="selfie" style="background-image:url('img/photos/${AVATAR}')"></span>`
+  : '<img src="img/logo_teal.png" alt="">';
 function fabs(withCall, tapCall) {
   // tapCall: l'alone del dito che preme la cornetta, per la sequenza del sito
   const call = withCall
     ? `<div class="tapwrap"><div class="fab">${mi('call', 22, '#3BA8B0')}</div>${tapCall ? '<div class="tapring"></div>' : ''}</div>`
     : '';
   return `<div class="fab-l"><div class="fab">${mi('menu', 24, '#3BA8B0')}</div></div>
-    <div class="fab-r">${call}<div class="fab"><img src="img/logo_teal.png" alt=""></div></div>`;
+    <div class="fab-r">${call}<div class="fab">${avatar()}</div></div>`;
 }
 function inputBar(draft) {
   // draft: il testo che l'altra persona sta scrivendo in questo momento
@@ -518,7 +525,7 @@ function chatScreen(mirror, tapCall) {
     ${earlier}
     ${datesep(t.today)}
     ${isTablet ? bubble(sd('them'), t.c1, '21:04', 'read') : ''}
-    ${bubble(sd('me'), t.c2, '21:04', 'read')}
+    ${isTablet ? bubble(sd('me'), t.c2, '21:04', 'read') : ''}
     ${locBubble(sd('me'))}
     ${bubble(sd('them'), t.c3, '21:05', 'read', 'favorite')}
     ${todoBubble(sd('me'), t.todo1, `${t.tomorrow} 20:30`, '2h', 'read', '21:06')}

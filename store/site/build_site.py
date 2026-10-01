@@ -281,6 +281,24 @@ BAK = {'it': {'bak_eyebrow': 'Backup',
 for _c, _b in BAK.items():
     T[_c].update(_b)
 
+# Sezione posizione: si aggiunge in coda ai testi, quindi è la numero 4.
+LOC = {
+    'it': ('Dove sei', 'Dove sei? <span class="serif-em">Te lo mostro.</span>',
+           "Un tocco e l'altro vede quanto manca e da che parte andare: una freccia e la distanza, aggiornate dal vivo. La condivisione dura un'ora o otto, poi si spegne da sola, e le coordinate viaggiano cifrate.",
+           'La posizione condivisa in Tuijo: una freccia che indica la direzione e la distanza, 350 metri.'),
+    'en': ('Where are you', 'Where are you? <span class="serif-em">Here, look.</span>',
+           "One tap and the other sees how far you are and which way to go: an arrow and the distance, updated live. Sharing lasts one hour or eight, then switches itself off, and the coordinates travel encrypted.",
+           'Location sharing in Tuijo: an arrow pointing the way and the distance, 350 metres.'),
+    'es': ('Dónde estás', '¿Dónde estás? <span class="serif-em">Mira, aquí.</span>',
+           "Un toque y el otro ve cuánto falta y hacia dónde ir: una flecha y la distancia, actualizadas en directo. Compartir dura una hora u ocho, luego se apaga solo, y las coordenadas viajan cifradas.",
+           'La ubicación compartida en Tuijo: una flecha que indica la dirección y la distancia, 350 metros.'),
+    'ca': ('On ets', 'On ets? <span class="serif-em">Mira, aquí.</span>',
+           "Un toc i l'altre veu quant falta i cap a on anar: una fletxa i la distància, actualitzades en directe. Compartir dura una hora o vuit, després s'apaga sol, i les coordenades viatgen xifrades.",
+           'La ubicació compartida a Tuijo: una fletxa que indica la direcció i la distància, 350 metres.'),
+}
+for _c, _s in LOC.items():
+    T[_c]['sections'].append(_s)
+
 SEC_IDS = ['chat', 'sicurezza', 'faq']   # ancore uguali in tutte le lingue
 
 # Impianto di ciascuna delle sei sezioni prodotto, nell'ordine.
@@ -298,6 +316,7 @@ LAYOUT = [
     dict(sec=1, cls='split',     img='reel', shots=[(5, 2600), (11, 2600), (12, 2600)],
          dark=True),                                                                  # galleria: foto, link, documenti
     dict(sec=2, cls='split rev', shot=2, img='phone', dark=False),                    # chiamate: la schermata di chiamata
+    dict(sec=4, cls='split',     shot=3, img='phone', dark=True),                     # posizione: freccia e distanza
 ]
 
 
