@@ -7,31 +7,28 @@
 <meta name="description" content="Informativa sulla privacy di Tuijo: architettura zero-knowledge, crittografia end-to-end e nessun dato personale richiesto.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700;12..96,800&family=Hanken+Grotesk:wght@400;500;600;700&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,700;12..96,800&family=Hanken+Grotesk:wght@400;600;700&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet">
 <link rel="icon" type="image/png" href="assets/icon-1024.png">
-<link rel="stylesheet" href="styles.css">
+<link rel="stylesheet" href="site.css?v=5b64c6a9">
 </head>
 <body>
 
-<nav class="nav scrolled">
+<nav class="nav">
   <div class="wrap nav-inner">
-    <a class="brand" href="index.html">
-      <img src="assets/cherries.png" alt="Tuijo">
-      <span class="word">Tuijo</span>
-    </a>
+    <a class="brand" href="index.htmltop"><img src="assets/cherries.png" alt=""><span>Tuijo</span></a>
     <div class="nav-links">
-      <a class="link" href="index.html#features">Funzioni</a>
-      <a class="link" href="index.html#security">Sicurezza</a>
-      <a class="link" href="index.html#faq">FAQ</a>
+      <a href="index.html#funzioni">Funzioni</a>
+      <a href="index.html#sicurezza">Sicurezza</a>
+      <a href="index.html#backup">Backup</a>
+      <a href="index.html#faq">Domande</a>
     </div>
-    <div class="nav-actions">
+    <div class="nav-right">
       <div class="lang">
-        <a href="privacy-it-v1.1.html" class="active">IT</a>
+        <a href="privacy-it-v1.1.html" class="on">IT</a>
         <a href="privacy-en-v1.1.html">EN</a>
         <a href="privacy-es-v1.1.html">ES</a>
         <a href="privacy-ca-v1.1.html">CA</a>
       </div>
-      <a href="index.html#download" class="btn btn-cherry">Scarica</a>
     </div>
   </div>
 </nav>
@@ -167,7 +164,7 @@
       <h2>6. Contatti</h2>
       <p>Per domande o richieste sulla privacy, puoi contattarci:</p>
       <ul>
-        <li><strong>Email:</strong> <a href="mailto:info@tuyjo.com" style="color:var(--teal-deep);font-weight:600;">info@tuyjo.com</a></li>
+        <li><strong>Email:</strong> <a href="mailto:info@tuijo.app">info@tuijo.app</a></li>
       </ul>
 
       <div class="legal-callout">
@@ -182,45 +179,20 @@
 
 <footer class="foot">
   <div class="wrap">
-    <div class="foot-top">
-      <div class="foot-brand">
-        <a class="brand" href="index.html">
-          <img src="assets/cherries.png" alt="Tuijo" style="width:32px;">
-          <span class="word">Tuijo</span>
-        </a>
-        <p>Tu y yo — tu e io. La messaggistica privata e criptata pensata solo per le coppie.</p>
-      </div>
-      <div class="foot-cols">
-        <div class="foot-col">
-          <h4>App</h4>
-          <a href="index.html#features">Funzioni</a>
-          <a href="index.html#security">Sicurezza</a>
-          <a href="index.html#how">Come funziona</a>
-          <a href="index.html#faq">FAQ</a>
-        </div>
-        <div class="foot-col">
-          <h4>Scarica</h4>
-          <a href="https://apps.apple.com/it/app/tuijo/id6757800731" target="_blank" rel="noopener noreferrer">App Store</a>
-          <a href="https://play.google.com/store/apps/details?id=com.privatemessaging.private_messaging" target="_blank" rel="noopener noreferrer">Google Play</a>
-        </div>
-        <div class="foot-col">
-          <h4>Legale</h4>
-          <a href="privacy-it-v1.1.html">Informativa privacy</a>
-          <a href="mailto:info@tuyjo.com">Supporto</a>
-        </div>
-      </div>
+    <div class="foot-nav">
+      <a href="index.html#funzioni">Funzioni</a>
+      <a href="index.html#sicurezza">Sicurezza</a>
+      <a href="index.html#backup">Backup</a>
+      <a href="index.html#faq">Domande</a>
+      <a href="privacy-it-v1.1.html">Privacy</a>
+      <a href="index.html#supporto">Supporto</a>
+      <a href="https://apps.apple.com/it/app/tuijo/id6757800731" target="_blank" rel="noopener noreferrer">App Store</a>
+      <a href="https://play.google.com/store/apps/details?id=com.privatemessaging.private_messaging" target="_blank" rel="noopener noreferrer">Google Play</a>
     </div>
-    <div class="foot-bottom">
-      <span>© <span id="year">2026</span> Tuijo · Tutti i diritti riservati</span>
-      <span>Fatto con 🍒 per chi sta bene in due</span>
-    </div>
+    <div class="foot-bottom">© <span id="year">2026</span> Tuijo · tu i jo, tu e io</div>
   </div>
 </footer>
 
-<template id="__bundler_thumbnail">
-  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect width="100" height="100" fill="#145A60"/><text x="50" y="60" font-size="34" text-anchor="middle" fill="#fff" font-family="sans-serif" font-weight="bold">🍒</text></svg>
-</template>
-
-<script src="app.js"></script>
+<script src="site.js?v=8046a07d"></script>
 </body>
 </html>

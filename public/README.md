@@ -37,8 +37,8 @@ Il sito sara' disponibile su:
 | `en.html` | Homepage inglese |
 | `es.html` | Homepage spagnola |
 | `ca.html` | Homepage catalana |
-| `site.css` / `site.js` | Stile e interazioni delle **quattro homepage** |
-| `styles.css` / `app.js` | Stile e interazioni delle **pagine privacy** (impianto precedente) |
+| `site.css` / `site.js` | Stile e interazioni di homepage e pagine privacy |
+| `styles.css` / `app.js` | Impianto precedente, non più usato dalle pagine |
 | `assets/shots/<lingua>/` | Schermate dell'app per il sito (WebP), generate da `store/screenshots` |
 | `assets/og-<lingua>.png` | Immagine di anteprima social (`og:image`), 1200 × 630 |
 | `assets/photo/` | Slot per la foto della banda — vedi il README lì dentro |
@@ -53,6 +53,11 @@ file con il nuovo suffisso, aggiorna i link in `index/en/es/ca.html` e nel
 selettore lingua delle pagine privacy, e cambia i redirect in `firebase.json`
 (i vecchi URL `privacy-<lingua>.html` restano validi).
 
+Barra, footer e head delle pagine privacy li scrive `build_site.py`, come per le
+homepage: il testo legale (`<section class="legal">`) invece si modifica
+direttamente nel file e lo script lo lascia com'è. L'indirizzo di contatto è
+`MAIL` in `build_site.py` (oggi `info@tuijo.app`).
+
 ## Modificare i testi delle homepage
 
 Le quattro homepage **non si modificano a mano una per una**: sono generate da
@@ -60,7 +65,7 @@ un'unica struttura di testi, così le lingue non divergono. Lo script è
 `store/site/build_site.py`:
 
 ```bash
-python3 store/site/build_site.py     # riscrive index/en/es/ca.html
+python3 store/site/build_site.py     # riscrive index/en/es/ca.html e la cornice delle privacy
 ```
 
 Le immagini delle schermate si rigenerano dal progetto degli screenshot:

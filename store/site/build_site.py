@@ -360,12 +360,69 @@ def stamp(name):
     return f'{name}?v={hashlib.sha1(data).hexdigest()[:8]}'
 
 
+MAIL = 'info@tuijo.app'
+
+SUPPORT = {
+    'it': ('Supporto', 'Serve una mano?',
+           'Molte risposte sono già nelle <a href="{faq}">Domande</a>: recupero della chat, cancellazione dei messaggi, posizione. '
+           'Per sapere quali dati trattiamo c\'è l\'<a href="{privacy}">informativa privacy</a>. Se non trovi quello che cerchi, scrivici.'),
+    'en': ('Support', 'Need a hand?',
+           'Many answers are already in the <a href="{faq}">Questions</a>: recovering the chat, deleting messages, location. '
+           'To see which data we handle, there is the <a href="{privacy}">privacy policy</a>. If you cannot find what you are looking for, write to us.'),
+    'es': ('Soporte', '¿Necesitas ayuda?',
+           'Muchas respuestas ya están en las <a href="{faq}">Preguntas</a>: recuperar el chat, borrar mensajes, ubicación. '
+           'Para saber qué datos tratamos está la <a href="{privacy}">política de privacidad</a>. Si no encuentras lo que buscas, escríbenos.'),
+    'ca': ('Suport', 'Necessites un cop de mà?',
+           'Moltes respostes ja són a les <a href="{faq}">Preguntes</a>: recuperar el xat, esborrar missatges, ubicació. '
+           'Per saber quines dades tractem hi ha la <a href="{privacy}">política de privadesa</a>. Si no trobes el que busques, escriu-nos.'),
+}
+
+
+def nav(code, home, pages):
+    """La barra in alto. home: prefisso delle ancore ('' sulla home, la pagina
+    della home altrove); pages: la pagina di ciascuna lingua per il selettore."""
+    t = T[code]
+    langs = ''.join(
+        '\n        <a href="%s"%s>%s</a>' % (pages[c], ' class="on"' if c == code else '', c.upper())
+        for c in ('it', 'en', 'es', 'ca'))
+    return f'''<nav class="nav">
+  <div class="wrap nav-inner">
+    <a class="brand" href="{home or '#'}top"><img src="assets/cherries.png" alt=""><span>Tuijo</span></a>
+    <div class="nav-links">
+      <a href="{home}#funzioni">{t['nav'][0]}</a>
+      <a href="{home}#sicurezza">{t['nav'][1]}</a>
+      <a href="{home}#backup">{t['nav'][2]}</a>
+      <a href="{home}#faq">{t['nav'][3]}</a>
+    </div>
+    <div class="nav-right">
+      <div class="lang">{langs}
+      </div>
+    </div>
+  </div>
+</nav>'''
+
+
+def footer(code, home):
+    t, s = T[code], STORE[code]
+    return f'''<footer class="foot">
+  <div class="wrap">
+    <div class="foot-nav">
+      <a href="{home}#funzioni">{t['nav'][0]}</a>
+      <a href="{home}#sicurezza">{t['nav'][1]}</a>
+      <a href="{home}#backup">{t['nav'][2]}</a>
+      <a href="{home}#faq">{t['nav'][3]}</a>
+      <a href="{s['privacy']}">{t['foot_privacy']}</a>
+      <a href="{home}#supporto">{t['foot_support']}</a>
+      <a href="{s['apple']}" target="_blank" rel="noopener noreferrer">App Store</a>
+      <a href="{PLAY}" target="_blank" rel="noopener noreferrer">Google Play</a>
+    </div>
+    <div class="foot-bottom">© <span id="year">2026</span> Tuijo · {t['foot_tag']}</div>
+  </div>
+</footer>'''
+
+
 def build(code):
     t, s = T[code], STORE[code]
-    langs = ''
-    for c in ('it', 'en', 'es', 'ca'):
-        on = ' class="on"' if c == code else ''
-        langs += '\n        <a href="%s"%s>%s</a>' % (STORE[c]['page'], on, c.upper())
 
     hero_w, hero_h = img_size(os.path.join(OUT, 'assets', 'shots', code, f'01-{code}.webp'))
 
@@ -495,21 +552,7 @@ def build(code):
 </head>
 <body>
 
-<nav class="nav">
-  <div class="wrap nav-inner">
-    <a class="brand" href="#top"><img src="assets/cherries.png" alt=""><span>Tuijo</span></a>
-    <div class="nav-links">
-      <a href="#funzioni">{t['nav'][0]}</a>
-      <a href="#sicurezza">{t['nav'][1]}</a>
-      <a href="#backup">{t['nav'][2]}</a>
-      <a href="#faq">{t['nav'][3]}</a>
-    </div>
-    <div class="nav-right">
-      <div class="lang">{langs}
-      </div>
-    </div>
-  </div>
-</nav>
+{nav(code, '', {c: STORE[c]['page'] for c in STORE})}
 
 <!-- ============ HERO ============ -->
 <header class="hero" id="top">
@@ -558,6 +601,16 @@ def build(code):
   </div>
 </section>
 
+<!-- ============ SUPPORTO ============ -->
+<section class="support" id="supporto">
+  <div class="wrap">
+    <span class="eyebrow reveal">{SUPPORT[code][0]}</span>
+    <h2 class="reveal">{SUPPORT[code][1]}</h2>
+    <p class="lead reveal d1">{SUPPORT[code][2].format(faq='#faq', privacy=s['privacy'])}</p>
+    <a class="mail reveal d1" href="mailto:{MAIL}">{MAIL}</a>
+  </div>
+</section>
+
 <!-- ============ CTA ============ -->
 <section class="cta">
   <div class="wrap">
@@ -566,30 +619,60 @@ def build(code):
   </div>
 </section>
 
-<footer class="foot">
-  <div class="wrap">
-    <div class="foot-nav">
-      <a href="#funzioni">{t['nav'][0]}</a>
-      <a href="#sicurezza">{t['nav'][1]}</a>
-      <a href="#backup">{t['nav'][2]}</a>
-      <a href="#faq">{t['nav'][3]}</a>
-      <a href="{s['privacy']}">{t['foot_privacy']}</a>
-      <a href="mailto:support@tuyjo.com">{t['foot_support']}</a>
-      <a href="{s['apple']}" target="_blank" rel="noopener noreferrer">App Store</a>
-      <a href="{PLAY}" target="_blank" rel="noopener noreferrer">Google Play</a>
-    </div>
-    <div class="foot-bottom">© <span id="year">2026</span> Tuijo · {t['foot_tag']}</div>
-  </div>
-</footer>
+{footer(code, '')}
 
 <script src="{stamp('site.js')}"></script>
 </body>
 </html>
 '''
 
+def build_privacy(code):
+    """Rigenera la cornice della pagina privacy (head, barra, footer) attorno
+    al testo legale, che resta quello scritto nel file: <section class="legal">."""
+    t, s = T[code], STORE[code]
+    path = os.path.join(OUT, s['privacy'])
+    old = io.open(path, encoding='utf-8').read()
+    title = re.search(r'<title>(.*?)</title>', old, re.S).group(1)
+    desc = re.search(r'<meta name="description" content="([^"]*)">', old).group(1)
+    a = old.index('<section class="legal">')
+    legal = old[a:old.index('</section>', a) + len('</section>')]
+    # vecchio indirizzo e vecchio stile in linea, rimasti dal sito precedente
+    legal = re.sub(r'info@tuyjo\.com|support@tuyjo\.com', MAIL, legal)
+    legal = legal.replace(' style="color:var(--teal-deep);font-weight:600;"', '')
+    return f'''<!DOCTYPE html>
+<html lang="{t['lang']}">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>{title}</title>
+<meta name="description" content="{desc}">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,700;12..96,800&family=Hanken+Grotesk:wght@400;600;700&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet">
+<link rel="icon" type="image/png" href="assets/icon-1024.png">
+<link rel="stylesheet" href="{stamp('site.css')}">
+</head>
+<body>
+
+{nav(code, s['page'], {c: STORE[c]['privacy'] for c in STORE})}
+
+{legal}
+
+{footer(code, s['page'])}
+
+<script src="{stamp('site.js')}"></script>
+</body>
+</html>
+'''
+
+
 for code in ('it', 'en', 'es', 'ca'):
     path = os.path.join(OUT, STORE[code]['page'])
     # anche le schermate cambiano senza cambiare nome: stessa impronta del CSS
     html = re.sub(r'src="(assets/shots/[^"?]+)"', lambda m: f'src="{stamp(m.group(1))}"', build(code))
+    io.open(path, 'w', encoding='utf-8').write(html)
+    print('scritto', path)
+    path = os.path.join(OUT, STORE[code]['privacy'])
+    html = build_privacy(code)
     io.open(path, 'w', encoding='utf-8').write(html)
     print('scritto', path)
