@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:crypto/crypto.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
@@ -11,6 +12,10 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 /// per cifrare le serve SOLO materiale pubblico, che l'app copia in un
 /// access group del Keychain condiviso con l'estensione (l'App Group).
 /// La chiave privata non lascia mai lo storage dell'app.
+///
+/// Per scrivere nella chat l'estensione usa il login anonimo dell'app, che
+/// è membro della chat: l'app le passa il refresh token e l'estensione lo
+/// scambia con un ID token (securetoken.googleapis.com).
 ///
 /// Da chiamare a ogni avvio e dopo ogni cambiamento di pairing: se non si
 /// è accoppiati le copie vengono rimosse e l'estensione ripiega
@@ -34,12 +39,18 @@ class ShareBridgeService {
       if (myPub == null || partnerPub == null) {
         await _storage.delete(key: 'my_public_key', iOptions: _opts);
         await _storage.delete(key: 'partner_public_key', iOptions: _opts);
+        await _storage.delete(key: 'auth_refresh_token', iOptions: _opts);
         if (kDebugMode) print('🔗 [SHARE-BRIDGE] identity cleared (not paired)');
         return;
       }
       await _storage.write(key: 'my_public_key', value: myPub, iOptions: _opts);
       await _storage.write(
           key: 'partner_public_key', value: partnerPub, iOptions: _opts);
+      final refreshToken = FirebaseAuth.instance.currentUser?.refreshToken;
+      if (refreshToken != null) {
+        await _storage.write(
+            key: 'auth_refresh_token', value: refreshToken, iOptions: _opts);
+      }
       if (kDebugMode) {
         final family = sha256
             .convert(utf8.encode(([myPub, partnerPub]..sort()).join('|')))

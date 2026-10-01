@@ -820,6 +820,16 @@ class ChatService extends ChangeNotifier {
   }
 
   // Disconnetti dal listener
+  /// Riavvia i listener della chat già aperta. Serve quando il telefono
+  /// entra nella chat in ritardo (avvio senza rete): i listener partiti
+  /// prima erano stati rifiutati dalle regole e Firestore li ha chiusi.
+  Future<void> restartListening() async {
+    final familyChatId = _currentFamilyChatId;
+    if (familyChatId == null || _subscription == null) return;
+    stopListening();
+    await startListening(familyChatId);
+  }
+
   void stopListening() {
     _subscription?.cancel();
     _subscription = null;

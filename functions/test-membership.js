@@ -35,4 +35,8 @@ rejects({publicKey: a.pub, partnerPublicKey: b.pub, timestamp: old,
 // richiesta malformata
 rejects({publicKey: a.pub, uid, now}, 400);
 rejects({publicKey: 'not-a-key', partnerPublicKey: b.pub, timestamp: now, signature: 'x', uid, now}, 400);
+// una firma fatta dall'app (Dart, EncryptionService.signSha256) si verifica qui
+const fixture = require('./test-fixture-dart-signature.json');
+const dartKey = crypto.createPublicKey({key: Buffer.from(fixture.publicKey, 'base64'), format: 'der', type: 'spki'});
+assert.ok(crypto.verify('sha256', Buffer.from(fixture.message), dartKey, Buffer.from(fixture.signature, 'base64')));
 console.log('membership: tutti i controlli passano');

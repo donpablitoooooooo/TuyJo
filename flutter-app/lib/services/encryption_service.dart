@@ -65,6 +65,21 @@ class EncryptionService {
     return _processInBlocks(decryptor, data);
   }
 
+  /// Firma RSA PKCS#1 v1.5 con SHA-256 del testo [message], in base64.
+  /// Serve a dimostrare a joinFamily (Cloud Function) di avere la chiave
+  /// privata di questo telefono. Usa [privateKeyStr] se dato, altrimenti
+  /// la chiave caricata.
+  String signSha256(String message, {String? privateKeyStr}) {
+    final key = privateKeyStr != null
+        ? _decodePrivateKey(privateKeyStr)
+        : _keyPair?.privateKey as RSAPrivateKey?;
+    if (key == null) throw StateError('No private key loaded');
+    final signer = RSASigner(SHA256Digest(), '0609608648016503040201')
+      ..init(true, PrivateKeyParameter<RSAPrivateKey>(key));
+    final signature = signer.generateSignature(Uint8List.fromList(utf8.encode(message)));
+    return base64Encode(signature.bytes);
+  }
+
   // Carica la chiave privata
   void loadPrivateKey(String privateKeyStr) {
     final privateKey = _decodePrivateKey(privateKeyStr);
