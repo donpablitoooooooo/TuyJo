@@ -219,8 +219,8 @@ SEC_IDS = ['chat', 'sicurezza', 'faq']   # ancore uguali in tutte le lingue
 # 'img' dice quale file usare: il telefono (0N) o il ritaglio a scheda (card-0N).
 LAYOUT = [
     dict(sec=3, cls='scene',     shot=6, img='scene', dark=True),                     # abbinamento
-    dict(sec=0, cls='split',     shot=4, img='phone', dark=False),                    # promemoria
-    dict(sec=1, cls='full',      img='reel', shots=[(5, 2600), (11, 2600), (12, 2600)],
+    dict(sec=0, cls='split rev', shot=4, img='phone', dark=False),                    # promemoria
+    dict(sec=1, cls='split',     img='reel', shots=[(5, 2600), (11, 2600), (12, 2600)],
          dark=True),                                                                  # galleria: foto, link, documenti
     dict(sec=2, cls='split rev', img='reel', shots=[(1, 1700), (13, 700), (2, 2600)],
          dark=False),                                                                 # chiamate: chat, tocco, chiamata

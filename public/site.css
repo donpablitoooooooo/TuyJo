@@ -99,6 +99,20 @@ h2 {
 .hero-shot { margin: clamp(38px, 5vw, 62px) auto 0; width: min(340px, 72vw); }
 .hero-shot img { width: 100%; filter: drop-shadow(0 26px 34px rgba(12,46,50,.24));
   transform: translateY(var(--shift, 0px)); }
+/* Da desktop l'apertura è su due colonne: testo a sinistra, telefono a destra. */
+@media (min-width: 861px) {
+  .hero { text-align: left; padding-bottom: clamp(64px, 7vw, 104px); }
+  .hero .wrap {
+    display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, .62fr);
+    grid-template-rows: 1fr auto auto auto auto 1fr; column-gap: clamp(30px, 5vw, 76px);
+    grid-template-areas: ". shot" "h1 shot" "lead shot" "badges shot" "note shot" ". shot";
+  }
+  .hero h1 { grid-area: h1; }
+  .hero .lead { grid-area: lead; margin-left: 0; }
+  .hero .badges { grid-area: badges; justify-content: flex-start; }
+  .hero .hero-note { grid-area: note; }
+  .hero .hero-shot { grid-area: shot; margin: 0 auto; width: min(340px, 100%); }
+}
 
 /* ---------------- Sezioni prodotto ----------------
    Tre impianti che si alternano: split (testo di lato), center (telefono
