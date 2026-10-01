@@ -4,6 +4,13 @@ Tutte le modifiche notevoli a questo progetto saranno documentate in questo file
 
 ## [Non rilasciato]
 
+### 🔒 Ogni chat accessibile solo ai suoi due telefoni
+- **Regole nuove** per Firestore e Storage: in una chat leggono e scrivono solo i login anonimi registrati come membri (`member_uids`). Prima erano aperte a chiunque conoscesse l'id della chat.
+- **Come si entra:** la Cloud Function `joinFamily` registra un login solo se il telefono firma con la propria chiave privata (RSA-SHA256 su chat, uid e ora). Succede da solo all'avvio, dopo l'abbinamento, dopo il recupero e dopo una reinstallazione; se il login e la chat sono quelli di prima non serve la rete. Quando sono entrati tutti e due i telefoni la chat si chiude (`locked`).
+- **Transizione:** le chat della 1.37 (senza documento o con un solo telefono aggiornato) restano aperte finché `LEGACY_OPEN` è `true` nelle regole; va spento quando non ci sono più telefoni con la 1.37.
+- **Share Extension:** scrive con il login dell'app, che le passa il refresh token nel Keychain condiviso.
+- **Test:** `firebase-tests/` (12 test delle regole sull'emulatore), `functions/test-membership.js` (firma, anche una fatta in Dart), `test/membership_signature_test.dart`.
+
 ### 🔐 Citazioni e anteprime dei link cifrate
 - **Il testo citato in una risposta** non è più scritto in chiaro accanto al messaggio (`reply_to_text`): viaggia dentro il contenuto cifrato (`reply_text`). Modificando un messaggio la citazione resta, e se era un messaggio vecchio il campo in chiaro viene tolto.
 - **Le anteprime dei link** (URL, titolo, descrizione) non sono più in chiaro (`link_url`, `link_title`, `link_description`): stanno in un solo campo cifrato, `link_preview`, con lo stesso schema dual dei messaggi (chiave AES nuova, avvolta per mittente e destinatario). Vale sia per i link scritti in app sia per quelli arrivati dalla Share Extension, che l'app completa dopo.

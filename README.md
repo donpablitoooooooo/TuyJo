@@ -150,11 +150,24 @@ la chiave privata non resta mai *solo* sul telefono: sul server ce n'è una copi
 che solo il partner può aprire.
 
 ### Regole di sicurezza
-`firestore.rules` e `storage.rules` sono **aperte** (`if true`), tranne
-`list` su `families`, `recovery_requests` e `pairing_signals`. La protezione
-si regge su due cose: gli id non sono indovinabili (hash di chiavi) e tutto il
-contenuto è cifrato. `firebase_auth` serve solo per il login anonimo richiesto
-dall'SDK di Storage.
+Ogni telefono fa un login anonimo Firebase. In `families/{id}` (Firestore e
+Storage) entrano solo i login elencati in `member_uids`, e nessun client può
+modificare quell'elenco.
+
+- **Come si entra:** la Cloud Function `joinFamily` (`functions/membership.js`)
+  aggiunge un login solo se il telefono firma con la propria chiave privata un
+  testo che contiene chat, uid e ora. Lo fa `MembershipService` nell'app:
+  all'avvio, dopo un abbinamento, dopo un recupero.
+- **Un login per utente:** quello vecchio esce quando entra il nuovo.
+- **Chiusura:** quando sono entrati tutti e due i telefoni la chat diventa
+  `locked`.
+- **Transizione dalla 1.37:** le chat senza documento o non ancora chiuse
+  restano aperte finché `LEGACY_OPEN` è `true` in `firestore.rules` e
+  `storage.rules`. Va messo a `false` quando la 1.37 non è più in giro.
+- **Fuori dalle chat:** `recovery_requests` e `pairing_signals` richiedono un
+  login; `list` è vietato ovunque.
+
+Le regole hanno i loro test sull'emulatore, vedi *Backend Firebase*.
 
 ---
 
@@ -267,6 +280,7 @@ Node 22, regione `europe-west1`.
 |---|---|---|
 | `sendMessageNotification` | Nuovo documento in `families/{id}/messages` | Notifica FCM con testo generico localizzato e badge dei non letti; salta i promemoria completati; toglie i token non validi |
 | `sendCallNotification` | Scrittura su `families/{id}/calls/current` | Chiamata in arrivo: push VoIP diretta ad APNs su iOS, push FCM ad alta priorità su Android; avviso se il chiamante riaggancia |
+| `joinFamily` | HTTP POST con ID token | Registra il login anonimo come membro della chat dopo aver verificato la firma RSA |
 | `cleanupExpiredTokens` | HTTP | Segnaposto, non fa niente |
 
 La push VoIP richiede i secret `APNS_AUTH_KEY`, `APNS_KEY_ID` e `APNS_TEAM_ID`.
@@ -276,6 +290,13 @@ La push VoIP richiede i secret `APNS_AUTH_KEY`, `APNS_KEY_ID` e `APNS_TEAM_ID`.
 `locations`, `escrow`, `calls`; in radice `recovery_requests` (scadono dopo 10
 minuti: serve la **policy TTL su `expires_at`** attiva in console) e
 `pairing_signals`.
+
+### Test di regole e funzioni
+
+```bash
+cd functions && node test-membership.js
+cd firebase-tests && npm install && npm test   # emulatori Firestore + Storage
+```
 
 ### Deploy
 

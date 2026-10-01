@@ -9,6 +9,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'membership_service.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:timezone/data/latest_all.dart' as tz;
 import 'package:timezone/timezone.dart' as tz;
@@ -672,6 +673,8 @@ class NotificationService {
   /// Se all'avvio c'è una chiamata CallKit già accettata (app lanciata da
   /// PushKit o dalla notifica full screen), apri la schermata chiamata.
   Future<void> _resumeAcceptedCallIfAny() async {
+    // Legge la chiamata nella chat: prima login e ingresso.
+    await MembershipService.instance.ready;
     try {
       final calls = await FlutterCallkitIncoming.activeCalls();
       for (final call in calls) {

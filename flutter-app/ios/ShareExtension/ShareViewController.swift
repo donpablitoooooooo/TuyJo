@@ -552,7 +552,7 @@ struct ShareIdentity {
         return ShareIdentity(myPublicKey: my, partnerPublicKey: partner, myUserId: myUserId, familyChatId: family)
     }
 
-    private static func read(_ account: String) -> String? {
+    static func read(_ account: String) -> String? {
         let query: [CFString: Any] = [
             kSecClass: kSecClassGenericPassword,
             kSecAttrService: service,
@@ -570,6 +570,50 @@ struct ShareIdentity {
 
     static func sha256Hex(_ s: String) -> String {
         SHA256.hash(data: Data(s.utf8)).map { String(format: "%02x", $0) }.joined()
+    }
+}
+
+// MARK: - Login: il token del login anonimo dell'app
+
+/// Le regole di Firestore e Storage lasciano scrivere in una chat solo i
+/// login registrati come membri. L'estensione usa quello dell'app: l'app
+/// mette nel Keychain condiviso il refresh token (ShareBridgeService) e qui
+/// lo si scambia con un ID token, valido un'ora.
+enum ShareAuth {
+    private static var cached: (token: String, expires: Date)?
+
+    /// Sincrono, da chiamare fuori dal main thread. nil se manca il refresh
+    /// token o la rete: si prova comunque senza (le chat della 1.37 sono
+    /// ancora aperte) e, se la scrittura fallisce, si passa dalla coda.
+    static func idToken() -> String? {
+        if let c = cached, c.expires > Date().addingTimeInterval(60) { return c.token }
+        guard let refresh = ShareIdentity.read("auth_refresh_token"),
+              let url = URL(string: "https://securetoken.googleapis.com/v1/token?key=\(MessageSender.apiKey)") else {
+            return nil
+        }
+        var allowed = CharacterSet.alphanumerics
+        allowed.insert(charactersIn: "-._~")
+        let encoded = refresh.addingPercentEncoding(withAllowedCharacters: allowed) ?? refresh
+        var req = URLRequest(url: url)
+        req.httpMethod = "POST"
+        req.timeoutInterval = 15
+        req.setValue("application/x-www-form-urlencoded", forHTTPHeaderField: "Content-Type")
+        req.setValue(MessageSender.appBundleId, forHTTPHeaderField: "X-Ios-Bundle-Identifier")
+        req.httpBody = Data("grant_type=refresh_token&refresh_token=\(encoded)".utf8)
+
+        let semaphore = DispatchSemaphore(value: 0)
+        var token: String?
+        URLSession.shared.dataTask(with: req) { data, response, _ in
+            defer { semaphore.signal() }
+            guard (response as? HTTPURLResponse)?.statusCode == 200, let data = data,
+                  let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+                  let idToken = json["id_token"] as? String else { return }
+            let seconds = Double(json["expires_in"] as? String ?? "") ?? 3600
+            cached = (idToken, Date().addingTimeInterval(seconds))
+            token = idToken
+        }.resume()
+        semaphore.wait()
+        return token
     }
 }
 
@@ -745,10 +789,16 @@ enum MessageSender {
         req.setValue(appBundleId, forHTTPHeaderField: "X-Ios-Bundle-Identifier")
         req.httpBody = body
 
-        URLSession.shared.dataTask(with: req) { _, response, error in
-            let code = (response as? HTTPURLResponse)?.statusCode ?? 0
-            completion(error == nil && (200..<300).contains(code))
-        }.resume()
+        DispatchQueue.global(qos: .userInitiated).async {
+            // Il login dell'app, membro della chat (vedi ShareAuth).
+            if let token = ShareAuth.idToken() {
+                req.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+            }
+            URLSession.shared.dataTask(with: req) { _, response, error in
+                let code = (response as? HTTPURLResponse)?.statusCode ?? 0
+                completion(error == nil && (200..<300).contains(code))
+            }.resume()
+        }
     }
 }
 
@@ -1003,6 +1053,11 @@ enum AttachmentSender {
         req.setValue("multipart/related; boundary=\(boundary)", forHTTPHeaderField: "Content-Type")
         req.setValue("multipart", forHTTPHeaderField: "X-Goog-Upload-Protocol")
         req.setValue(MessageSender.appBundleId, forHTTPHeaderField: "X-Ios-Bundle-Identifier")
+        // Il login dell'app, membro della chat (vedi ShareAuth). Storage
+        // vuole lo schema "Firebase", come l'SDK.
+        if let token = ShareAuth.idToken() {
+            req.setValue("Firebase \(token)", forHTTPHeaderField: "Authorization")
+        }
 
         let semaphore = DispatchSemaphore(value: 0)
         var downloadUrl: String?

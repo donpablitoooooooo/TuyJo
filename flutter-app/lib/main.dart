@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:provider/provider.dart';
 import 'package:firebase_core/firebase_core.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cryptography_flutter/cryptography_flutter.dart';
 import 'screens/main_screen.dart';
 import 'screens/voice_call_screen.dart';
@@ -16,6 +15,7 @@ import 'services/attachment_service.dart';
 import 'services/location_service.dart';
 import 'services/backup_service.dart';
 import 'services/share_bridge_service.dart';
+import 'services/membership_service.dart';
 import 'package:private_messaging/generated/l10n/app_localizations.dart';
 
 void main() async {
@@ -41,17 +41,12 @@ void main() async {
   // in locale (es. telefono nuovo con strategia "cloud"). No-op se già presenti.
   await BackupService().cloudRestoreIfNeeded();
 
-  // 🔐 ANONYMOUS FIREBASE AUTH (non bloccante).
-  // Serve SOLO a dare un token valido al Firebase Storage SDK così non fa
-  // più retry cascata di "error getting token" prima di ogni upload — quelle
-  // cascate aggiungono secondi per ogni foto. Le storage.rules sono aperte
-  // (E2E è già garantita da AES+RSA), quindi l'identità anonima non serve
-  // a nulla di funzionale.
-  FirebaseAuth.instance.signInAnonymously().then((cred) {
-    print('⏱️ [STARTUP] Firebase anon sign-in OK (uid=${cred.user?.uid.substring(0, 6)})');
-  }).catchError((e) {
-    print('⚠️ [STARTUP] Firebase anon sign-in failed (non-fatal): $e');
-  });
+  // 🔐 Login anonimo e ingresso nella chat (non bloccante per l'avvio).
+  // Le regole di Firestore e Storage lasciano entrare in una chat solo i
+  // login registrati come membri: i servizi che la leggono all'avvio
+  // (pairing, posizione, chiamate) aspettano MembershipService.ready.
+  // Poi la Share Extension riceve il token per scrivere a nome dell'app.
+  MembershipService.instance.ready.then((_) => ShareBridgeService().sync());
 
   // Inizializza servizi (non bloccante - lazy init quando servono)
   final encryptionService = EncryptionService();
@@ -65,6 +60,14 @@ void main() async {
   final attachmentService = AttachmentService(encryptionService: encryptionService);
   final locationService = LocationService(encryptionService);
   locationService.restoreSessionIfNeeded(); // Ripristina condivisione posizione se era attiva
+
+  // Ingresso nella chat riuscito solo dopo l'avvio (era senza rete): i
+  // listener partiti prima erano stati rifiutati, si riaprono.
+  MembershipService.instance.onLateJoin = () {
+    pairingService.stopListeningToPairingStatus();
+    pairingService.startBackgroundUnpairListener();
+    chatService.restartListening();
+  };
 
   // Configura callback per pulizia cache quando il partner richiede la cancellazione
   pairingService.onPartnerDeletedAll = (String familyChatId) async {

@@ -13,6 +13,7 @@ import 'package:crypto/crypto.dart';
 import 'package:uuid/uuid.dart';
 import '../models/location_share.dart';
 import 'encryption_service.dart';
+import 'membership_service.dart';
 
 /// Risultato della richiesta permessi di localizzazione
 enum LocationPermissionResult {
@@ -152,6 +153,8 @@ class LocationService extends ChangeNotifier {
   /// Se la sessione non è scaduta, ripristina stato e riavvia GPS.
   Future<void> restoreSessionIfNeeded() async {
     try {
+      // La sessione scrive nella chat: prima login e ingresso.
+      await MembershipService.instance.ready;
       final prefs = await SharedPreferences.getInstance();
       final active = prefs.getBool(_prefActive) ?? false;
       if (!active) return;

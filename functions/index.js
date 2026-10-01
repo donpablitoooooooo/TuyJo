@@ -640,3 +640,46 @@ exports.cleanupExpiredTokens = functions
     res.status(500).send('Error cleaning up tokens');
   }
 });
+
+// ═══════════════════════════════════════════════════════════════════
+// joinFamily — un login anonimo entra nella sua chat (vedi membership.js)
+// ═══════════════════════════════════════════════════════════════════
+// POST con `Authorization: Bearer <ID token anonimo>` e corpo JSON
+// {publicKey, partnerPublicKey, timestamp, signature}: la firma RSA
+// (PKCS#1 v1.5, SHA-256) è sul testo joinMessage(familyId, uid, timestamp).
+// Risponde {familyId, locked}.
+const membership = require('./membership');
+
+exports.joinFamily = functions
+  .region('europe-west1')
+  .https.onRequest(async (req, res) => {
+  if (req.method !== 'POST') {
+    res.status(405).send('POST only');
+    return;
+  }
+  const match = (req.get('Authorization') || '').match(/^Bearer (.+)$/);
+  if (!match) {
+    res.status(401).send('missing token');
+    return;
+  }
+  let uid;
+  try {
+    uid = (await admin.auth().verifyIdToken(match[1])).uid;
+  } catch (_) {
+    res.status(401).send('bad token');
+    return;
+  }
+  try {
+    const ids = membership.verifyJoin({...(req.body || {}), uid});
+    const {locked} = await membership.addMember(admin.firestore(), {...ids, uid});
+    console.log(`🔑 joinFamily: ${uid.substring(0, 8)} in ${ids.familyId.substring(0, 10)} (locked=${locked})`);
+    res.status(200).json({familyId: ids.familyId, locked});
+  } catch (error) {
+    if (error.status) {
+      res.status(error.status).send(error.message);
+    } else {
+      console.error('❌ joinFamily:', error);
+      res.status(500).send('error');
+    }
+  }
+});

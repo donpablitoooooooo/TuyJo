@@ -5,6 +5,7 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:crypto/crypto.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'backup_service.dart';
+import 'membership_service.dart';
 import 'recovery_service.dart';
 import 'share_bridge_service.dart';
 
@@ -49,6 +50,10 @@ class PairingService extends ChangeNotifier {
 
   Future<void> _doInitialize() async {
     if (kDebugMode) print('🔍 [PAIRING] initialize() called');
+
+    // Login anonimo e ingresso nella chat prima di ogni lettura: nelle chat
+    // chiuse le regole lasciano entrare solo i membri.
+    await MembershipService.instance.ready;
 
     final partnerPubKey = await _storage.read(key: 'partner_public_key');
 
@@ -152,6 +157,10 @@ class PairingService extends ChangeNotifier {
         print('   _isPaired sarà true quando entrambi avranno completato il pairing');
       }
 
+      // Ingresso nella nuova chat (crea il documento della famiglia e mi
+      // registra come membro) prima di leggerla o scriverci.
+      await MembershipService.instance.ensureJoined(force: true);
+
       // IMPORTANTE: Prima di creare il mio documento, pulisci solo le famiglie COMPLETE dal pairing precedente
       // Se userCount == 1, potrebbe essere il partner che sta facendo pairing contemporaneamente, NON eliminare!
       final myUserId = await getMyUserId();
@@ -253,6 +262,7 @@ class PairingService extends ChangeNotifier {
     // Poi elimina i dati locali e ferma il listener della famiglia
     stopListeningToPairingStatus();
     await _storage.delete(key: 'partner_public_key');
+    await MembershipService.instance.forget();
     ShareBridgeService().sync();
 
     _isPaired = false;
@@ -317,6 +327,10 @@ class PairingService extends ChangeNotifier {
       final familyChatId = sha256.convert(utf8.encode(keys.join('|'))).toString();
       final usersRef =
           _firestore.collection('families').doc(familyChatId).collection('users');
+
+      // Telefono nuovo (o reinstallato): il login anonimo è nuovo e va
+      // registrato nella chat prima di poterla leggere.
+      await MembershipService.instance.ensureJoined(force: true);
 
       bool needWrite = true;
       bool needPartnerWrite = false;
@@ -432,6 +446,7 @@ class PairingService extends ChangeNotifier {
   /// telefono rientrerà con un nuovo pairing.
   Future<void> unpairLocallyOnly() async {
     await _storage.delete(key: 'partner_public_key');
+    await MembershipService.instance.forget();
     ShareBridgeService().sync();
     _isPaired = false;
     _partnerPublicKey = null;
