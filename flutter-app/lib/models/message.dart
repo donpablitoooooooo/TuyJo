@@ -167,10 +167,15 @@ class Message {
   // Allegati (foto, video, documenti)
   List<Attachment>? attachments;
 
-  // Link preview metadata (per messaggi con URL)
+  // Link preview metadata (per messaggi con URL). Dalla 1.38 su Firestore
+  // stanno cifrati in [linkPreviewEncrypted]; questi tre campi si riempiono
+  // dopo la decifratura (o dai vecchi campi in chiaro dei messaggi precedenti).
   String? linkTitle;
   String? linkDescription;
   String? linkUrl;
+  /// Anteprima del link cifrata: `{message, iv, encrypted_key_sender,
+  /// encrypted_key_recipient}`, stesso schema dual di un messaggio.
+  Map<String, dynamic>? linkPreviewEncrypted;
   /// Messaggio scritto dalla Share Extension iOS: l'app deve ancora
   /// generare l'anteprima del link.
   final bool needsLinkPreview;
@@ -183,7 +188,7 @@ class Message {
 
   // Reply: riferimento al messaggio a cui si sta rispondendo
   String? replyToMessageId; // ID del messaggio a cui si risponde
-  String? replyToText; // Prima riga del testo del messaggio a cui si risponde
+  String? replyToText; // Prima riga del testo citato: dalla 1.38 viaggia nel contenuto cifrato ('reply_text')
   String? replyToSenderId; // SenderId del messaggio a cui si risponde
   Attachment? replyToAttachment; // Primo allegato foto del messaggio a cui si risponde
 
@@ -216,6 +221,7 @@ class Message {
     this.linkTitle,
     this.linkDescription,
     this.linkUrl,
+    this.linkPreviewEncrypted,
     this.needsLinkPreview = false,
     this.reaction,
     this.action,
@@ -301,6 +307,9 @@ class Message {
       linkTitle: data['link_title'],
       linkDescription: data['link_description'],
       linkUrl: data['link_url'],
+      linkPreviewEncrypted: data['link_preview'] is Map
+          ? Map<String, dynamic>.from(data['link_preview'] as Map)
+          : null,
       needsLinkPreview: data['needs_link_preview'] == true,
       reaction: reaction,
       action: action,
@@ -333,6 +342,7 @@ class Message {
       if (linkTitle != null) 'link_title': linkTitle,
       if (linkDescription != null) 'link_description': linkDescription,
       if (linkUrl != null) 'link_url': linkUrl,
+      if (linkPreviewEncrypted != null) 'link_preview': linkPreviewEncrypted,
       if (reaction != null) 'reaction': reaction!.toJson(),
       if (action != null) 'action': action!.toJson(),
       if (replyToMessageId != null) 'reply_to_message_id': replyToMessageId,

@@ -9,6 +9,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import '../models/message.dart';
 import 'encryption_service.dart';
+import 'link_preview_crypto.dart';
 import 'notification_service.dart';
 import 'message_cache_service.dart';
 
@@ -1242,12 +1243,14 @@ class ChatService extends ChangeNotifier {
     try {
       final timestamp = DateTime.now();
 
-      // Costruisci il plaintext con sender, timestamp, type, body
+      // Costruisci il plaintext con sender, timestamp, type, body. Il testo
+      // citato in una risposta viaggia qui dentro, cifrato col messaggio.
       final plaintext = json.encode({
         'sender': senderId,
         'timestamp': timestamp.millisecondsSinceEpoch ~/ 1000,
         'type': 'text',
         'body': content,
+        if (replyToText != null) 'reply_text': replyToText,
       });
 
       // Cifra con dual encryption: UNA chiave AES, cifrata DUE volte con RSA
@@ -1280,7 +1283,6 @@ class ChatService extends ChangeNotifier {
         if (attachments != null && attachments.isNotEmpty)
           'attachments': attachments.map((a) => a.toJson()).toList(),
         if (replyToMessageId != null) 'reply_to_message_id': replyToMessageId,
-        if (replyToText != null) 'reply_to_text': replyToText,
         if (replyToSenderId != null) 'reply_to_sender_id': replyToSenderId,
         if (replyToAttachment != null) 'reply_to_attachment': replyToAttachment.toJson(),
       });
@@ -1584,6 +1586,8 @@ class ChatService extends ChangeNotifier {
         'link_url': FieldValue.delete(),
         'link_title': FieldValue.delete(),
         'link_description': FieldValue.delete(),
+        'link_preview': FieldValue.delete(),
+        'reply_to_text': FieldValue.delete(),
       });
 
       if (kDebugMode) {
@@ -1599,6 +1603,7 @@ class ChatService extends ChangeNotifier {
         _messages[index].linkUrl = null;
         _messages[index].linkTitle = null;
         _messages[index].linkDescription = null;
+        _messages[index].linkPreviewEncrypted = null;
 
         // Aggiorna anche la cache SQLite
         await _cacheService.saveMessage(_messages[index], familyChatId);
@@ -1641,6 +1646,10 @@ class ChatService extends ChangeNotifier {
     List<Attachment>? attachments,
     int? alertHours,
   }) async {
+    // Il testo citato sta nel contenuto cifrato: va rimesso nel nuovo.
+    final original = _messages.where((m) => m.id == messageId);
+    final replyText = original.isEmpty ? null : original.first.replyToText;
+
     try {
       if (kDebugMode) {
         print('✏️ [updateMessage] Starting...');
@@ -1669,7 +1678,11 @@ class ChatService extends ChangeNotifier {
         contentToEncrypt = json.encode(todoData);
       } else {
         // Messaggio normale - crea JSON semplice (usa 'body' per coerenza)
-        contentToEncrypt = json.encode({'type': 'text', 'body': newContent});
+        contentToEncrypt = json.encode({
+          'type': 'text',
+          'body': newContent,
+          if (replyText != null) 'reply_text': replyText,
+        });
       }
 
       if (kDebugMode) {
@@ -1699,6 +1712,9 @@ class ChatService extends ChangeNotifier {
         'encrypted_key_recipient': encrypted['encryptedKeyRecipient'],
         'encrypted_key_sender': encrypted['encryptedKeySender'],
         'iv': encrypted['iv'],
+        // Messaggi di prima della 1.38: la citazione era in chiaro. Ora è
+        // nel contenuto cifrato, quindi il vecchio campo si può togliere.
+        if (replyText != null) 'reply_to_text': FieldValue.delete(),
       };
 
       // Aggiorna gli allegati solo se forniti (null = non toccare gli allegati esistenti)
@@ -1766,6 +1782,7 @@ class ChatService extends ChangeNotifier {
       final data = json.decode(plaintext);
       message.decryptedContent = (data['body'] as String?) ?? plaintext;
       message.messageType = (data['type'] as String?) ?? 'text';
+      if (data['reply_text'] is String) message.replyToText = data['reply_text'] as String;
 
       if (message.messageType == 'todo') {
         message.dueDate = DateTime.parse(data['due_date']);
@@ -1819,11 +1836,68 @@ class ChatService extends ChangeNotifier {
     for (var k = 0; k < payloads.length; k++) {
       _applyPlaintextToMessage(messages[indices[k]], plaintexts[k]);
     }
+
+    // Anteprime dei link cifrate: un secondo giro sullo stesso isolate
+    final linkPayloads = <String>[];
+    final linkMessages = <Message>[];
+    for (final m in messages) {
+      final p = _buildLinkPreviewPayload(m, myDeviceId);
+      if (p != null) {
+        linkPayloads.add(p);
+        linkMessages.add(m);
+      }
+    }
+    if (linkPayloads.isEmpty) return;
+    final linkPlaintexts = await _encryptionService.decryptMessagesBatch(linkPayloads);
+    for (var k = 0; k < linkPayloads.length; k++) {
+      _applyLinkPreview(linkMessages[k], linkPlaintexts[k]);
+    }
+  }
+
+  /// Cifra l'anteprima di un link per entrambi i telefoni: il risultato va
+  /// salvato così com'è nel campo `link_preview` del messaggio.
+  Map<String, String> encryptLinkPreview({
+    required String url,
+    String? title,
+    String? description,
+    required String myPublicKey,
+    required String partnerPublicKey,
+  }) =>
+      LinkPreviewCrypto.encrypt(
+        _encryptionService,
+        url: url,
+        title: title,
+        description: description,
+        myPublicKey: myPublicKey,
+        partnerPublicKey: partnerPublicKey,
+      );
+
+  String? _buildLinkPreviewPayload(Message message, String myDeviceId) =>
+      LinkPreviewCrypto.payload(message.linkPreviewEncrypted,
+          iAmSender: message.senderId == myDeviceId);
+
+  void _applyLinkPreview(Message message, String? plaintext) {
+    final preview = LinkPreviewCrypto.decode(plaintext);
+    if (preview == null) return;
+    message.linkUrl = preview.url;
+    message.linkTitle = preview.title;
+    message.linkDescription = preview.description;
+  }
+
+  void _decryptLinkPreview(Message message, String myDeviceId) {
+    final payload = _buildLinkPreviewPayload(message, myDeviceId);
+    if (payload == null) return;
+    try {
+      _applyLinkPreview(message, _encryptionService.decryptMessage(payload));
+    } catch (e) {
+      if (kDebugMode) print('⚠️ Link preview decrypt failed for ${message.id}: $e');
+    }
   }
 
   /// Decripta un messaggio e popola i campi aggiuntivi (messageType, dueDate, ecc.)
   /// Schedula notifiche per i todo
   void _decryptAndPopulateMessage(Message message, String myDeviceId) {
+    _decryptLinkPreview(message, myDeviceId);
     try {
       final decryptedContent = decryptMessage(message, myDeviceId);
       message.decryptedContent = decryptedContent;
@@ -1834,6 +1908,7 @@ class ChatService extends ChangeNotifier {
         final data = json.decode(plaintext);
 
         message.messageType = data['type'] ?? 'text';
+        if (data['reply_text'] is String) message.replyToText = data['reply_text'] as String;
 
         if (message.messageType == 'todo') {
           // Popola i campi del todo
