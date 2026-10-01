@@ -23,13 +23,19 @@ Assicurati che **entrambi** i target (Runner e ShareExtension) abbiano:
 
 ## Come funziona:
 
-1. User condivide un link da Safari/app → Share sheet
-2. Tocca "Tuijo"
-3. ShareExtension salva il link nell'App Group
-4. Apre l'app principale con URL scheme `ShareMedia://open`
-5. AppDelegate legge il link dall'App Group
-6. Chiama `handleSharedText()` per processare il link
-7. Flutter riceve il link e mostra la preview
+1. L'utente condivide testo, link, foto o documenti → Share sheet → "Tuijo".
+2. L'estensione legge dal Keychain condiviso (access group
+   `group.com.privatemessaging.tuyjo`, servizio `tuyjo_share`) le due chiavi
+   pubbliche e il refresh token del login anonimo dell'app, scritti da
+   `ShareBridgeService` (Dart).
+3. Scambia il refresh token con un ID token (`securetoken.googleapis.com`):
+   le regole di Firestore e Storage fanno scrivere in una chat solo i login
+   che ne sono membri, e il login dell'app lo è (vedi `functions/membership.js`).
+4. Cifra e invia da sola: messaggio su Firestore via REST
+   (`Authorization: Bearer`), file su Storage via REST
+   (`Authorization: Firebase`).
+5. Senza rete o se l'invio fallisce, mette tutto in coda nell'App Group e apre
+   l'app con `ShareMedia://open`: ci pensa l'app a spedire.
 
 ## Debugging:
 
