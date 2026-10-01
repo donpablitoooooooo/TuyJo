@@ -206,6 +206,81 @@ T['ca'] = dict(
     hero_alt="El mòbil amb el xat de Tuijo: un recordatori compartit, la ubicació al bar i una foto.",
 )
 
+# Capitolo backup, sotto la sicurezza: stessa forma di sec_*.
+BAK = {'it': {'bak_eyebrow': 'Backup',
+        'bak_h2': 'Cambiate telefono, <span class="serif-em">la chat vi segue.</span>',
+        'bak_lead': "Niente file da esportare, niente password da ricordare: il backup di Tuijo è l'altra "
+                    'persona.',
+        'bak_items': [('01 · DAL PARTNER',
+                       'Ve la ridate a vicenda',
+                       'Telefono nuovo? Mostra un QR, il partner lo inquadra e ti restituisce il certificato '
+                       'della chat. I messaggi tornano tutti, da soli.'),
+                      ('02 · DAL VECCHIO TELEFONO',
+                       'Trasferisci in un attimo',
+                       'Se hai ancora il telefono di prima, fai da solo: Trasferisci, inquadri il QR del '
+                       'nuovo e la chat passa di là.'),
+                      ('03 · SE REINSTALLI',
+                       'Le chiavi tornano da sole',
+                       "Disinstalli e reinstalli l'app sullo stesso telefono? Le chiavi sono custodite dal "
+                       'sistema e si ripristinano senza fare niente.')],
+        'bak_foot': 'Il QR vale dieci minuti · il certificato viaggia cifrato solo per il telefono che lo ha '
+                    'chiesto · <b>noi non abbiamo copie</b>'},
+ 'en': {'bak_eyebrow': 'Backup',
+        'bak_h2': 'New phone? <span class="serif-em">The chat comes along.</span>',
+        'bak_lead': "No files to export, no password to remember: Tuijo's backup is the other person.",
+        'bak_items': [('01 · FROM YOUR PARTNER',
+                       'You give it back to each other',
+                       "New phone? It shows a QR code, your partner scans it and hands back the chat's "
+                       'certificate. Every message returns on its own.'),
+                      ('02 · FROM YOUR OLD PHONE',
+                       'Transfer in a moment',
+                       "Still have your previous phone? Do it yourself: tap Transfer, scan the new phone's "
+                       'QR and the chat moves over.'),
+                      ('03 · IF YOU REINSTALL',
+                       'The keys come back by themselves',
+                       'Uninstalled and reinstalled the app on the same phone? The keys are kept by the '
+                       'system and restored without you doing anything.')],
+        'bak_foot': 'The QR is valid for ten minutes · the certificate travels encrypted only for the phone '
+                    'that asked for it · <b>we keep no copies</b>'},
+ 'es': {'bak_eyebrow': 'Copia de seguridad',
+        'bak_h2': 'Cambiáis de móvil, <span class="serif-em">el chat os sigue.</span>',
+        'bak_lead': 'Sin archivos que exportar ni contraseñas que recordar: la copia de seguridad de Tuijo '
+                    'es la otra persona.',
+        'bak_items': [('01 · DESDE TU PAREJA',
+                       'Os lo devolvéis mutuamente',
+                       '¿Móvil nuevo? Muestra un QR, tu pareja lo escanea y te devuelve el certificado del '
+                       'chat. Todos los mensajes vuelven solos.'),
+                      ('02 · DESDE EL MÓVIL ANTERIOR',
+                       'Transfiere en un momento',
+                       '¿Aún tienes el móvil de antes? Hazlo tú: Transferir, escaneas el QR del nuevo y el '
+                       'chat pasa allí.'),
+                      ('03 · SI REINSTALAS',
+                       'Las claves vuelven solas',
+                       '¿Desinstalas y reinstalas la app en el mismo móvil? El sistema guarda las claves y '
+                       'se restauran sin hacer nada.')],
+        'bak_foot': 'El QR vale diez minutos · el certificado viaja cifrado solo para el móvil que lo pidió '
+                    '· <b>no guardamos copias</b>'},
+ 'ca': {'bak_eyebrow': 'Còpia de seguretat',
+        'bak_h2': 'Canvieu de mòbil, <span class="serif-em">el xat us segueix.</span>',
+        'bak_lead': 'Sense fitxers per exportar ni contrasenyes per recordar: la còpia de seguretat de Tuijo '
+                    "és l'altra persona.",
+        'bak_items': [('01 · DES DE LA TEVA PARELLA',
+                       "Us el torneu l'un a l'altre",
+                       "Mòbil nou? Mostra un QR, la teva parella l'escaneja i et retorna el certificat del "
+                       'xat. Tots els missatges tornen sols.'),
+                      ("02 · DES DEL MÒBIL D'ABANS",
+                       'Transfereix en un moment',
+                       "Encara tens el mòbil d'abans? Fes-ho tu: Transfereix, escaneges el QR del nou i el "
+                       'xat hi passa.'),
+                      ('03 · SI REINSTAL·LES',
+                       'Les claus tornen soles',
+                       "Desinstal·les i reinstal·les l'app al mateix mòbil? El sistema guarda les claus i es "
+                       'restauren sense fer res.')],
+        'bak_foot': "El QR val deu minuts · el certificat viatja xifrat només per al mòbil que l'ha demanat "
+                    '· <b>no en guardem còpies</b>'}}
+for _c, _b in BAK.items():
+    T[_c].update(_b)
+
 SEC_IDS = ['chat', 'sicurezza', 'faq']   # ancore uguali in tutte le lingue
 
 # Impianto di ciascuna delle sei sezioni prodotto, nell'ordine.
@@ -222,8 +297,7 @@ LAYOUT = [
     dict(sec=0, cls='split rev', shot=4, img='phone', dark=False),                    # promemoria
     dict(sec=1, cls='split',     img='reel', shots=[(5, 2600), (11, 2600), (12, 2600)],
          dark=True),                                                                  # galleria: foto, link, documenti
-    dict(sec=2, cls='split rev', img='reel', shots=[(1, 1700), (13, 700), (2, 2600)],
-         dark=False),                                                                 # chiamate: chat, tocco, chiamata
+    dict(sec=2, cls='split rev', shot=2, img='phone', dark=False),                    # chiamate: la schermata di chiamata
 ]
 
 
@@ -274,7 +348,7 @@ def build(code):
         eyebrow, h2, lead, alt = t['sections'][lay['sec']]
         if lay['img'] == 'scene':
             sn = t['scene']
-            steps = ''.join(f'<li>{x}</li>' for x in sn['steps'])
+            steps = ''.join(f'<li><button type="button" data-go="{n}">{x}</button></li>' for n, x in enumerate(sn['steps']))
             # Il racconto in tre battute, tutto con schermate vere dell'app:
             #   1. il telefono di destra inquadra il codice di sinistra
             #   2. si scambiano i ruoli: sinistra inquadra destra
@@ -371,6 +445,14 @@ def build(code):
         <p>{body}</p>
       </div>''' for n, (num, head, body) in enumerate(t['sec_items']))
 
+    bak_items = ''.join(
+        f'''
+      <div class="sec-item reveal{' d' + str(n) if n else ''}">
+        <span class="n">{num}</span>
+        <h3>{head}</h3>
+        <p>{body}</p>
+      </div>''' for n, (num, head, body) in enumerate(t['bak_items']))
+
     faq = ''.join(
         f'''
       <details class="faq">
@@ -442,6 +524,18 @@ def build(code):
     <div class="sec-grid">{sec_items}
     </div>
     <p class="sec-foot reveal">{t['sec_foot']}</p>
+  </div>
+</section>
+
+<!-- ============ BACKUP ============ -->
+<section class="security backup" id="backup">
+  <div class="wrap">
+    <span class="eyebrow reveal">{t['bak_eyebrow']}</span>
+    <h2 class="reveal">{t['bak_h2']}</h2>
+    <p class="lead reveal d1">{t['bak_lead']}</p>
+    <div class="sec-grid">{bak_items}
+    </div>
+    <p class="sec-foot reveal">{t['bak_foot']}</p>
   </div>
 </section>
 

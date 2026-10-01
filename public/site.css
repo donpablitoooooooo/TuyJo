@@ -176,8 +176,8 @@ h2 {
    in --in/--out quando entra e quando esce; --p (0 → 1) lo scrive site.js.
    Senza JavaScript la scena resta sull'ultimo fotogramma. */
 .scene { padding: 0; overflow: visible; --p: 1; }
-.scene-track { position: relative; height: 320vh; }
-.scene-sticky { position: sticky; top: 0; display: grid; align-items: center; min-height: 100vh; padding: 78px 0; overflow: hidden; }
+.scene-track { position: relative; }
+.scene-sticky { display: grid; align-items: center; padding: clamp(78px, 9vw, 130px) 0; overflow: hidden; }
 .scene-inner {
   display: grid; grid-template-columns: minmax(0, .88fr) minmax(0, 1.12fr);
   align-items: center; gap: clamp(28px, 4.5vw, 62px);
@@ -225,30 +225,38 @@ h2 {
   animation: tuijo-travel 2.6s ease-in-out infinite; }
 @keyframes tuijo-travel { 0%, 100% { left: 0; } 50% { left: calc(100% - 8px); } }
 
-.scene-steps { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 30px; list-style: none; counter-reset: step; }
-.scene-steps li {
-  counter-increment: step; display: inline-flex; align-items: center; gap: 9px;
-  padding: 8px 16px 8px 10px; border-radius: 999px; font-size: 14px; font-weight: 600;
-  color: rgba(255,255,255,.5); border: 1px solid rgba(255,255,255,.16);
-  transition: color .35s ease, border-color .35s ease, background .35s ease;
+/* I passi sono bottoni, in colonna accanto ai telefoni: ognuno fa avanzare la
+   scena fino a quel punto, passando per i fotogrammi intermedi. */
+.scene-steps { display: flex; flex-direction: column; align-items: flex-start; gap: 12px;
+  margin-top: 32px; list-style: none; counter-reset: step; }
+.scene-steps li { counter-increment: step; }
+.scene-steps button {
+  display: inline-flex; align-items: center; gap: 12px; cursor: pointer; font: inherit;
+  padding: 11px 22px 11px 12px; border-radius: 999px; font-size: 16px; font-weight: 600;
+  color: rgba(255,255,255,.55); background: transparent; border: 1px solid rgba(255,255,255,.2);
+  transition: color .35s ease, border-color .35s ease, background .35s ease, transform .2s ease;
 }
-.scene-steps li::before {
-  content: counter(step); display: grid; place-items: center; width: 22px; height: 22px;
-  border-radius: 50%; background: rgba(255,255,255,.12); font-size: 12px; transition: inherit;
+.scene-steps button:hover { color: #fff; border-color: rgba(124,224,215,.6); transform: translateX(3px); }
+.scene-steps button:focus-visible { outline: 2px solid var(--teal-bright); outline-offset: 3px; }
+.scene-steps button::before {
+  content: counter(step); display: grid; place-items: center; width: 28px; height: 28px;
+  border-radius: 50%; background: rgba(255,255,255,.12); font-size: 13px; transition: inherit;
 }
-.scene[data-step="0"] .scene-steps li:nth-child(1),
-.scene[data-step="1"] .scene-steps li:nth-child(-n+2),
-.scene[data-step="2"] .scene-steps li {
+.scene[data-step="0"] .scene-steps li:nth-child(1) button,
+.scene[data-step="1"] .scene-steps li:nth-child(-n+2) button,
+.scene[data-step="2"] .scene-steps button {
   color: #fff; border-color: rgba(124,224,215,.5); background: rgba(124,224,215,.12);
 }
-.scene[data-step="0"] .scene-steps li:nth-child(1)::before,
-.scene[data-step="1"] .scene-steps li:nth-child(-n+2)::before,
-.scene[data-step="2"] .scene-steps li::before { background: var(--teal-bright); color: #06282C; }
+.scene[data-step="0"] .scene-steps li:nth-child(1) button::before,
+.scene[data-step="1"] .scene-steps li:nth-child(-n+2) button::before,
+.scene[data-step="2"] .scene-steps button::before { background: var(--teal-bright); color: #06282C; }
+/* il passo successivo pulsa piano, per far capire che si tocca */
+.scene-steps button.next::before { animation: tuijo-pulse 1.8s ease-in-out infinite; }
+@keyframes tuijo-pulse { 0%, 100% { box-shadow: 0 0 0 0 rgba(124,224,215,.55); } 50% { box-shadow: 0 0 0 7px rgba(124,224,215,0); } }
 
 @media (max-width: 860px) {
-  .scene-track { height: 300vh; }
   .scene-inner { grid-template-columns: 1fr; text-align: center; gap: clamp(24px, 6vw, 38px); }
-  .scene-steps { justify-content: center; }
+  .scene-steps { align-items: center; }
   .scene-stage { width: min(440px, 100%); margin: 0 auto; gap: 6%; }
 }
 
@@ -263,6 +271,15 @@ h2 {
 .sec-item .n { display: block; font-size: 12px; font-weight: 700; letter-spacing: .16em; color: var(--teal); margin-bottom: 10px; }
 .sec-foot { margin-top: clamp(44px, 5vw, 64px); font-size: 14px; color: var(--ink-faint); }
 .sec-foot b { color: var(--ink-soft); font-weight: 600; }
+
+/* ---------------- Backup ----------------
+   Stessa griglia della sicurezza, su fondo scuro per staccarla. */
+.security.backup { background: var(--teal-ink); color: #fff; }
+.security.backup h2, .security.backup .sec-item h3 { color: #fff; }
+.security.backup .lead, .security.backup .sec-item p { color: rgba(255,255,255,.72); }
+.security.backup .eyebrow, .security.backup .sec-item .n { color: var(--teal-bright); }
+.security.backup .sec-foot { color: rgba(255,255,255,.55); }
+.security.backup .sec-foot b { color: #fff; }
 
 /* ---------------- FAQ ---------------- */
 .faq-sec { padding: clamp(80px, 10vw, 140px) 0; }
@@ -311,9 +328,7 @@ h2 {
   [data-move] { --shift: 0px !important; }
   .stage.split .shot img, .stage.split.rev .shot img { --tilt: 0deg; }
   .scene { --p: 1 !important; }
-  .scene-track { height: auto; }
-  .scene-sticky { position: static; min-height: 0; }
-  .scene-link::after { animation: none; }
+  .scene-link::after, .scene-steps button.next::before { animation: none; }
 }
 
 /* ---------------- Responsive ---------------- */

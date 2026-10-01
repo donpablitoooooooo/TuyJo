@@ -74,32 +74,35 @@
     }, { threshold: 0.3 }).observe(reel);
   });
 
-  /* Scena dell'abbinamento: lo scorrimento fa avanzare la composizione */
-  var scenes = [].slice.call(document.querySelectorAll("[data-scene]"));
-  if (scenes.length && !still) {
-    scenes.forEach(function (sc) { sc.style.setProperty("--p", "0"); });
-    var advance = function () {
-      scenes.forEach(function (sc) {
-        var track = sc.querySelector(".scene-track");
-        var r = track.getBoundingClientRect();
-        var run = r.height - window.innerHeight;
-        var p = run > 0 ? Math.min(1, Math.max(0, -r.top / run)) : 1;
+  /* Scena dell'abbinamento: i tre passi sono bottoni. Ognuno porta la scena
+     (--p, da 0 a 1) fino al suo punto, passando per i fotogrammi intermedi. */
+  var STOPS = [0.15, 0.68, 1];
+  [].slice.call(document.querySelectorAll("[data-scene]")).forEach(function (sc) {
+    var buttons = [].slice.call(sc.querySelectorAll("[data-go]"));
+    var p = still ? 1 : STOPS[0], raf = null;
+    var paint = function (step) {
+      sc.style.setProperty("--p", p.toFixed(3));
+      sc.setAttribute("data-step", String(step));
+      buttons.forEach(function (b, n) { b.classList.toggle("next", n === step + 1); });
+    };
+    var go = function (step) {
+      var from = p, to = STOPS[step];
+      if (raf) cancelAnimationFrame(raf);
+      if (still) { p = to; paint(step); return; }
+      var dur = Math.max(500, Math.abs(to - from) * 3200), t0 = null;
+      var tick = function (now) {
+        if (t0 === null) t0 = now;
+        var k = Math.min(1, (now - t0) / dur);
+        p = from + (to - from) * (k < .5 ? 2 * k * k : 1 - Math.pow(-2 * k + 2, 2) / 2);
         sc.style.setProperty("--p", p.toFixed(3));
-        sc.setAttribute("data-step", p < 0.34 ? "0" : p < 0.74 ? "1" : "2");
-      });
+        raf = k < 1 ? requestAnimationFrame(tick) : null;
+      };
+      paint(step);
+      raf = requestAnimationFrame(tick);
     };
-    var scenePending = false;
-    var queueScene = function () {
-      if (scenePending) return;
-      scenePending = true;
-      requestAnimationFrame(function () { scenePending = false; advance(); });
-    };
-    window.addEventListener("scroll", queueScene, { passive: true });
-    window.addEventListener("resize", queueScene, { passive: true });
-    advance();
-  } else {
-    scenes.forEach(function (sc) { sc.setAttribute("data-step", "2"); });
-  }
+    buttons.forEach(function (b, n) { b.addEventListener("click", function () { go(n); }); });
+    paint(still ? 2 : 0);
+  });
 
   /* FAQ: apre una domanda alla volta */
   var faqs = document.querySelectorAll(".faq");

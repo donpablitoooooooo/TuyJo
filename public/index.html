@@ -71,7 +71,7 @@
           <span class="eyebrow">Primo avvio</span>
           <h2>Si comincia con <span class="serif-em">un QR.</span></h2>
           <p class="lead">Ognuno mostra il suo codice e inquadra quello dell'altro. Niente email, niente numero di telefono, niente password: da lì in poi esistete solo voi due.</p>
-          <ol class="scene-steps"><li>Mostra il codice</li><li>Inquadra il suo</li><li>Siete in chat</li></ol>
+          <ol class="scene-steps"><li><button type="button" data-go="0">Mostra il codice</button></li><li><button type="button" data-go="1">Inquadra il suo</button></li><li><button type="button" data-go="2">Siete in chat</button></li></ol>
         </div>
         <div class="scene-stage">
           <span class="ph ph-l">
@@ -126,10 +126,8 @@
       <h2 class="reveal">Un tocco e <span class="serif-em">vi sentite.</span></h2>
       <p class="lead reveal d1">La cornetta è dentro la chat: un tocco e parte la chiamata, peer-to-peer, diretta da un telefono all'altro.</p>
     </div>
-    <div class="shot reel reveal d1" data-reel>
-        <img class="fr on" data-hold="1700" src="assets/shots/it/01-it.webp" width="828" height="1728" loading="lazy" alt="La chat di Tuijo con la cornetta accanto al menù.">
-        <img class="fr" data-hold="700" src="assets/shots/it/13-it.webp" width="828" height="1728" loading="lazy" alt="Il dito che tocca la cornetta dentro la chat.">
-        <img class="fr" data-hold="2600" src="assets/shots/it/02-it.webp" width="828" height="1728" loading="lazy" alt="La schermata di chiamata vocale di Tuijo.">
+    <div class="shot reveal d1">
+      <img src="assets/shots/it/02-it.webp" width="828" height="1728" loading="lazy" data-move="26" alt="La schermata di chiamata vocale di Tuijo con durata e qualità della connessione.">
     </div>
   </div>
 </section>
@@ -158,6 +156,33 @@
       </div>
     </div>
     <p class="sec-foot reveal">RSA-2048 + AES-256 · nessun account e nessun numero di telefono · <b>zero-knowledge</b></p>
+  </div>
+</section>
+
+<!-- ============ BACKUP ============ -->
+<section class="security backup" id="backup">
+  <div class="wrap">
+    <span class="eyebrow reveal">Backup</span>
+    <h2 class="reveal">Cambiate telefono, <span class="serif-em">la chat vi segue.</span></h2>
+    <p class="lead reveal d1">Niente file da esportare, niente password da ricordare: il backup di Tuijo è l'altra persona.</p>
+    <div class="sec-grid">
+      <div class="sec-item reveal">
+        <span class="n">01 · DAL PARTNER</span>
+        <h3>Ve la ridate a vicenda</h3>
+        <p>Telefono nuovo? Mostra un QR, il partner lo inquadra e ti restituisce il certificato della chat. I messaggi tornano tutti, da soli.</p>
+      </div>
+      <div class="sec-item reveal d1">
+        <span class="n">02 · DAL VECCHIO TELEFONO</span>
+        <h3>Trasferisci in un attimo</h3>
+        <p>Se hai ancora il telefono di prima, fai da solo: Trasferisci, inquadri il QR del nuovo e la chat passa di là.</p>
+      </div>
+      <div class="sec-item reveal d2">
+        <span class="n">03 · SE REINSTALLI</span>
+        <h3>Le chiavi tornano da sole</h3>
+        <p>Disinstalli e reinstalli l'app sullo stesso telefono? Le chiavi sono custodite dal sistema e si ripristinano senza fare niente.</p>
+      </div>
+    </div>
+    <p class="sec-foot reveal">Il QR vale dieci minuti · il certificato viaggia cifrato solo per il telefono che lo ha chiesto · <b>noi non abbiamo copie</b></p>
   </div>
 </section>
 

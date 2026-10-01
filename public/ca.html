@@ -71,7 +71,7 @@
           <span class="eyebrow">Primer inici</span>
           <h2>Es comença amb <span class="serif-em">un QR.</span></h2>
           <p class="lead">Cadascú mostra el seu codi i escaneja el de l'altre. Sense correu, sense número de telèfon, sense contrasenya: a partir d'aquí només hi sou vosaltres dos.</p>
-          <ol class="scene-steps"><li>Mostra el teu codi</li><li>Escaneja el seu</li><li>Sou al xat</li></ol>
+          <ol class="scene-steps"><li><button type="button" data-go="0">Mostra el teu codi</button></li><li><button type="button" data-go="1">Escaneja el seu</button></li><li><button type="button" data-go="2">Sou al xat</button></li></ol>
         </div>
         <div class="scene-stage">
           <span class="ph ph-l">
@@ -126,10 +126,8 @@
       <h2 class="reveal">Un toc i <span class="serif-em">us sentiu.</span></h2>
       <p class="lead reveal d1">L'auricular és dins el xat: un toc i surt la trucada, peer-to-peer, directa d'un mòbil a l'altre.</p>
     </div>
-    <div class="shot reel reveal d1" data-reel>
-        <img class="fr on" data-hold="1700" src="assets/shots/ca/01-ca.webp" width="828" height="1728" loading="lazy" alt="El xat de Tuijo amb el botó de trucada al costat del menú.">
-        <img class="fr" data-hold="700" src="assets/shots/ca/13-ca.webp" width="828" height="1728" loading="lazy" alt="Un dit tocant el botó de trucada dins el xat.">
-        <img class="fr" data-hold="2600" src="assets/shots/ca/02-ca.webp" width="828" height="1728" loading="lazy" alt="La pantalla de trucada de veu de Tuijo.">
+    <div class="shot reveal d1">
+      <img src="assets/shots/ca/02-ca.webp" width="828" height="1728" loading="lazy" data-move="26" alt="La pantalla de trucada de veu de Tuijo amb durada i qualitat de connexió.">
     </div>
   </div>
 </section>
@@ -158,6 +156,33 @@
       </div>
     </div>
     <p class="sec-foot reveal">RSA-2048 + AES-256 · sense compte i sense número de telèfon · <b>zero-knowledge</b></p>
+  </div>
+</section>
+
+<!-- ============ BACKUP ============ -->
+<section class="security backup" id="backup">
+  <div class="wrap">
+    <span class="eyebrow reveal">Còpia de seguretat</span>
+    <h2 class="reveal">Canvieu de mòbil, <span class="serif-em">el xat us segueix.</span></h2>
+    <p class="lead reveal d1">Sense fitxers per exportar ni contrasenyes per recordar: la còpia de seguretat de Tuijo és l'altra persona.</p>
+    <div class="sec-grid">
+      <div class="sec-item reveal">
+        <span class="n">01 · DES DE LA TEVA PARELLA</span>
+        <h3>Us el torneu l'un a l'altre</h3>
+        <p>Mòbil nou? Mostra un QR, la teva parella l'escaneja i et retorna el certificat del xat. Tots els missatges tornen sols.</p>
+      </div>
+      <div class="sec-item reveal d1">
+        <span class="n">02 · DES DEL MÒBIL D'ABANS</span>
+        <h3>Transfereix en un moment</h3>
+        <p>Encara tens el mòbil d'abans? Fes-ho tu: Transfereix, escaneges el QR del nou i el xat hi passa.</p>
+      </div>
+      <div class="sec-item reveal d2">
+        <span class="n">03 · SI REINSTAL·LES</span>
+        <h3>Les claus tornen soles</h3>
+        <p>Desinstal·les i reinstal·les l'app al mateix mòbil? El sistema guarda les claus i es restauren sense fer res.</p>
+      </div>
+    </div>
+    <p class="sec-foot reveal">El QR val deu minuts · el certificat viatja xifrat només per al mòbil que l'ha demanat · <b>no en guardem còpies</b></p>
   </div>
 </section>
 
