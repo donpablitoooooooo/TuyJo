@@ -126,6 +126,7 @@ Il codice è in `flutter-app/lib/services/encryption_service.dart`.
 | Messaggi, promemoria, posizione condivisa | AES-256 in modalità CTR (`encrypt`, default SIC) | Nuova chiave per messaggio, chiusa con RSA-OAEP per mittente e destinatario |
 | Allegati e miniature nuovi (`gcm-v1`) | AES-256-GCM nativo (`cryptography_flutter`) | Nuova chiave per file, chiusa come sopra |
 | Allegati vecchi, selfie di coppia | AES-256-CTR | Come sopra |
+| Anteprime dei link (`link_preview`, dalla 1.38) | AES-256-CTR | Nuova chiave per anteprima, chiusa come i messaggi |
 | Coordinate della posizione | AES-256-CTR | Chiave di sessione, che viaggia dentro il messaggio cifrato |
 | Segnalazione delle chiamate | AES-256-GCM | Chiave per chiamata, chiusa con RSA-OAEP |
 | Certificato per il recupero (escrow) | AES-256-CTR | Chiusa con la chiave pubblica del partner |
@@ -135,10 +136,12 @@ Il codice è in `flutter-app/lib/services/encryption_service.dart`.
 Va saputo, e non va promesso il contrario su sito o store:
 
 - metadati dei messaggi: mittente, orari, tipo, stato di lettura, reazione;
-- **il testo citato nelle risposte** (`reply_to_text`);
-- **URL, titolo e descrizione delle anteprime dei link**;
 - nome, peso e tipo dei file allegati;
-- token FCM/VoIP, piattaforma e lingua dei telefoni.
+- token FCM/VoIP, piattaforma e lingua dei telefoni;
+- nei messaggi scritti con la 1.37 o prima: il testo citato nelle risposte
+  (`reply_to_text`) e URL, titolo e descrizione delle anteprime dei link.
+  Dalla 1.38 la citazione è dentro il contenuto cifrato (`reply_text`) e
+  l'anteprima nel campo cifrato `link_preview`.
 
 ### Escrow del certificato
 Per il recupero, ogni telefono salva il proprio certificato (chiave privata
