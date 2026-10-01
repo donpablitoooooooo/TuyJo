@@ -7,7 +7,7 @@ struttura di testi, così le lingue non divergono fra loro.
 Scrive public/index.html, en.html, es.html, ca.html. Le pagine privacy non
 vengono toccate: usano ancora styles.css e il loro markup.
 """
-import io, os
+import hashlib, io, os
 
 OUT = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', '..', 'public')
 
@@ -334,6 +334,13 @@ def badges(t, s, cls):
       </a>
     </div>'''
 
+def stamp(name):
+    """Nome del file con l'impronta del contenuto (site.css?v=…): a ogni modifica
+    l'URL cambia e il browser non usa la copia vecchia rimasta in cache."""
+    data = open(os.path.join(OUT, name), 'rb').read()
+    return f'{name}?v={hashlib.sha1(data).hexdigest()[:8]}'
+
+
 def build(code):
     t, s = T[code], STORE[code]
     langs = ''
@@ -465,7 +472,7 @@ def build(code):
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,700;12..96,800&family=Hanken+Grotesk:wght@400;600;700&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet">
 <link rel="icon" type="image/png" href="assets/icon-1024.png">
-<link rel="stylesheet" href="site.css">
+<link rel="stylesheet" href="{stamp('site.css')}">
 </head>
 <body>
 
@@ -556,7 +563,7 @@ def build(code):
   </div>
 </footer>
 
-<script src="site.js"></script>
+<script src="{stamp('site.js')}"></script>
 </body>
 </html>
 '''
