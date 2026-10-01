@@ -95,6 +95,7 @@ h1 { font-family: var(--display); font-weight: 800; font-size: 9.4vw; line-heigh
 .mio { font-family: 'Material Icons Outlined'; } .mir { font-family: 'Material Icons Round'; }
 .fab { width: 48px; height: 48px; border-radius: 50%; background: #fff; box-shadow: 0 2px 8px rgba(0,0,0,.10); display: flex; align-items: center; justify-content: center; color: #3BA8B0; }
 .fab img { width: 48px; height: 48px; border-radius: 50%; object-fit: cover; }
+.fab .selfie { width: 48px; height: 48px; border-radius: 50%; background: center 40% / cover; }
 .fab-l { position: absolute; z-index: 20; top: var(--fab-top); left: 16px; }
 .fab-r { position: absolute; z-index: 20; top: var(--fab-top); right: 16px; display: flex; gap: 10px; }
 
@@ -128,8 +129,19 @@ h1 { font-family: var(--display); font-weight: 800; font-size: 9.4vw; line-heigh
 .ibtn { width: 48px; height: 48px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
 .field { flex: 1; margin: 0 8px 0 4px; display: flex; align-items: center; background: #F5F5F5; border-radius: 24px; padding: 0 4px 0 20px; min-height: 48px; font-size: 16px; color: #9E9E9E; }
 .field span:first-child { flex: 1; }
+.field.typed { color: rgba(0,0,0,.87); }
+.field.typed .caret { display: inline-block; width: 2px; height: 18px; margin-left: 2px; vertical-align: -3px; background: #3BA8B0; }
+.send .c.on { background: linear-gradient(135deg, #3BA8B0, #145A60); box-shadow: 0 2px 6px rgba(59,168,176,.4); }
 .send { width: 48px; height: 48px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; }
 .send .c { width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: #fff; background: linear-gradient(135deg, #E0E0E0, #BDBDBD); transform: scale(.8); }
+
+/* Foto dentro un messaggio (chat_screen.dart: 200×200, raggio 12) */
+.bubble.pic { padding: 5px; }
+.bubble.pic .img { width: 186px; height: 186px; border-radius: 12px; }
+.bubble.pic .meta { margin: 6px 6px 2px; }
+/* Chat senza messaggi (chatEmptyMessage) */
+.emptychat { flex: 1; display: flex; align-items: center; justify-content: center; text-align: center;
+  font-size: 15px; line-height: 1.5; color: #9E9E9E; }
 
 /* Chiamata */
 .call { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; color: #fff; background: linear-gradient(180deg, #1A1A2E, #16213E, #0F3460); padding-top: calc(var(--safe-t) + 40px); padding-bottom: 60px; }
@@ -176,7 +188,7 @@ h1 { font-family: var(--display); font-weight: 800; font-size: 9.4vw; line-heigh
 .cal .tpanel .bubble { max-width: 78%; }
 
 /* Media */
-.media { position: absolute; inset: 0; background: #FAFAFA; display: flex; flex-direction: column; padding-top: 100px; }
+.media { position: absolute; inset: 0; background: #FAFAFA; display: flex; flex-direction: column; padding-top: 100px; padding-bottom: calc(6px + var(--safe-b)); }
 .tabs { margin: 0 80px; padding: 6px; border-radius: 30px; background: var(--grad); box-shadow: 0 4px 12px rgba(59,168,176,.3); display: flex; justify-content: space-evenly; }
 .tabs .t { width: 48px; height: 48px; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: #fff; background: rgba(255,255,255,.2); border: 1px solid rgba(255,255,255,.3); }
 .tabs .t.on { background: #fff; color: #3BA8B0; border: none; box-shadow: 0 2px 4px rgba(0,0,0,.15); }
@@ -189,6 +201,40 @@ h1 { font-family: var(--display); font-weight: 800; font-size: 9.4vw; line-heigh
 .ph .badge.p { background: rgba(158,158,158,.9); }
 .ph .vid { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; color: #fff; background: linear-gradient(180deg, transparent, rgba(0,0,0,.4)); }
 
+/* Link e documenti (media_screen.dart: _LinkGridItem e _DocumentListItem).
+   I link stanno in una masonry a due colonne — nell'app è MasonryGridView.count
+   — quindi le schede hanno altezze diverse a seconda della miniatura. */
+.lgrid { column-count: 2; column-gap: 8px; padding: 4px 12px 8px; }
+.lcard { break-inside: avoid; margin-bottom: 8px; background: #fff; border-radius: 12px;
+  border: 1.5px solid rgba(59,168,176,.3); box-shadow: 0 2px 6px rgba(0,0,0,.06); overflow: hidden; }
+.lcard.p { border-color: rgba(158,158,158,.35); }
+.lcard .thumb { position: relative; overflow: hidden; }
+.lcard .noimg { display: flex; align-items: center; justify-content: center; height: 60px; background: rgba(59,168,176,.1); color: #3BA8B0; }
+.lcard.p .noimg { background: rgba(158,158,158,.12); color: #9E9E9E; }
+.lcard .body { padding: 10px; }
+.lcard .tt { font-size: 13px; font-weight: 600; line-height: 1.25; color: #424242; }
+.lcard .ds { margin-top: 4px; font-size: 11px; line-height: 1.3; color: #757575; }
+.lcard .dm { display: flex; align-items: center; gap: 3px; margin-top: 6px; font-size: 10px; color: #9E9E9E; }
+.lcard .dm .site { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dlist { display: flex; flex-direction: column; gap: 10px; padding: 4px 12px 8px; }
+.drow { display: flex; align-items: center; gap: 12px; padding: 12px; background: #fff; border-radius: 12px; border: 1.5px solid rgba(59,168,176,.3); box-shadow: 0 2px 4px rgba(0,0,0,.04); }
+.drow.p { border-color: rgba(158,158,158,.35); }
+.drow .ic { width: 44px; height: 44px; flex-shrink: 0; border-radius: 10px; background: rgba(59,168,176,.1); border: 1px solid rgba(59,168,176,.3); display: flex; flex-direction: column; align-items: center; justify-content: center; color: #3BA8B0; }
+.drow.p .ic { background: rgba(158,158,158,.12); border-color: rgba(158,158,158,.35); color: #9E9E9E; }
+.drow .ic b { font-size: 7px; font-weight: 700; letter-spacing: .3px; }
+.drow .nm { font-size: 14px; font-weight: 600; color: #424242; }
+.drow .meta2 { display: flex; align-items: center; gap: 6px; margin-top: 4px; font-size: 10px; color: #9E9E9E; }
+.drow .sz { padding: 1px 5px; border-radius: 4px; background: rgba(59,168,176,.1); color: #3BA8B0; font-weight: 500; }
+.drow.p .sz { background: rgba(158,158,158,.12); color: #757575; }
+.drow .dt { margin-left: auto; }
+
+/* Il dito che tocca la cornetta */
+.tapwrap { position: relative; }
+.tapring { position: absolute; top: 50%; left: 50%; width: 104px; height: 104px; margin: -52px 0 0 -52px; border-radius: 50%;
+  border: 2px solid rgba(59,168,176,.5); background: radial-gradient(circle, rgba(59,168,176,.25), rgba(59,168,176,.04) 65%, transparent 72%); }
+.tapring::after { content: ""; position: absolute; top: 50%; left: 50%; width: 62px; height: 62px; margin: -31px 0 0 -31px;
+  border-radius: 50%; background: rgba(59,168,176,.22); }
+
 /* Pairing */
 .pair { position: absolute; inset: 0; color: #fff; background: linear-gradient(180deg, #3BA8B0, #145A60); padding: 60px 24px 24px; text-align: center; }
 .pair .ttl { font-size: 28px; font-weight: 700; margin-top: var(--safe-t); }
@@ -200,23 +246,76 @@ h1 { font-family: var(--display); font-weight: 800; font-size: 9.4vw; line-heigh
 .gbtn { margin-top: 16px; display: flex; align-items: center; justify-content: center; gap: 12px; padding: 16px; border-radius: 12px; background: linear-gradient(90deg, #3BA8B0, #145A60); color: #fff; font-size: 16px; font-weight: 600; box-shadow: 0 4px 8px rgba(59,168,176,.3); }
 .closefab { position: absolute; top: var(--fab-top); left: 16px; width: 44px; height: 44px; border-radius: 50%; background: #fff; box-shadow: 0 2px 8px rgba(0,0,0,.1); display: flex; align-items: center; justify-content: center; color: #3BA8B0; }
 
-/* ---------- Feature graphic (Google Play, 1024×500) ---------- */
-.feature { position: relative; width: 1024px; height: 500px; overflow: hidden; background: var(--paper); display: flex; }
-.feature .glow { left: 74%; top: 60%; width: 700px; height: 700px; }
-.feature .bg-cherry { width: 420px; right: auto; left: -110px; top: auto; bottom: -140px; transform: rotate(18deg); opacity: .06; }
-.feature .fcopy { position: relative; z-index: 2; width: 560px; padding: 64px 0 0 72px; }
-.feature .brand { display: flex; align-items: center; gap: 16px; }
-.feature .brand img { width: 52px; }
-.feature .brand .word { font-family: var(--display); font-weight: 800; font-size: 40px; letter-spacing: -.03em; color: var(--teal-deep); }
-.feature h1 { font-size: 58px; margin-top: 26px; }
-.feature .sub { font-size: 21px; margin: 16px 0 0; max-width: 24ch; }
-.feature .trust { display: flex; gap: 18px; margin-top: 26px; font-size: 13px; font-weight: 600; color: var(--teal-deep); letter-spacing: .04em; }
-.feature .trust span { display: inline-flex; align-items: center; gap: 6px; }
-.feature .trust span::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: var(--cherry); }
-.feature .fstage { position: absolute; z-index: 2; right: 96px; top: 62px; }
-.feature .device.iphone { width: 292px; border-radius: 48px; padding: 11px; }
-.feature .device.iphone .screen { border-radius: 38px; }
-.feature .device::after { right: -3px; width: 3px; }
+/* ---------- Render per il sito (public/assets/shots) ----------
+   Solo il dispositivo, sfondo trasparente, nessun titolo stampato:
+   sul sito il testo è HTML, l'immagine mostra soltanto l'app.
+   ------------------------------------------------------------- */
+.web-stage { position: relative; width: 100vw; height: 100vh; display: flex; align-items: center; justify-content: center; background: transparent; }
+.web-stage .device { box-shadow: none; }
+.web-stage.single .device.iphone { width: 82vw; border-radius: 12vw; padding: 2.6vw; }
+.web-stage.single .device.iphone .screen { border-radius: 9.6vw; }
+.web-stage.single .device::after { right: -.8vw; width: .8vw; }
+.web-stage.pair .device.iphone { width: 46vw; border-radius: 6.7vw; padding: 1.5vw; }
+.web-stage.pair .device.iphone .screen { border-radius: 5.4vw; }
+.web-stage.pair .device::after { right: -.45vw; width: .45vw; border-radius: 0 2px 2px 0; }
+.web-stage.pair .p1 { position: relative; z-index: 2; transform: translateY(-3.5%); }
+.web-stage.pair .p2 { position: relative; z-index: 1; margin-left: -9vw; transform: translateY(6.5%); }
+
+/* Scheda UI per il sito: una porzione di schermata, senza cornice né barre di sistema */
+.card-stage { width: 100vw; height: 100vh; display: grid; place-items: center; background: transparent; }
+.uicard { width: 97vw; height: 97vh; border-radius: 2.2vw; overflow: hidden; background: #fff; }
+.uicard .screen { width: 100%; height: 100%; border-radius: inherit; }
+
+/* Scanner QR (pairing_wizard_screen.dart → _buildQRScanner).
+   Dentro la fotocamera c'è il telefono dell'altra persona con la sua vera
+   schermata di pairing, non un disegno: è la stessa funzione pairingScreen(). */
+.scan { position: absolute; inset: 0; overflow: hidden; background: #141210; }
+.scan .cam { position: absolute; inset: 0;
+  background: radial-gradient(120% 80% at 62% 18%, #6B5B4A 0%, #3A3229 38%, #201C18 72%, #131110 100%); }
+.scan .cam::after { content: ""; position: absolute; inset: 0;
+  background: linear-gradient(200deg, rgba(255,236,204,.10) 0 30%, transparent 62%),
+              radial-gradient(60% 40% at 30% 88%, rgba(0,0,0,.55), transparent 70%); }
+.scan .other { position: absolute; left: 50%; top: 55%; transform: translate(-50%, -50%); }
+.minidev { padding: 8px; border-radius: 30px; background: linear-gradient(150deg, #2b2b2f, #0b0e11 60%);
+  box-shadow: 0 26px 52px rgba(0,0,0,.6), 0 0 0 1px rgba(255,255,255,.06) inset; transform-origin: 50% 50%; }
+.miniscreen { position: relative; width: 180px; height: 394px; border-radius: 23px; overflow: hidden; background: #fff; }
+.miniscreen .app { position: absolute; left: 0; top: 0; width: 390px; height: 854px; zoom: .4615; }
+.miniscreen::after { content: ""; position: absolute; inset: 0; pointer-events: none;
+  background: linear-gradient(118deg, rgba(255,255,255,.22) 0 16%, rgba(255,255,255,.05) 26%, transparent 46%); }
+/* fotogramma "sto cercando": telefono di sbieco, fuori fuoco, poco illuminato */
+.scan.search .minidev { transform: perspective(900px) rotateY(-15deg) rotateX(8deg) rotate(-6deg) scale(.84) translateX(-8px);
+  filter: blur(1.3px) brightness(.72) saturate(.85); }
+/* fotogramma "l'ho preso": inquadrato, a fuoco */
+.scan.lock .minidev { transform: perspective(1200px) rotateY(-4deg) rotateX(2deg) rotate(-1.5deg) scale(1.04);
+  filter: brightness(.94); }
+.scan .vign { position: absolute; inset: 0; pointer-events: none;
+  background: radial-gradient(ellipse at 50% 54%, transparent 38%, rgba(0,0,0,.5) 100%); }
+.scan .fabs { position: absolute; top: var(--fab-top); left: 16px; right: 16px; display: flex; justify-content: space-between; }
+.scan .fabs .b { width: 44px; height: 44px; border-radius: 50%; background: #fff; box-shadow: 0 2px 8px rgba(0,0,0,.3); display: flex; align-items: center; justify-content: center; color: #3BA8B0; }
+.scan .hint { position: absolute; top: 120px; left: 20px; right: 20px; padding: 16px; border-radius: 16px; background: #fff;
+  box-shadow: 0 4px 12px rgba(0,0,0,.2); text-align: center; font-size: 16px; font-weight: 600; line-height: 1.3; color: #2d3436; }
+
+/* Passo completato + snackbar di conferma (stessi stili del Flutter) */
+.donepill { margin-top: 16px; display: flex; align-items: center; justify-content: center; gap: 8px;
+  padding: 12px 16px; border-radius: 12px; background: rgba(59,168,176,.1); border: 1px solid #3BA8B0;
+  color: #3BA8B0; font-size: 16px; font-weight: 700; }
+.snack { position: absolute; left: 16px; right: 16px; bottom: calc(16px + var(--safe-b)); z-index: 40;
+  display: flex; align-items: center; gap: 12px; padding: 14px 16px; border-radius: 12px;
+  background: #3BA8B0; color: #fff; font-size: 14px; line-height: 1.3; box-shadow: 0 8px 20px rgba(0,0,0,.3); }
+
+/* Anteprima social del sito (og:image, 1200×630) */
+.feature.og { width: 1200px; height: 630px; }
+.feature.og .fcopy { width: 660px; padding: 104px 0 0 88px; }
+.feature.og .brand img { width: 58px; }
+.feature.og .brand .word { font-size: 44px; }
+.feature.og h1 { font-size: 72px; margin-top: 30px; }
+.feature.og .sub { font-size: 23px; margin-top: 20px; max-width: 26ch; }
+.feature.og .trust { margin-top: 32px; font-size: 14px; }
+.feature.og .fstage { right: 104px; top: 96px; }
+.feature.og .device.iphone { width: 330px; border-radius: 54px; padding: 12px; }
+.feature.og .device.iphone .screen { border-radius: 43px; }
+.feature.og .glow { left: 78%; top: 58%; width: 820px; height: 820px; }
+.feature.og .bg-cherry { width: 480px; left: -130px; bottom: -170px; }
 </style>
 </head>
 <body>
@@ -273,47 +372,68 @@ const FEATURE = {
 const UI = {
   it: { yesterday: 'Ieri', e1: 'Buongiorno amore ☕ oggi finisco tardi', e2: 'Tranquilla, preparo io la cena 🍝', e3: 'Sei il migliore ❤️', e4: 'Ho prenotato per sabato, ti va?',
     today: 'Oggi', tomorrow: 'Domani', typing: 'Sta scrivendo...', hint: 'Scrivi...',
-    c1: 'Ho appena finito 💚 dove sei?', c2: 'Quasi arrivata! Ti mando la posizione', c3: 'Ti vedo 😍 ti aspetto al bar', c4: 'Due minuti e sono lì 🍒',
+    c1: 'Ho appena finito 💚 dove sei?', c2: 'Al bar sotto casa, ti aspetto qui', c3: 'Arrivo in cinque 😍', c4: 'Ah giusto, me l\'ero scordato!', draft: 'Ti ordino un caffè? ☕',
     locActive: 'Condivisione attiva', callTitle: 'Chiamata Vocale', good: 'Connessione buona', mute: 'Muto', speaker: 'Altoparlante', end: 'Fine',
     ago: '12s fa', add: 'Aggiungi', wd: ['L','M','M','G','V','S','D'], month: 'Settembre 2026', month2: 'Agosto 2026',
     todo1: 'Cena da Marco e Giulia 🍝', todo2: 'Prenotare il treno per Roma 🚄', todo3: 'Comprare i fiori per la mamma 💐',
+    emptyChat: 'Nessun messaggio.<br>Invia il primo!', firstMsg: 'Ciao amore, finalmente l\'app solo per noi ❤️',
+    links: [['Hotel Villa Fiorita, Sorrento','Camera vista mare, colazione inclusa · 2 notti','booking.com','10/09'],['Casa sul mare, agosto','Intera casa · 4 ospiti · Gallipoli','airbnb.it','09/09'],['Trattoria da Marco','Via Roma 12 · aperto fino alle 23','maps.google.com','06/09'],['Tiramisù della nonna','Ricetta in 20 minuti, senza forno','ricettedicasa.it','28/08'],['Concerto al parco, 12 settembre','Biglietti ancora disponibili','biglietteria.it','21/08']], docs: [['Contratto affitto.pdf','1,2 MB','10/09'],['Biglietti treno Roma.pdf','340 KB','08/09'],['Preventivo cucina.pdf','2,1 MB','05/09'],['Ricette della nonna.docx','88 KB','02/09']],
     pairTitle: 'Pairing con il tuo amore', pairSub: 'Completa entrambi i passaggi per accoppiare i dispositivi',
-    s1t: 'Mostra il tuo QR', s1d: 'Fai scansionare questo QR al tuo amore', s2t: 'Leggi il QR del tuo amore', s2d: 'Scansiona il QR mostrato dal tuo amore', scan: 'Scansiona QR' },
+    s1t: 'Mostra il tuo QR', s1d: 'Fai scansionare questo QR al tuo amore', s2t: 'Leggi il QR del tuo amore', s2d: 'Scansiona il QR mostrato dal tuo amore', scan: 'Scansiona QR', scanHint: 'Inquadra il QR Code del tuo amore', done: 'Completato', okMsg: 'QR del partner scansionato con successo!' },
   en: { yesterday: 'Yesterday', e1: 'Morning love ☕ running late tonight', e2: 'No worries, I\'ll cook dinner 🍝', e3: 'You\'re the best ❤️', e4: 'Booked a table for Saturday, ok?',
     today: 'Today', tomorrow: 'Tomorrow', typing: 'Typing...', hint: 'Message',
-    c1: 'Just finished 💚 where are you?', c2: 'Almost there! Sending you my location', c3: 'I see you 😍 waiting at the bar', c4: 'Two minutes and I\'m there 🍒',
+    c1: 'Just finished 💚 where are you?', c2: 'At the bar downstairs, waiting here', c3: 'There in five 😍', c4: 'Oh right, I had completely forgotten!', draft: 'Shall I order you a coffee? ☕',
     locActive: 'Sharing active', callTitle: 'Voice Call', good: 'Good connection', mute: 'Mute', speaker: 'Speaker', end: 'End',
     ago: '12s ago', add: 'Add', wd: ['M','T','W','T','F','S','S'], month: 'September 2026', month2: 'August 2026',
     todo1: 'Dinner at Marco & Giulia\'s 🍝', todo2: 'Book the train to Rome 🚄', todo3: 'Buy flowers for mum 💐',
+    emptyChat: 'No messages.<br>Send the first one!', firstMsg: 'Hi love, finally an app just for us ❤️',
+    links: [['Hotel Villa Fiorita, Sorrento','Sea view room, breakfast included · 2 nights','booking.com','10/09'],['House by the sea, August','Entire home · 4 guests · Gallipoli','airbnb.com','09/09'],['Trattoria da Marco','Via Roma 12 · open until 11pm','maps.google.com','06/09'],["Grandma's tiramisu",'Ready in 20 minutes, no baking','homerecipes.com','28/08'],['Concert in the park, 12 September','Tickets still available','ticketdesk.com','21/08']], docs: [['Rental agreement.pdf','1.2 MB','10/09'],['Train tickets to Rome.pdf','340 KB','08/09'],['Kitchen quote.pdf','2.1 MB','05/09'],['Grandma\'s recipes.docx','88 KB','02/09']],
     pairTitle: 'Pairing with your love', pairSub: 'Complete both steps to pair the devices',
-    s1t: 'Show your QR code', s1d: 'Have your love scan this QR code', s2t: 'Read your love\'s QR code', s2d: 'Scan the QR code shown by your love', scan: 'Scan QR' },
+    s1t: 'Show your QR code', s1d: 'Have your love scan this QR code', s2t: 'Read your love\'s QR code', s2d: 'Scan the QR code shown by your love', scan: 'Scan QR', scanHint: 'Frame the QR Code of your love', done: 'Completed', okMsg: 'Partner QR code scanned successfully!' },
   es: { yesterday: 'Ayer', e1: 'Buenos días amor ☕ hoy acabo tarde', e2: 'Tranquila, preparo yo la cena 🍝', e3: 'Eres el mejor ❤️', e4: 'He reservado para el sábado, ¿te va?',
     today: 'Hoy', tomorrow: 'Mañana', typing: 'Escribiendo...', hint: 'Mensaje',
-    c1: 'Acabo de terminar 💚 ¿dónde estás?', c2: '¡Casi llego! Te mando la ubicación', c3: 'Te veo 😍 te espero en el bar', c4: 'Dos minutos y estoy ahí 🍒',
+    c1: 'Acabo de terminar 💚 ¿dónde estás?', c2: 'En el bar de abajo, te espero aquí', c3: 'Llego en cinco 😍', c4: '¡Ah cierto, se me había olvidado!', draft: '¿Te pido un café? ☕',
     locActive: 'Compartir activo', callTitle: 'Llamada de Voz', good: 'Buena conexión', mute: 'Silenciar', speaker: 'Altavoz', end: 'Finalizar',
     ago: 'hace 12s', add: 'Añadir', wd: ['L','M','X','J','V','S','D'], month: 'Septiembre 2026', month2: 'Agosto 2026',
     todo1: 'Cena en casa de Marco y Giulia 🍝', todo2: 'Reservar el tren a Roma 🚄', todo3: 'Comprar flores para mamá 💐',
+    emptyChat: 'No hay mensajes.<br>¡Sé el primero en publicar!', firstMsg: 'Hola amor, por fin una app solo para nosotros ❤️',
+    links: [['Hotel Villa Fiorita, Sorrento','Habitación con vistas al mar, desayuno incluido · 2 noches','booking.com','10/09'],['Casa junto al mar, agosto','Casa entera · 4 huéspedes · Gallipoli','airbnb.es','09/09'],['Trattoria da Marco','Via Roma 12 · abierto hasta las 23','maps.google.com','06/09'],['Tiramisú de la abuela','Receta en 20 minutos, sin horno','recetasdecasa.es','28/08'],['Concierto en el parque, 12 de septiembre','Quedan entradas','entradas.es','21/08']], docs: [['Contrato de alquiler.pdf','1,2 MB','10/09'],['Billetes de tren a Roma.pdf','340 KB','08/09'],['Presupuesto cocina.pdf','2,1 MB','05/09'],['Recetas de la abuela.docx','88 KB','02/09']],
     pairTitle: 'Pairing con tu amor', pairSub: 'Complete ambos pasos para emparejar los dispositivos',
-    s1t: 'Muestra tu código QR', s1d: 'Haz que tu amor escanee este código QR', s2t: 'Lee el código QR de tu amor', s2d: 'Escanea el código QR que te muestra tu amor', scan: 'Escanear QR' },
+    s1t: 'Muestra tu código QR', s1d: 'Haz que tu amor escanee este código QR', s2t: 'Lee el código QR de tu amor', s2d: 'Escanea el código QR que te muestra tu amor', scan: 'Escanear QR', scanHint: 'Enmarca el Código QR de tu amor', done: 'Completado', okMsg: '¡Código QR de socio escaneado exitosamente!' },
   ca: { yesterday: 'Ahir', e1: 'Bon dia amor ☕ avui acabo tard', e2: 'Tranquil·la, ja faig jo el sopar 🍝', e3: 'Ets el millor ❤️', e4: 'He reservat per dissabte, et va bé?',
     today: 'Avui', tomorrow: 'Demà', typing: 'Escrivint...', hint: 'Missatge',
-    c1: 'Acabo d\'acabar 💚 on ets?', c2: 'Gairebé hi soc! T\'envio la ubicació', c3: 'Et veig 😍 t\'espero al bar', c4: 'Dos minuts i hi soc 🍒',
+    c1: 'Acabo d\'acabar 💚 on ets?', c2: 'Al bar de sota, t\'espero aquí', c3: 'Hi arribo en cinc 😍', c4: 'Ah és veritat, me n\'havia oblidat!', draft: 'Et demano un cafè? ☕',
     locActive: 'Compartir actiu', callTitle: 'Trucada de Veu', good: 'Bona connexió', mute: 'Silenciar', speaker: 'Altaveu', end: 'Finalitzar',
     ago: 'fa 12s', add: 'Afegeix', wd: ['DL','DT','DC','DJ','DV','DS','DG'], month: 'Setembre 2026', month2: 'Agost 2026',
     todo1: 'Sopar a casa d\'en Marco i la Giulia 🍝', todo2: 'Reservar el tren a Roma 🚄', todo3: 'Comprar flors per a la mama 💐',
+    emptyChat: 'No hi ha missatges.<br>Sigues el primer a publicar!', firstMsg: 'Hola amor, per fi una app només per a nosaltres ❤️',
+    links: [['Hotel Villa Fiorita, Sorrento','Habitació amb vistes al mar, esmorzar inclòs · 2 nits','booking.com','10/09'],['Casa a la vora del mar, agost','Casa sencera · 4 hostes · Gallipoli','airbnb.es','09/09'],['Trattoria da Marco','Via Roma 12 · obert fins a les 23','maps.google.com','06/09'],["Tiramisú de l'àvia",'Recepta en 20 minuts, sense forn','receptesdecasa.cat','28/08'],['Concert al parc, 12 de setembre','Encara queden entrades','entrades.cat','21/08']], docs: [['Contracte de lloguer.pdf','1,2 MB','10/09'],['Bitllets de tren a Roma.pdf','340 KB','08/09'],['Pressupost cuina.pdf','2,1 MB','05/09'],['Receptes de l\'àvia.docx','88 KB','02/09']],
     pairTitle: 'Pairing amb el teu amor', pairSub: 'Completeu els dos passos per emparellar els dispositius',
-    s1t: 'Mostra el teu codi QR', s1d: 'Fes que el teu amor escanegi aquest codi QR', s2t: 'Llegeix el codi QR del teu amor', s2d: 'Escaneja el codi QR que et mostra el teu amor', scan: 'Escaneja un codi QR' },
+    s1t: 'Mostra el teu codi QR', s1d: 'Fes que el teu amor escanegi aquest codi QR', s2t: 'Llegeix el codi QR del teu amor', s2d: 'Escaneja el codi QR que et mostra el teu amor', scan: 'Escaneja un codi QR', scanHint: 'Emmarca el codi QR del teu amor', done: 'Completat', okMsg: 'Codi QR del soci escanejat correctament!' },
 };
 
 // ------------------------------------------------------------------
 const q = new URLSearchParams(location.search);
 const device = q.get('device') || 'iphone';       // iphone | android | ipad | tablet | feature
+const OG = {
+  it: { h: 'Per <em>due.</em>', s: 'Una chat privata che vive solo sui vostri due telefoni.', t: ['Cifratura end-to-end', 'Nessun account', 'iPhone e Android'] },
+  en: { h: 'For <em>two.</em>', s: 'A private chat that lives only on your two phones.', t: ['End-to-end encryption', 'No account', 'iPhone and Android'] },
+  es: { h: 'Para <em>dos.</em>', s: 'Un chat privado que vive solo en vuestros dos móviles.', t: ['Cifrado de extremo a extremo', 'Sin cuenta', 'iPhone y Android'] },
+  ca: { h: 'Per a <em>dos.</em>', s: 'Un xat privat que viu només als vostres dos mòbils.', t: ['Xifratge d\'extrem a extrem', 'Sense compte', 'iPhone i Android'] },
+};
 const lang = COPY[q.get('lang')] ? q.get('lang') : 'it';
 const shot = parseInt(q.get('shot') || '1', 10);
+const OFFSET = parseInt(q.get('off') || '0', 10);
+const PHOTOS_REAL = (q.get('photos') || '').split(',').filter(Boolean);   // file in img/photos/
+const LINKS_REAL = (q.get('links') || '').split(',').filter(Boolean);     // file in img/links/
+const CHAT_PHOTO = q.get('chatphoto') || '';
+const AVATAR = q.get('avatar') || '';                                   // la foto di coppia nel tondo in alto a destra                             // la foto dentro la chat   // px logici saltati dall'alto (device=card)
 const t = UI[lang];
-const isApple = device === 'iphone' || device === 'ipad' || device === 'feature';
+const isCard = device === 'card';                        // ritaglio a scheda
+const isWeb = device === 'web' || device === 'webpair' || isCard;   // render per il sito
+const isApple = device === 'iphone' || device === 'ipad' || device === 'feature' || device === 'og' || isWeb;
 const isTablet = device === 'ipad' || device === 'tablet';
-const BASE_W = { iphone: 390, android: 390, ipad: 1032, tablet: 800, feature: 390 }[device];
+const BASE_W = { iphone: 390, android: 390, ipad: 1032, tablet: 800, feature: 390, og: 390, web: 390, webpair: 390, card: 390 }[device];
 const SAFE_T = isApple ? (isTablet ? 24 : 59) : (isTablet ? 30 : 32);
 const SAFE_B = isApple ? (isTablet ? 20 : 34) : 24;
 const FAB_TOP = 48; // Positioned(top: 48) nel Flutter
@@ -332,7 +452,7 @@ function statusBar(onDark) {
   if (isApple) return `<div class="sb ios ${cls}" style="${isTablet ? 'height:30px;padding:0 22px;font-size:13px' : ''}"><span>9:41</span><span class="ic">${cell}${wifi}${batt}</span></div>`;
   return `<div class="sb android ${cls}"><span>9:41</span><span class="ic">${awifi}${asig}${abatt}</span></div>`;
 }
-const hw = () => device === 'iphone' || device === 'feature' ? '<div class="island"></div>' : device === 'android' ? '<div class="punch"></div>' : '';
+const hw = () => device === 'iphone' || device === 'feature' || device === 'og' || isWeb ? '<div class="island"></div>' : device === 'android' ? '<div class="punch"></div>' : '';
 const homebar = (onDark) => `<div class="homebar ${isApple ? '' : 'android'} ${onDark ? 'on-dark' : ''}"></div>`;
 
 // ---- componenti chat ----
@@ -342,8 +462,14 @@ function bubble(side, text, time, tick, reaction) {
   const rx = reaction ? `<span class="react">${mi(reaction, 20, '#fff')}</span>` : '';
   return `<div class="row ${side}"><div class="bubble">${text}<div class="meta"><span>${time}</span>${tk}</div>${rx}</div></div>`;
 }
-function locBubble() {
-  return `<div class="row me"><div class="bubble loc"><div class="locmap">${mi('location_on', 48, '#fff')}</div>
+function picBubble(side, time, tick, photo) {
+  // photo: sfondo della foto (gradiente disegnato o file vero da img/photos/)
+  const tk = side === 'me' && tick ? `<span class="mi tick ${tick === 'read' ? 'read' : ''}" style="font-size:14px">${tick === 'read' ? 'done_all' : 'done'}</span>` : '';
+  return `<div class="row ${side}"><div class="bubble pic"><div class="img" style="${photo}"></div>
+    <div class="meta"><span>${time}</span>${tk}</div></div></div>`;
+}
+function locBubble(side) {
+  return `<div class="row ${side || 'me'}"><div class="bubble loc"><div class="locmap">${mi('location_on', 48, '#fff')}</div>
     <div class="locbody"><div class="st">${t.locActive}</div><div class="cd">${mi('access_time', 14, 'rgba(255,255,255,.7)')}<span>58m</span></div>
     <div class="meta"><span>21:04</span><span class="mi tick" style="font-size:16px;color:#40C4FF">done_all</span></div></div></div></div>`;
 }
@@ -357,34 +483,68 @@ function todoBubble(side, text, when, alert, state, time) {
   return `<div class="row ${side}"><div class="bubble"><span style="${done ? 'text-decoration:line-through' : ''}">${text}</span>
     <div class="todorow">${mi(icon, 14, 'inherit', 'mio')}<span>${when}</span>${al}</div><div class="meta">${meta}</div></div></div>`;
 }
-function fabs(withCall) {
+// Il tondo in alto a destra: nell'app è il selfie di coppia, se l'avete
+// scattato (main_screen.dart, cachedSelfieBytes); altrimenti il logo.
+const avatar = () => AVATAR
+  ? `<span class="selfie" style="background-image:url('img/photos/${AVATAR}')"></span>`
+  : '<img src="img/logo_teal.png" alt="">';
+function fabs(withCall, tapCall) {
+  // tapCall: l'alone del dito che preme la cornetta, per la sequenza del sito
+  const call = withCall
+    ? `<div class="tapwrap"><div class="fab">${mi('call', 22, '#3BA8B0')}</div>${tapCall ? '<div class="tapring"></div>' : ''}</div>`
+    : '';
   return `<div class="fab-l"><div class="fab">${mi('menu', 24, '#3BA8B0')}</div></div>
-    <div class="fab-r">${withCall ? `<div class="fab">${mi('call', 22, '#3BA8B0')}</div>` : ''}<div class="fab"><img src="img/logo_teal.png" alt=""></div></div>`;
+    <div class="fab-r">${call}<div class="fab">${avatar()}</div></div>`;
 }
-function inputBar() {
+function inputBar(draft) {
+  // draft: il testo che l'altra persona sta scrivendo in questo momento
+  const field = draft
+    ? `<div class="field typed"><span>${draft}<i class="caret"></i></span><span class="ibtn">${mi('calendar_month', 24, '#757575', 'mio')}</span></div>`
+    : `<div class="field"><span>${t.hint}</span><span class="ibtn">${mi('calendar_month', 24, '#757575', 'mio')}</span></div>`;
   return `<div class="inputbar"><div class="ibtn">${mi('add_circle_outline', 28, '#757575')}</div>
-    <div class="field"><span>${t.hint}</span><span class="ibtn">${mi('calendar_month', 24, '#757575', 'mio')}</span></div>
-    <div class="send"><div class="c">${mi('send', 22, '#fff', 'mir')}</div></div></div>`;
+    ${field}
+    <div class="send"><div class="c ${draft ? 'on' : ''}">${mi('send', 22, '#fff', 'mir')}</div></div></div>`;
 }
 
 // ---- schermate ----
-function chatScreen() {
+function chatScreen(mirror, tapCall) {
+  // mirror: la stessa conversazione vista dall'altro telefono. I lati si
+  // scambiano, le spunte seguono chi guarda, e chi sta scrivendo vede la
+  // propria bozza al posto dell'indicatore "sta scrivendo".
+  const sd = (side) => (mirror ? (side === 'me' ? 'them' : 'me') : side);
+  // la foto del messaggio: la prima di img/photos/ se c'è, altrimenti disegnata
+  const pic = CHAT_PHOTO
+    ? `background:url('img/photos/${CHAT_PHOTO}') center/cover`
+    : `background:radial-gradient(circle at 62% 30%,#FFE9A8 0 12%,transparent 13%),linear-gradient(180deg,#F6C88B 0%,#E98C6B 46%,#8E4A52 100%)`;
   const earlier = isTablet ? `${datesep(t.yesterday)}
-    ${bubble('me', t.e1, '08:12', 'read')}
-    ${bubble('them', t.e2, '08:15')}
-    ${bubble('me', t.e3, '13:40', 'read', 'thumb_up')}
-    ${bubble('them', t.e4, '18:02')}` : '';
-  return `<div class="chat">${fabs(true)}<div class="msgs">
+    ${bubble(sd('me'), t.e1, '08:12', 'read')}
+    ${bubble(sd('them'), t.e2, '08:15', 'read')}
+    ${bubble(sd('me'), t.e3, '13:40', 'read', 'thumb_up')}
+    ${bubble(sd('them'), t.e4, '18:02', 'read')}` : '';
+  return `<div class="chat">${fabs(true, tapCall)}<div class="msgs">
     ${earlier}
     ${datesep(t.today)}
-    ${bubble('them', t.c1, '21:04')}
-    ${bubble('me', t.c2, '21:04', 'read')}
-    ${locBubble()}
-    ${bubble('them', t.c3, '21:05', null, 'favorite')}
-    ${bubble('me', t.c4, '21:06', 'sent')}
-    <div class="typing"><span class="spin"></span><span>${t.typing}</span></div>
-  </div>${inputBar()}</div>`;
+    ${isTablet ? bubble(sd('them'), t.c1, '21:04', 'read') : ''}
+    ${isTablet ? bubble(sd('me'), t.c2, '21:04', 'read') : ''}
+    ${locBubble(sd('me'))}
+    ${bubble(sd('them'), t.c3, '21:05', 'read', 'favorite')}
+    ${todoBubble(sd('me'), t.todo1, `${t.tomorrow} 20:30`, '2h', 'read', '21:06')}
+    ${picBubble(sd('them'), '21:08', 'read', pic)}
+    ${mirror || !isTablet ? '' : `<div class="typing"><span class="spin"></span><span>${t.typing}</span></div>`}
+  </div>${inputBar(mirror ? t.draft : null)}</div>`;
 }
+
+// La chat appena abbinata: vuota, poi con il primo messaggio.
+function firstChat(view, sent) {
+  const mine = view === 'them';   // chi scrive è il secondo telefono
+  const body = sent
+    ? `<div class="msgs">${datesep(t.today)}${bubble(mine ? 'me' : 'them', t.firstMsg, '21:12', 'read')}</div>`
+    : `<div class="emptychat">${t.emptyChat}</div>` +
+      (mine ? '' : `<div class="msgs" style="flex:0"><div class="typing"><span class="spin"></span><span>${t.typing}</span></div></div>`);
+  const draft = !sent && mine ? t.firstMsg : null;
+  return `<div class="chat">${fabs(true)}${body}${inputBar(draft)}</div>`;
+}
+
 function callScreen() {
   const bars = [6, 10, 14].map(h => `<span class="bar" style="height:${h}px"></span>`).join('');
   return `<div class="call"><div class="status">03:42</div>
@@ -439,25 +599,94 @@ const PHOTOS = [
   'linear-gradient(160deg,#FFD6A5,#FFADAD)|radial-gradient(circle at 50% 45%,#D81F2C 0 8%,transparent 9%)',
   'linear-gradient(180deg,#7CC7B6,#2F9DA6 60%,#145A60)|radial-gradient(circle at 30% 30%,rgba(255,255,255,.4) 0 6%,transparent 7%)',
 ];
-function mediaScreen() {
+function mediaScreen(tab) {
+  // tab: 0 foto, 1 link, 2 documenti — le tre schede vere di media_screen.dart
+  tab = tab || 0;
+  const icons = ['photo_library', 'link', 'insert_drive_file'];
+  const tabs = `<div class="tabs">${icons.map((ic, i) =>
+    `<span class="t ${i === tab ? 'on' : ''}">${mi(ic, 22, i === tab ? '#3BA8B0' : '#fff', i === 1 ? 'mir' : '')}</span>`).join('')}</div>`;
+  const sep = (label) => `<div class="msep"><span class="ln"></span><span class="pill">${mi('flag', 14, '#fff', 'mir')}${label}</span><span class="ln r"></span></div>`;
+
+  if (tab === 1) {
+    // Anteprime: nell'app sono le thumbnail scaricate dal link. Qui sono
+    // disegnate, con altezze diverse — è quello che dà la masonry.
+    const THUMB = [
+      [120, 'linear-gradient(180deg,#BFE6F2 0 46%,#3BA8B0 46%,#145A60)', 'radial-gradient(circle at 74% 20%,#FFF3C4 0 10%,transparent 11%)'],
+      [96,  'linear-gradient(180deg,#CFE6EF 0 52%,#E8D9BC 52%)', 'linear-gradient(135deg,transparent 40%,#B07A4E 40% 47%,transparent 47%),radial-gradient(circle at 24% 74%,#7CA01E 0 13%,transparent 14%)'],
+      [74,  'linear-gradient(180deg,#EDF1EA,#DCE4D6)', 'linear-gradient(0deg,transparent 42%,#fff 42% 52%,transparent 52%),linear-gradient(72deg,transparent 44%,#fff 44% 51%,transparent 51%),radial-gradient(circle at 24% 26%,#C9DDB6 0 18%,transparent 19%),radial-gradient(circle at 63% 56%,#D81F2C 0 7%,transparent 8%)'],
+      [108, 'linear-gradient(160deg,#F6E7CE,#C9A06B)', 'radial-gradient(circle at 50% 56%,#5B3A22 0 21%,#F2E2C6 22% 26%,transparent 27%)'],
+      [88,  'linear-gradient(180deg,#241C35,#0E0A18)', 'radial-gradient(ellipse at 30% 100%,rgba(255,220,130,.5),transparent 55%),radial-gradient(ellipse at 70% 100%,rgba(124,224,215,.45),transparent 55%)'],
+    ];
+    const card = (i, mine) => {
+      const [title, desc, domain, date] = t.links[i];
+      const [h, bg, deco] = THUMB[i % THUMB.length];
+      // se in img/links/ c'è uno screenshot vero, prende il posto del disegno
+      const art = LINKS_REAL[i]
+        ? `background:url('img/links/${LINKS_REAL[i]}') center/cover`
+        : `background:${deco},${bg}`;
+      return `<div class="lcard ${mine ? '' : 'p'}">
+        <div class="thumb" style="height:${h}px;${art}"></div>
+        <div class="body"><div class="tt">${title}</div><div class="ds">${desc}</div>
+        <div class="dm">${mi('public', 10, mine ? '#3BA8B0' : '#9E9E9E')}<span class="site">${domain}</span><span>${date}</span></div></div></div>`;
+    };
+    return `<div class="media">${fabs(false)}${tabs}
+      ${sep(t.month)}<div class="lgrid">${card(0, 1)}${card(1, 0)}${card(2, 1)}</div>
+      ${sep(t.month2)}<div class="lgrid">${card(3, 0)}${card(4, 1)}</div></div>`;
+  }
+
+  if (tab === 2) {
+    const row = (i, mine) => {
+      const [name, size, date] = t.docs[i];
+      const ext = name.split('.').pop().toUpperCase();
+      return `<div class="drow ${mine ? '' : 'p'}"><div class="ic">${mi('description', 18, 'currentColor')}<b>${ext}</b></div>
+        <div><div class="nm">${name}</div>
+        <div class="meta2"><span class="sz">${size}</span>${mi('lock_outline', 10, 'currentColor', 'mio')}<span>E2E</span><span class="dt">${date}</span></div></div></div>`;
+    };
+    return `<div class="media">${fabs(false)}${tabs}
+      ${sep(t.month)}<div class="dlist">${row(0, 1)}${row(1, 0)}</div>
+      ${sep(t.month2)}<div class="dlist">${row(2, 1)}${row(3, 0)}</div></div>`;
+  }
+
   const tile = (i, date, mine, vid) => {
+    // se in img/photos/ ci sono foto vere, le usa; altrimenti resta l'astratto
+    if (PHOTOS_REAL[i]) {
+      return `<div class="ph" style="background-image:url('img/photos/${PHOTOS_REAL[i]}');background-size:cover;background-position:center">${vid ? `<div class="vid">${mi('play_circle_filled', 36, '#fff')}</div>` : ''}<span class="badge ${mine ? '' : 'p'}">${date}</span></div>`;
+    }
     const [a, b] = PHOTOS[i % PHOTOS.length].split('|');
     return `<div class="ph" style="background:${b},${a}">${vid ? `<div class="vid">${mi('play_circle_filled', 36, '#fff')}</div>` : ''}<span class="badge ${mine ? '' : 'p'}">${date}</span></div>`;
   };
-  const sept = [['10/09', 1], ['10/09', 0], ['08/09', 1, 1], ['06/09', 0], ['05/09', 1], ['02/09', 0]];
+  // il badge "video" sta solo sulle tessere disegnate: marcarlo su una foto
+  // vera la farebbe passare per un video che non è
+  const sept = [['10/09', 1], ['10/09', 0], ['08/09', 1], ['06/09', 0], ['05/09', 1], ['02/09', 0]];
   const aug = [['29/08', 1], ['24/08', 0], ['21/08', 1], ['17/08', 0, 1], ['15/08', 1], ['09/08', 0], ['05/08', 1], ['02/08', 0], ['01/08', 1]];
-  return `<div class="media">${fabs(false)}
-    <div class="tabs"><span class="t on">${mi('photo_library', 22, '#3BA8B0')}</span><span class="t">${mi('link', 22, '#fff', 'mir')}</span><span class="t">${mi('insert_drive_file', 22, '#fff')}</span></div>
-    <div class="msep"><span class="ln"></span><span class="pill">${mi('flag', 14, '#fff', 'mir')}${t.month}</span><span class="ln r"></span></div>
-    <div class="pgrid">${sept.map((p, i) => tile(i, p[0], p[1], p[2])).join('')}</div>
-    <div class="msep"><span class="ln"></span><span class="pill">${mi('flag', 14, '#fff', 'mir')}${t.month2}</span><span class="ln r"></span></div>
-    <div class="pgrid">${aug.map((p, i) => tile(i + 6, p[0], p[1], p[2])).join('')}</div></div>`;
+  return `<div class="media">${fabs(false)}${tabs}
+    ${sep(t.month)}<div class="pgrid">${sept.map((p, i) => tile(i, p[0], p[1], p[2])).join('')}</div>
+    ${sep(t.month2)}<div class="pgrid">${aug.map((p, i) => tile(i + 6, p[0], p[1], p[2])).join('')}</div></div>`;
 }
-function pairingScreen() {
+
+function pairingScreen(done) {
+  // done: secondo passo completato, come dopo una lettura riuscita del QR
+  const step2 = done
+    ? `<div class="donepill">${mi('check_circle', 20, '#3BA8B0')}${t.done}</div>`
+    : `<div class="gbtn">${mi('qr_code_scanner', 24, '#fff')}${t.scan}</div>`;
+  const snack = done
+    ? `<div class="snack">${mi('check_circle_outline', 22, '#fff', 'mio')}<span>${t.okMsg}</span></div>`
+    : '';
   return `<div class="pair"><div class="closefab">${mi('close', 22, '#3BA8B0')}</div>
     <div class="ttl">${t.pairTitle}</div><div class="stl">${t.pairSub}</div>
     <div class="card"><div class="ct">${t.s1t}</div><div class="cd">${t.s1d}</div><div class="qrbox"><img src="img/qr-teal.svg" alt=""></div></div>
-    <div class="card"><div class="ct">${t.s2t}</div><div class="cd">${t.s2d}</div><div class="gbtn">${mi('qr_code_scanner', 24, '#fff')}${t.scan}</div></div></div>`;
+    <div class="card"><div class="ct">${t.s2t}</div><div class="cd">${t.s2d}</div>${step2}</div>${snack}</div>`;
+}
+
+function scannerScreen(state) {
+  // La fotocamera inquadra il telefono dell'altra persona: dentro c'è la
+  // schermata di pairing vera, la stessa che genera pairingScreen().
+  const other = `<div class="other"><div class="minidev"><div class="miniscreen">${appMarkup(SCREENS[5], true)}</div></div></div>`;
+  return `<div class="scan ${state}"><div class="cam"></div>
+    ${other}
+    <div class="vign"></div>
+    <div class="fabs"><div class="b">${mi('close', 24, '#3BA8B0')}</div><div class="b">${mi('flash_off', 24, '#3BA8B0')}</div></div>
+    <div class="hint">${t.scanHint}</div></div>`;
 }
 
 const SCREENS = [
@@ -467,17 +696,46 @@ const SCREENS = [
   { html: calendarScreen, dark: true, theme: 'paper' },
   { html: mediaScreen, dark: false, theme: 'dark' },
   { html: pairingScreen, dark: true, theme: 'paper' },
+  // 7, 8, 9 — solo per il sito: i tre fotogrammi dell'abbinamento
+  { html: () => scannerScreen('search'), dark: true, theme: 'paper' },   // inquadra
+  { html: () => scannerScreen('lock'), dark: true, theme: 'paper' },     // legge
+  { html: () => pairingScreen(true), dark: true, theme: 'paper' },       // completato
+  { html: () => chatScreen(true), dark: false, theme: 'paper' },         // 10 — la chat vista dall'altro telefono
+  { html: () => mediaScreen(1), dark: false, theme: 'paper' },           // 11 — galleria: i link
+  { html: () => mediaScreen(2), dark: false, theme: 'paper' },           // 12 — galleria: i documenti
+  { html: () => chatScreen(false, true), dark: false, theme: 'paper' },  // 13 — il dito che preme la cornetta
+  { html: () => firstChat('me', false), dark: false, theme: 'paper' },   // 14 — chat vuota, l'altro sta scrivendo
+  { html: () => firstChat('them', false), dark: false, theme: 'paper' }, // 15 — chat vuota, la bozza del primo messaggio
+  { html: () => firstChat('me', true), dark: false, theme: 'paper' },    // 16 — il primo messaggio, ricevuto
+  { html: () => firstChat('them', true), dark: false, theme: 'paper' },  // 17 — il primo messaggio, inviato
 ];
 
-function appMarkup(sc) {
-  return `<div class="app" style="--safe-t:${SAFE_T}px;--safe-b:${SAFE_B}px;--fab-top:${FAB_TOP}px">${sc.html()}${statusBar(sc.dark)}${homebar(sc.dark)}</div>`;
+function appMarkup(sc, bare) {
+  // bare: senza barra di stato e home bar (serve ai ritagli a scheda per il sito)
+  const chrome = bare ? '' : `${statusBar(sc.dark)}${homebar(sc.dark)}`;
+  return `<div class="app" style="--safe-t:${SAFE_T}px;--safe-b:${SAFE_B}px;--fab-top:${FAB_TOP}px">${sc.html()}${chrome}</div>`;
 }
 
 function render() {
   const root = document.getElementById('root');
-  if (device === 'feature') {
-    const f = FEATURE[lang];
-    root.innerHTML = `<div class="feature"><img class="bg-cherry" src="img/cherries.png" alt=""><div class="glow"></div>
+  const webDevice = (sc) => `<div class="device iphone"><div class="screen">${hw()}${appMarkup(sc)}</div></div>`;
+  if (isCard) {
+    // Una porzione di schermata a tutta larghezza: cambia la forma delle
+    // immagini del sito, che altrimenti sarebbero sei telefoni identici.
+    const sc = SCREENS[shot - 1];
+    root.innerHTML = `<div class="card-stage"><div class="uicard"><div class="screen">${appMarkup(sc, true)}</div></div></div>`;
+  } else if (isWeb) {
+    // Solo il dispositivo: il testo marketing vive nell'HTML del sito.
+    const sc = SCREENS[shot - 1];
+    if (device === 'webpair') {
+      const sc2 = SCREENS[parseInt(q.get('shot2') || '3', 10) - 1];
+      root.innerHTML = `<div class="web-stage pair"><span class="p1">${webDevice(sc)}</span><span class="p2">${webDevice(sc2)}</span></div>`;
+    } else {
+      root.innerHTML = `<div class="web-stage single">${webDevice(sc)}</div>`;
+    }
+  } else if (device === 'feature' || device === 'og') {
+    const f = device === 'og' ? OG[lang] : FEATURE[lang];
+    root.innerHTML = `<div class="feature ${device === 'og' ? 'og' : ''}"><img class="bg-cherry" src="img/cherries.png" alt=""><div class="glow"></div>
       <div class="fcopy"><div class="brand"><img src="img/cherries.png" alt=""><span class="word">Tuijo</span></div>
         <h1>${f.h.replace('<em>', '<span class="serif-em">').replace('</em>', '</span>')}</h1><p class="sub">${f.s}</p>
         <div class="trust">${f.t.map(x => `<span>${x}</span>`).join('')}</div></div>
@@ -501,7 +759,8 @@ function fit() {
     const z = r.width / BASE_W;
     app.style.zoom = z;
     app.style.width = BASE_W + 'px';
-    app.style.height = (r.height / z) + 'px';
+    app.style.height = (r.height / z) + (isCard ? OFFSET : 0) + 'px';
+    if (isCard && OFFSET) app.style.top = -OFFSET + 'px';
   });
 }
 render();

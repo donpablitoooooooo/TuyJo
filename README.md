@@ -432,10 +432,9 @@ Download Tuijo and start your private conversation today.
 
 ## 🆘 Support
 
-**Email**: support@tuyjo.com
+**Email**: info@tuijo.app
 **GitHub**: [Create an issue](https://github.com/donpablitoooooooo/Tuijo/issues)
-**Privacy Policy**: https://tuyjo.com/privacy
-**Terms of Service**: https://tuyjo.com/terms
+**Privacy Policy**: https://tuijo.app/privacy-it-v1.1.html
 
 ---
 
