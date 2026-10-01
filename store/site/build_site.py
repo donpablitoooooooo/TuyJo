@@ -47,9 +47,9 @@ T['it'] = dict(
     sec_eyebrow='Sicurezza', sec_h2='Nemmeno noi possiamo leggervi.',
     sec_lead="Non è una promessa commerciale: è il modo in cui l'app è costruita.",
     sec_items=[
-        ('01 · LE CHIAVI', 'Restano sul telefono', "La chiave privata nasce sul dispositivo al primo avvio e non lo lascia mai. Sui nostri server non arriva, quindi non può essere consegnata a nessuno."),
+        ('01 · LE CHIAVI', 'Nascono sul telefono', "La chiave privata nasce sul dispositivo quando abbinate i telefoni e resta lì. L'unica copia che esce è quella per il recupero, cifrata in modo che possa aprirla solo il partner."),
         ('02 · I MESSAGGI', 'Una chiave nuova ogni volta', "Ogni messaggio usa una chiave AES-256 usa e getta, chiusa a sua volta con la chiave pubblica di entrambi i dispositivi."),
-        ('03 · IL SERVER', 'Vede solo dati cifrati', "Nel cloud transita testo illeggibile. Anche le coordinate della posizione viaggiano cifrate e la sessione scade da sola."),
+        ('03 · IL SERVER', 'Vede solo contenuti cifrati', "Messaggi, allegati, posizione e la copia del certificato per il recupero: sul server è tutto illeggibile, e noi non abbiamo le chiavi per aprirlo."),
     ],
     sec_foot='RSA-2048 + AES-256 · nessun account e nessun numero di telefono · <b>zero-knowledge</b>',
     faq_h2='Domande',
@@ -93,9 +93,9 @@ T['en'] = dict(
     sec_eyebrow='Security', sec_h2='Not even we can read you.',
     sec_lead="It is not a marketing promise: it is how the app is built.",
     sec_items=[
-        ('01 · THE KEYS', 'They stay on the phone', "The private key is created on the device at first launch and never leaves it. It never reaches our servers, so it cannot be handed over to anyone."),
+        ('01 · THE KEYS', 'Born on the phone', "The private key is created on the device when you pair your phones, and stays there. The only copy that leaves is the one for recovery, encrypted so that only your partner can open it."),
         ('02 · THE MESSAGES', 'A new key every time', "Every message uses a single-use AES-256 key, which is itself sealed with the public key of both devices."),
-        ('03 · THE SERVER', 'Only sees encrypted data', "Unreadable text is all that travels through the cloud. Location coordinates are encrypted too, and the session expires on its own."),
+        ('03 · THE SERVER', 'Only sees encrypted content', "Messages, attachments, location and the copy of the certificate for recovery: on the server it is all unreadable, and we do not have the keys to open it."),
     ],
     sec_foot='RSA-2048 + AES-256 · no account and no phone number · <b>zero-knowledge</b>',
     faq_h2='Questions',
@@ -139,9 +139,9 @@ T['es'] = dict(
     sec_eyebrow='Seguridad', sec_h2='Ni siquiera nosotros podemos leeros.',
     sec_lead="No es una promesa comercial: es como está hecha la app.",
     sec_items=[
-        ('01 · LAS CLAVES', 'Se quedan en el móvil', "La clave privada nace en el dispositivo al primer inicio y nunca sale de él. No llega a nuestros servidores, así que no se le puede entregar a nadie."),
+        ('01 · LAS CLAVES', 'Nacen en el móvil', "La clave privada nace en el dispositivo cuando emparejáis los móviles y se queda ahí. La única copia que sale es la de la recuperación, cifrada para que solo tu pareja pueda abrirla."),
         ('02 · LOS MENSAJES', 'Una clave nueva cada vez', "Cada mensaje usa una clave AES-256 de un solo uso, cerrada a su vez con la clave pública de ambos dispositivos."),
-        ('03 · EL SERVIDOR', 'Solo ve datos cifrados', "Por la nube circula texto ilegible. Las coordenadas de la ubicación también viajan cifradas y la sesión caduca sola."),
+        ('03 · EL SERVIDOR', 'Solo ve contenidos cifrados', "Mensajes, adjuntos, ubicación y la copia del certificado para la recuperación: en el servidor todo es ilegible, y nosotros no tenemos las claves para abrirlo."),
     ],
     sec_foot='RSA-2048 + AES-256 · sin cuenta y sin número de teléfono · <b>zero-knowledge</b>',
     faq_h2='Preguntas',
@@ -185,9 +185,9 @@ T['ca'] = dict(
     sec_eyebrow='Seguretat', sec_h2='Ni tan sols nosaltres us podem llegir.',
     sec_lead="No és una promesa comercial: és com està feta l'app.",
     sec_items=[
-        ('01 · LES CLAUS', 'Es queden al mòbil', "La clau privada neix al dispositiu al primer inici i no en surt mai. No arriba als nostres servidors, així que no es pot lliurar a ningú."),
+        ('01 · LES CLAUS', 'Neixen al mòbil', "La clau privada neix al dispositiu quan aparelleu els mòbils i s'hi queda. L'única còpia que en surt és la de la recuperació, xifrada perquè només la teva parella la pugui obrir."),
         ('02 · ELS MISSATGES', 'Una clau nova cada cop', "Cada missatge fa servir una clau AES-256 d'un sol ús, tancada al seu torn amb la clau pública dels dos dispositius."),
-        ('03 · EL SERVIDOR', 'Només veu dades xifrades', "Pel núvol hi circula text il·legible. Les coordenades de la ubicació també viatgen xifrades i la sessió caduca sola."),
+        ('03 · EL SERVIDOR', 'Només veu continguts xifrats', "Missatges, adjunts, ubicació i la còpia del certificat per a la recuperació: al servidor tot és il·legible, i nosaltres no tenim les claus per obrir-ho."),
     ],
     sec_foot='RSA-2048 + AES-256 · sense compte i sense número de telèfon · <b>zero-knowledge</b>',
     faq_h2='Preguntes',
@@ -224,7 +224,7 @@ BAK = {'it': {'bak_eyebrow': 'Backup',
                        "Disinstalli e reinstalli l'app sullo stesso telefono? Le chiavi sono custodite dal "
                        'sistema e si ripristinano senza fare niente.')],
         'bak_foot': 'Il QR vale dieci minuti · il certificato viaggia cifrato solo per il telefono che lo ha '
-                    'chiesto · <b>noi non abbiamo copie</b>'},
+                    'chiesto · <b>noi non possiamo aprirlo</b>'},
  'en': {'bak_eyebrow': 'Backup',
         'bak_h2': 'New phone? <span class="serif-em">The chat comes along.</span>',
         'bak_lead': "No files to export, no password to remember: Tuijo's backup is the other person.",
@@ -241,7 +241,7 @@ BAK = {'it': {'bak_eyebrow': 'Backup',
                        'Uninstalled and reinstalled the app on the same phone? The keys are kept by the '
                        'system and restored without you doing anything.')],
         'bak_foot': 'The QR is valid for ten minutes · the certificate travels encrypted only for the phone '
-                    'that asked for it · <b>we keep no copies</b>'},
+                    'that asked for it · <b>we cannot open it</b>'},
  'es': {'bak_eyebrow': 'Copia de seguridad',
         'bak_h2': 'Cambiáis de móvil, <span class="serif-em">el chat os sigue.</span>',
         'bak_lead': 'Sin archivos que exportar ni contraseñas que recordar: la copia de seguridad de Tuijo '
@@ -259,7 +259,7 @@ BAK = {'it': {'bak_eyebrow': 'Backup',
                        '¿Desinstalas y reinstalas la app en el mismo móvil? El sistema guarda las claves y '
                        'se restauran sin hacer nada.')],
         'bak_foot': 'El QR vale diez minutos · el certificado viaja cifrado solo para el móvil que lo pidió '
-                    '· <b>no guardamos copias</b>'},
+                    '· <b>nosotros no podemos abrirlo</b>'},
  'ca': {'bak_eyebrow': 'Còpia de seguretat',
         'bak_h2': 'Canvieu de mòbil, <span class="serif-em">el xat us segueix.</span>',
         'bak_lead': 'Sense fitxers per exportar ni contrasenyes per recordar: la còpia de seguretat de Tuijo '
@@ -277,7 +277,7 @@ BAK = {'it': {'bak_eyebrow': 'Backup',
                        "Desinstal·les i reinstal·les l'app al mateix mòbil? El sistema guarda les claus i es "
                        'restauren sense fer res.')],
         'bak_foot': "El QR val deu minuts · el certificat viatja xifrat només per al mòbil que l'ha demanat "
-                    '· <b>no en guardem còpies</b>'}}
+                    '· <b>nosaltres no el podem obrir</b>'}}
 for _c, _b in BAK.items():
     T[_c].update(_b)
 
