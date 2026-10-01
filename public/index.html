@@ -30,6 +30,7 @@
     <div class="nav-links">
       <a href="#funzioni">Funzioni</a>
       <a href="#sicurezza">Sicurezza</a>
+      <a href="#backup">Backup</a>
       <a href="#faq">Domande</a>
     </div>
     <div class="nav-right">
@@ -63,33 +64,24 @@
   </div>
 </header>
 
-<section class="stage dark scene" data-scene data-step="2">
-  <div class="scene-track">
-    <div class="scene-sticky">
-      <div class="wrap scene-inner">
-        <div class="copy">
-          <span class="eyebrow">Primo avvio</span>
-          <h2>Si comincia con <span class="serif-em">un QR.</span></h2>
-          <p class="lead">Ognuno mostra il suo codice e inquadra quello dell'altro. Niente email, niente numero di telefono, niente password: da lì in poi esistete solo voi due.</p>
-          <ol class="scene-steps"><li><button type="button" data-go="0">Mostra il codice</button></li><li><button type="button" data-go="1">Inquadra il suo</button></li><li><button type="button" data-go="2">Siete in chat</button></li></ol>
-        </div>
-        <div class="scene-stage">
-          <span class="ph ph-l">
-            <img class="fr" style="--in:-1;--out:0.3" src="assets/shots/it/06-it.webp" width="828" height="1728" loading="lazy" alt="Il telefono che mostra il proprio codice QR.">
-            <img class="fr" style="--in:0.28;--out:0.44" src="assets/shots/it/07-it.webp" width="828" height="1728" loading="lazy" alt="Lo scanner di Tuijo mentre inquadra il telefono dell'altra persona.">
-            <img class="fr" style="--in:0.42;--out:0.6" src="assets/shots/it/08-it.webp" width="828" height="1728" loading="lazy" alt="Il codice QR dell'altro telefono a fuoco dentro lo scanner.">
-            <img class="fr" style="--in:0.58;--out:0.76" src="assets/shots/it/09-it.webp" width="828" height="1728" loading="lazy" alt="Il passo completato, con la conferma dell'app.">
-            <img class="fr" style="--in:0.74;--out:0.9" src="assets/shots/it/14-it.webp" width="828" height="1728" loading="lazy" alt="La chat appena abbinata, ancora vuota, con l'altra persona che sta scrivendo.">
-            <img class="fr" style="--in:0.88;--out:2" src="assets/shots/it/16-it.webp" width="828" height="1728" loading="lazy" alt="Il primo messaggio arrivato sul telefono.">
-            <span class="flash" style="--in:.44;--out:.58"></span>
-          </span>
-          <span class="ph ph-r">
-            <img class="fr" style="--in:-1;--out:0.9" src="assets/shots/it/15-it.webp" width="828" height="1728" loading="lazy" alt="Il secondo telefono, appena entrato, con il primo messaggio in scrittura.">
-            <img class="fr" style="--in:0.88;--out:2" src="assets/shots/it/17-it.webp" width="828" height="1728" loading="lazy" alt="Il primo messaggio appena inviato dal secondo telefono.">
-          </span>
-          <span class="scene-link"></span>
-        </div>
+<section class="stage dark scene" data-scene>
+  <div class="wrap scene-inner">
+    <div class="copy">
+      <span class="eyebrow reveal">Primo avvio</span>
+      <h2 class="reveal">Si comincia con <span class="serif-em">un QR.</span></h2>
+      <p class="lead reveal d1">Ognuno mostra il suo codice e inquadra quello dell'altro. Niente email, niente numero di telefono, niente password: da lì in poi esistete solo voi due.</p>
+    </div>
+    <div class="scene-stage reveal d1">
+      <div class="scene-phone">
+            <img class="fr on" src="assets/shots/it/06-it.webp" width="828" height="1728" loading="lazy" alt="Il telefono che mostra il proprio codice QR.">
+            <img class="fr" src="assets/shots/it/08-it.webp" width="828" height="1728" loading="lazy" alt="Il codice QR dell'altro telefono a fuoco dentro lo scanner.">
+            <img class="fr" src="assets/shots/it/16-it.webp" width="828" height="1728" loading="lazy" alt="Il primo messaggio arrivato sul telefono.">
       </div>
+      <ol class="scene-steps">
+            <li><button type="button" data-go="0" aria-pressed="true">Mostra il codice</button></li>
+            <li><button type="button" data-go="1" aria-pressed="false">Inquadra il suo</button></li>
+            <li><button type="button" data-go="2" aria-pressed="false">Siete in chat</button></li>
+      </ol>
     </div>
   </div>
 </section>
@@ -239,6 +231,7 @@
     <div class="foot-nav">
       <a href="#funzioni">Funzioni</a>
       <a href="#sicurezza">Sicurezza</a>
+      <a href="#backup">Backup</a>
       <a href="#faq">Domande</a>
       <a href="privacy-it-v1.1.html">Privacy</a>
       <a href="mailto:support@tuyjo.com">Supporto</a>

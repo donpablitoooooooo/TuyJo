@@ -26,7 +26,7 @@ T['it'] = dict(
     lang='it', title='Tuijo — Per due. La chat privata cifrata end-to-end',
     desc="Tuijo è la chat per due persone: messaggi, promemoria condivisi, ricordi e chiamate, cifrati end-to-end. Nessun account, nessun numero di telefono.",
     og_title='Tuijo. Per due.', og_desc='Una chat privata che vive solo sui vostri due telefoni.',
-    nav=('Funzioni', 'Sicurezza', 'Domande'),
+    nav=('Funzioni', 'Sicurezza', 'Backup', 'Domande'),
     h1='Tuijo. Per due.', lead='Una chat privata che vive solo sui vostri due telefoni.',
     note='iPhone e Android · italiano, inglese, spagnolo, catalano',
     apple_alt='Scarica su App Store', play_alt='Disponibile su Google Play',
@@ -72,7 +72,7 @@ T['en'] = dict(
     lang='en', title='Tuijo — For two. The private end-to-end encrypted chat',
     desc="Tuijo is the chat for two people: messages, shared reminders, memories and calls, encrypted end-to-end. No account, no phone number.",
     og_title='Tuijo. For two.', og_desc='A private chat that lives only on your two phones.',
-    nav=('Features', 'Security', 'Questions'),
+    nav=('Features', 'Security', 'Backup', 'Questions'),
     h1='Tuijo. For two.', lead='A private chat that lives only on your two phones.',
     note='iPhone and Android · English, Italian, Spanish, Catalan',
     apple_alt='Download on the App Store', play_alt='Get it on Google Play',
@@ -118,7 +118,7 @@ T['es'] = dict(
     lang='es', title='Tuijo — Para dos. El chat privado cifrado de extremo a extremo',
     desc="Tuijo es el chat para dos personas: mensajes, recordatorios compartidos, recuerdos y llamadas, cifrados de extremo a extremo. Sin cuenta y sin número de teléfono.",
     og_title='Tuijo. Para dos.', og_desc='Un chat privado que vive solo en vuestros dos móviles.',
-    nav=('Funciones', 'Seguridad', 'Preguntas'),
+    nav=('Funciones', 'Seguridad', 'Copias', 'Preguntas'),
     h1='Tuijo. Para dos.', lead='Un chat privado que vive solo en vuestros dos móviles.',
     note='iPhone y Android · español, italiano, inglés, catalán',
     apple_alt='Consíguelo en el App Store', play_alt='Disponible en Google Play',
@@ -164,7 +164,7 @@ T['ca'] = dict(
     lang='ca', title='Tuijo — Per a dos. El xat privat xifrat d\'extrem a extrem',
     desc="Tuijo és el xat per a dues persones: missatges, recordatoris compartits, records i trucades, xifrats d'extrem a extrem. Sense compte i sense número de telèfon.",
     og_title='Tuijo. Per a dos.', og_desc='Un xat privat que viu només als vostres dos mòbils.',
-    nav=('Funcions', 'Seguretat', 'Preguntes'),
+    nav=('Funcions', 'Seguretat', 'Còpies', 'Preguntes'),
     h1='Tuijo. Per a dos.', lead='Un xat privat que viu només als vostres dos mòbils.',
     note='iPhone i Android · català, italià, anglès, castellà',
     apple_alt="Baixa-la a l'App Store", play_alt='Disponible a Google Play',
@@ -348,50 +348,33 @@ def build(code):
         eyebrow, h2, lead, alt = t['sections'][lay['sec']]
         if lay['img'] == 'scene':
             sn = t['scene']
-            steps = ''.join(f'<li><button type="button" data-go="{n}">{x}</button></li>' for n, x in enumerate(sn['steps']))
-            # Il racconto in tre battute, tutto con schermate vere dell'app:
-            #   1. il telefono di destra inquadra il codice di sinistra
-            #   2. si scambiano i ruoli: sinistra inquadra destra
-            #   3. abbinati, tutti e due nella stessa chat
-            # --in e --out dicono a site.css quando ogni fotogramma entra ed esce.
-            # Un telefono solo per quasi tutta la scena: mostra il codice,
-            # inquadra quello dell'altro, completa. Il secondo compare solo alla
-            # fine, vuoto, mentre l'altra persona scrive il primo messaggio.
-            LEFT = [(6, -1, .30, sn['alt_qr']), (7, .28, .44, sn['alt_scan']),
-                    (8, .42, .60, sn['alt_lock']), (9, .58, .76, sn['alt_done']),
-                    (14, .74, .90, sn['alt_empty']), (16, .88, 2, sn['alt_first'])]
-            RIGHT = [(15, -1, .90, sn['alt_typing']), (17, .88, 2, sn['alt_sent'])]
-
-            def frames(spec):
-                out = []
-                for shot, fin, fout, alt_txt in spec:
-                    w, h = img_size(os.path.join(OUT, 'assets', 'shots', code, f'{shot:02d}-{code}.webp'))
-                    out.append(
-                        f'\n            <img class="fr" style="--in:{fin};--out:{fout}" '
-                        f'src="assets/shots/{code}/{shot:02d}-{code}.webp" width="{w}" height="{h}" '
-                        f'loading="lazy" alt="{alt_txt}">')
-                return ''.join(out)
-
+            # Tre passi, una schermata vera dell'app per ciascuno: si mostra il
+            # proprio codice, si inquadra quello dell'altro, si è in chat.
+            # I bottoni accanto al telefono scelgono quale schermata vedere.
+            SHOTS = [(6, sn['alt_qr']), (8, sn['alt_lock']), (16, sn['alt_first'])]
+            imgs = []
+            for n, (shot, alt_txt) in enumerate(SHOTS):
+                w, h = img_size(os.path.join(OUT, 'assets', 'shots', code, f'{shot:02d}-{code}.webp'))
+                imgs.append(
+                    f'\n            <img class="fr{" on" if n == 0 else ""}" '
+                    f'src="assets/shots/{code}/{shot:02d}-{code}.webp" width="{w}" height="{h}" '
+                    f'loading="lazy" alt="{alt_txt}">')
+            steps = ''.join(
+                f'\n            <li><button type="button" data-go="{n}" aria-pressed="{str(n == 0).lower()}">{x}</button></li>'
+                for n, x in enumerate(sn['steps']))
             stages.append(f"""
-<section class="stage dark scene" data-scene data-step="2">
-  <div class="scene-track">
-    <div class="scene-sticky">
-      <div class="wrap scene-inner">
-        <div class="copy">
-          <span class="eyebrow">{eyebrow}</span>
-          <h2>{h2}</h2>
-          <p class="lead">{lead}</p>
-          <ol class="scene-steps">{steps}</ol>
-        </div>
-        <div class="scene-stage">
-          <span class="ph ph-l">{frames(LEFT)}
-            <span class="flash" style="--in:.44;--out:.58"></span>
-          </span>
-          <span class="ph ph-r">{frames(RIGHT)}
-          </span>
-          <span class="scene-link"></span>
-        </div>
+<section class="stage dark scene" data-scene>
+  <div class="wrap scene-inner">
+    <div class="copy">
+      <span class="eyebrow reveal">{eyebrow}</span>
+      <h2 class="reveal">{h2}</h2>
+      <p class="lead reveal d1">{lead}</p>
+    </div>
+    <div class="scene-stage reveal d1">
+      <div class="scene-phone">{''.join(imgs)}
       </div>
+      <ol class="scene-steps">{steps}
+      </ol>
     </div>
   </div>
 </section>""")
@@ -492,7 +475,8 @@ def build(code):
     <div class="nav-links">
       <a href="#funzioni">{t['nav'][0]}</a>
       <a href="#sicurezza">{t['nav'][1]}</a>
-      <a href="#faq">{t['nav'][2]}</a>
+      <a href="#backup">{t['nav'][2]}</a>
+      <a href="#faq">{t['nav'][3]}</a>
     </div>
     <div class="nav-right">
       <div class="lang">{langs}
@@ -561,7 +545,8 @@ def build(code):
     <div class="foot-nav">
       <a href="#funzioni">{t['nav'][0]}</a>
       <a href="#sicurezza">{t['nav'][1]}</a>
-      <a href="#faq">{t['nav'][2]}</a>
+      <a href="#backup">{t['nav'][2]}</a>
+      <a href="#faq">{t['nav'][3]}</a>
       <a href="{s['privacy']}">{t['foot_privacy']}</a>
       <a href="mailto:support@tuyjo.com">{t['foot_support']}</a>
       <a href="{s['apple']}" target="_blank" rel="noopener noreferrer">App Store</a>

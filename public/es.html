@@ -30,6 +30,7 @@
     <div class="nav-links">
       <a href="#funzioni">Funciones</a>
       <a href="#sicurezza">Seguridad</a>
+      <a href="#backup">Copias</a>
       <a href="#faq">Preguntas</a>
     </div>
     <div class="nav-right">
@@ -63,33 +64,24 @@
   </div>
 </header>
 
-<section class="stage dark scene" data-scene data-step="2">
-  <div class="scene-track">
-    <div class="scene-sticky">
-      <div class="wrap scene-inner">
-        <div class="copy">
-          <span class="eyebrow">Primer inicio</span>
-          <h2>Se empieza con <span class="serif-em">un QR.</span></h2>
-          <p class="lead">Cada uno muestra su código y escanea el del otro. Sin correo, sin número de teléfono, sin contraseña: a partir de ahí estáis solo vosotros dos.</p>
-          <ol class="scene-steps"><li><button type="button" data-go="0">Muestra tu código</button></li><li><button type="button" data-go="1">Escanea el suyo</button></li><li><button type="button" data-go="2">Estáis en el chat</button></li></ol>
-        </div>
-        <div class="scene-stage">
-          <span class="ph ph-l">
-            <img class="fr" style="--in:-1;--out:0.3" src="assets/shots/es/06-es.webp" width="828" height="1728" loading="lazy" alt="El móvil que muestra su propio código QR.">
-            <img class="fr" style="--in:0.28;--out:0.44" src="assets/shots/es/07-es.webp" width="828" height="1728" loading="lazy" alt="El escáner de Tuijo enfocando el móvil de la otra persona.">
-            <img class="fr" style="--in:0.42;--out:0.6" src="assets/shots/es/08-es.webp" width="828" height="1728" loading="lazy" alt="El código QR del otro móvil enfocado dentro del escáner.">
-            <img class="fr" style="--in:0.58;--out:0.76" src="assets/shots/es/09-es.webp" width="828" height="1728" loading="lazy" alt="El paso completado, con la confirmación de la app.">
-            <img class="fr" style="--in:0.74;--out:0.9" src="assets/shots/es/14-es.webp" width="828" height="1728" loading="lazy" alt="El chat recién emparejado, aún vacío, con la otra persona escribiendo.">
-            <img class="fr" style="--in:0.88;--out:2" src="assets/shots/es/16-es.webp" width="828" height="1728" loading="lazy" alt="El primer mensaje, llegado al móvil.">
-            <span class="flash" style="--in:.44;--out:.58"></span>
-          </span>
-          <span class="ph ph-r">
-            <img class="fr" style="--in:-1;--out:0.9" src="assets/shots/es/15-es.webp" width="828" height="1728" loading="lazy" alt="El segundo móvil, recién entrado, con el primer mensaje escribiéndose.">
-            <img class="fr" style="--in:0.88;--out:2" src="assets/shots/es/17-es.webp" width="828" height="1728" loading="lazy" alt="El primer mensaje, recién enviado desde el segundo móvil.">
-          </span>
-          <span class="scene-link"></span>
-        </div>
+<section class="stage dark scene" data-scene>
+  <div class="wrap scene-inner">
+    <div class="copy">
+      <span class="eyebrow reveal">Primer inicio</span>
+      <h2 class="reveal">Se empieza con <span class="serif-em">un QR.</span></h2>
+      <p class="lead reveal d1">Cada uno muestra su código y escanea el del otro. Sin correo, sin número de teléfono, sin contraseña: a partir de ahí estáis solo vosotros dos.</p>
+    </div>
+    <div class="scene-stage reveal d1">
+      <div class="scene-phone">
+            <img class="fr on" src="assets/shots/es/06-es.webp" width="828" height="1728" loading="lazy" alt="El móvil que muestra su propio código QR.">
+            <img class="fr" src="assets/shots/es/08-es.webp" width="828" height="1728" loading="lazy" alt="El código QR del otro móvil enfocado dentro del escáner.">
+            <img class="fr" src="assets/shots/es/16-es.webp" width="828" height="1728" loading="lazy" alt="El primer mensaje, llegado al móvil.">
       </div>
+      <ol class="scene-steps">
+            <li><button type="button" data-go="0" aria-pressed="true">Muestra tu código</button></li>
+            <li><button type="button" data-go="1" aria-pressed="false">Escanea el suyo</button></li>
+            <li><button type="button" data-go="2" aria-pressed="false">Estáis en el chat</button></li>
+      </ol>
     </div>
   </div>
 </section>
@@ -239,6 +231,7 @@
     <div class="foot-nav">
       <a href="#funzioni">Funciones</a>
       <a href="#sicurezza">Seguridad</a>
+      <a href="#backup">Copias</a>
       <a href="#faq">Preguntas</a>
       <a href="privacy-es-v1.1.html">Privacidad</a>
       <a href="mailto:support@tuyjo.com">Soporte</a>

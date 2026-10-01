@@ -74,34 +74,19 @@
     }, { threshold: 0.3 }).observe(reel);
   });
 
-  /* Scena dell'abbinamento: i tre passi sono bottoni. Ognuno porta la scena
-     (--p, da 0 a 1) fino al suo punto, passando per i fotogrammi intermedi. */
-  var STOPS = [0.15, 0.68, 1];
+  /* Scena dell'abbinamento: ogni bottone mostra la schermata del suo passo */
   [].slice.call(document.querySelectorAll("[data-scene]")).forEach(function (sc) {
+    var frames = [].slice.call(sc.querySelectorAll(".scene-phone .fr"));
     var buttons = [].slice.call(sc.querySelectorAll("[data-go]"));
-    var p = still ? 1 : STOPS[0], raf = null;
-    var paint = function (step) {
-      sc.style.setProperty("--p", p.toFixed(3));
-      sc.setAttribute("data-step", String(step));
-      buttons.forEach(function (b, n) { b.classList.toggle("next", n === step + 1); });
+    var show = function (step) {
+      frames.forEach(function (f, n) { f.classList.toggle("on", n === step); });
+      buttons.forEach(function (b, n) {
+        b.setAttribute("aria-pressed", String(n === step));
+        b.classList.toggle("next", n === step + 1);
+      });
     };
-    var go = function (step) {
-      var from = p, to = STOPS[step];
-      if (raf) cancelAnimationFrame(raf);
-      if (still) { p = to; paint(step); return; }
-      var dur = Math.max(500, Math.abs(to - from) * 3200), t0 = null;
-      var tick = function (now) {
-        if (t0 === null) t0 = now;
-        var k = Math.min(1, (now - t0) / dur);
-        p = from + (to - from) * (k < .5 ? 2 * k * k : 1 - Math.pow(-2 * k + 2, 2) / 2);
-        sc.style.setProperty("--p", p.toFixed(3));
-        raf = k < 1 ? requestAnimationFrame(tick) : null;
-      };
-      paint(step);
-      raf = requestAnimationFrame(tick);
-    };
-    buttons.forEach(function (b, n) { b.addEventListener("click", function () { go(n); }); });
-    paint(still ? 2 : 0);
+    buttons.forEach(function (b, n) { b.addEventListener("click", function () { show(n); }); });
+    show(0);
   });
 
   /* FAQ: apre una domanda alla volta */

@@ -30,6 +30,7 @@
     <div class="nav-links">
       <a href="#funzioni">Funcions</a>
       <a href="#sicurezza">Seguretat</a>
+      <a href="#backup">Còpies</a>
       <a href="#faq">Preguntes</a>
     </div>
     <div class="nav-right">
@@ -63,33 +64,24 @@
   </div>
 </header>
 
-<section class="stage dark scene" data-scene data-step="2">
-  <div class="scene-track">
-    <div class="scene-sticky">
-      <div class="wrap scene-inner">
-        <div class="copy">
-          <span class="eyebrow">Primer inici</span>
-          <h2>Es comença amb <span class="serif-em">un QR.</span></h2>
-          <p class="lead">Cadascú mostra el seu codi i escaneja el de l'altre. Sense correu, sense número de telèfon, sense contrasenya: a partir d'aquí només hi sou vosaltres dos.</p>
-          <ol class="scene-steps"><li><button type="button" data-go="0">Mostra el teu codi</button></li><li><button type="button" data-go="1">Escaneja el seu</button></li><li><button type="button" data-go="2">Sou al xat</button></li></ol>
-        </div>
-        <div class="scene-stage">
-          <span class="ph ph-l">
-            <img class="fr" style="--in:-1;--out:0.3" src="assets/shots/ca/06-ca.webp" width="828" height="1728" loading="lazy" alt="El mòbil que mostra el seu propi codi QR.">
-            <img class="fr" style="--in:0.28;--out:0.44" src="assets/shots/ca/07-ca.webp" width="828" height="1728" loading="lazy" alt="L'escàner de Tuijo enfocant el mòbil de l'altra persona.">
-            <img class="fr" style="--in:0.42;--out:0.6" src="assets/shots/ca/08-ca.webp" width="828" height="1728" loading="lazy" alt="El codi QR de l'altre mòbil enfocat dins l'escàner.">
-            <img class="fr" style="--in:0.58;--out:0.76" src="assets/shots/ca/09-ca.webp" width="828" height="1728" loading="lazy" alt="El pas completat, amb la confirmació de l'app.">
-            <img class="fr" style="--in:0.74;--out:0.9" src="assets/shots/ca/14-ca.webp" width="828" height="1728" loading="lazy" alt="El xat acabat d'aparellar, encara buit, amb l'altra persona escrivint.">
-            <img class="fr" style="--in:0.88;--out:2" src="assets/shots/ca/16-ca.webp" width="828" height="1728" loading="lazy" alt="El primer missatge, arribat al mòbil.">
-            <span class="flash" style="--in:.44;--out:.58"></span>
-          </span>
-          <span class="ph ph-r">
-            <img class="fr" style="--in:-1;--out:0.9" src="assets/shots/ca/15-ca.webp" width="828" height="1728" loading="lazy" alt="El segon mòbil, tot just entrat, amb el primer missatge escrivint-se.">
-            <img class="fr" style="--in:0.88;--out:2" src="assets/shots/ca/17-ca.webp" width="828" height="1728" loading="lazy" alt="El primer missatge, tot just enviat des del segon mòbil.">
-          </span>
-          <span class="scene-link"></span>
-        </div>
+<section class="stage dark scene" data-scene>
+  <div class="wrap scene-inner">
+    <div class="copy">
+      <span class="eyebrow reveal">Primer inici</span>
+      <h2 class="reveal">Es comença amb <span class="serif-em">un QR.</span></h2>
+      <p class="lead reveal d1">Cadascú mostra el seu codi i escaneja el de l'altre. Sense correu, sense número de telèfon, sense contrasenya: a partir d'aquí només hi sou vosaltres dos.</p>
+    </div>
+    <div class="scene-stage reveal d1">
+      <div class="scene-phone">
+            <img class="fr on" src="assets/shots/ca/06-ca.webp" width="828" height="1728" loading="lazy" alt="El mòbil que mostra el seu propi codi QR.">
+            <img class="fr" src="assets/shots/ca/08-ca.webp" width="828" height="1728" loading="lazy" alt="El codi QR de l'altre mòbil enfocat dins l'escàner.">
+            <img class="fr" src="assets/shots/ca/16-ca.webp" width="828" height="1728" loading="lazy" alt="El primer missatge, arribat al mòbil.">
       </div>
+      <ol class="scene-steps">
+            <li><button type="button" data-go="0" aria-pressed="true">Mostra el teu codi</button></li>
+            <li><button type="button" data-go="1" aria-pressed="false">Escaneja el seu</button></li>
+            <li><button type="button" data-go="2" aria-pressed="false">Sou al xat</button></li>
+      </ol>
     </div>
   </div>
 </section>
@@ -239,6 +231,7 @@
     <div class="foot-nav">
       <a href="#funzioni">Funcions</a>
       <a href="#sicurezza">Seguretat</a>
+      <a href="#backup">Còpies</a>
       <a href="#faq">Preguntes</a>
       <a href="privacy-ca-v1.1.html">Privacitat</a>
       <a href="mailto:support@tuyjo.com">Suport</a>
