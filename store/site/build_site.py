@@ -7,7 +7,7 @@ struttura di testi, così le lingue non divergono fra loro.
 Scrive public/index.html, en.html, es.html, ca.html. Le pagine privacy non
 vengono toccate: usano ancora styles.css e il loro markup.
 """
-import hashlib, io, os
+import hashlib, io, os, re
 
 OUT = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', '..', 'public')
 
@@ -589,5 +589,7 @@ def build(code):
 
 for code in ('it', 'en', 'es', 'ca'):
     path = os.path.join(OUT, STORE[code]['page'])
-    io.open(path, 'w', encoding='utf-8').write(build(code))
+    # anche le schermate cambiano senza cambiare nome: stessa impronta del CSS
+    html = re.sub(r'src="(assets/shots/[^"?]+)"', lambda m: f'src="{stamp(m.group(1))}"', build(code))
+    io.open(path, 'w', encoding='utf-8').write(html)
     print('scritto', path)
