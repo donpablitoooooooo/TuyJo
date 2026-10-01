@@ -77,8 +77,11 @@ const outRoot = path.resolve(__dirname, opt('out', '../out'));
         // la foto che compare dentro la chat: quella col nome che contiene "chat"
         const chatPic = real.find((f) => /chat/i.test(f)) || real[0];
         const chatPhoto = chatPic ? `&chatphoto=${chatPic}` : '';
-        // il selfie di coppia nel tondo in alto a destra: la foto col nome che contiene "coppia"
-        const avatarPic = real.find((f) => /coppia/i.test(f));
+        // il selfie di coppia nel tondo in alto a destra: la foto col nome che
+        // contiene "avatar" (di solito con "_" davanti, così resta fuori dalla galleria)
+        const avatarPic = fs.existsSync(photoDir)
+          ? fs.readdirSync(photoDir).find((f) => /avatar/i.test(f) && /\.(jpe?g|png|webp)$/i.test(f))
+          : null;
         const avatar = avatarPic ? `&avatar=${avatarPic}` : '';
         // anteprime vere per la scheda dei link, se ce ne sono
         const linkDir = path.join(__dirname, 'img', 'links');

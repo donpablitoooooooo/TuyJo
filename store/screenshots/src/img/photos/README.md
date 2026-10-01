@@ -9,8 +9,9 @@ Due convenzioni sui nomi:
 
 - un file che contiene **`chat`** nel nome è anche la foto che compare dentro la
   conversazione, nel messaggio delle 21:08;
-- un file che contiene **`coppia`** nel nome è anche il selfie di coppia nel
-  tondo in alto a destra (nell'app è `cachedSelfieBytes` in `main_screen.dart`);
+- un file che contiene **`avatar`** nel nome è il selfie di coppia nel tondo
+  in alto a destra (nell'app è `cachedSelfieBytes` in `main_screen.dart`). Lì
+  il tondo è di 48 px: serve una foto con i due volti in primo piano;
 - un file che comincia con **`_`** viene ignorato: sta qui ma non finisce da
   nessuna parte.
 
@@ -18,7 +19,8 @@ Due convenzioni sui nomi:
 
 | File | Soggetto | Dove si vede | Autore (Pexels) |
 |---|---|---|---|
-| `01-coppia-prato.jpg` | Coppia sdraiata sull'erba | prima tessera **e selfie in alto a destra** | Habib Hosseini |
+| `01-coppia-prato.jpg` | Coppia sdraiata sull'erba | prima tessera | Habib Hosseini |
+| `_avatar-coppia.jpg` | Due volti vicini, sorridenti | **selfie in alto a destra** (non in galleria) | Pexels, foto 21898584 |
 | `02-chat-pizza.jpg` | Due margherite viste dall'alto | seconda tessera **e foto in chat** | Pexels, foto 2147491 |
 | `03-venezia.jpg` | Canale di Venezia | terza tessera | Aisha Serafini |
 | `04-deserto.jpg` | Dune | quarta tessera | Lost Boy |
