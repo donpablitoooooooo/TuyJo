@@ -2,6 +2,14 @@
 
 Tutte le modifiche notevoli a questo progetto saranno documentate in questo file.
 
+## [Non rilasciato]
+
+### 🔐 Citazioni e anteprime dei link cifrate
+- **Il testo citato in una risposta** non è più scritto in chiaro accanto al messaggio (`reply_to_text`): viaggia dentro il contenuto cifrato (`reply_text`). Modificando un messaggio la citazione resta, e se era un messaggio vecchio il campo in chiaro viene tolto.
+- **Le anteprime dei link** (URL, titolo, descrizione) non sono più in chiaro (`link_url`, `link_title`, `link_description`): stanno in un solo campo cifrato, `link_preview`, con lo stesso schema dual dei messaggi (chiave AES nuova, avvolta per mittente e destinatario). Vale sia per i link scritti in app sia per quelli arrivati dalla Share Extension, che l'app completa dopo.
+- I messaggi vecchi si leggono come prima. Finché uno dei due telefoni ha ancora la 1.37, sui messaggi nuovi non vede citazione e anteprima (il messaggio arriva comunque).
+- Nuovo `services/link_preview_crypto.dart` con il test `test/link_preview_crypto_test.dart`.
+
 ## [1.37.0] - 2026-09-14
 
 Sostituisce la 1.36.0 (build 45, caricata solo in test interno / TestFlight e mai pubblicata).

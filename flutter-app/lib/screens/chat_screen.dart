@@ -612,12 +612,15 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       return;
     }
 
+    // Presi prima delle attese: dopo, il widget potrebbe non esserci più.
+    final encryptionService = Provider.of<EncryptionService>(context, listen: false);
+    final chatService = Provider.of<ChatService>(context, listen: false);
+
     try {
       final updateData = <String, dynamic>{};
 
       // Upload l'immagine come attachment se presente
       if (imageFile != null) {
-        final encryptionService = Provider.of<EncryptionService>(context, listen: false);
         final myPublicKey = await encryptionService.getPublicKey();
         if (myPublicKey == null) {
           if (kDebugMode) print('❌ [UPDATE] My public key is null');
@@ -644,15 +647,19 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
         }
       }
 
-      // Aggiungi link metadata se presenti
-      if (linkTitle != null) {
-        updateData['link_title'] = linkTitle;
-      }
-      if (linkDescription != null) {
-        updateData['link_description'] = linkDescription;
-      }
+      // Anteprima del link: URL, titolo e descrizione cifrati per entrambi,
+      // in un solo campo. Sul server non resta niente in chiaro.
       if (linkUrl != null) {
-        updateData['link_url'] = linkUrl;
+        final myPublicKey = await encryptionService.getPublicKey();
+        if (myPublicKey != null) {
+          updateData['link_preview'] = chatService.encryptLinkPreview(
+            url: linkUrl,
+            title: linkTitle,
+            description: linkDescription,
+            myPublicKey: myPublicKey,
+            partnerPublicKey: _partnerPublicKey!,
+          );
+        }
       }
 
       // Aggiorna il messaggio in Firestore solo se c'è qualcosa da aggiornare
