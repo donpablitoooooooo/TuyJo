@@ -1,139 +1,87 @@
 rules_version = '2';
+
+// ═══════════════════════════════════════════════════════════════════
+// Chi può entrare in una chat
+// ═══════════════════════════════════════════════════════════════════
+// Ogni chat (families/{familyId}) è accessibile solo ai login anonimi dei
+// suoi due telefoni, elencati in `member_uids`. Si entra solo passando dalla
+// Cloud Function joinFamily, che verifica una firma fatta con la chiave
+// privata del telefono (functions/membership.js): i client non possono
+// toccare `member_uids`, `uid_by_user` e `locked`.
+//
+// Transizione dalla 1.37: le chat che non hanno ancora tutti e due i
+// telefoni registrati (`locked` assente o false) restano aperte come prima,
+// così chi non ha aggiornato non perde l'accesso. Quando entra il secondo
+// telefono joinFamily mette `locked: true` e da lì valgono solo i membri.
+// Quando la 1.37 non è più in giro, LEGACY_OPEN va messo a false.
+
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // ═══════════════════════════════════════════════════════════
-    // FAMILIES COLLECTION
-    // ═══════════════════════════════════════════════════════════
+    function legacyOpenAllowed() {
+      return true; // LEGACY_OPEN — mettere a false quando non ci sono più telefoni con la 1.37
+    }
+
+    function familyPath(familyId) {
+      return /databases/$(database)/documents/families/$(familyId);
+    }
+
+    function isMemberOf(data) {
+      return request.auth != null
+        && data.get('member_uids', {}).get(request.auth.uid, false) == true;
+    }
+
+    function canEnter(data) {
+      return isMemberOf(data)
+        || (legacyOpenAllowed() && data.get('locked', false) != true);
+    }
+
+    // Per le sottocollezioni. Con la 1.37 il documento della chat spesso
+    // non esiste (l'app scriveva solo nelle sottocollezioni): finché dura la
+    // transizione una chat senza documento è una chat vecchia, aperta.
+    // Dalla 1.38 il documento lo crea joinFamily prima di ogni altro accesso.
+    function canAccessFamily(familyId) {
+      return exists(familyPath(familyId))
+        ? canEnter(get(familyPath(familyId)).data)
+        : legacyOpenAllowed();
+    }
+
+    // Campi che decide solo joinFamily.
+    function touchesMembership() {
+      return request.resource.data.diff(resource == null ? {} : resource.data)
+        .affectedKeys().hasAny(['member_uids', 'uid_by_user', 'locked']);
+    }
+
     match /families/{familyId} {
-
-      // ❌ BLOCCA list() - Non puoi enumerare tutte le famiglie
-      // Questo previene mass data scraping
       allow list: if false;
+      // Una chat che non esiste si può interrogare: non rivela niente.
+      allow get: if resource == null || canEnter(resource.data);
+      // Di norma la crea joinFamily. I telefoni con la 1.37 la creano
+      // ancora loro all'abbinamento: finché c'è la transizione si permette,
+      // ma senza poter scrivere i campi dei membri.
+      allow create: if legacyOpenAllowed() && !touchesMembership();
+      allow update: if canEnter(resource.data) && !touchesMembership();
+      allow delete: if canEnter(resource.data);
 
-      // ✅ PERMETTI get() - Puoi leggere SE conosci il familyId
-      // Ma indovinare familyId = impossibile (SHA256 = 2^256 possibilità)
-      allow get: if true;
-
-      // ✅ PERMETTI update/set - Per salvare dati come couple_selfie_url
-      // Necessario per aggiornare il documento della famiglia
-      allow update, create: if true;
-
-      // ───────────────────────────────────────────────────────────
-      // MESSAGES SUBCOLLECTION
-      // ───────────────────────────────────────────────────────────
-      match /messages/{messageId} {
-        // ✅ Leggi/scrivi messaggi SE conosci familyId
-        // Messaggi sono E2E encrypted (RSA-2048)
-        allow read, write: if true;
-      }
-
-      // ───────────────────────────────────────────────────────────
-      // USERS SUBCOLLECTION (FCM tokens)
-      // ───────────────────────────────────────────────────────────
-      match /users/{userId} {
-        // ✅ Leggi/scrivi FCM tokens SE conosci familyId
-        // userId = SHA256(publicKey)
-        allow read, write: if true;
-      }
-
-      // ───────────────────────────────────────────────────────────
-      // READ_RECEIPTS SUBCOLLECTION (Message read status)
-      // ───────────────────────────────────────────────────────────
-      match /read_receipts/{userId} {
-        // ✅ Leggi/scrivi read receipts SE conosci familyId
-        // userId = SHA256(publicKey)
-        // Usato per tracciare quali messaggi sono stati letti
-        allow read, write: if true;
-      }
-
-      // ───────────────────────────────────────────────────────────
-      // LOCATIONS SUBCOLLECTION (Real-time location sharing)
-      // ───────────────────────────────────────────────────────────
-      match /locations/{userId} {
-        // ✅ Leggi/scrivi posizioni GPS SE conosci familyId
-        // userId = SHA256(publicKey)
-        // Usato per condivisione posizione temporanea (1h/8h)
-        allow read, write: if true;
-      }
-
-      // ───────────────────────────────────────────────────────────
-      // ESCROW SUBCOLLECTION (Recupero tramite il partner)
-      // ───────────────────────────────────────────────────────────
-      match /escrow/{userId} {
-        // Certificato dell'utente cifrato per il partner (AES + RSA-OAEP):
-        // solo la chiave privata del partner lo apre. userId = SHA256(pubKey)
-        allow read, write: if true;
-      }
-
-      // ───────────────────────────────────────────────────────────
-      // CALLS SUBCOLLECTION (Voice call signaling + WebRTC)
-      // ───────────────────────────────────────────────────────────
-      match /calls/{callId} {
-        // ✅ Leggi/scrivi segnali chiamata SE conosci familyId
-        // Contiene: status, offer SDP, answer SDP
-        allow read, write: if true;
-
-        // ICE candidates per WebRTC (caller e callee)
-        match /{subcollection}/{candidateId} {
-          allow read, write: if true;
-        }
+      // Tutte le sottocollezioni (messaggi, utenti, letture, posizioni,
+      // deposito del certificato, chiamate…). `{collection}` obbliga ad
+      // almeno un livello: il documento della chat resta alle regole sopra.
+      match /{collection}/{document=**} {
+        allow read, write: if canAccessFamily(familyId);
       }
     }
 
-    // ═══════════════════════════════════════════════════════════
-    // RECOVERY REQUESTS (telefono nuovo ↔ telefono che aiuta)
-    // ═══════════════════════════════════════════════════════════
+    // Richieste di recupero: id casuale a 256 bit, conosciuto solo da chi
+    // inquadra il QR. Il telefono nuovo non è ancora membro di niente.
     match /recovery_requests/{requestId} {
-      // ❌ BLOCCA list() - l'id (256 bit casuali) viaggia SOLO nel QR
-      // mostrato di persona; nessuno può trovare una richiesta altrui
       allow list: if false;
-      // ✅ get/create/update/delete SE conosci l'id. La risposta è cifrata
-      // per la chiave temporanea del telefono nuovo. Campo expires_at:
-      // abilitare la policy TTL su questa collezione (console Firestore)
-      allow get: if true;
-      allow create, update, delete: if true;
+      allow get, create, update, delete: if request.auth != null;
     }
 
-    // ═══════════════════════════════════════════════════════════
-    // PAIRING SIGNALS COLLECTION
-    // ═══════════════════════════════════════════════════════════
+    // Segnali di abbinamento: id = SHA-256 della chiave pubblica.
     match /pairing_signals/{signalId} {
-      // ❌ BLOCCA list() - Non puoi enumerare tutti i segnali
       allow list: if false;
-
-      // ✅ PERMETTI get/read - Puoi leggere SE conosci il signalId
-      // signalId = SHA256(publicKey) = impossibile da indovinare
-      allow get: if true;
-
-      // ✅ PERMETTI write/delete - Per creare e pulire segnali
-      allow create, update, delete: if true;
+      allow get, create, update, delete: if request.auth != null;
     }
   }
 }
-
-// ═══════════════════════════════════════════════════════════════
-// SECURITY MODEL:
-// ═══════════════════════════════════════════════════════════════
-//
-// Layer 1: Compartmentalization
-//   ❌ Non puoi elencare tutte le famiglie (list blocked)
-//   ✅ Devi conoscere familyId specifico
-//   🛡️ familyId = SHA256(pubKeys) = 2^256 = impossibile brute force
-//
-// Layer 2: Firebase Protection
-//   🛡️ Rate limiting automatico
-//   🛡️ Abuse detection
-//   🛡️ IP blocking su comportamento sospetto
-//
-// Layer 3: End-to-End Encryption
-//   🔐 Messaggi cifrati con RSA-2048
-//   🔐 Senza chiavi private = dati inutili
-//   🔐 Stesso standard di sicurezza di internet
-//
-// Risultato:
-//   ✅ Mass data scraping: IMPOSSIBILE
-//   ✅ Brute force familyId: IMPOSSIBILE (SHA256)
-//   ✅ Attacco mirato: Possibile MA inutile (E2E encryption)
-//   ✅ Architettura semplice (no auth, no backend)
-// ═══════════════════════════════════════════════════════════════

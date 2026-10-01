@@ -1,34 +1,47 @@
 rules_version = '2';
 
-// Firebase Storage Security Rules per app di messaggistica E2E
-// NOTA: I file sono completamente cifrati (AES-256 + RSA dual encryption)
-// Solo chi possiede le chiavi private RSA può decifrare, quindi è sicuro
+// Stessa logica di firestore.rules: i file di una chat sono accessibili solo
+// ai login anonimi registrati in families/{familyId}.member_uids. Le chat
+// non ancora chiuse (`locked` assente o false, telefoni con la 1.37) restano
+// aperte finché dura la transizione — vedi LEGACY_OPEN in firestore.rules.
+// I file sono tutti cifrati sul telefono prima dell'upload.
+
 service firebase.storage {
   match /b/{bucket}/o {
 
-    // Regole per allegati cifrati nelle family chats
-    // Path: /families/{familyChatId}/attachments/{type}/{attachmentId}
-    // Path thumbnails: /families/{familyChatId}/attachments/{type}/thumbnails/{attachmentId}
-    match /families/{familyChatId}/attachments/{type}/{allPaths=**} {
-
-      // UPLOAD: consenti a chiunque di caricare allegati cifrati
-      // Sicurezza garantita dalla cifratura E2E, non dalle regole Firebase
-      allow write: if true;
-
-      // DOWNLOAD: consenti a chiunque di scaricare allegati
-      // Solo chi ha le chiavi private RSA può decifrare i file
-      allow read: if true;
+    function legacyOpenAllowed() {
+      return true; // LEGACY_OPEN — tenere allineato con firestore.rules
     }
 
-    // Regole per le foto di coppia (couple selfie)
-    // Path: /families/{familyChatId}/couple_selfie_*
-    match /families/{familyChatId}/{fileName} {
-      // UPLOAD e DOWNLOAD: permetti a chiunque conosca il familyChatId
-      // Sicurezza garantita da familyChatId = SHA256 (impossibile da indovinare)
-      allow read, write: if true;
+    function familyPath(familyId) {
+      return /databases/(default)/documents/families/$(familyId);
     }
 
-    // Blocca tutto il resto
+    // Una chat senza documento è una chat della 1.37: aperta finché dura la
+    // transizione (vedi firestore.rules).
+    function canAccessFamily(familyId) {
+      return firestore.exists(familyPath(familyId))
+        ? ((request.auth != null
+            && firestore.get(familyPath(familyId)).data.get('member_uids', {}).get(request.auth.uid, false) == true)
+          || (legacyOpenAllowed()
+            && firestore.get(familyPath(familyId)).data.get('locked', false) != true))
+        : legacyOpenAllowed();
+    }
+
+    // Allegati e miniature (cifrati). Massimo 100 MB a file.
+    match /families/{familyId}/attachments/{type}/{allPaths=**} {
+      allow read, delete: if canAccessFamily(familyId);
+      allow create, update: if canAccessFamily(familyId)
+        && request.resource.size < 100 * 1024 * 1024;
+    }
+
+    // Selfie di coppia (cifrato).
+    match /families/{familyId}/{fileName} {
+      allow read, delete: if canAccessFamily(familyId);
+      allow create, update: if canAccessFamily(familyId)
+        && request.resource.size < 20 * 1024 * 1024;
+    }
+
     match /{allPaths=**} {
       allow read, write: if false;
     }
