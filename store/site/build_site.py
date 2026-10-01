@@ -360,6 +360,7 @@ def stamp(name):
     return f'{name}?v={hashlib.sha1(data).hexdigest()[:8]}'
 
 
+SITE = 'https://tuijo.app'   # dominio del sito, per canonical, hreflang e og:image
 MAIL = 'info@tuijo.app'
 
 SUPPORT = {
@@ -533,17 +534,17 @@ def build(code):
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>{t['title']}</title>
 <meta name="description" content="{t['desc']}">
-<link rel="canonical" href="https://tuyjo.com/{'' if code == 'it' else s['page']}">
+<link rel="canonical" href="{SITE}/{'' if code == 'it' else s['page']}">
 <meta property="og:type" content="website">
 <meta property="og:title" content="{t['og_title']}">
 <meta property="og:description" content="{t['og_desc']}">
-<meta property="og:image" content="https://tuyjo.com/assets/og-{code}.png">
+<meta property="og:image" content="{SITE}/assets/og-{code}.png">
 <meta property="og:locale" content="{LOCALE[code]}">
 <meta name="twitter:card" content="summary_large_image">
-<link rel="alternate" hreflang="it" href="https://tuyjo.com/">
-<link rel="alternate" hreflang="en" href="https://tuyjo.com/en.html">
-<link rel="alternate" hreflang="es" href="https://tuyjo.com/es.html">
-<link rel="alternate" hreflang="ca" href="https://tuyjo.com/ca.html">
+<link rel="alternate" hreflang="it" href="{SITE}/">
+<link rel="alternate" hreflang="en" href="{SITE}/en.html">
+<link rel="alternate" hreflang="es" href="{SITE}/es.html">
+<link rel="alternate" hreflang="ca" href="{SITE}/ca.html">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,700;12..96,800&family=Hanken+Grotesk:wght@400;600;700&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet">
