@@ -4,6 +4,13 @@ Tutte le modifiche notevoli a questo progetto saranno documentate in questo file
 
 ## [Non rilasciato]
 
+### 😍 Reazioni nuove
+- **Quattordici icone** di Pericon Design (Noun Project) al posto delle quattro icone Material, nello stile dell'app: sagoma bianca piena e linee teal nel tondino. Sono PNG in `assets/reactions/`, ricavati dagli SVG originali.
+- **Prima fila:** cuore (occhi a cuore), ok, ma che vuoi, urlo. Il tasto **+** mostra le altre dieci al posto di Rispondi, Modifica ed Elimina, senza cambiare l'altezza della modale: no, cacca, sorrisone, perfetto, incrociamo, imbarazzo, diavoletto, fantasma, banana, razzo.
+- **Reazioni già date:** nel messaggio c'è solo il tipo, quindi cambiano disegno da sole. `shit` diventa la cacca e `done` diventa "perfetto". Un telefono con la 1.37 vede le reazioni nuove come un pollice su.
+- Il diametro dei tondini si adatta agli schermi stretti (massimo 56).
+- Nelle impostazioni, sotto la versione, il credito a Pericon Design.
+
 ### 🔒 Ogni chat accessibile solo ai suoi due telefoni
 - **Regole nuove** per Firestore e Storage: in una chat leggono e scrivono solo i login anonimi registrati come membri (`member_uids`). Prima erano aperte a chiunque conoscesse l'id della chat.
 - **Come si entra:** la Cloud Function `joinFamily` registra un login solo se il telefono firma con la propria chiave privata (RSA-SHA256 su chat, uid e ora). Succede da solo all'avvio, dopo l'abbinamento, dopo il recupero e dopo una reinstallazione; se il login e la chat sono quelli di prima non serve la rete. Quando sono entrati tutti e due i telefoni la chat si chiude (`locked`).

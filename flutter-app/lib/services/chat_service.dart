@@ -1340,7 +1340,7 @@ class ChatService extends ChangeNotifier {
     String messageId,
     String familyChatId,
     String userId,
-    String reactionType, // 'love', 'ok', 'shit' (SOLO VISIVE)
+    String reactionType, // uno di ReactionIcon.allTypes (SOLO VISIVE)
   ) async {
     try {
       if (kDebugMode) {

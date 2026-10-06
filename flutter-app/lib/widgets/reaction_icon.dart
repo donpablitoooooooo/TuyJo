@@ -1,9 +1,37 @@
 import 'package:flutter/material.dart';
 
-/// Widget per disegnare una reaction custom con stile minimal
-/// Tondino teal con icona bianca al centro - stile coordinato con l'app
+/// Disegna una reaction: tondino teal con l'icona bianca al centro.
+///
+/// Le icone sono di Pericon Design (Noun Project), rese "al negativo":
+/// sagoma piena bianca e linee teal. Stanno in `assets/reactions/<tipo>.png`.
+///
+/// Nel messaggio si salva solo il tipo, quindi cambiare un disegno cambia
+/// anche le reaction già date. I tipi 'love', 'ok', 'shit' e 'done' esistono
+/// dalle versioni precedenti e vanno mantenuti.
 class ReactionIcon extends StatelessWidget {
-  final String type; // 'love', 'ok', 'shit', 'done'
+  /// Prima fila del picker, sempre visibile.
+  static const List<String> quickTypes = ['love', 'ok', 'pinch', 'scream'];
+
+  /// Dietro il tasto +, al posto delle azioni.
+  static const List<String> moreTypes = [
+    'no',
+    'shit',
+    'laugh',
+    'done',
+    'crossed',
+    'flushed',
+    'devil',
+    'ghost',
+    'banana',
+    'rocket',
+  ];
+
+  static const List<String> allTypes = [...quickTypes, ...moreTypes];
+
+  /// Icona usata per un tipo sconosciuto (es. inviato da una versione più nuova).
+  static const String _fallbackType = 'ok';
+
+  final String type;
   final double size;
 
   const ReactionIcon({
@@ -12,9 +40,12 @@ class ReactionIcon extends StatelessWidget {
     this.size = 32,
   });
 
+  static String assetFor(String type) =>
+      'assets/reactions/${allTypes.contains(type) ? type : _fallbackType}.png';
+
   @override
   Widget build(BuildContext context) {
-    final iconData = _getIconData(type);
+    final glyph = size * 0.64;
 
     return Container(
       width: size,
@@ -34,26 +65,14 @@ class ReactionIcon extends StatelessWidget {
           ),
         ],
       ),
-      child: Icon(
-        iconData,
-        color: Colors.white,
-        size: size * 0.55,
+      alignment: Alignment.center,
+      child: Image.asset(
+        assetFor(type),
+        width: glyph,
+        height: glyph,
+        filterQuality: FilterQuality.medium,
+        gaplessPlayback: true,
       ),
     );
-  }
-
-  IconData _getIconData(String reactionType) {
-    switch (reactionType) {
-      case 'love':
-        return Icons.favorite;
-      case 'ok':
-        return Icons.thumb_up;
-      case 'shit':
-        return Icons.thumb_down;
-      case 'done':
-        return Icons.check;
-      default:
-        return Icons.thumb_up;
-    }
   }
 }
