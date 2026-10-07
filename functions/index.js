@@ -329,6 +329,9 @@ exports.sendMessageNotification = functions
             messageId: messageId,
             senderId: senderId,
             messageType: messageType,
+            // Per il widget della schermata Home: con l'app chiusa lo leggono
+            // il gestore in background (Android) e l'estensione notifiche (iOS)
+            unread_count: String(unread),
           },
           token: recipient.token,
           // Configurazioni Android (stesse per tutti - FCM funziona con default)
@@ -351,6 +354,9 @@ exports.sendMessageNotification = functions
               aps: {
                 sound: 'default',
                 badge: unread,
+                // Fa partire la Notification Service Extension, che aggiorna
+                // il numero dei non letti nel widget (la notifica resta uguale)
+                'mutable-content': 1,
               },
             },
           },

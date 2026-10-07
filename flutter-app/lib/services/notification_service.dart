@@ -10,6 +10,7 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'membership_service.dart';
+import 'home_widget_service.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:timezone/data/latest_all.dart' as tz;
 import 'package:timezone/timezone.dart' as tz;
@@ -31,6 +32,9 @@ Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   } else if (message.data['type'] == 'call_cancelled') {
     // Il caller ha riagganciato mentre squillava ancora: chiudi la UI nativa
     await _dismissRingingCallKit();
+  } else if (message.data['unread_count'] != null) {
+    // Messaggio nuovo con l'app chiusa: il widget mostra quanti sono i non letti
+    await HomeWidgetService.saveUnreadFromPush(message.data['unread_count']);
   }
 }
 

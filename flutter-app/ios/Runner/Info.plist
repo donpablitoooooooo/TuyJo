@@ -111,6 +111,16 @@
 				<string>ShareMedia</string>
 			</array>
 		</dict>
+		<dict>
+			<key>CFBundleTypeRole</key>
+			<string>Editor</string>
+			<key>CFBundleURLName</key>
+			<string>com.privatemessaging.tuyjo.widget</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>tuyjo</string>
+			</array>
+		</dict>
 	</array>
 	<key>CFBundleDocumentTypes</key>
 	<array>

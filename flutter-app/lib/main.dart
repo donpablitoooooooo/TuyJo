@@ -16,6 +16,7 @@ import 'services/location_service.dart';
 import 'services/backup_service.dart';
 import 'services/share_bridge_service.dart';
 import 'services/membership_service.dart';
+import 'services/home_widget_service.dart';
 import 'package:private_messaging/generated/l10n/app_localizations.dart';
 
 void main() async {
@@ -140,6 +141,30 @@ void main() async {
     // Non eliminare il documento qui — VoiceCallScreen.dispose() gestisce il cleanup
     // Eliminarlo qui causa race condition: il callee non trova più l'offer SDP
   };
+
+  // Widget della schermata Home: la cornetta apre la chiamata appena l'app è
+  // pronta (navigator montato e coppia abbinata).
+  HomeWidgetService.instance.onCallRequested = () {
+    Future<void> openWhenReady([int attempt = 0]) async {
+      if (VoiceCallScreen.isActive) return;
+      final navigatorState = NotificationService.navigatorKey.currentState;
+      if (navigatorState != null && pairingService.isPaired) {
+        navigatorState.push(
+          MaterialPageRoute(
+            builder: (context) => const VoiceCallScreen(isOutgoing: true),
+          ),
+        );
+        return;
+      }
+      if (attempt < 40) {
+        await Future.delayed(const Duration(milliseconds: 250));
+        return openWhenReady(attempt + 1);
+      }
+      print('❌ [MAIN] Widget call: app not ready (navigator or pairing missing)');
+    }
+    openWhenReady();
+  };
+  HomeWidgetService.instance.start(chatService); // No await
 
   // Inizializza in background (non blocca lo startup)
   // Carica le chiavi se esistono: NON generarle qui. Su un telefono appena

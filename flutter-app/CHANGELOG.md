@@ -4,6 +4,17 @@ Tutte le modifiche notevoli a questo progetto saranno documentate in questo file
 
 ## [Non rilasciato]
 
+### 📱 Widget della schermata Home
+- **Cosa mostra:** i todo, dal momento dell'avviso (o dall'inizio del giorno di scadenza, se non c'è avviso) fino alla scadenza; un todo su più giorni resta fino alla fine dell'ultimo giorno, uno completato o eliminato sparisce subito. Se i todo sono più di uno compare "+N" o una piccola lista. Senza todo mostra solo **quanti** messaggi non letti ci sono, mai il testo. La **cornetta** è sempre presente e apre l'app sulla chiamata.
+- **Come funziona:** l'app (`services/home_widget_service.dart`, pacchetto `home_widget`) prepara i dati già decifrati: i todo aperti letti da Firestore (non solo quelli in memoria) con le etichette di data calcolate giorno per giorno con le stesse regole della chat (`utils/todo_date_format.dart`). Il widget non decifra nulla e cambia da solo quando un todo compare, scade o arriva la mezzanotte.
+- **Messaggi con l'app chiusa:** il push porta `unread_count`. Su Android lo legge il gestore in background, su iOS la nuova Notification Service Extension (`TuyJoNotificationService`, attivata da `mutable-content`), che non decifra e non modifica la notifica.
+- **iOS:** nuovo target `TuyJoWidget` (piccolo, medio, schermata di blocco con testo nascosto finché il telefono è bloccato). La cornetta usa `tuyjo://call` nel medio e un AppIntent nel piccolo (iOS 17+; prima tutto il widget apre l'app).
+- **Android:** `TuyJoWidgetProvider`, ridimensionabile (piccolo, medio, lista fino a 4 todo), con un allarme non esatto per i cambi di stato.
+- Test: `test/home_widget_payload_test.dart`.
+
+### 🔔 Promemoria dei todo all'anticipo scelto
+- La notifica locale di un todo parte all'anticipo impostato (es. 2 giorni prima), non più sempre 1 ora prima. Senza anticipo resta 1 ora prima.
+
 ### 😍 Reazioni nuove
 - **Quattordici icone** di Pericon Design (Noun Project) al posto delle quattro icone Material, nello stile dell'app: sagoma bianca piena e linee teal nel tondino. Sono PNG in `assets/reactions/`, ricavati dagli SVG originali.
 - **Prima fila:** cuore (occhi a cuore), ok, ma che vuoi, urlo. Il tasto **+** mostra le altre dieci al posto di Rispondi, Modifica ed Elimina, senza cambiare l'altezza della modale: no, cacca, sorrisone, perfetto, incrociamo, imbarazzo, diavoletto, fantasma, banana, razzo.

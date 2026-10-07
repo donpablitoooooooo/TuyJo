@@ -11,6 +11,10 @@ import flutter_callkit_incoming
   private let TONE_CHANNEL = "com.privatemessaging.tuyjo/tone_generator"
   private let PROXIMITY_CHANNEL = "com.privatemessaging.tuyjo/proximity"
   private let BADGE_CHANNEL = "com.privatemessaging.tuyjo/badge"
+  private let WIDGET_CHANNEL = "com.privatemessaging.tuyjo/widget"
+  private var widgetChannel: FlutterMethodChannel?
+  /// Azione chiesta dal widget (es. "call"), consegnata a Flutter una volta sola
+  private var pendingWidgetAction: String?
   private var methodChannel: FlutterMethodChannel?
   private var toneChannel: FlutterMethodChannel?
   private var proximityChannel: FlutterMethodChannel?
@@ -68,6 +72,18 @@ import flutter_callkit_incoming
         self?.ringback.stop()
         result(true)
       default:
+        result(FlutterMethodNotImplemented)
+      }
+    })
+
+    // Widget della schermata Home: la cornetta apre tuyjo://call (formato
+    // medio) o lascia una richiesta nell'App Group (formato piccolo, iOS 17).
+    // Flutter la ritira con takePendingAction e avvia la chiamata.
+    widgetChannel = FlutterMethodChannel(name: WIDGET_CHANNEL, binaryMessenger: messenger)
+    widgetChannel?.setMethodCallHandler({ [weak self] (call: FlutterMethodCall, result: @escaping FlutterResult) in
+      if call.method == "takePendingAction" {
+        result(self?.takePendingWidgetAction())
+      } else {
         result(FlutterMethodNotImplemented)
       }
     })
@@ -202,6 +218,43 @@ import flutter_callkit_incoming
     for text in texts { handleSharedText(text) }
   }
 
+  // MARK: - Widget
+
+  private static let widgetAppGroup = "group.com.privatemessaging.tuyjo"
+  private static let pendingCallKey = "tuyjo_pending_call"
+
+  /// Il widget ha chiesto un'azione: la tiene da parte e avvisa Flutter.
+  func requestWidgetAction(_ action: String) {
+    pendingWidgetAction = action
+    widgetChannel?.invokeMethod("actionAvailable", arguments: nil)
+  }
+
+  /// All'attivazione: la cornetta del widget piccolo (AppIntent, iOS 17)
+  /// lascia la richiesta nell'App Group invece di aprire un URL.
+  func checkWidgetCallFlag() {
+    let defaults = UserDefaults(suiteName: AppDelegate.widgetAppGroup)
+    if defaults?.object(forKey: AppDelegate.pendingCallKey) != nil {
+      widgetChannel?.invokeMethod("actionAvailable", arguments: nil)
+    }
+  }
+
+  /// Consegna l'azione una volta sola. La richiesta dell'App Group vale solo
+  /// se recente, così un tocco dimenticato non fa partire una chiamata giorni dopo.
+  private func takePendingWidgetAction() -> String? {
+    let defaults = UserDefaults(suiteName: AppDelegate.widgetAppGroup)
+    let flagTime = defaults?.double(forKey: AppDelegate.pendingCallKey) ?? 0
+    defaults?.removeObject(forKey: AppDelegate.pendingCallKey)
+
+    if let action = pendingWidgetAction {
+      pendingWidgetAction = nil
+      return action
+    }
+    if flagTime > 0 && Date().timeIntervalSince1970 - flagTime < 120 {
+      return "call"
+    }
+    return nil
+  }
+
   /// Gestisce l'apertura di file/foto/URL condivisi.
   ///
   /// Chiamata da `SceneDelegate`: con il lifecycle a scene gli URL arrivano a
@@ -209,6 +262,14 @@ import flutter_callkit_incoming
   func handleIncomingURL(_ url: URL) -> Bool {
     print("📱 AppDelegate: handleIncomingURL called with URL: \(url)")
     print("📱 URL scheme: \(url.scheme ?? "nil"), pathExtension: \(url.pathExtension)")
+
+    // Viene dal widget: tuyjo://call avvia la chiamata, tuyjo://open apre l'app
+    if url.scheme?.lowercased() == "tuyjo" {
+      if url.host?.lowercased() == "call" {
+        requestWidgetAction("call")
+      }
+      return true
+    }
 
     // Viene dalla Share Extension: svuota la coda nel container App Group
     if url.scheme?.lowercased() == "sharemedia" {

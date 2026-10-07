@@ -24,6 +24,10 @@ class MainActivity: FlutterActivity() {
     private val TONE_CHANNEL = "com.privatemessaging.tuyjo/tone_generator"
     private val PROXIMITY_CHANNEL = "com.privatemessaging.tuyjo/proximity"
     private val BLOCKSTORE_CHANNEL = "com.privatemessaging.tuyjo/blockstore"
+    private val WIDGET_CHANNEL = "com.privatemessaging.tuyjo/widget"
+    private var widgetChannel: MethodChannel? = null
+    // Azione chiesta dal widget (es. "call"), consegnata a Flutter una volta sola
+    private var pendingWidgetAction: String? = null
     private var methodChannel: MethodChannel? = null
     private var toneChannel: MethodChannel? = null
     private var blockstoreChannel: MethodChannel? = null
@@ -61,6 +65,19 @@ class MainActivity: FlutterActivity() {
         }
 
         Log.d(TAG, "✅ Method Channel configured and ready")
+
+        // Widget della schermata Home: la cornetta apre l'app con ACTION_CALL,
+        // Flutter ritira l'azione con takePendingAction e avvia la chiamata.
+        widgetChannel = MethodChannel(flutterEngine.dartExecutor.binaryMessenger, WIDGET_CHANNEL)
+        widgetChannel?.setMethodCallHandler { call, result ->
+            when (call.method) {
+                "takePendingAction" -> {
+                    result.success(pendingWidgetAction)
+                    pendingWidgetAction = null
+                }
+                else -> result.notImplemented()
+            }
+        }
 
         // ToneGenerator channel per ringback tone
         toneChannel = MethodChannel(flutterEngine.dartExecutor.binaryMessenger, TONE_CHANNEL)
@@ -227,6 +244,14 @@ class MainActivity: FlutterActivity() {
         if (intent == null) return
 
         Log.d(TAG, "handleIntent: action=${intent.action}, type=${intent.type}")
+
+        if (intent.action == TuyJoWidgetProvider.ACTION_CALL) {
+            pendingWidgetAction = "call"
+            // Consumato: una ricreazione dell'activity non deve richiamare
+            intent.action = Intent.ACTION_MAIN
+            widgetChannel?.invokeMethod("actionAvailable", null)
+            return
+        }
 
         // Gestisci i file (EXTRA_STREAM ha priorità su EXTRA_TEXT)
         // Alcuni app condividono PDF/documenti con sia EXTRA_STREAM che EXTRA_TEXT

@@ -29,6 +29,7 @@ import '../widgets/todo_bubble.dart';
 import '../widgets/attachment_widgets.dart';
 import '../widgets/permission_denied_dialog.dart';
 import '../widgets/reaction_picker.dart';
+import '../utils/todo_date_format.dart';
 import '../widgets/reaction_overlay.dart';
 import 'location_sharing_screen.dart';
 
@@ -1421,105 +1422,25 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   }
 
   /// Formatta una data in modo colloquiale (oggi, domani, giorno settimana, data)
-  /// con ora opzionale
+  /// con ora opzionale. La logica è in utils/todo_date_format.dart, condivisa
+  /// con il widget della schermata Home.
   String _formatTodoDate(DateTime date, {bool includeTime = true}) {
-    final l10n = AppLocalizations.of(context)!;
-    final locale = Localizations.localeOf(context).toString();
-    final now = DateTime.now();
-    final today = DateTime(now.year, now.month, now.day);
-    final yesterday = today.subtract(const Duration(days: 1));
-    final tomorrow = today.add(const Duration(days: 1));
-    final messageDate = DateTime(date.year, date.month, date.day);
-
-    String dateLabel;
-
-    // Oggi
-    if (messageDate == today) {
-      dateLabel = l10n.dateSeparatorToday;
-    }
-    // Ieri
-    else if (messageDate == yesterday) {
-      dateLabel = l10n.dateSeparatorYesterday;
-    }
-    // Domani
-    else if (messageDate == tomorrow) {
-      dateLabel = l10n.dateSeparatorTomorrow;
-    }
-    // Giorni della settimana
-    else {
-      final startOfWeek = today.subtract(Duration(days: today.weekday % 7));
-      final endOfWeek = today.add(Duration(days: 7 - (today.weekday % 7)));
-
-      if (messageDate.isAfter(startOfWeek.subtract(const Duration(days: 1))) &&
-          messageDate.isBefore(endOfWeek.add(const Duration(days: 1)))) {
-        // Ritorna il nome del giorno
-        switch (messageDate.weekday) {
-          case DateTime.monday:
-            dateLabel = l10n.dateSeparatorMonday;
-            break;
-          case DateTime.tuesday:
-            dateLabel = l10n.dateSeparatorTuesday;
-            break;
-          case DateTime.wednesday:
-            dateLabel = l10n.dateSeparatorWednesday;
-            break;
-          case DateTime.thursday:
-            dateLabel = l10n.dateSeparatorThursday;
-            break;
-          case DateTime.friday:
-            dateLabel = l10n.dateSeparatorFriday;
-            break;
-          case DateTime.saturday:
-            dateLabel = l10n.dateSeparatorSaturday;
-            break;
-          case DateTime.sunday:
-            dateLabel = l10n.dateSeparatorSunday;
-            break;
-          default:
-            dateLabel = DateFormat('d MMMM', locale).format(date);
-        }
-      } else {
-        // Data senza anno per date oltre la settimana
-        dateLabel = DateFormat('d MMMM', locale).format(date);
-      }
-    }
-
-    if (includeTime) {
-      final timeFormat = DateFormat('HH:mm');
-      return '$dateLabel ${timeFormat.format(date)}';
-    }
-
-    return dateLabel;
+    return formatTodoDate(
+      AppLocalizations.of(context)!,
+      Localizations.localeOf(context).toString(),
+      date,
+      includeTime: includeTime,
+    );
   }
 
-  /// Formatta un range di date in modo intelligente
-  /// - Stesso mese: "dal 25 al 31 gennaio"
-  /// - Mesi consecutivi: "dal 25 dicembre al 3"
-  /// - Distanza > 1 mese: "dal 25 dicembre al 3 febbraio"
+  /// Formatta un range di date ("dal 25 al 31 gennaio", vedi utils/todo_date_format.dart)
   String _formatDateRange(DateTime start, DateTime end) {
-    final l10n = AppLocalizations.of(context)!;
-    final locale = Localizations.localeOf(context).toString();
-
-    // Calcola differenza in mesi
-    final monthsDiff = (end.year - start.year) * 12 + (end.month - start.month);
-
-    if (monthsDiff == 0) {
-      // Stesso mese: "dal 25 al 31 gennaio"
-      final startDay = DateFormat('d', locale).format(start);
-      final endDay = DateFormat('d', locale).format(end);
-      final month = DateFormat('MMMM', locale).format(start);
-      return '${l10n.dateRangeFrom} $startDay ${l10n.dateRangeTo} $endDay $month';
-    } else if (monthsDiff == 1) {
-      // Mesi consecutivi: "dal 25 dicembre al 3"
-      final startFormatted = DateFormat('d MMMM', locale).format(start);
-      final endDay = DateFormat('d', locale).format(end);
-      return '${l10n.dateRangeFrom} $startFormatted ${l10n.dateRangeTo} $endDay';
-    } else {
-      // Distanza > 1 mese: "dal 25 dicembre al 3 febbraio"
-      final startFormatted = DateFormat('d MMMM', locale).format(start);
-      final endFormatted = DateFormat('d MMMM', locale).format(end);
-      return '${l10n.dateRangeFrom} $startFormatted ${l10n.dateRangeTo} $endFormatted';
-    }
+    return formatTodoDateRange(
+      AppLocalizations.of(context)!,
+      Localizations.localeOf(context).toString(),
+      start,
+      end,
+    );
   }
 
   /// Determina se mostrare un separatore di data tra due messaggi
