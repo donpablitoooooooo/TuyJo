@@ -8,6 +8,7 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'app_secure_storage.dart';
 import 'encryption_service.dart';
 
 /// Ingresso di questo telefono nella sua chat.
@@ -29,7 +30,9 @@ class MembershipService {
       'https://europe-west1-youandme-b3b4c.cloudfunctions.net/joinFamily';
   static const String _prefsKey = 'membership_joined';
 
-  final FlutterSecureStorage _storage = const FlutterSecureStorage();
+  // Stesso storage del resto dell'app: su iOS le voci sono migrate ad
+  // AfterFirstUnlock e una query con il default (WhenUnlocked) non le trova
+  final FlutterSecureStorage _storage = appSecureStorage;
 
   /// Stesso testo di joinMessage in functions/membership.js.
   static String joinMessage(String familyId, String uid, int timestamp) =>

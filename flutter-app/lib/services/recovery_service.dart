@@ -7,6 +7,7 @@ import 'package:crypto/crypto.dart';
 import 'package:encrypt/encrypt.dart' as encrypt_lib;
 import 'package:flutter/foundation.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'app_secure_storage.dart';
 
 import 'encryption_service.dart';
 
@@ -36,7 +37,7 @@ class RecoveryService {
   static const Duration requestTtl = Duration(minutes: 10);
   static const String qrType = 'tuyjo_recovery';
 
-  final FlutterSecureStorage _storage = const FlutterSecureStorage();
+  final FlutterSecureStorage _storage = appSecureStorage;
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
   static const String _kPriv = 'rsa_private_key';
