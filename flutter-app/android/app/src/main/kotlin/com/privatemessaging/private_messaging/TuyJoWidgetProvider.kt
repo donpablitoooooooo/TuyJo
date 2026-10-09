@@ -59,17 +59,31 @@ class TuyJoWidgetProvider : AppWidgetProvider() {
 
     private fun render(context: Context, manager: AppWidgetManager, id: Int, state: WidgetState) {
         val options = manager.getAppWidgetOptions(id)
-        val minWidth = options.getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_WIDTH, 250)
-        val minHeight = options.getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_HEIGHT, 110)
-        val small = minWidth < 200
+        val minWidth = options.getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_WIDTH, 140)
+        val minHeight = options.getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_HEIGHT, 50)
+        // Alto una riga (2x1, il formato predefinito): layout compatto
+        val compact = minHeight < 100
+        val small = !compact && minWidth < 200
         val views = RemoteViews(
             context.packageName,
-            if (small) R.layout.tuyjo_widget_small else R.layout.tuyjo_widget_medium
+            when {
+                compact -> R.layout.tuyjo_widget_compact
+                small -> R.layout.tuyjo_widget_small
+                else -> R.layout.tuyjo_widget_medium
+            }
         )
 
         val now = System.currentTimeMillis()
         val todos = state.visibleTodos(now)
         val unread = state.unread
+
+        if (compact) {
+            renderCompact(views, state, todos, unread, now)
+            views.setOnClickPendingIntent(R.id.widget_root, openAppIntent(context))
+            views.setOnClickPendingIntent(R.id.call, callIntent(context))
+            manager.updateAppWidget(id, views)
+            return
+        }
 
         // Il numero dei non letti resta visibile anche quando ci sono todo
         if (unread > 0 && todos.isNotEmpty()) {
@@ -116,6 +130,53 @@ class TuyJoWidgetProvider : AppWidgetProvider() {
         views.setOnClickPendingIntent(R.id.widget_root, openAppIntent(context))
         views.setOnClickPendingIntent(R.id.call, callIntent(context))
         manager.updateAppWidget(id, views)
+    }
+
+    /**
+     * Formato 2x1: riga piccola con la data del todo (o "Il mio amore"), riga
+     * grande con il testo del todo (o il numero dei messaggi nuovi).
+     * Il layout compatto ha solo header, more, badge e big_text.
+     */
+    private fun renderCompact(
+        views: RemoteViews,
+        state: WidgetState,
+        todos: List<WidgetTodo>,
+        unread: Int,
+        now: Long
+    ) {
+        views.setViewVisibility(R.id.more, View.GONE)
+        views.setViewVisibility(R.id.header_badge, View.GONE)
+        when {
+            todos.isNotEmpty() -> {
+                val first = todos.first()
+                views.setImageViewResource(R.id.header_icon, R.drawable.ic_widget_event)
+                val date = first.labelAt(now)
+                views.setTextViewText(R.id.header_title, if (first.alert != null) "$date · ${first.alert}" else date)
+                views.setTextViewText(R.id.big_text, first.text)
+                if (todos.size > 1) {
+                    views.setViewVisibility(R.id.more, View.VISIBLE)
+                    views.setTextViewText(R.id.more, "+${todos.size - 1}")
+                }
+                if (unread > 0) {
+                    views.setViewVisibility(R.id.header_badge, View.VISIBLE)
+                    views.setTextViewText(R.id.header_badge, if (unread > 99) "99+" else unread.toString())
+                }
+            }
+            unread > 0 -> {
+                views.setImageViewResource(R.id.header_icon, R.drawable.ic_widget_chat)
+                views.setTextViewText(R.id.header_title, state.string("partner", "My love"))
+                views.setTextViewText(
+                    R.id.big_text,
+                    if (unread == 1) state.string("unreadOne", "1 new message")
+                    else state.string("unreadOther", "%d new messages").replace("%d", unread.toString())
+                )
+            }
+            else -> {
+                views.setImageViewResource(R.id.header_icon, R.drawable.ic_widget_favorite)
+                views.setTextViewText(R.id.header_title, state.string("partner", "My love"))
+                views.setTextViewText(R.id.big_text, state.string("allRead", "All caught up"))
+            }
+        }
     }
 
     private fun hideContent(views: RemoteViews, small: Boolean) {
