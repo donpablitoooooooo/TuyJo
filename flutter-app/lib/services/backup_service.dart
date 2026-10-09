@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'app_secure_storage.dart';
 import 'block_store_bridge.dart';
 
 /// Rete di sicurezza SILENZIOSA per la reinstallazione sullo stesso telefono.
@@ -12,7 +13,7 @@ import 'block_store_bridge.dart';
 /// Su iOS non serve: il Keychain sopravvive già alla disinstallazione, quindi
 /// le chiavi in secure storage sono ancora lì.
 class BackupService {
-  final FlutterSecureStorage _storage = const FlutterSecureStorage();
+  final FlutterSecureStorage _storage = appSecureStorage;
 
   static const String _kPriv = 'rsa_private_key';
   static const String _kPub = 'rsa_public_key';

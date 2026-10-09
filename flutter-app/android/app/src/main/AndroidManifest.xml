@@ -81,7 +81,7 @@
 
     <application
         android:label="Tuijo"
-        android:name="${applicationName}"
+        android:name=".TuyJoApplication"
         android:icon="@mipmap/ic_launcher"
         android:allowTaskReparenting="false"
         android:allowBackup="false"
@@ -173,6 +173,18 @@
         <meta-data
             android:name="com.google.firebase.messaging.default_notification_channel_id"
             android:value="messages_channel" />
+
+        <!-- Widget della schermata Home (todo, messaggi nuovi, cornetta) -->
+        <receiver
+            android:name=".TuyJoWidgetProvider"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/tuyjo_widget_info" />
+        </receiver>
 
         <!-- Receivers per scheduled notifications -->
         <receiver android:exported="false" android:name="com.dexterous.flutterlocalnotifications.ScheduledNotificationReceiver" />

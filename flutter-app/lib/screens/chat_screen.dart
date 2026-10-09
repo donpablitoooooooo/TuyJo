@@ -3,7 +3,6 @@ import 'dart:io';
 import 'package:path/path.dart' as path;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/cupertino.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter/gestures.dart';
 import 'package:provider/provider.dart';
@@ -29,6 +28,7 @@ import '../widgets/todo_bubble.dart';
 import '../widgets/attachment_widgets.dart';
 import '../widgets/permission_denied_dialog.dart';
 import '../widgets/reaction_picker.dart';
+import '../utils/todo_date_format.dart';
 import '../widgets/reaction_overlay.dart';
 import 'location_sharing_screen.dart';
 
@@ -73,7 +73,6 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   // ecc.): viene committato solo quando l'utente chiude con la X bianca o
   // preme invio dall'input bar.
   bool _calOverlayOpen = false;
-  DateTime _calOverlayFocused = DateTime.now();
   DateTime _calOverlaySelected = DateTime.now(); // include ora/minuto correnti
   DateTime? _calOverlayDayToShow;
   DateTime? _calOverlayRangeStart;
@@ -1208,28 +1207,6 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     );
   }
 
-  void _completeTodo(String todoId) async {
-    if (_familyChatId == null || _myDeviceId == null || _partnerPublicKey == null) {
-      return;
-    }
-
-    final chatService = Provider.of<ChatService>(context, listen: false);
-    final encryptionService = Provider.of<EncryptionService>(context, listen: false);
-    final myPublicKey = await encryptionService.getPublicKey();
-
-    if (myPublicKey == null) return;
-
-    await chatService.sendTodoCompletion(
-      todoId,
-      _familyChatId!,
-      _myDeviceId!,
-      myPublicKey,
-      _partnerPublicKey!,
-    );
-
-    if (kDebugMode) print('✅ Todo marked as completed: $todoId');
-  }
-
   /// Aggiunge una reaction a un messaggio (solo visiva)
   void _addReaction(String messageId, String reactionType) async {
     if (_familyChatId == null || _myDeviceId == null) {
@@ -1421,105 +1398,25 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   }
 
   /// Formatta una data in modo colloquiale (oggi, domani, giorno settimana, data)
-  /// con ora opzionale
+  /// con ora opzionale. La logica è in utils/todo_date_format.dart, condivisa
+  /// con il widget della schermata Home.
   String _formatTodoDate(DateTime date, {bool includeTime = true}) {
-    final l10n = AppLocalizations.of(context)!;
-    final locale = Localizations.localeOf(context).toString();
-    final now = DateTime.now();
-    final today = DateTime(now.year, now.month, now.day);
-    final yesterday = today.subtract(const Duration(days: 1));
-    final tomorrow = today.add(const Duration(days: 1));
-    final messageDate = DateTime(date.year, date.month, date.day);
-
-    String dateLabel;
-
-    // Oggi
-    if (messageDate == today) {
-      dateLabel = l10n.dateSeparatorToday;
-    }
-    // Ieri
-    else if (messageDate == yesterday) {
-      dateLabel = l10n.dateSeparatorYesterday;
-    }
-    // Domani
-    else if (messageDate == tomorrow) {
-      dateLabel = l10n.dateSeparatorTomorrow;
-    }
-    // Giorni della settimana
-    else {
-      final startOfWeek = today.subtract(Duration(days: today.weekday % 7));
-      final endOfWeek = today.add(Duration(days: 7 - (today.weekday % 7)));
-
-      if (messageDate.isAfter(startOfWeek.subtract(const Duration(days: 1))) &&
-          messageDate.isBefore(endOfWeek.add(const Duration(days: 1)))) {
-        // Ritorna il nome del giorno
-        switch (messageDate.weekday) {
-          case DateTime.monday:
-            dateLabel = l10n.dateSeparatorMonday;
-            break;
-          case DateTime.tuesday:
-            dateLabel = l10n.dateSeparatorTuesday;
-            break;
-          case DateTime.wednesday:
-            dateLabel = l10n.dateSeparatorWednesday;
-            break;
-          case DateTime.thursday:
-            dateLabel = l10n.dateSeparatorThursday;
-            break;
-          case DateTime.friday:
-            dateLabel = l10n.dateSeparatorFriday;
-            break;
-          case DateTime.saturday:
-            dateLabel = l10n.dateSeparatorSaturday;
-            break;
-          case DateTime.sunday:
-            dateLabel = l10n.dateSeparatorSunday;
-            break;
-          default:
-            dateLabel = DateFormat('d MMMM', locale).format(date);
-        }
-      } else {
-        // Data senza anno per date oltre la settimana
-        dateLabel = DateFormat('d MMMM', locale).format(date);
-      }
-    }
-
-    if (includeTime) {
-      final timeFormat = DateFormat('HH:mm');
-      return '$dateLabel ${timeFormat.format(date)}';
-    }
-
-    return dateLabel;
+    return formatTodoDate(
+      AppLocalizations.of(context)!,
+      Localizations.localeOf(context).toString(),
+      date,
+      includeTime: includeTime,
+    );
   }
 
-  /// Formatta un range di date in modo intelligente
-  /// - Stesso mese: "dal 25 al 31 gennaio"
-  /// - Mesi consecutivi: "dal 25 dicembre al 3"
-  /// - Distanza > 1 mese: "dal 25 dicembre al 3 febbraio"
+  /// Formatta un range di date ("dal 25 al 31 gennaio", vedi utils/todo_date_format.dart)
   String _formatDateRange(DateTime start, DateTime end) {
-    final l10n = AppLocalizations.of(context)!;
-    final locale = Localizations.localeOf(context).toString();
-
-    // Calcola differenza in mesi
-    final monthsDiff = (end.year - start.year) * 12 + (end.month - start.month);
-
-    if (monthsDiff == 0) {
-      // Stesso mese: "dal 25 al 31 gennaio"
-      final startDay = DateFormat('d', locale).format(start);
-      final endDay = DateFormat('d', locale).format(end);
-      final month = DateFormat('MMMM', locale).format(start);
-      return '${l10n.dateRangeFrom} $startDay ${l10n.dateRangeTo} $endDay $month';
-    } else if (monthsDiff == 1) {
-      // Mesi consecutivi: "dal 25 dicembre al 3"
-      final startFormatted = DateFormat('d MMMM', locale).format(start);
-      final endDay = DateFormat('d', locale).format(end);
-      return '${l10n.dateRangeFrom} $startFormatted ${l10n.dateRangeTo} $endDay';
-    } else {
-      // Distanza > 1 mese: "dal 25 dicembre al 3 febbraio"
-      final startFormatted = DateFormat('d MMMM', locale).format(start);
-      final endFormatted = DateFormat('d MMMM', locale).format(end);
-      return '${l10n.dateRangeFrom} $startFormatted ${l10n.dateRangeTo} $endFormatted';
-    }
+    return formatTodoDateRange(
+      AppLocalizations.of(context)!,
+      Localizations.localeOf(context).toString(),
+      start,
+      end,
+    );
   }
 
   /// Determina se mostrare un separatore di data tra due messaggi
@@ -1740,7 +1637,6 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
 
     setState(() {
       _calOverlayOpen = true;
-      _calOverlayFocused = selDate;
       _calOverlaySelected = selDate;
       _calOverlayDayToShow = isEditing ? _selectedTodoDate : null;
       _calOverlayRangeStart = isEditing ? _selectedRangeStart : null;
@@ -1767,178 +1663,6 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       _selectedRangeStart = null;
       _selectedRangeEnd = null;
       _selectedReminderHours = _calOverlayReminderHours;
-    }
-  }
-
-  /// Chiude l'overlay applicando lo stato corrente al messaggio (X bianca).
-  void _calOverlayCloseAndApply() {
-    _calOverlayApply();
-    setState(() => _calOverlayOpen = false);
-    Future.delayed(const Duration(milliseconds: 200), () {
-      if (mounted) _messageFocusNode.canRequestFocus = true;
-    });
-  }
-
-  /// X rossa nel box riepilogo: azzera la data, l'overlay resta aperto.
-  void _calOverlayClearDate() {
-    setState(() {
-      _calOverlayDayToShow = null;
-      _calOverlayRangeStart = null;
-      _calOverlayRangeEnd = null;
-      _calOverlayReminderHours = null;
-      final tomorrow = DateTime.now().add(const Duration(days: 1));
-      _calOverlayFocused = DateTime(tomorrow.year, tomorrow.month, tomorrow.day);
-      _calOverlaySelected = _calOverlayFocused;
-    });
-  }
-
-  /// Sub-picker orario/alert. Aggiorna inline lo stato dell'overlay
-  /// (l'overlay calendario resta aperto).
-  Future<void> _calOpenTimeAlertPickerInline() async {
-    final l10n = AppLocalizations.of(context)!;
-    int? alertHours = _calOverlayReminderHours ?? 2;
-    int pickerHour = _calOverlaySelected.hour == 0 ? 10 : _calOverlaySelected.hour;
-    int pickerMinute = _calOverlaySelected.minute;
-
-    final result = await showModalBottomSheet<Map<String, dynamic>?>(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (ctx) => StatefulBuilder(
-        builder: (ctx, setAlertState) => Container(
-          height: MediaQuery.of(ctx).size.height * 0.6,
-          decoration: const BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topCenter,
-              end: Alignment.bottomCenter,
-              colors: [Color(0xFF3BA8B0), Color(0xFF145A60)],
-            ),
-            borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-          ),
-          child: SafeArea(
-            child: Column(
-              children: [
-                Padding(
-                  padding: const EdgeInsets.only(top: 20, bottom: 12),
-                  child: Text(
-                    (_calOverlayRangeStart != null && _calOverlayRangeEnd != null)
-                        ? _formatDateRange(_calOverlayRangeStart!, _calOverlayRangeEnd!)
-                        : (_calOverlayDayToShow != null
-                            ? _formatTodoDate(_calOverlayDayToShow!, includeTime: false)
-                            : ''),
-                    style: const TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.bold),
-                    textAlign: TextAlign.center,
-                  ),
-                ),
-                Expanded(
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 16),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                      children: [
-                        Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Text(l10n.timePickerLabel, style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
-                            const SizedBox(height: 12),
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                SizedBox(
-                                  width: 70, height: 240,
-                                  child: CupertinoPicker(
-                                    scrollController: FixedExtentScrollController(initialItem: pickerHour),
-                                    itemExtent: 50,
-                                    onSelectedItemChanged: (i) => pickerHour = i,
-                                    children: List.generate(24, (i) => Center(child: Text(i.toString().padLeft(2, '0'), style: const TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.w500)))),
-                                  ),
-                                ),
-                                const Padding(padding: EdgeInsets.symmetric(horizontal: 4), child: Text(':', style: TextStyle(color: Colors.white, fontSize: 28, fontWeight: FontWeight.bold))),
-                                SizedBox(
-                                  width: 70, height: 240,
-                                  child: CupertinoPicker(
-                                    scrollController: FixedExtentScrollController(initialItem: pickerMinute),
-                                    itemExtent: 50,
-                                    onSelectedItemChanged: (i) => pickerMinute = i,
-                                    children: List.generate(60, (i) => Center(child: Text(i.toString().padLeft(2, '0'), style: const TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.w500)))),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ],
-                        ),
-                        const SizedBox(width: 20),
-                        Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Text(l10n.alertPickerLabel, style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
-                            const SizedBox(height: 12),
-                            SizedBox(
-                              width: 160, height: 240,
-                              child: CupertinoPicker(
-                                scrollController: FixedExtentScrollController(
-                                  initialItem: () {
-                                    // Stesso set della scheda "Nuovo todo"
-                                    final opts = [null, 1, 2, 8, 24, 48, 168];
-                                    final idx = opts.indexOf(alertHours);
-                                    return idx == -1 ? 1 : idx;
-                                  }(),
-                                ),
-                                itemExtent: 50,
-                                onSelectedItemChanged: (i) {
-                                  const opts = [null, 1, 2, 8, 24, 48, 168];
-                                  setAlertState(() => alertHours = opts[i]);
-                                },
-                                children: [
-                                  Center(child: Text(l10n.alertNone, style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.w500))),
-                                  Center(child: Text(l10n.alert1HourBefore, style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.w500))),
-                                  Center(child: Text(l10n.alert2HoursBefore, style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.w500))),
-                                  Center(child: Text(l10n.alert8HoursBefore, style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.w500))),
-                                  Center(child: Text(l10n.alert1DayBefore, style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.w500))),
-                                  Center(child: Text(l10n.alert2DaysBefore, style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.w500))),
-                                  Center(child: Text(l10n.alert1WeekBefore, style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.w500))),
-                                ],
-                              ),
-                            ),
-                          ],
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(24, 8, 24, 16),
-                  child: Material(
-                    color: Colors.white.withValues(alpha: 0.15),
-                    borderRadius: BorderRadius.circular(12),
-                    child: InkWell(
-                      onTap: () => Navigator.pop(ctx, {'alertHours': alertHours, 'hour': pickerHour, 'minute': pickerMinute}),
-                      borderRadius: BorderRadius.circular(12),
-                      splashColor: Colors.white.withValues(alpha: 0.2),
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-                        child: Center(child: Text(l10n.todoConfirm, style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w500, letterSpacing: 0.3))),
-                      ),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-
-    if (result != null) {
-      final base = _calOverlayDayToShow ?? _calOverlayRangeStart ?? _calOverlayFocused;
-      setState(() {
-        _calOverlaySelected = DateTime(
-          base.year, base.month, base.day,
-          (result['hour'] as int?) ?? 10,
-          (result['minute'] as int?) ?? 0,
-        );
-        _calOverlayReminderHours = result['alertHours'] as int?;
-      });
     }
   }
 

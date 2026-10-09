@@ -478,12 +478,25 @@ class _SettingsScreenState extends State<SettingsScreen> {
           builder: (context, snapshot) {
             if (snapshot.hasData) {
               return Center(
-                child: Text(
-                  'Tuijo v${snapshot.data!.version} (${snapshot.data!.buildNumber})',
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: Colors.grey[400],
-                  ),
+                child: Column(
+                  children: [
+                    Text(
+                      'Tuijo v${snapshot.data!.version} (${snapshot.data!.buildNumber})',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: Colors.grey[400],
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      AppLocalizations.of(context)!.settingsReactionIconsCredit,
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: Colors.grey[400],
+                      ),
+                    ),
+                  ],
                 ),
               );
             }

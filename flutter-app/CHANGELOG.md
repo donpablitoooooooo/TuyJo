@@ -4,6 +4,24 @@ Tutte le modifiche notevoli a questo progetto saranno documentate in questo file
 
 ## [Non rilasciato]
 
+### 📱 Widget della schermata Home
+- **Cosa mostra:** i todo, dal momento dell'avviso (o dall'inizio del giorno di scadenza, se non c'è avviso) fino alla scadenza; un todo su più giorni resta fino alla fine dell'ultimo giorno, uno completato o eliminato sparisce subito. Se i todo sono più di uno compare "+N" o una piccola lista. Senza todo mostra solo **quanti** messaggi non letti ci sono, mai il testo. La **cornetta** è sempre presente e apre l'app sulla chiamata.
+- **Come funziona:** l'app (`services/home_widget_service.dart`, pacchetto `home_widget`) prepara i dati già decifrati: i todo aperti letti da Firestore (non solo quelli in memoria) con le etichette di data calcolate giorno per giorno con le stesse regole della chat (`utils/todo_date_format.dart`). Il widget non decifra nulla e cambia da solo quando un todo compare, scade o arriva la mezzanotte.
+- **Messaggi con l'app chiusa:** il push porta `unread_count`. Su Android lo legge il gestore in background, su iOS la nuova Notification Service Extension (`TuyJoNotificationService`, attivata da `mutable-content`), che non decifra e non modifica la notifica.
+- **iOS:** nuovo target `TuyJoWidget` (piccolo, medio, schermata di blocco con testo nascosto finché il telefono è bloccato). La cornetta usa `tuyjo://call` nel medio e un AppIntent nel piccolo (iOS 17+; prima tutto il widget apre l'app).
+- **Android:** `TuyJoWidgetProvider`, ridimensionabile (piccolo, medio, lista fino a 4 todo), con un allarme non esatto per i cambi di stato.
+- Test: `test/home_widget_payload_test.dart`.
+
+### 🔔 Promemoria dei todo all'anticipo scelto
+- La notifica locale di un todo parte all'anticipo impostato (es. 2 giorni prima), non più sempre 1 ora prima. Senza anticipo resta 1 ora prima.
+
+### 😍 Reazioni nuove
+- **Quattordici icone** di Pericon Design (Noun Project) al posto delle quattro icone Material, nello stile dell'app: sagoma bianca piena e linee teal nel tondino. Sono PNG in `assets/reactions/`, ricavati dagli SVG originali.
+- **Prima fila:** cuore (occhi a cuore), ok, ma che vuoi, urlo. Il tasto **+** mostra le altre dieci al posto di Rispondi, Modifica ed Elimina, senza cambiare l'altezza della modale: no, cacca, sorrisone, perfetto, incrociamo, imbarazzo, diavoletto, fantasma, banana, razzo.
+- **Reazioni già date:** nel messaggio c'è solo il tipo, quindi cambiano disegno da sole. `shit` diventa la cacca e `done` diventa "perfetto". Un telefono con la 1.37 vede le reazioni nuove come un pollice su.
+- Il diametro dei tondini si adatta agli schermi stretti (massimo 56).
+- Nelle impostazioni, sotto la versione, il credito a Pericon Design.
+
 ### 🔒 Ogni chat accessibile solo ai suoi due telefoni
 - **Regole nuove** per Firestore e Storage: in una chat leggono e scrivono solo i login anonimi registrati come membri (`member_uids`). Prima erano aperte a chiunque conoscesse l'id della chat.
 - **Come si entra:** la Cloud Function `joinFamily` registra un login solo se il telefono firma con la propria chiave privata (RSA-SHA256 su chat, uid e ora). Succede da solo all'avvio, dopo l'abbinamento, dopo il recupero e dopo una reinstallazione; se il login e la chat sono quelli di prima non serve la rete. Quando sono entrati tutti e due i telefoni la chat si chiude (`locked`).
@@ -16,6 +34,44 @@ Tutte le modifiche notevoli a questo progetto saranno documentate in questo file
 - **Le anteprime dei link** (URL, titolo, descrizione) non sono più in chiaro (`link_url`, `link_title`, `link_description`): stanno in un solo campo cifrato, `link_preview`, con lo stesso schema dual dei messaggi (chiave AES nuova, avvolta per mittente e destinatario). Vale sia per i link scritti in app sia per quelli arrivati dalla Share Extension, che l'app completa dopo.
 - I messaggi vecchi si leggono come prima. Finché uno dei due telefoni ha ancora la 1.37, sui messaggi nuovi non vede citazione e anteprima (il messaggio arriva comunque).
 - Nuovo `services/link_preview_crypto.dart` con il test `test/link_preview_crypto_test.dart`.
+
+## [1.38.0] (build 50) - 2026-09-25
+
+### 📞 Android: notifica "Chiamata in corso" che restava dopo la fine della chiamata (Samsung di Lidia)
+- **Causa**: il plugin `flutter_callkit_incoming` 3.0.0 (usato fino alla build 42) salvava le chiamate nella lista `ACTIVE_CALLS` con campi (`uuid`, `isOnHold`, `audioRoute`, `isMuted`) che la 3.1.5 non conosce; la 3.1.5 legge la lista con Jackson, che rifiuta i campi sconosciuti. Una voce rimasta dalla 3.0.0 faceva fallire in silenzio ogni `endCall`/`endAllCalls`: restavano notifica, foreground service e connessione Telecom (WhatsApp bloccato, badge "1"). Il pulsante "Hang up" funzionava perché non legge la lista. Spiega anche "solo sul telefono di Lidia": dipende da un residuo di quell'installazione, non dal modello.
+- **Fix**:
+  - `TuyJoApplication` all'avvio del processo rimuove da `ACTIVE_CALLS` le voci della 3.0.0 (log `TuyJoCallkitFix`);
+  - `CallkitCleanup.forceEnd` chiude la chiamata esattamente come "Hang up" (ENDED al receiver del plugin, disconnessione Telecom, stop del servizio, cancellazione della notifica) senza leggere la lista; `endCallKit` lo usa sempre su Android e lo ripete dopo 1,5 s per un ACCEPT/CONNECTED in ritardo;
+  - un accept in ritardo per una chiamata già chiusa viene richiuso anche lato nativo; gli eventi "chiusa" ripetuti per una chiamata già chiusa sono ignorati (non toccano una chiamata nuova);
+  - gli errori di chiusura CallKit ora compaiono nei log anche in release.
+
+## [1.38.0] (build 49) - 2026-09-25
+
+Build di test interno / TestFlight sopra la 1.37.0+48.
+
+### 📞 Chiamate
+- **iPhone: rispondere dalla schermata di sistema (telefono bloccato o app in background) non collegava la chiamata**: chi chiamava continuava a squillare fino al timeout. Due cause, entrambe già presenti nella 47:
+  - le chiavi (chiave privata, chiavi pubbliche della coppia) erano nel Keychain con l'accessibilità di default "solo a telefono sbloccato": a iPhone bloccato l'app non le leggeva. L'AppDelegate le porta ora ad "AfterFirstUnlock" (aggiornamento in place, nessuna cancellazione) e le letture Dart non filtrano più sull'accessibilità (`app_secure_storage.dart`);
+  - la risposta partiva dall'`initState` della schermata di chiamata, che con l'app in background non viene costruita. La logica della chiamata è ora in `CallController`, che parte appena si accetta da CallKit; la schermata si aggancia alla chiamata già in corso.
+- **Chi chiama non resta più a squillare a vuoto**: se chi riceve non riesce ad avviare la chiamata (chiavi non leggibili, offer mancante, errori) scrive subito "ended" e il chiamante chiude.
+- Lo squillo di chi chiama non può ripartire se la chiamata si è già chiusa durante l'avvio.
+- Offline la chiusura della chiamata non resta più appesa alle scritture Firestore.
+- **Notifica "Chiamata non riuscita"** quando i due telefoni non riescono a collegarsi in P2P e la chiamata è sulla schermata di sistema (iPhone bloccato, app in background): lì il pop-up non si può mostrare, la notifica spiega il motivo e suggerisce di cambiare rete.
+- Niente chiamata fantasma riaprendo l'app dopo una chiamata accettata dal lock screen.
+
+### 🛠 iOS
+- L'engine Flutter è creato dall'AppDelegate all'avvio (non più dallo storyboard della scena): con il lifecycle a scene, un avvio in background per un push VoIP poteva non avere né engine né plugin CallKit, quindi la chiamata non veniva nemmeno annunciata. La SceneDelegate mostra lo stesso engine.
+
+## [1.38.0] (build 48) - 2026-09-24
+
+Build di test interno sopra la 1.37.0+47.
+
+### 📞 Chiamate
+- **Android: a fine chiamata restava la notifica "chiamata in corso"** (su alcuni Samsung), con la connessione di sistema ancora aperta: il telefono risultava in chiamata e ad esempio le videochiamate WhatsApp non partivano finché non si premeva "Riaggancia". Ora la chiamata di sistema viene chiusa sempre, anche se la chiusura di WebRTC fallisce o si blocca, e vengono chiuse anche le entry rimaste nella lista del plugin.
+- **iOS: nel registro chiamate, sotto "Profilo social", compariva una lunga stringa.** Era l'handle che il plugin CallKit genera cifrando nome e ID della chiamata (familyChatId, callerId, callId). Nessuna chiave crittografica, ma metadati che non devono finire nel registro (sincronizzato su iCloud). Ora l'handle è semplicemente "TuyJo" (anche nel push VoIP della Cloud Function).
+
+### 🛠 Build
+- Flutter 3.47.4, Android Gradle Plugin 9.1.0, Gradle 9.3.1, Kotlin 2.4.0; aggiornate le dipendenze (Firebase, file_picker 13, share_plus 13, package_info_plus 10) e le Cloud Functions (firebase-functions 7, firebase-admin 14).
 
 ## [1.37.0] - 2026-09-14
 

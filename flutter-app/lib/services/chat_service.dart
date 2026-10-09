@@ -54,6 +54,8 @@ class ChatService extends ChangeNotifier {
 
   List<Message> get messages => _messages;
   bool get isConnected => _subscription != null;
+  String? get myDeviceId => _myDeviceId;
+  String? get currentFamilyChatId => _currentFamilyChatId;
 
   /// True mentre ChatScreen è montata (impostato dalla schermata).
   bool chatScreenMounted = false;
@@ -1340,7 +1342,7 @@ class ChatService extends ChangeNotifier {
     String messageId,
     String familyChatId,
     String userId,
-    String reactionType, // 'love', 'ok', 'shit' (SOLO VISIVE)
+    String reactionType, // uno di ReactionIcon.allTypes (SOLO VISIVE)
   ) async {
     try {
       if (kDebugMode) {
@@ -2009,12 +2011,92 @@ class ChatService extends ChangeNotifier {
     }
   }
 
+  /// Todo già decifrati per il widget (id -> messaggio), per non ripetere la
+  /// decifratura a ogni aggiornamento.
+  final Map<String, Message> _widgetTodoCache = {};
+
+  /// Todo ancora aperti, per il widget della schermata Home.
+  ///
+  /// Legge da Firestore tutti i messaggi di tipo todo, non solo la finestra
+  /// in memoria: un todo creato settimane fa per una data futura deve esserci.
+  /// Tipo, "completato" (`action`) ed "eliminato" sono campi in chiaro, quindi
+  /// si decifrano solo i todo rimasti, e una volta sola per sessione.
+  /// Restituisce i todo veri (non i promemoria) con una scadenza; la finestra
+  /// di visibilità la decide HomeWidgetService.
+  Future<List<Message>> fetchOpenTodosForWidget() async {
+    final familyChatId = _currentFamilyChatId;
+    final myId = _myDeviceId;
+    if (familyChatId == null || myId == null) return const [];
+
+    final snapshot = await _firestore
+        .collection('families')
+        .doc(familyChatId)
+        .collection('messages')
+        .where('message_type', isEqualTo: 'todo')
+        .get();
+
+    // I todo in memoria sono la versione più aggiornata (es. testo modificato)
+    for (final m in _messages) {
+      if (m.messageType == 'todo' && m.dueDate != null) _widgetTodoCache[m.id] = m;
+    }
+
+    // Un todo creato più di un anno fa non può più essere nel widget
+    final cutoff = DateTime.now().subtract(const Duration(days: 400));
+    final result = <Message>[];
+    final toDecrypt = <Message>[];
+    for (final doc in snapshot.docs) {
+      final data = doc.data();
+      if (data['deleted'] == true) continue;
+      final action = data['action'];
+      if (action is Map && action['type'] == 'complete') continue;
+
+      final cached = _widgetTodoCache[doc.id];
+      if (cached != null) {
+        result.add(cached);
+        continue;
+      }
+      try {
+        final message = Message.fromFirestore(doc.id, data);
+        if (message.timestamp.isBefore(cutoff)) continue;
+        toDecrypt.add(message);
+      } catch (e) {
+        if (kDebugMode) print('⚠️ [WIDGET] Todo ${doc.id} non leggibile: $e');
+      }
+    }
+
+    if (toDecrypt.isNotEmpty) {
+      await _batchDecryptAndPopulate(toDecrypt, myId);
+      for (final message in toDecrypt) {
+        _widgetTodoCache[message.id] = message;
+        result.add(message);
+      }
+    }
+
+    // Completamento con il vecchio meccanismo (messaggio todo_completed)
+    final completedLegacy = _messages
+        .where((m) => m.messageType == 'todo_completed' && m.originalTodoId != null)
+        .map((m) => m.originalTodoId!)
+        .toSet();
+
+    return result
+        .where((m) =>
+            m.messageType == 'todo' &&
+            m.isReminder != true &&
+            m.dueDate != null &&
+            !completedLegacy.contains(m.id))
+        .toList();
+  }
+
   /// Schedula una notifica per un todo
   void _scheduleReminderNotification(Message todoMessage) {
     if (todoMessage.dueDate == null) return;
 
-    // Calcola reminder time (1 ora prima)
-    final reminderTime = todoMessage.dueDate!.subtract(const Duration(hours: 1));
+    // Avviso all'anticipo scelto nel todo (es. 2 giorni prima); senza
+    // anticipo resta 1 ora prima. Il widget mostra il todo dallo stesso momento.
+    final alertHours = todoMessage.alertHours;
+    final reminderTime = todoMessage.dueDate!.subtract(
+      Duration(hours: (alertHours != null && alertHours > 0) ? alertHours : 1),
+    );
 
     // Verifica che sia nel futuro
     if (reminderTime.isAfter(DateTime.now())) {

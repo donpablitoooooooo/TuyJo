@@ -18,6 +18,16 @@ class SceneDelegate: FlutterSceneDelegate {
         willConnectTo session: UISceneSession,
         options connectionOptions: UIScene.ConnectionOptions
     ) {
+        // Niente storyboard: la finestra mostra l'engine creato dall'AppDelegate
+        // all'avvio, che quindi esiste anche quando iOS sveglia l'app in
+        // background (push VoIP) senza collegare nessuna scena.
+        if let windowScene = scene as? UIWindowScene, let engine = appDelegate?.flutterEngine {
+            let window = UIWindow(windowScene: windowScene)
+            window.rootViewController = FlutterViewController(engine: engine, nibName: nil, bundle: nil)
+            self.window = window
+            window.makeKeyAndVisible()
+        }
+
         super.scene(scene, willConnectTo: session, options: connectionOptions)
 
         // App lanciata da zero tramite URL: è il caso della Share Extension che
@@ -45,6 +55,9 @@ class SceneDelegate: FlutterSceneDelegate {
         // Rete di sicurezza: se l'estensione non è riuscita ad aprire l'app,
         // la coda viene svuotata al primo passaggio in foreground.
         appDelegate?.drainSharedQueue()
+
+        // Cornetta del widget piccolo (iOS 17): richiesta lasciata nell'App Group
+        appDelegate?.checkWidgetCallFlag()
     }
 
     private func handle(urlContexts: Set<UIOpenURLContext>) {

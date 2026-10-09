@@ -31,7 +31,8 @@ Esempio: `version: 1.30.0+33` → `versionName=1.30.0`, `versionCode=33`.
 - **iOS**: `Info.plist` usa `$(FLUTTER_BUILD_NAME)` e `$(FLUTTER_BUILD_NUMBER)`,
   ma `ios/Runner.xcodeproj/project.pbxproj` contiene anche
   `MARKETING_VERSION` e `CURRENT_PROJECT_VERSION` hardcoded per i target
-  Runner e ShareExtension. **Vanno aggiornati a mano** per tenerli allineati
+  Runner, ShareExtension, TuyJoWidget e TuyJoNotificationService (le
+  estensioni devono avere la stessa versione dell'app). **Vanno aggiornati a mano** per tenerli allineati
   (sia per chiarezza, sia perché alcuni flussi Xcode/App Store Connect li
   leggono direttamente).
 
@@ -53,8 +54,9 @@ Aggiorna anche il pbxproj iOS con **Edit + replace_all**:
 **Attenzione**: nel pbxproj esistono anche occorrenze `MARKETING_VERSION = 1.0;`
 e `CURRENT_PROJECT_VERSION = 1;` che appartengono al target di test. **NON toccarle**.
 
-Dopo replace_all, verifica che il numero di occorrenze sia 6 per ciascuno
-dei nuovi valori (Runner + ShareExtension × Debug/Release/Profile):
+Dopo replace_all, verifica che il numero di occorrenze sia 12 per ciascuno
+dei nuovi valori (Runner + ShareExtension + TuyJoWidget + TuyJoNotificationService
+× Debug/Release/Profile):
 
 ```bash
 grep -c "MARKETING_VERSION = X.Y.Z" flutter-app/ios/Runner.xcodeproj/project.pbxproj
@@ -173,7 +175,7 @@ git push origin vX.Y.Z
 ## Checklist rapida
 
 - [ ] `pubspec.yaml` → nuova `version: X.Y.Z+N`
-- [ ] `project.pbxproj` → `MARKETING_VERSION` e `CURRENT_PROJECT_VERSION` aggiornati (6+6 occorrenze)
+- [ ] `project.pbxproj` → `MARKETING_VERSION` e `CURRENT_PROJECT_VERSION` aggiornati (12+12 occorrenze)
 - [ ] `CHANGELOG.md` aggiornato
 - [ ] `release-notes.txt` aggiornato
 - [ ] `flutter clean && flutter pub get`

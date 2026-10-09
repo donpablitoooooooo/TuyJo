@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Widget TuyJo: 2x1 di default (come il calendario), ridimensionabile.
+     Alto una riga: formato compatto. Più alto: piccolo (stretto) o medio/lista. -->
+<appwidget-provider xmlns:android="http://schemas.android.com/apk/res/android"
+    android:minWidth="110dp"
+    android:minHeight="40dp"
+    android:minResizeWidth="110dp"
+    android:minResizeHeight="40dp"
+    android:targetCellWidth="2"
+    android:targetCellHeight="1"
+    android:resizeMode="horizontal|vertical"
+    android:updatePeriodMillis="1800000"
+    android:initialLayout="@layout/tuyjo_widget_compact"
+    android:previewLayout="@layout/tuyjo_widget_compact"
+    android:description="@string/tuyjo_widget_description"
+    android:widgetCategory="home_screen" />

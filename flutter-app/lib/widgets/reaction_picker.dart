@@ -1,3 +1,4 @@
+import 'dart:math' as math;
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
@@ -6,10 +7,13 @@ import '../models/message.dart';
 import '../services/attachment_service.dart';
 import 'reaction_icon.dart';
 
-/// Bottom sheet per selezionare una reaction o azione
-/// Reactions (icone): LOVE, OK, SHIT (solo visive)
-/// Actions (testo): "Segna come completato" (todo), "Interrompi condivisione" (location)
-class ReactionPicker extends StatelessWidget {
+/// Bottom sheet per selezionare una reaction o azione.
+/// Reactions: prima fila sempre visibile (cuore, ok, ma che vuoi, urlo) più il
+/// tasto +, che mostra le altre icone al posto delle azioni. La modale resta
+/// della stessa altezza.
+/// Actions (testo): Rispondi, Modifica, Elimina, "Segna come completato" (todo),
+/// "Interrompi condivisione" (location).
+class ReactionPicker extends StatefulWidget {
   final Function(String reactionType)? onReactionSelected;
   final Function(String actionType)? onActionSelected;
   final Message message;
@@ -27,8 +31,53 @@ class ReactionPicker extends StatelessWidget {
     this.senderId,
   });
 
+  /// Icone per riga, uguale per la prima fila (4 + tasto +) e per la griglia.
+  static const int _perRow = 5;
+
+  @override
+  State<ReactionPicker> createState() => _ReactionPickerState();
+
+  /// Mostra il picker come bottom sheet
+  static void show(
+    BuildContext context, {
+    Function(String)? onReactionSelected,
+    Function(String)? onActionSelected,
+    required Message message,
+    AttachmentService? attachmentService,
+    String? currentUserId,
+    String? senderId,
+  }) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (context) => ReactionPicker(
+        onReactionSelected: onReactionSelected,
+        onActionSelected: onActionSelected,
+        message: message,
+        attachmentService: attachmentService,
+        currentUserId: currentUserId,
+        senderId: senderId,
+      ),
+    );
+  }
+}
+
+class _ReactionPickerState extends State<ReactionPicker> {
+  static const double _maxDiameter = 56;
+
+  bool _showMore = false;
+
+  /// Miniature già richieste: il tasto + ridisegna il picker e non deve
+  /// riscaricare e ridecifrare le foto.
+  final Map<String, Future<Uint8List?>> _thumbnails = {};
+
+  Message get message => widget.message;
+
   @override
   Widget build(BuildContext context) {
+    final hasReactions = widget.onReactionSelected != null;
+    final hasActions = widget.onActionSelected != null;
+
     return ClipRRect(
       borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
       child: Container(
@@ -63,70 +112,29 @@ class ReactionPicker extends StatelessWidget {
                 ),
               ),
 
-              // Reactions (icone visive)
-              if (onReactionSelected != null) ...[
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 24),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                    children: [
-                      _buildReactionButton('love', context),
-                      _buildReactionButton('ok', context),
-                      _buildReactionButton('shit', context),
-                      _buildReactionButton('done', context),
-                    ],
-                  ),
-                ),
+              // Prima fila: 4 reactions + tasto +
+              if (hasReactions) ...[
+                _buildReactionRow([
+                  for (final type in ReactionIcon.quickTypes) (d) => _buildReactionButton(type, d, context),
+                  _buildMoreButton,
+                ]),
                 const SizedBox(height: 16),
               ],
 
-              // Actions (testi con effetti logici)
-              if (onActionSelected != null) ...[
-                if (message.messageType == 'location_share') ...[
-                  _buildActionButton(
-                    'stop_sharing',
-                    AppLocalizations.of(context)!.actionStopSharing,
-                    Icons.stop_circle_outlined,
-                    context,
-                  ),
-                ] else ...[
-                  // Per tutti i messaggi tranne location_share (inclusi i pending)
-                  if (message.messageType == 'todo') ...[
-                    _buildActionButton(
-                      'complete',
-                      AppLocalizations.of(context)!.actionMarkCompleted,
-                      Icons.check_circle_outline,
-                      context,
-                    ),
-                    const SizedBox(height: 8),
+              // Azioni oppure, dopo il +, le altre reactions nello stesso spazio.
+              // IndexedStack prende l'altezza del figlio più alto, così la
+              // modale non cambia dimensione quando si preme +.
+              if (hasActions)
+                IndexedStack(
+                  index: hasReactions && _showMore ? 1 : 0,
+                  alignment: Alignment.topCenter,
+                  children: [
+                    _buildActions(context),
+                    if (hasReactions) _buildMoreGrid(context) else const SizedBox.shrink(),
                   ],
-                  // Reply per tutti i messaggi
-                  _buildActionButton(
-                    'reply',
-                    AppLocalizations.of(context)!.actionReply,
-                    Icons.reply_outlined,
-                    context,
-                  ),
-                  const SizedBox(height: 8),
-                  // Edit solo per i propri messaggi (evita problemi di cifratura)
-                  if (message.senderId == currentUserId) ...[
-                    _buildActionButton(
-                      'edit',
-                      AppLocalizations.of(context)!.actionEdit,
-                      Icons.edit_outlined,
-                      context,
-                    ),
-                    const SizedBox(height: 8),
-                  ],
-                  _buildActionButton(
-                    'delete',
-                    AppLocalizations.of(context)!.actionDelete,
-                    Icons.delete_outline,
-                    context,
-                  ),
-                ],
-                const SizedBox(height: 8),
-              ],
+                )
+              else if (hasReactions && _showMore)
+                _buildMoreGrid(context),
             ],
           ),
         ),
@@ -134,7 +142,97 @@ class ReactionPicker extends StatelessWidget {
     );
   }
 
-  Widget _buildReactionButton(String type, BuildContext context) {
+  /// Riga di 5 posti uguali: le icone restano in colonna tra prima fila e
+  /// griglia. Il diametro è 56 se c'è spazio, altrimenti si adatta allo schermo.
+  Widget _buildReactionRow(List<Widget Function(double diameter)> cells) {
+    const perRow = ReactionPicker._perRow;
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 24),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final diameter = math.min(_maxDiameter, constraints.maxWidth / perRow - 8);
+          return Row(
+            children: [
+              for (var i = 0; i < perRow; i++)
+                Expanded(
+                  child: Center(
+                    child: i < cells.length ? cells[i](diameter) : const SizedBox.shrink(),
+                  ),
+                ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _buildMoreGrid(BuildContext context) {
+    const types = ReactionIcon.moreTypes;
+    const perRow = ReactionPicker._perRow;
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        for (var start = 0; start < types.length; start += perRow)
+          _buildReactionRow([
+            for (final type in types.skip(start).take(perRow)) (d) => _buildReactionButton(type, d, context),
+          ]),
+      ],
+    );
+  }
+
+  Widget _buildActions(BuildContext context) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        if (message.messageType == 'location_share') ...[
+          _buildActionButton(
+            'stop_sharing',
+            AppLocalizations.of(context)!.actionStopSharing,
+            Icons.stop_circle_outlined,
+            context,
+          ),
+        ] else ...[
+          // Per tutti i messaggi tranne location_share (inclusi i pending)
+          if (message.messageType == 'todo') ...[
+            _buildActionButton(
+              'complete',
+              AppLocalizations.of(context)!.actionMarkCompleted,
+              Icons.check_circle_outline,
+              context,
+            ),
+            const SizedBox(height: 8),
+          ],
+          // Reply per tutti i messaggi
+          _buildActionButton(
+            'reply',
+            AppLocalizations.of(context)!.actionReply,
+            Icons.reply_outlined,
+            context,
+          ),
+          const SizedBox(height: 8),
+          // Edit solo per i propri messaggi (evita problemi di cifratura)
+          if (message.senderId == widget.currentUserId) ...[
+            _buildActionButton(
+              'edit',
+              AppLocalizations.of(context)!.actionEdit,
+              Icons.edit_outlined,
+              context,
+            ),
+            const SizedBox(height: 8),
+          ],
+          _buildActionButton(
+            'delete',
+            AppLocalizations.of(context)!.actionDelete,
+            Icons.delete_outline,
+            context,
+          ),
+        ],
+        const SizedBox(height: 8),
+      ],
+    );
+  }
+
+  Widget _buildReactionButton(String type, double diameter, BuildContext context) {
     return Material(
       color: Colors.transparent,
       child: InkWell(
@@ -142,15 +240,44 @@ class ReactionPicker extends StatelessWidget {
           // Rimuovi focus dalla tastiera prima di chiudere (Android)
           FocusScope.of(context).unfocus();
           Navigator.pop(context);
-          onReactionSelected?.call(type);
+          widget.onReactionSelected?.call(type);
         },
-        borderRadius: BorderRadius.circular(40),
+        customBorder: const CircleBorder(),
         splashColor: Colors.white.withValues(alpha: 0.2),
         child: Padding(
-          padding: const EdgeInsets.all(12.0),
+          padding: const EdgeInsets.symmetric(vertical: 12),
           child: ReactionIcon(
             type: type,
-            size: 56,
+            size: diameter,
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// Tasto + (diventa una freccia su quando la griglia è aperta)
+  Widget _buildMoreButton(double diameter) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: () => setState(() => _showMore = !_showMore),
+        customBorder: const CircleBorder(),
+        splashColor: Colors.white.withValues(alpha: 0.2),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 12),
+          child: Container(
+            width: diameter,
+            height: diameter,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: Colors.white.withValues(alpha: 0.15),
+              border: Border.all(color: Colors.white.withValues(alpha: 0.55), width: 1.5),
+            ),
+            child: Icon(
+              _showMore ? Icons.keyboard_arrow_up : Icons.add,
+              color: Colors.white,
+              size: diameter * 0.55,
+            ),
           ),
         ),
       ),
@@ -167,7 +294,7 @@ class ReactionPicker extends StatelessWidget {
           onTap: () {
             FocusScope.of(context).unfocus();
             Navigator.pop(context);
-            onActionSelected?.call(actionType);
+            widget.onActionSelected?.call(actionType);
           },
           borderRadius: BorderRadius.circular(12),
           splashColor: Colors.white.withValues(alpha: 0.2),
@@ -294,17 +421,20 @@ class ReactionPicker extends StatelessWidget {
 
     // Se è una foto, mostra thumbnail decifrata
     if (attachment.type == 'photo' &&
-        attachmentService != null &&
-        currentUserId != null &&
-        senderId != null) {
+        widget.attachmentService != null &&
+        widget.currentUserId != null &&
+        widget.senderId != null) {
       return ClipRRect(
         borderRadius: BorderRadius.circular(6),
         child: FutureBuilder<Uint8List?>(
-          future: attachmentService!.downloadAndDecryptAttachment(
-            attachment,
-            currentUserId!,
-            senderId!,
-            useThumbnail: true,
+          future: _thumbnails.putIfAbsent(
+            attachment.id,
+            () => widget.attachmentService!.downloadAndDecryptAttachment(
+              attachment,
+              widget.currentUserId!,
+              widget.senderId!,
+              useThumbnail: true,
+            ),
           ),
           builder: (context, snapshot) {
             if (snapshot.connectionState == ConnectionState.waiting) {
@@ -357,30 +487,6 @@ class ReactionPicker extends StatelessWidget {
         Icons.attach_file,
         color: Colors.white,
         size: 20,
-      ),
-    );
-  }
-
-  /// Mostra il picker come bottom sheet
-  static void show(
-    BuildContext context, {
-    Function(String)? onReactionSelected,
-    Function(String)? onActionSelected,
-    required Message message,
-    AttachmentService? attachmentService,
-    String? currentUserId,
-    String? senderId,
-  }) {
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: Colors.transparent,
-      builder: (context) => ReactionPicker(
-        onReactionSelected: onReactionSelected,
-        onActionSelected: onActionSelected,
-        message: message,
-        attachmentService: attachmentService,
-        currentUserId: currentUserId,
-        senderId: senderId,
       ),
     );
   }
